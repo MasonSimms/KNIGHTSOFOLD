@@ -18,3 +18,5 @@ One line each: date, decision, reason.
 - 2026-10-04: `?stress` URL option adds two scripted flailing fighters for a 4-fighter frame-time check. They are not AI (bots are out of scope).
 - 2026-10-04: One arm per fighter (owner's call: less confusing controls). The off-hand is removed entirely, so a fighter is 4 physics parts (torso+head, upper arm, forearm, stick) and unarmed punches no longer alternate hands. Fewer bodies also helps the frame budget.
 - 2026-10-04: With one arm, a full cock swing got much stronger and tipped the fighter over (tilt 1.2 rad), so cock.releaseMul went 4 -> 2.5 (measured: click impact ~20, half charge ~26, full charge ~59, tilt 0.64).
+- 2026-10-04: Shields are a weapon you hold instead of a sword (owner chose this with the one-arm change), so block is the shield's swing. Revisit in Phase 4 when weapon data files are written.
+- 2026-10-04: Style test is built as a drop-in slot: `public/art/test_bg.webp` (or png/jpg) shows behind the arena if present; grain and vignette are generated in code. The painted image itself comes from the owner's AI tool, so the test is not finished until they supply it.

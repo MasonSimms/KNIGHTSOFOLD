@@ -127,6 +127,11 @@ export const tuning = {
     hitLength: 0.14,
     hitFullImpact: 40,
   },
+  finish: {
+    grainTile: 256, // px, noise texture generated in code
+    grainAlpha: 0.1, // plan says about 8-12% canvas-weave strength
+    vignetteAlpha: 0.35,
+  },
   colors: {
     void: 0x141018,
     sky: 0x3b3550,

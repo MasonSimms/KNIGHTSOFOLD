@@ -1,5 +1,4 @@
-import { Application, Container, Graphics, Sprite } from 'pixi.js';
-import type { Texture } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
 import type { SimEvent } from '../sim/types';
@@ -23,6 +22,25 @@ function drawShape(s: Shape, color: number): Graphics {
   return g;
 }
 
+/** Style-test finish: a noise tile (canvas grain) and a radial gradient (vignette), both generated in code: no asset files. */
+function canvasTexture(size: number, paint: (ctx: CanvasRenderingContext2D) => void): Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  paint(c.getContext('2d')!);
+  return Texture.from(c);
+}
+
+/** Optional painted background: drop public/art/test_bg.webp (or .png/.jpg) in and it appears; no file = flat sky colour. */
+async function loadBackground(): Promise<Texture | null> {
+  for (const ext of ['webp', 'png', 'jpg']) {
+    try {
+      const tex = await Assets.load<Texture>(`/art/test_bg.${ext}`);
+      if (tex?.width > 16) return tex; // the dev server answers a missing file with index.html, which decodes to nothing useful
+    } catch { /* try the next extension */ }
+  }
+  return null;
+}
+
 export async function createRenderer(sim: Sim, host: HTMLElement) {
   const app = new Application();
   await app.init({ resizeTo: window, background: T.colors.void, antialias: true, autoDensity: true, resolution: window.devicePixelRatio });
@@ -39,6 +57,38 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const splatLayer = new Container();
   const fighterLayer = new Container();
   view.addChild(sky, platform, splatLayer, fighterLayer);
+
+  const bgTex = await loadBackground();
+  if (bgTex) {
+    const bg = new Sprite(bgTex);
+    bg.width = A.viewW;
+    bg.height = A.viewH;
+    view.addChildAt(bg, 1); // above the flat sky, below the platform
+  }
+
+  // Cheap global finish on top of everything (screen space).
+  const FIN = T.finish;
+  const grain = new TilingSprite({
+    texture: canvasTexture(FIN.grainTile, (ctx) => {
+      const img = ctx.createImageData(FIN.grainTile, FIN.grainTile);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const v = Math.random() < 0.5 ? 0 : 255;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+        img.data[i + 3] = Math.random() * 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }),
+    width: 1, height: 1, alpha: FIN.grainAlpha,
+  });
+  const vignette = new Sprite(canvasTexture(256, (ctx) => {
+    const g = ctx.createRadialGradient(128, 128, 60, 128, 128, 182);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,1)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 256, 256);
+  }));
+  vignette.alpha = FIN.vignetteAlpha;
+  app.stage.addChild(grain, vignette);
 
   // Splat decal pool (ring buffer: no allocation after start-up).
   const splatTex: Texture = app.renderer.generateTexture(new Graphics().circle(32, 32, 32).fill(0xffffff));
@@ -90,6 +140,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     draw(alpha: number, frameSeconds: number) {
       scale = Math.min(app.screen.width / A.viewW, app.screen.height / A.viewH);
       view.scale.set(scale);
+      grain.width = vignette.width = app.screen.width;
+      grain.height = vignette.height = app.screen.height;
       if (builtVersion !== sim.version) rebuild();
       shake *= Math.pow(T.shake.decayPerSecond, frameSeconds);
       const sx = (Math.random() - 0.5) * 2 * shake, sy = (Math.random() - 0.5) * 2 * shake;
