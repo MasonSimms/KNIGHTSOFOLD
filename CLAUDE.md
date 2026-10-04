@@ -1,0 +1,59 @@
+# Knights of Old: instructions for Claude Code
+
+Full design: `DESIGN.pdf` (the handoff plan; its "Locked decisions" section overrides anything that conflicts).
+Physics party brawler: 2-4 friends, hidden health, knockoffs win, six eras. Browser first, Steam later.
+
+## The owner is a beginner. You should:
+- Explain each step in plain language and give exact Windows PowerShell commands. Never assume Git, Node, or terminal knowledge.
+- Commit to Git after every working slice with a clear message, and explain how to undo a bad change.
+- After building something, run it and tell the owner exactly what to look for and what to click.
+- **Stop at every roadmap gate and wait for the owner to confirm before moving on.** Current phase: see "Status" below.
+- Prefer fixing errors yourself and summarize the cause in one or two sentences.
+
+## How to work
+- Keep the game playable at all times. Small vertical slices, commit after each one that runs.
+- Stay inside the current roadmap phase. Do not add features from later phases. Ask before adding any dependency not listed in the design doc.
+- Before coding a feature, state the plan in a few lines; after coding, run it and report what you saw (FPS, console errors, behavior).
+- Prefer small files and clear module boundaries.
+
+## Hard rules for `src/sim/`
+- No DOM, Pixi, `Math.random`, `Date.now`, or `performance.now` inside the simulation. Use the seeded PRNG (`sim/rng.ts`) and the frame counter.
+- Player input enters only as a `PlayerInput` struct (`sim/types.ts`).
+- All gameplay numbers live in `src/content/tuning.ts` (or content data files), never as magic numbers in logic.
+- New weapons, pickups, eras, and arenas are data files plus assets, not engine changes.
+
+## Quality gates
+- `npm test` (Vitest): determinism test (same seed + inputs, 1000 frames, identical state hash) plus unit tests for damage/knockback/scoring/era progression as they appear.
+- After every feature, check the F3 overlay: no regression below 60 fps, no per-frame allocation growth.
+- Run in Chrome, Firefox, and Safari before closing a phase.
+
+## Records to maintain
+`DESIGN.pdf` (keep current), `DECISIONS.md` (one line per decision, with date and reason), `ASSETS.md` (every asset's source and tool; needed for the Steam AI disclosure), `PLAYTEST.md` (what friends said, what changed; create at first playtest).
+
+## Where humans are required
+Judging game feel. Expose tuning variants behind flags and describe how to test them; never declare something "feels good". Final calls on art, audio, balance.
+
+## Commands
+- `npm run dev` start the game at http://localhost:5173 (edit `src/content/tuning.ts` while it runs: the world resets with the new numbers)
+- `npm test` run tests, `npm run typecheck` check types, `npm run build` production build
+
+## Model and effort advisor
+You cannot change your own model or effort. The owner does that with `/model` and `/effort`. Your job is to say when a change would help.
+Before starting a task, classify it using the "Model and effort guide" in the design doc and compare it to the model and effort shown in the session header.
+
+SWITCH UP when any of these is true:
+- The same fix has failed twice, or a test still fails after three attempts.
+- The task touches sim determinism, physics joints, netcode, or desyncs.
+- The change spans five or more files, or is an architecture decision.
+- The owner says "it still doesn't work".
+Say exactly one line, then wait for the owner's reply before continuing:
+`SWITCH UP: <reason>. Run: /model opus then /effort high` (use `/effort xhigh` while debugging a desync). Never suggest `/model fable`, which can bill extra usage credits.
+
+SWITCH DOWN when the task is only editing a data file, changing a tuning number, renaming, formatting, or writing comments. Say one line, then keep working:
+`SWITCH DOWN: <reason>. Run: /model sonnet then /effort low` (use `/model haiku` for trivial edits).
+
+ONE-OFF: if a single question needs deep reasoning, say: `TIP: add the word ultrathink to your next message.`
+Rules: suggest at most once per task; never suggest max effort unless the owner asks; if unsure what model is active, ask the owner to run `/status`.
+
+## Status
+Phase 0 (setup) and Phase 1 (body and weapon feel) are built. **Waiting at the Phase 1 gate** for the owner's playtest. Do not start Phase 2 until they confirm.

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Knights of Old</title>
+<link rel="icon" href="data:," />
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #141018; }
+  #overlay { position: fixed; top: 8px; left: 8px; margin: 0; padding: 6px 8px; color: #9f9; background: rgba(0,0,0,.6);
+             font: 12px/1.35 Consolas, monospace; pointer-events: none; white-space: pre; }
+  #hint { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); color: #ddd; font: 13px sans-serif;
+          background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 4px; pointer-events: none; }
+</style>
+</head>
+<body>
+<pre id="overlay"></pre>
+<div id="hint">Click to enable sound &middot; WASD move &middot; Space jump &middot; Mouse aim &amp; click swing/punch &middot; E drop/grab stick &middot; R reset &middot; F3 overlay</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
