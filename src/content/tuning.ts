@@ -59,7 +59,6 @@ export const tuning = {
     elbowDamping: 60,
     elbowMaxTorque: 600,
     elbowLimit: 1.6,
-    leftAimOffset: 0.5, // the off-hand hangs this far below the aim line
     limpDamping: 0.5,
   },
   stick: {
@@ -82,7 +81,7 @@ export const tuning = {
     minFrames: 3, // shorter holds give no bonus
     maxFrames: 30, // hold this long for the full bonus (0.5 s)
     releaseFrames: 14, // how long the burst lasts after release
-    releaseMul: 4, // shoulder torque multiplier at full charge (1 = no bonus)
+    releaseMul: 2.5, // shoulder torque multiplier at full charge (1 = no bonus)
     autoFrames: 5, // a plain click winds up for this long, then releases automatically
   },
   fist: {

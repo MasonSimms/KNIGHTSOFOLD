@@ -10,6 +10,13 @@ Physics party brawler: 2-4 friends, hidden health, knockoffs win, six eras. Brow
 - **Stop at every roadmap gate and wait for the owner to confirm before moving on.** Current phase: see "Status" below.
 - Prefer fixing errors yourself and summarize the cause in one or two sentences.
 
+## Grill the owner at decision points
+The owner asked to be grilled at appropriate times. Use the `/mattpocock-skills:grilling` approach (numbered questions, each with your recommended answer, ask the whole open frontier per round) at these moments, not constantly:
+- **Before starting each roadmap phase**: settle that phase's open design questions first (see "Risks, open questions" in DESIGN.pdf).
+- **At every gate**, after the owner's playtest: what felt wrong, what to tune, whether the gate passes.
+- **When a request forks the design** (a control change, a new rule, anything that ripples into later phases) and the answer is not already in the locked decisions.
+Skip it for tuning-number tweaks and bug fixes, where you should pick the obvious option and say so.
+
 ## How to work
 - Keep the game playable at all times. Small vertical slices, commit after each one that runs.
 - Stay inside the current roadmap phase. Do not add features from later phases. Ask before adding any dependency not listed in the design doc.

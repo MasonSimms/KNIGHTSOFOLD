@@ -16,3 +16,5 @@ One line each: date, decision, reason.
 - 2026-10-04: Damage curve lowered (damageScale 5 -> 1.5) so a plain swing is a medium hit and a charged one is heavy. At the old value every swing hit the 60 damage cap and the cock bonus was invisible.
 - 2026-10-04: impactMin stays at 10: walking into the dummy with a stick no longer hurts it (measured 0 damage).
 - 2026-10-04: `?stress` URL option adds two scripted flailing fighters for a 4-fighter frame-time check. They are not AI (bots are out of scope).
+- 2026-10-04: One arm per fighter (owner's call: less confusing controls). The off-hand is removed entirely, so a fighter is 4 physics parts (torso+head, upper arm, forearm, stick) and unarmed punches no longer alternate hands. Fewer bodies also helps the frame budget.
+- 2026-10-04: With one arm, a full cock swing got much stronger and tipped the fighter over (tilt 1.2 rad), so cock.releaseMul went 4 -> 2.5 (measured: click impact ~20, half charge ~26, full charge ~59, tilt 0.64).

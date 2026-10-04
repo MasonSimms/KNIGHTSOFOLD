@@ -30,13 +30,10 @@ export interface Fighter {
   controlled: boolean; // false = training dummy (balances, never moves on its own)
   parts: Part[];
   torso: Part;
-  foreL: Part;
-  foreR: Part;
+  fore: Part;
   stick: Part | null;
-  shoulderL: RevoluteImpulseJoint;
-  shoulderR: RevoluteImpulseJoint;
-  elbowL: RevoluteImpulseJoint;
-  elbowR: RevoluteImpulseJoint;
+  shoulder: RevoluteImpulseJoint;
+  elbow: RevoluteImpulseJoint;
   grip: ImpulseJoint | null;
   attackers: Attacker[];
   hp: number;
@@ -49,7 +46,6 @@ export interface Fighter {
   release: number; // frames left of the post-release torque burst
   releaseMul: number; // size of that burst (depends on charge)
   punchCooldown: number;
-  punchRight: boolean;
   prevJump: boolean;
   prevAttack: boolean;
   prevGrab: boolean;
@@ -107,9 +103,9 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     { s: { k: 'ball', r: F.headRadius, x: 0, y: F.headY }, mass: F.headMass },
   ], null);
 
-  // Both arms start pointing right (angle 0); the shoulder motors swing them to the aim angle.
+  // One arm per fighter. It starts pointing right (angle 0); the shoulder motor swings it to the aim angle.
   const sx = x, sy = y + F.shoulderY;
-  const arm = () => {
+  const arm = (() => {
     const upper = addPart(world, index, 'upper', sx + L / 2, sy, 0, [
       { s: { k: 'cap', hl: armHl, r: F.armRadius, x: 0, y: 0, rot: Math.PI / 2 }, mass: F.upperMass },
     ], null, damp);
@@ -121,16 +117,14 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     const elbow = revolute(world, upper.body, L / 2, 0, fore.body, -L / 2, 0);
     elbow.setLimits(-T.arm.elbowLimit, T.arm.elbowLimit);
     return { upper, fore, shoulder, elbow };
-  };
-  const left = arm();
-  const right = arm();
+  })();
 
-  const parts = [torso, left.upper, left.fore, right.upper, right.fore];
+  const parts = [torso, arm.upper, arm.fore];
   const f: Fighter = {
-    index, controlled, parts, torso, foreL: left.fore, foreR: right.fore, stick: null,
-    shoulderL: left.shoulder, shoulderR: right.shoulder, elbowL: left.elbow, elbowR: right.elbow,
+    index, controlled, parts, torso, fore: arm.fore, stick: null,
+    shoulder: arm.shoulder, elbow: arm.elbow,
     grip: null, attackers, hp: F.hp, limp: false, stun: 0, deadAt: 0,
-    punchTimer: 0, windup: 0, charge: 0, release: 0, releaseMul: 1, punchCooldown: 0, punchRight: true, prevJump: false, prevAttack: false, prevGrab: false,
+    punchTimer: 0, windup: 0, charge: 0, release: 0, releaseMul: 1, punchCooldown: 0, prevJump: false, prevAttack: false, prevGrab: false,
     spawnX: x, spawnY: y,
   };
 
@@ -153,8 +147,8 @@ function attachStick(world: World, f: Fighter): void {
   const stick = f.stick!;
   const L = T.fighter.armLength;
   const grip = T.stick.length / 2 - T.stick.gripFromEnd;
-  // Snap the stick into the right hand, in line with the forearm, so the joint starts relaxed.
-  const fore = f.foreR.body;
+  // Snap the stick into the hand, in line with the forearm, so the joint starts relaxed.
+  const fore = f.fore.body;
   const a = fore.rotation();
   const c = Math.cos(a), s = Math.sin(a);
   const ft = fore.translation();
@@ -194,7 +188,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
 
   // Limp (dead): everything goes floppy.
   if (f.limp) {
-    for (const j of [f.shoulderL, f.shoulderR, f.elbowL, f.elbowR]) j.configureMotorPosition(0, 0, A.limpDamping);
+    for (const j of [f.shoulder, f.elbow]) j.configureMotorPosition(0, 0, A.limpDamping);
     return;
   }
 
@@ -218,14 +212,13 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   f.prevJump = input.jump;
 
-  // Cock-back: hold `cock` to pull the weapon arm up and behind; let go for a torque burst along the aim.
+  // Cock-back: hold `cock` to pull the arm up and behind; let go for a torque burst along the aim.
   // A click is the same thing on a short automatic timer (a quick chop, or a jab when unarmed).
   const K = T.cock;
   const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
   if (f.controlled && input.attack && !f.prevAttack && f.punchCooldown === 0 && f.windup === 0) {
     f.windup = K.autoFrames;
     f.punchCooldown = T.fist.punchCooldown;
-    if (!f.grip) f.punchRight = !f.punchRight; // unarmed punches alternate hands
   }
   f.prevAttack = input.attack;
   const cocking = f.controlled && (input.cock || f.windup > 0);
@@ -240,27 +233,24 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     }
     f.charge = 0;
   }
-  const armR = !!f.grip || f.punchRight; // which arm is the weapon arm
   if (f.punchTimer > 0) {
     f.punchTimer--;
-    (armR ? f.foreR : f.foreL).body.applyImpulse({ x: aimX * T.fist.punchImpulse, y: aimY * T.fist.punchImpulse }, true);
+    f.fore.body.applyImpulse({ x: aimX * T.fist.punchImpulse, y: aimY * T.fist.punchImpulse }, true);
   }
   const cockAngle = cocking ? -K.angle * (aimX >= 0 ? 1 : -1) : 0; // "up and back" is the opposite way round when facing left
-  const gain = (weaponArm: boolean) => (weaponArm && !cocking && f.release > 0 ? f.releaseMul : 1); // spring strength during the release burst
-  const cap = (weaponArm: boolean) => (!weaponArm ? A.shoulderMaxTorque : cocking ? K.holdTorque : f.release > 0 ? A.shoulderMaxTorque * f.releaseMul : A.shoulderMaxTorque);
+  const bursting = !cocking && f.release > 0; // the post-release burst raises both spring strength and torque cap
+  const gain = bursting ? f.releaseMul : 1;
+  const cap = cocking ? K.holdTorque : A.shoulderMaxTorque * gain;
   if (f.release > 0) f.release--;
 
   // Aim: shoulder motors chase the aim angle (relative to the torso), so body momentum adds to swings.
   const tr = body.rotation();
-  const offset = A.leftAimOffset * (aimX >= 0 ? 1 : -1);
   const motor = (j: RevoluteImpulseJoint, target: number, stiff: number, damp: number, maxTorque: number) => {
     j.configureMotorPosition(target, stiff, damp);
     j.setMotorMaxForce(maxTorque);
   };
-  motor(f.shoulderR, wrapAngle(input.aim + (armR ? cockAngle : 0) - tr), A.shoulderStiffness * gain(armR), A.shoulderDamping, cap(armR));
-  motor(f.shoulderL, wrapAngle(input.aim + offset + (armR ? 0 : cockAngle) - tr), A.shoulderStiffness * gain(!armR), A.shoulderDamping, cap(!armR));
-  motor(f.elbowL, 0, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
-  motor(f.elbowR, 0, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
+  motor(f.shoulder, wrapAngle(input.aim + cockAngle - tr), A.shoulderStiffness * gain, A.shoulderDamping, cap);
+  motor(f.elbow, 0, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
   if (f.grip) motor(f.grip as RevoluteImpulseJoint, 0, T.stick.wristStiffness, T.stick.wristDamping, T.stick.wristMaxTorque);
 
   // Grab / drop the stick.
@@ -271,7 +261,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       f.grip = null;
       events.push({ t: 'drop', x: st.x, y: st.y, v: 0, owner: f.index, victim: -1 });
     } else {
-      const ft = f.foreR.body.translation();
+      const ft = f.fore.body.translation();
       const near = Math.hypot(st.x - ft.x, st.y - ft.y) < T.stick.grabRange;
       if (near || st.y > T.arena.killY) {
         attachStick(world, f);
