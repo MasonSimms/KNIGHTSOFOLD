@@ -28,4 +28,4 @@ Negative prompt (if the tool supports it): photorealistic, 3D render, glossy, ai
 
 Acceptance checklist: readable with a 120 px fighter standing in front of it? Era palette and visible brush texture? No baked text, watermark or smooth gradient? Logged here?
 
-The canvas grain and vignette are generated in code (no files). Tune `finish.grainAlpha` and `finish.vignetteAlpha` in `src/content/tuning.ts`.
+The vignette is generated in code (no file). Tune `finish.vignetteAlpha` in `src/content/tuning.ts` (0 turns it off). The canvas grain was removed.

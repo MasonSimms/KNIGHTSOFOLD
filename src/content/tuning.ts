@@ -5,6 +5,8 @@ export const tuning = {
     dt: 1 / 60,
     gravity: 22, // heavier than Earth: snappier, more comedic arcs
     maxStepsPerFrame: 5,
+    solverIterations: 32, // Rapier default is 4; more = stiffer joints (arm chain) at some CPU cost
+    pgsIterations: 4,
   },
   arena: {
     viewW: 19.2, // visible area, 1 m = 100 px at 1920x1080
@@ -45,16 +47,19 @@ export const tuning = {
     jumpSpeed: 9,
   },
   balance: {
-    kp: 400, // spring pulling the body upright
-    kd: 40, // damping on spin
-    maxTorque: 250,
+    kp: 800, // spring pulling the body upright
+    kd: 60, // damping on spin
+    maxTorque: 600,
     stunFactor: 0.25, // balance strength while stunned
   },
   arm: {
-    // Motors are torque springs: torque = stiffness * angle error - damping * spin, capped at maxTorque (N*m).
-    shoulderStiffness: 600,
-    shoulderDamping: 10,
-    shoulderMaxTorque: 100, // swing authority; also the kick the torso feels
+    // The shoulder follows the aim like a velocity servo: turn rate = shoulderTrack x angle error (capped), so no overshoot.
+    shoulderTrack: 25, // 1/s: bigger = tighter to the mouse (25 closes a gap in about 3 frames)
+    shoulderMaxRate: 14, // rad/s cap on how fast the arm can turn
+    shoulderForce: 300, // N*m per rad/s of rate error: how firmly it holds that rate
+    aimFeedForward: 1, // 0 = ignore how fast the mouse is turning, 1 = full
+    maxAimRate: 25, // rad/s cap on that feed-forward
+    shoulderMaxTorque: 300, // torque cap: swing authority, and the kick the torso feels
     elbowStiffness: 1500,
     elbowDamping: 60,
     elbowMaxTorque: 600,
@@ -66,34 +71,37 @@ export const tuning = {
     thickness: 0.1,
     mass: 1.2,
     gripFromEnd: 0.25,
-    impactMass: 3.5, // "effective mass" used for impact (arm weight behind the swing)
-    impactMult: 1,
+    impactFactor: 2.2, // this weapon's damage factor: impact = hit speed (m/s) x this
     wristStiffness: 1500,
     wristDamping: 40,
     wristMaxTorque: 300,
     wristLimit: 0.35,
     grabRange: 0.8,
   },
-  cock: {
-    // Hold the cock button: the weapon arm pulls back; release for a torque burst that grows with how long you held it.
-    angle: 1.9, // how far behind the aim line the arm winds back (radians)
-    holdTorque: 60, // shoulder strength while cocked (low = slow, deliberate wind-up)
-    minFrames: 3, // shorter holds give no bonus
-    maxFrames: 30, // hold this long for the full bonus (0.5 s)
-    releaseFrames: 14, // how long the burst lasts after release
-    releaseMul: 2.5, // shoulder torque multiplier at full charge (1 = no bonus)
-    autoFrames: 5, // a plain click winds up for this long, then releases automatically
+  charge: {
+    // Hold the charge button (left-click): the weapon stays on your aim and loads momentum. Release: the fighter lunges
+    // along the aim and the arm gets a torque burst.
+    minFrames: 3, // shorter holds do nothing
+    maxFrames: 30, // hold this long for a full charge (0.5 s)
+    lungeImpulse: 100, // N*s along the aim at full charge (about 8 m/s for this body)
+    torqueMul: 2, // shoulder strength multiplier at full charge during the burst (1 = none)
+    releaseFrames: 18, // how long the burst lasts
+    moveFactor: 0.5, // walking speed while charging
+  },
+  throw: {
+    // Right-click: the arm cocks back automatically, then the weapon flies along the aim.
+    windupFrames: 8,
+    cockAngle: 1.9, // how far behind the aim line the arm pulls back (radians)
+    torqueMul: 1.5, // arm strength during the wind-up, so it gets there in time
+    speed: 16, // m/s
+    spin: 18, // rad/s of tumble
   },
   fist: {
-    impactMass: 1.2,
-    impactMult: 1,
-    punchFrames: 8,
-    punchImpulse: 0.6, // per frame while punching
-    punchCooldown: 20,
+    impactFactor: 1.6, // unarmed damage factor
   },
   combat: {
     impactMin: 10, // below this nothing happens (resting contact never hurts)
-    damageScale: 1.5,
+    damageScale: 2.5,
     damageMax: 60,
     knockbackScale: 1.5,
     knockbackUp: 0.3, // extra upward launch per impact
@@ -128,9 +136,12 @@ export const tuning = {
     hitFullImpact: 40,
   },
   finish: {
-    grainTile: 256, // px, noise texture generated in code
-    grainAlpha: 0.1, // plan says about 8-12% canvas-weave strength
     vignetteAlpha: 0.35,
+  },
+  charge_glow: {
+    radius: 0.3, // metres
+    color: 0xffe36e,
+    alpha: 0.55, // at full charge
   },
   colors: {
     void: 0x141018,

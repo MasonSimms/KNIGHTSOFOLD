@@ -56,6 +56,8 @@ export class Sim {
     const A = T.arena;
     this.world = new RAPIER.World({ x: 0, y: T.sim.gravity });
     this.world.timestep = T.sim.dt;
+    this.world.numSolverIterations = T.sim.solverIterations;
+    this.world.numInternalPgsIterations = T.sim.pgsIterations;
     const ground = this.world.createRigidBody(
       RAPIER.RigidBodyDesc.fixed().setTranslation(A.platformX + A.platformW / 2, A.platformTop + A.platformThickness / 2),
     );
@@ -149,7 +151,7 @@ export class Sim {
     const bvx = vp.vx - vp.w * rvy, bvy = vp.vy + vp.w * rvx;
     const closing = (avx - bvx) * nx + (avy - bvy) * ny;
     const W = att.kind === 'stick' ? T.stick : T.fist;
-    const impact = impactValue(closing, W.impactMass, T.fighter.torsoMass, W.impactMult);
+    const impact = impactValue(closing, W.impactFactor);
     const dmg = damageFor(impact);
     if (dmg <= 0) return;
 

@@ -10,8 +10,8 @@ function script(frame: number): PlayerInput {
     moveX: frame < 90 ? 1 : 0,
     jump: frame % 150 === 100,
     aim: Math.sin(frame * 0.12) * 1.8,
-    attack: frame % 40 < 20,
-    cock: frame % 100 > 60, // exercise the cock-back and release path too
+    attack: frame % 100 > 60, // exercise the charge and release path
+    throw: frame % 230 === 200, // and the throw
     grab: false,
   };
 }
@@ -45,13 +45,13 @@ describe('determinism', () => {
 
 describe('combat maths', () => {
   it('resting contact does nothing', () => {
-    expect(damageFor(impactValue(0, 3.5, 6, 1))).toBe(0);
-    expect(damageFor(impactValue(-5, 3.5, 6, 1))).toBe(0);
+    expect(damageFor(impactValue(0, 2.2))).toBe(0);
+    expect(damageFor(impactValue(-5, 2.2))).toBe(0);
   });
   it('heavier and faster hits hurt more, capped at damageMax', () => {
-    const slow = damageFor(impactValue(4, 3.5, 6, 1));
-    const fast = damageFor(impactValue(9, 3.5, 6, 1));
+    const slow = damageFor(impactValue(4, 2.2));
+    const fast = damageFor(impactValue(9, 2.2));
     expect(fast).toBeGreaterThan(slow);
-    expect(damageFor(impactValue(1000, 3.5, 6, 1))).toBeLessThanOrEqual(60);
+    expect(damageFor(impactValue(1000, 2.2))).toBeLessThanOrEqual(60);
   });
 });

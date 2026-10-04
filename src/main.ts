@@ -14,7 +14,7 @@ const sim = await Sim.create(1, stress ? 4 : 2);
 
 function flail(frame: number, who: number): PlayerInput {
   const t = frame * (0.05 + who * 0.013);
-  return { moveX: Math.sin(t * 0.7), jump: frame % (90 + who * 17) === 0, aim: Math.sin(t) * 3, attack: frame % 45 < 3, cock: frame % 120 < 30, grab: false };
+  return { moveX: Math.sin(t * 0.7), jump: frame % (90 + who * 17) === 0, aim: Math.sin(t) * 3, attack: frame % 120 < 30, throw: false, grab: false };
 }
 const renderer = await createRenderer(sim, document.body);
 
@@ -81,7 +81,7 @@ function frame(now: number) {
       `FPS ${fps.toFixed(0)}   frame ${(msSum / frames).toFixed(1)} ms   sim ${(simMsSum / frames).toFixed(2)} ms`,
       `bodies ${sim.world.bodies.len()}   frame# ${sim.frame}   hit-stop ${sim.hitStop}`,
       `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: you ${p1.hp.toFixed(0)}  dummy ${dummy.hp.toFixed(0)}`,
-      `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} cock ${+lastInput.cock} grab ${+lastInput.grab}`,
+      `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} throw ${+lastInput.throw} charge ${sim.fighters[0].charge}/${T.charge.maxFrames} grab ${+lastInput.grab}`,
       `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
     ]);
     frames = 0; msSum = 0; simMsSum = 0; statTime = now;

@@ -48,6 +48,7 @@ export const sfx = {
   jump() { tone('square', 220, 440, 0.08, 0.15); },
   grab() { tone('triangle', 300, 500, 0.06, 0.25); },
   drop() { tone('triangle', 500, 250, 0.08, 0.25); },
+  throw() { tone('sawtooth', 200, 700, 0.12, 0.2); },
   die() { tone('sawtooth', 300, 60, 0.35, 0.3); },
   fall() { tone('sine', 700, 80, 0.6, 0.3); },
 };

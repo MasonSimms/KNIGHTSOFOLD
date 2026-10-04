@@ -30,6 +30,7 @@ export interface Fighter {
   controlled: boolean; // false = training dummy (balances, never moves on its own)
   parts: Part[];
   torso: Part;
+  upper: Part;
   fore: Part;
   stick: Part | null;
   shoulder: RevoluteImpulseJoint;
@@ -40,14 +41,13 @@ export interface Fighter {
   limp: boolean;
   stun: number;
   deadAt: number;
-  punchTimer: number;
-  windup: number; // frames left of an automatic (click) wind-up
-  charge: number; // frames the weapon arm has been cocked back
+  charge: number; // frames the charge button has been held
+  prevAim: number; // last frame's aim angle, to know how fast the mouse is turning
+  throwWind: number; // frames left of the automatic cock-back before a throw
   release: number; // frames left of the post-release torque burst
   releaseMul: number; // size of that burst (depends on charge)
-  punchCooldown: number;
   prevJump: boolean;
-  prevAttack: boolean;
+  prevThrow: boolean;
   prevGrab: boolean;
   spawnX: number;
   spawnY: number;
@@ -121,10 +121,10 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
 
   const parts = [torso, arm.upper, arm.fore];
   const f: Fighter = {
-    index, controlled, parts, torso, fore: arm.fore, stick: null,
+    index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
     grip: null, attackers, hp: F.hp, limp: false, stun: 0, deadAt: 0,
-    punchTimer: 0, windup: 0, charge: 0, release: 0, releaseMul: 1, punchCooldown: 0, prevJump: false, prevAttack: false, prevGrab: false,
+    charge: 0, prevAim: 0, throwWind: 0, release: 0, releaseMul: 1, prevJump: false, prevThrow: false, prevGrab: false,
     spawnX: x, spawnY: y,
   };
 
@@ -184,7 +184,6 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const body = f.torso.body;
 
   if (f.stun > 0) f.stun--;
-  if (f.punchCooldown > 0) f.punchCooldown--;
 
   // Limp (dead): everything goes floppy.
   if (f.limp) {
@@ -198,11 +197,18 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const torque = Math.max(-B.maxTorque, Math.min(B.maxTorque, -B.kp * wrapAngle(body.rotation()) - B.kd * body.angvel())) * balance;
   body.applyTorqueImpulse(torque * dt, true);
 
+  const C = T.charge;
+  const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
+  if (f.controlled && input.throw && !f.prevThrow && f.grip && f.throwWind === 0) f.throwWind = T.throw.windupFrames;
+  f.prevThrow = input.throw;
+  const throwing = f.throwWind > 0;
+  const charging = f.controlled && input.attack && !throwing;
   const grounded = isGrounded(world, f);
   if (f.controlled && f.stun === 0) {
     const v = body.linvel(tmp);
     const accel = (grounded ? T.motion.groundAccel : T.motion.airAccel) * dt;
-    const dv = Math.max(-accel, Math.min(accel, input.moveX * T.motion.moveSpeed - v.x));
+    // While lunging (the burst after a charge release) the walking controller must not brake, or it cancels the lunge.
+    const dv = f.release > 0 ? 0 : Math.max(-accel, Math.min(accel, input.moveX * T.motion.moveSpeed * (charging ? C.moveFactor : 1) - v.x));
     body.applyImpulse({ x: dv * body.mass(), y: 0 }, true);
     if (input.jump && !f.prevJump && grounded) {
       body.setLinvel({ x: v.x + dv, y: -T.motion.jumpSpeed }, true);
@@ -212,36 +218,37 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   f.prevJump = input.jump;
 
-  // Cock-back: hold `cock` to pull the arm up and behind; let go for a torque burst along the aim.
-  // A click is the same thing on a short automatic timer (a quick chop, or a jab when unarmed).
-  const K = T.cock;
-  const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
-  if (f.controlled && input.attack && !f.prevAttack && f.punchCooldown === 0 && f.windup === 0) {
-    f.windup = K.autoFrames;
-    f.punchCooldown = T.fist.punchCooldown;
-  }
-  f.prevAttack = input.attack;
-  const cocking = f.controlled && (input.cock || f.windup > 0);
-  if (f.windup > 0) f.windup--;
-  if (cocking) {
-    f.charge = Math.min(f.charge + 1, K.maxFrames);
-  } else if (f.charge > 0) {
-    if (f.charge >= K.minFrames) {
-      f.release = K.releaseFrames;
-      f.releaseMul = 1 + ((K.releaseMul - 1) * f.charge) / K.maxFrames;
-      if (!f.grip) f.punchTimer = T.fist.punchFrames;
-    }
+  // Charge: hold `attack` to load momentum into the weapon (it stays on your aim). Releasing launches the fighter along the aim.
+  let fire = 0; // 0..1: how much of a full charge to release this frame
+  if (charging) {
+    f.charge = Math.min(f.charge + 1, C.maxFrames);
+  } else {
+    if (f.charge >= C.minFrames) fire = f.charge / C.maxFrames;
     f.charge = 0;
   }
-  if (f.punchTimer > 0) {
-    f.punchTimer--;
-    f.fore.body.applyImpulse({ x: aimX * T.fist.punchImpulse, y: aimY * T.fist.punchImpulse }, true);
+  if (fire > 0) {
+    f.release = C.releaseFrames;
+    f.releaseMul = 1 + (C.torqueMul - 1) * fire;
+    body.applyImpulse({ x: aimX * C.lungeImpulse * fire, y: aimY * C.lungeImpulse * fire }, true);
   }
-  const cockAngle = cocking ? -K.angle * (aimX >= 0 ? 1 : -1) : 0; // "up and back" is the opposite way round when facing left
-  const bursting = !cocking && f.release > 0; // the post-release burst raises both spring strength and torque cap
-  const gain = bursting ? f.releaseMul : 1;
-  const cap = cocking ? K.holdTorque : A.shoulderMaxTorque * gain;
+  let gain = f.release > 0 ? f.releaseMul : 1; // burst: stiffer, stronger arm for a moment
   if (f.release > 0) f.release--;
+
+  // Throw: the arm cocks back on its own (opposite side to the aim), then lets go and the weapon flies along the aim.
+  let cockAngle = 0;
+  if (throwing) {
+    cockAngle = -T.throw.cockAngle * (aimX >= 0 ? 1 : -1);
+    gain = T.throw.torqueMul;
+    if (--f.throwWind === 0 && f.grip && f.stick) {
+      world.removeImpulseJoint(f.grip, true);
+      f.grip = null;
+      const v = body.linvel(tmp);
+      f.stick.body.setLinvel({ x: v.x + aimX * T.throw.speed, y: v.y + aimY * T.throw.speed }, true);
+      f.stick.body.setAngvel((aimX >= 0 ? 1 : -1) * T.throw.spin, true);
+      const t = f.stick.body.translation();
+      events.push({ t: 'throw', x: t.x, y: t.y, v: 0, owner: f.index, victim: -1 });
+    }
+  }
 
   // Aim: shoulder motors chase the aim angle (relative to the torso), so body momentum adds to swings.
   const tr = body.rotation();
@@ -249,7 +256,15 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     j.configureMotorPosition(target, stiff, damp);
     j.setMotorMaxForce(maxTorque);
   };
-  motor(f.shoulder, wrapAngle(input.aim + cockAngle - tr), A.shoulderStiffness * gain, A.shoulderDamping, cap);
+  // Shoulder: a velocity follower. It turns the arm toward the aim at a speed proportional to the error (no overshoot),
+  // plus the mouse's own turn rate as feed-forward so a steady sweep has almost no trailing error.
+  const clamp = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
+  const aimRate = clamp(wrapAngle(input.aim - f.prevAim) / dt, A.maxAimRate) * A.aimFeedForward;
+  f.prevAim = input.aim;
+  const err = wrapAngle(input.aim + cockAngle - f.upper.body.rotation());
+  const wantRate = clamp(A.shoulderTrack * err, A.shoulderMaxRate * gain) + aimRate; // desired world turn rate of the arm
+  f.shoulder.configureMotorVelocity(wantRate - body.angvel(), A.shoulderForce * gain); // the joint works in torso-relative terms
+  f.shoulder.setMotorMaxForce(A.shoulderMaxTorque * gain);
   motor(f.elbow, 0, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
   if (f.grip) motor(f.grip as RevoluteImpulseJoint, 0, T.stick.wristStiffness, T.stick.wristDamping, T.stick.wristMaxTorque);
 

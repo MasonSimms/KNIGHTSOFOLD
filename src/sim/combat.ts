@@ -1,9 +1,8 @@
 import { tuning as T } from '../content/tuning';
 
-/** Impact = closing speed along the contact normal x reduced mass x weapon multiplier. */
-export function impactValue(closingSpeed: number, massA: number, massB: number, mult: number): number {
-  if (closingSpeed <= 0) return 0;
-  return closingSpeed * ((massA * massB) / (massA + massB)) * mult;
+/** Impact = closing speed along the contact normal (m/s) x the weapon's own factor. Nothing else. */
+export function impactValue(closingSpeed: number, weaponFactor: number): number {
+  return closingSpeed <= 0 ? 0 : closingSpeed * weaponFactor;
 }
 
 /** Hidden-HP damage; zero below the impact threshold. */

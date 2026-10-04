@@ -1,4 +1,4 @@
-import { Application, Assets, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
 import type { SimEvent } from '../sim/types';
@@ -12,17 +12,22 @@ function mix(a: number, b: number, t: number): number {
   return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 }
 
+// Pixi picks curve detail from the size it is drawn at, and our shapes are fractions of a metre, so draw big and scale down
+// (otherwise heads come out as octagons).
+const BIG = 100;
+
 function drawShape(s: Shape, color: number): Graphics {
   const g = new Graphics();
-  if (s.k === 'ball') g.circle(0, 0, s.r);
-  else g.roundRect(-s.r, -s.hl - s.r, s.r * 2, (s.hl + s.r) * 2, s.r);
-  g.fill(color).stroke({ width: 0.025, color: T.colors.outline });
+  if (s.k === 'ball') g.circle(0, 0, s.r * BIG);
+  else g.roundRect(-s.r * BIG, -(s.hl + s.r) * BIG, s.r * 2 * BIG, (s.hl + s.r) * 2 * BIG, s.r * BIG);
+  g.fill(color).stroke({ width: 0.025 * BIG, color: T.colors.outline });
+  g.scale.set(1 / BIG);
   g.position.set(s.x, s.y);
   if (s.k === 'cap') g.rotation = s.rot;
   return g;
 }
 
-/** Style-test finish: a noise tile (canvas grain) and a radial gradient (vignette), both generated in code: no asset files. */
+/** A small texture painted in code (used for the vignette): no asset files. */
 function canvasTexture(size: number, paint: (ctx: CanvasRenderingContext2D) => void): Texture {
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -67,19 +72,6 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   }
 
   // Cheap global finish on top of everything (screen space).
-  const FIN = T.finish;
-  const grain = new TilingSprite({
-    texture: canvasTexture(FIN.grainTile, (ctx) => {
-      const img = ctx.createImageData(FIN.grainTile, FIN.grainTile);
-      for (let i = 0; i < img.data.length; i += 4) {
-        const v = Math.random() < 0.5 ? 0 : 255;
-        img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
-        img.data[i + 3] = Math.random() * 255;
-      }
-      ctx.putImageData(img, 0, 0);
-    }),
-    width: 1, height: 1, alpha: FIN.grainAlpha,
-  });
   const vignette = new Sprite(canvasTexture(256, (ctx) => {
     const g = ctx.createRadialGradient(128, 128, 60, 128, 128, 182);
     g.addColorStop(0, 'rgba(0,0,0,0)');
@@ -87,8 +79,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 256, 256);
   }));
-  vignette.alpha = FIN.vignetteAlpha;
-  app.stage.addChild(grain, vignette);
+  vignette.alpha = T.finish.vignetteAlpha;
+  app.stage.addChild(vignette);
 
   // Splat decal pool (ring buffer: no allocation after start-up).
   const splatTex: Texture = app.renderer.generateTexture(new Graphics().circle(32, 32, 32).fill(0xffffff));
@@ -103,7 +95,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   let nextSplat = 0;
 
   let scale = 1, shake = 0, builtVersion = -1;
-  const fighterContainers: { f: Fighter; c: Container[] }[] = [];
+  const fighterContainers: { f: Fighter; c: Container[]; aura: Graphics }[] = [];
 
   function rebuild() {
     fighterLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
@@ -118,7 +110,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         fighterLayer.addChild(c);
         list.push(c);
       }
-      fighterContainers.push({ f, c: list });
+      const aura = new Graphics().circle(0, 0, T.charge_glow.radius * BIG).fill(T.charge_glow.color); // glows behind the weapon while charging
+      aura.alpha = 0;
+      fighterLayer.addChildAt(aura, 0);
+      fighterContainers.push({ f, c: list, aura });
     }
     builtVersion = sim.version;
   }
@@ -140,13 +135,13 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     draw(alpha: number, frameSeconds: number) {
       scale = Math.min(app.screen.width / A.viewW, app.screen.height / A.viewH);
       view.scale.set(scale);
-      grain.width = vignette.width = app.screen.width;
-      grain.height = vignette.height = app.screen.height;
+      vignette.width = app.screen.width;
+      vignette.height = app.screen.height;
       if (builtVersion !== sim.version) rebuild();
       shake *= Math.pow(T.shake.decayPerSecond, frameSeconds);
       const sx = (Math.random() - 0.5) * 2 * shake, sy = (Math.random() - 0.5) * 2 * shake;
       view.position.set((app.screen.width - A.viewW * scale) / 2 + sx, (app.screen.height - A.viewH * scale) / 2 + sy);
-      for (const { f, c } of fighterContainers) {
+      for (const { f, c, aura } of fighterContainers) {
         const tint = mix(0xffffff, T.colors.damaged, 1 - Math.max(0, f.hp) / T.fighter.hp);
         f.parts.forEach((p, i) => {
           const k = c[i];
@@ -154,6 +149,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           k.rotation = p.pa + wrap(p.ca - p.pa) * alpha;
           k.tint = tint;
         });
+        const w = f.stick && f.grip ? f.stick : f.fore; // the weapon, or the fist when unarmed
+        const charge = f.charge / T.charge.maxFrames;
+        aura.alpha = charge * T.charge_glow.alpha;
+        aura.position.set(lerp(w.px, w.cx, alpha), lerp(w.py, w.cy, alpha));
+        aura.scale.set((1 + charge * 0.6) / BIG);
       }
       app.render();
     },
