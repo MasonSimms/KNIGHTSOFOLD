@@ -31,15 +31,16 @@ export class Sim {
   private tmpN = { x: 0, y: 0 };
   private tmpP = { x: 0, y: 0 };
 
-  private constructor(seed: number) {
+  private constructor(seed: number, private count: number) {
     this.seed = seed;
     this.rng = makeRng(seed);
     this.reset();
   }
 
-  static async create(seed: number): Promise<Sim> {
+  /** `count` fighters: 0 = you, 1 = the dummy, 2+ = extra armed fighters (used by the ?stress test). */
+  static async create(seed: number, count = 2): Promise<Sim> {
     await initRapier();
-    return new Sim(seed);
+    return new Sim(seed, count);
   }
 
   /** Rebuild the whole world from the current tuning values. */
@@ -63,7 +64,7 @@ export class Sim {
       ground,
     );
 
-    this.fighters = [this.spawn(0, A.playerSpawnX, true), this.spawn(1, A.dummySpawnX, false)];
+    this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, A.spawnX[i], i !== 1));
     this.version++;
   }
 

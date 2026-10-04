@@ -10,3 +10,9 @@ One line each: date, decision, reason.
 - 2026-10-04: Placeholder sounds are synthesised with WebAudio oscillators, so there are no audio files or licences yet. Howler.js (named in the plan) arrives with real licensed SFX in the art and audio phase.
 - 2026-10-04: The training dummy is a fighter built by the same code with no input and no stick, so it balances, takes damage and dies like a player does.
 - 2026-10-04: Phase 0 "deploy to a public URL" is not done yet. It needs a Cloudflare Pages or Netlify account, which is the owner's call.
+- 2026-10-04: Added a dedicated cock-back button (hold right-click or left trigger/bumper): the weapon arm pulls up and behind, and on release gets a torque burst that grows with hold time (up to 0.5 s). Chosen by the owner (Spiderheck-style). It replaces the old "hold click for power" boost.
+- 2026-10-04: A plain click is the same mechanism on a 5-frame automatic timer: a quick chop with the stick, a jab when unarmed. Every punch now starts with a pull-back, which fixes point-blank punches doing nothing.
+- 2026-10-04: The release burst scales shoulder spring stiffness as well as the torque cap. Raising the cap alone changed nothing (measured): swing speed was limited by the spring, not the cap.
+- 2026-10-04: Damage curve lowered (damageScale 5 -> 1.5) so a plain swing is a medium hit and a charged one is heavy. At the old value every swing hit the 60 damage cap and the cock bonus was invisible.
+- 2026-10-04: impactMin stays at 10: walking into the dummy with a stick no longer hurts it (measured 0 damage).
+- 2026-10-04: `?stress` URL option adds two scripted flailing fighters for a 4-fighter frame-time check. They are not AI (bots are out of scope).

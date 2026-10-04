@@ -3,11 +3,12 @@ export interface PlayerInput {
   moveX: number; // -1..1
   jump: boolean;
   aim: number; // world-space angle in radians (0 = right, +pi/2 = down)
-  attack: boolean;
+  attack: boolean; // click: quick wind-up + swing (or jab when unarmed)
+  cock: boolean; // hold: pull the weapon arm back; release for a harder hit
   grab: boolean; // drop / pick up the held weapon
 }
 
-export const NEUTRAL: PlayerInput = { moveX: 0, jump: false, aim: 0, attack: false, grab: false };
+export const NEUTRAL: PlayerInput = { moveX: 0, jump: false, aim: 0, attack: false, cock: false, grab: false };
 
 export type EventType = 'hit' | 'jump' | 'grab' | 'drop' | 'die' | 'fall';
 

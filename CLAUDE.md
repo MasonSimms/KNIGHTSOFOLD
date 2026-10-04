@@ -56,4 +56,4 @@ ONE-OFF: if a single question needs deep reasoning, say: `TIP: add the word ultr
 Rules: suggest at most once per task; never suggest max effort unless the owner asks; if unsure what model is active, ask the owner to run `/status`.
 
 ## Status
-Phase 0 (setup) and Phase 1 (body and weapon feel) are built. **Waiting at the Phase 1 gate** for the owner's playtest. Do not start Phase 2 until they confirm.
+Phase 0 (setup) and Phase 1 (body and weapon feel) are built, including the cock-back button. **Waiting at the Phase 1 gate** for the owner's solo playtest. Not yet done from Phase 0: the public URL deploy (needs the owner's Cloudflare Pages account) and Firefox/Safari checks. Do not start Phase 2 until the owner confirms.

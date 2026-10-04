@@ -44,6 +44,10 @@ export interface Fighter {
   stun: number;
   deadAt: number;
   punchTimer: number;
+  windup: number; // frames left of an automatic (click) wind-up
+  charge: number; // frames the weapon arm has been cocked back
+  release: number; // frames left of the post-release torque burst
+  releaseMul: number; // size of that burst (depends on charge)
   punchCooldown: number;
   punchRight: boolean;
   prevJump: boolean;
@@ -126,7 +130,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     index, controlled, parts, torso, foreL: left.fore, foreR: right.fore, stick: null,
     shoulderL: left.shoulder, shoulderR: right.shoulder, elbowL: left.elbow, elbowR: right.elbow,
     grip: null, attackers, hp: F.hp, limp: false, stun: 0, deadAt: 0,
-    punchTimer: 0, punchCooldown: 0, punchRight: true, prevJump: false, prevAttack: false, prevGrab: false,
+    punchTimer: 0, windup: 0, charge: 0, release: 0, releaseMul: 1, punchCooldown: 0, punchRight: true, prevJump: false, prevAttack: false, prevGrab: false,
     spawnX: x, spawnY: y,
   };
 
@@ -214,32 +218,47 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   f.prevJump = input.jump;
 
-  // Attack: armed = stiffer arm while held; unarmed = a short punch impulse along the aim.
+  // Cock-back: hold `cock` to pull the weapon arm up and behind; let go for a torque burst along the aim.
+  // A click is the same thing on a short automatic timer (a quick chop, or a jab when unarmed).
+  const K = T.cock;
   const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
-  if (!f.grip && input.attack && !f.prevAttack && f.punchCooldown === 0 && f.controlled) {
-    f.punchTimer = T.fist.punchFrames;
+  if (f.controlled && input.attack && !f.prevAttack && f.punchCooldown === 0 && f.windup === 0) {
+    f.windup = K.autoFrames;
     f.punchCooldown = T.fist.punchCooldown;
-    f.punchRight = !f.punchRight;
+    if (!f.grip) f.punchRight = !f.punchRight; // unarmed punches alternate hands
   }
   f.prevAttack = input.attack;
-  const punching = f.punchTimer > 0;
-  if (punching) {
-    f.punchTimer--;
-    (f.punchRight ? f.foreR : f.foreL).body.applyImpulse({ x: aimX * T.fist.punchImpulse, y: aimY * T.fist.punchImpulse }, true);
+  const cocking = f.controlled && (input.cock || f.windup > 0);
+  if (f.windup > 0) f.windup--;
+  if (cocking) {
+    f.charge = Math.min(f.charge + 1, K.maxFrames);
+  } else if (f.charge > 0) {
+    if (f.charge >= K.minFrames) {
+      f.release = K.releaseFrames;
+      f.releaseMul = 1 + ((K.releaseMul - 1) * f.charge) / K.maxFrames;
+      if (!f.grip) f.punchTimer = T.fist.punchFrames;
+    }
+    f.charge = 0;
   }
+  const armR = !!f.grip || f.punchRight; // which arm is the weapon arm
+  if (f.punchTimer > 0) {
+    f.punchTimer--;
+    (armR ? f.foreR : f.foreL).body.applyImpulse({ x: aimX * T.fist.punchImpulse, y: aimY * T.fist.punchImpulse }, true);
+  }
+  const cockAngle = cocking ? -K.angle * (aimX >= 0 ? 1 : -1) : 0; // "up and back" is the opposite way round when facing left
+  const gain = (weaponArm: boolean) => (weaponArm && !cocking && f.release > 0 ? f.releaseMul : 1); // spring strength during the release burst
+  const cap = (weaponArm: boolean) => (!weaponArm ? A.shoulderMaxTorque : cocking ? K.holdTorque : f.release > 0 ? A.shoulderMaxTorque * f.releaseMul : A.shoulderMaxTorque);
+  if (f.release > 0) f.release--;
 
   // Aim: shoulder motors chase the aim angle (relative to the torso), so body momentum adds to swings.
-  const mul = A.attackStiffnessMul;
-  const boostR = (f.grip ? input.attack : punching && f.punchRight) ? mul : 1;
-  const boostL = punching && !f.punchRight ? mul : 1;
   const tr = body.rotation();
   const offset = A.leftAimOffset * (aimX >= 0 ? 1 : -1);
   const motor = (j: RevoluteImpulseJoint, target: number, stiff: number, damp: number, maxTorque: number) => {
     j.configureMotorPosition(target, stiff, damp);
     j.setMotorMaxForce(maxTorque);
   };
-  motor(f.shoulderR, wrapAngle(input.aim - tr), A.shoulderStiffness, A.shoulderDamping, A.shoulderMaxTorque * boostR);
-  motor(f.shoulderL, wrapAngle(input.aim + offset - tr), A.shoulderStiffness, A.shoulderDamping, A.shoulderMaxTorque * boostL);
+  motor(f.shoulderR, wrapAngle(input.aim + (armR ? cockAngle : 0) - tr), A.shoulderStiffness * gain(armR), A.shoulderDamping, cap(armR));
+  motor(f.shoulderL, wrapAngle(input.aim + offset + (armR ? 0 : cockAngle) - tr), A.shoulderStiffness * gain(!armR), A.shoulderDamping, cap(!armR));
   motor(f.elbowL, 0, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
   motor(f.elbowR, 0, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
   if (f.grip) motor(f.grip as RevoluteImpulseJoint, 0, T.stick.wristStiffness, T.stick.wristDamping, T.stick.wristMaxTorque);

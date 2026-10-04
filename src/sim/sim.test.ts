@@ -11,6 +11,7 @@ function script(frame: number): PlayerInput {
     jump: frame % 150 === 100,
     aim: Math.sin(frame * 0.12) * 1.8,
     attack: frame % 40 < 20,
+    cock: frame % 100 > 60, // exercise the cock-back and release path too
     grab: false,
   };
 }

@@ -16,8 +16,7 @@ export const tuning = {
     friction: 0.8,
     killY: 13, // below this is the void: instant kill
     killXMargin: 4, // metres past either screen edge
-    playerSpawnX: 7,
-    dummySpawnX: 11.5,
+    spawnX: [7, 11.5, 5.5, 13.5], // fighter 0 = you, 1 = dummy, 2 and 3 = extra fighters (stress test)
   },
   fighter: {
     hp: 100, // hidden: never shown on screen (F3 overlay only)
@@ -54,12 +53,11 @@ export const tuning = {
   arm: {
     // Motors are torque springs: torque = stiffness * angle error - damping * spin, capped at maxTorque (N*m).
     shoulderStiffness: 600,
-    shoulderDamping: 25,
+    shoulderDamping: 10,
     shoulderMaxTorque: 100, // swing authority; also the kick the torso feels
-    attackStiffnessMul: 2, // multiplies the shoulder torque cap while attack is held (armed) or punching
     elbowStiffness: 1500,
     elbowDamping: 60,
-    elbowMaxTorque: 300,
+    elbowMaxTorque: 600,
     elbowLimit: 1.6,
     leftAimOffset: 0.5, // the off-hand hangs this far below the aim line
     limpDamping: 0.5,
@@ -73,9 +71,19 @@ export const tuning = {
     impactMult: 1,
     wristStiffness: 1500,
     wristDamping: 40,
-    wristMaxTorque: 150,
+    wristMaxTorque: 300,
     wristLimit: 0.35,
     grabRange: 0.8,
+  },
+  cock: {
+    // Hold the cock button: the weapon arm pulls back; release for a torque burst that grows with how long you held it.
+    angle: 1.9, // how far behind the aim line the arm winds back (radians)
+    holdTorque: 60, // shoulder strength while cocked (low = slow, deliberate wind-up)
+    minFrames: 3, // shorter holds give no bonus
+    maxFrames: 30, // hold this long for the full bonus (0.5 s)
+    releaseFrames: 14, // how long the burst lasts after release
+    releaseMul: 4, // shoulder torque multiplier at full charge (1 = no bonus)
+    autoFrames: 5, // a plain click winds up for this long, then releases automatically
   },
   fist: {
     impactMass: 1.2,
@@ -86,11 +94,11 @@ export const tuning = {
   },
   combat: {
     impactMin: 10, // below this nothing happens (resting contact never hurts)
-    damageScale: 5,
+    damageScale: 1.5,
     damageMax: 60,
-    knockbackScale: 1.2,
+    knockbackScale: 1.5,
     knockbackUp: 0.3, // extra upward launch per impact
-    knockbackMax: 40,
+    knockbackMax: 90,
     spinScale: 0.3,
     hitCooldown: 20, // frames before the same weapon can hit again
     stunFrames: 25,

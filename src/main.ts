@@ -8,7 +8,14 @@ import { Sim } from './sim/world';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 
 const T = tuning;
-const sim = await Sim.create(1);
+// Open http://localhost:5173/?stress to add two scripted flailing fighters: a 4-fighter frame-time check, not AI.
+const stress = new URLSearchParams(location.search).has('stress');
+const sim = await Sim.create(1, stress ? 4 : 2);
+
+function flail(frame: number, who: number): PlayerInput {
+  const t = frame * (0.05 + who * 0.013);
+  return { moveX: Math.sin(t * 0.7), jump: frame % (90 + who * 17) === 0, aim: Math.sin(t) * 3, attack: frame % 45 < 3, cock: frame % 120 < 30, grab: false };
+}
 const renderer = await createRenderer(sim, document.body);
 
 addEventListener('pointerdown', unlockAudio);
@@ -53,7 +60,7 @@ function frame(now: number) {
   for (let steps = 0; acc >= T.sim.dt && steps < T.sim.maxStepsPerFrame; steps++, acc -= T.sim.dt) {
     const p = sim.fighters[0].torso;
     lastInput = readInput(toScreen(p.cx, p.cy));
-    sim.step([lastInput, NEUTRAL]);
+    sim.step([lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)]);
     for (const e of sim.events) {
       renderer.onEvent(e);
       if (e.t === 'hit') sfx.hit(e.v);
@@ -74,7 +81,7 @@ function frame(now: number) {
       `FPS ${fps.toFixed(0)}   frame ${(msSum / frames).toFixed(1)} ms   sim ${(simMsSum / frames).toFixed(2)} ms`,
       `bodies ${sim.world.bodies.len()}   frame# ${sim.frame}   hit-stop ${sim.hitStop}`,
       `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: you ${p1.hp.toFixed(0)}  dummy ${dummy.hp.toFixed(0)}`,
-      `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} grab ${+lastInput.grab}`,
+      `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} cock ${+lastInput.cock} grab ${+lastInput.grab}`,
       `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
     ]);
     frames = 0; msSum = 0; simMsSum = 0; statTime = now;
