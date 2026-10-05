@@ -70,7 +70,6 @@ export const tuning = {
     max: 0.7, // never lean further than this from walking
     chargeBack: 0.35, // lean back while charging a club (anticipation)
     slamForward: 0.5, // throw the body forward during a lunge/slam
-    punchBack: 0.2, // lean back while winding up a punch
     punchForward: 0.35, // lean into the punch
   },
   legs: {
@@ -221,22 +220,27 @@ export const tuning = {
     moveFactor: 0.65, // walking speed while charging or winding up
   },
   punch: {
-    // Unarmed left-click. Hold: the fist is drawn back with the elbow folded, and the longer you hold the harder the punch.
-    // Let go: the arm whips straight out along the aim and the body lunges in. A quick tap is a quick, light punch.
-    // Angles are relative to your aim line, for a fighter facing right (mirrored when facing left).
-    windFrames: 6, // the shortest wind-up: even a tap draws back this long
-    maxWindFrames: 30, // hold this long (0.5 s) for the heaviest punch
-    quickPower: 0.45, // strength of a tap, compared with a full-hold punch (1)
+    // Unarmed left-click, TAPPED: a quick thrown punch with no wind-up. The arm whips straight out along the aim and the body leans in.
+    // (Held instead of tapped, it becomes a grab: see grab below.) Angles are for a fighter facing right (mirrored when facing left).
+    power: 0.7, // strength of a punch (1 = the old full-hold punch)
     strikeFrames: 10, // throw forward
     recoverFrames: 12, // before you can punch again
-    cockUpper: 2.6, // upper arm swings this far behind the aim line
-    cockExtra: 0.4, // ...and a little further back the longer you hold
-    cockElbow: -2.2, // elbow folded tight
     guardUpper: 1.0, // resting guard: upper arm hanging down in front...
     guardElbow: -2.0, // ...forearm folded up, fist at the chest
     torqueMul: 2.5, // arm strength during a full-power throw
     strikeImpulse: 0.8, // extra shove on the fist each frame of a full-power throw
     lunge: 35, // push the whole body forward into a full-power punch
+  },
+  grab: {
+    // Unarmed left-click, HELD: your hand reaches out along the aim and grabs whatever part of a fighter it touches.
+    // Keep holding to keep hold of them (for as long as you like) and swing the mouse to whirl them; let go to fling them.
+    holdFrames: 8, // hold the button this long (0.13 s) and it is a grab, not a punch
+    armMul: 4, // how much stronger (and somewhat faster) your arm is while reaching or holding someone: enough to swing a whole body
+    fling: 1.25, // the flung fighter's speed is multiplied by this when you let go (1 = only the swing itself)
+    breakImpact: 30, // a hit on the grabber at least this big makes them drop who they are holding
+    thrownFrames: 90, // for this long after being flung (1.5 s) a hard crash hurts
+    slamFactor: 2.0, // damage factor for crashing into the floor, a wall or another fighter: impact = crash speed (m/s) x this
+    slamCooldown: 12, // frames between two crash hits on the same thrown fighter
   },
   disarm: {
     // A great hit can knock a club out of an opponent's hand. Where it lands matters: the hand (and the grip end of the club) is the

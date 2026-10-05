@@ -96,22 +96,44 @@ describe('charge, punch and throw (the newer controls)', () => {
     expect(f().charge).toBe(5);
   });
 
-  it('a held punch hits harder than a tap', async () => {
+  /** Walk an unarmed fighter 0 up to the dummy and settle. */
+  async function unarmedFace() {
+    const sim = await Sim.create(11);
+    const D = () => sim.fighters[1], P = () => sim.fighters[0];
+    while (D().torso.body.translation().x - P().torso.body.translation().x > 1.3) sim.step([idle({ moveX: 1, aim: Math.PI / 2 })]);
+    for (let i = 0; i < 40; i++) sim.step([idle()]);
+    return { sim, D, P };
+  }
+
+  it('a tap throws a punch that damages', async () => {
     const T = (await import('../content/tuning')).tuning;
     const was = T.fighter.startArmed;
     T.fighter.startArmed = false;
     try {
-      const damageFor = async (hold: number) => {
-        const sim = await Sim.create(11);
-        const D = () => sim.fighters[1], P = () => sim.fighters[0];
-        while (D().torso.body.translation().x - P().torso.body.translation().x > 0.9) sim.step([idle({ moveX: 1, aim: Math.PI / 2 })]);
-        for (let i = 0; i < 40; i++) sim.step([idle()]);
-        const hp0 = D().hp;
-        for (let i = 0; i < 90; i++) sim.step([idle({ attack: i < hold })]);
-        return hp0 - D().hp;
-      };
-      const tap = await damageFor(1), full = await damageFor(30);
-      expect(full).toBeGreaterThan(tap * 2);
+      const { sim, D } = await unarmedFace();
+      const hp0 = D().hp;
+      for (let i = 0; i < 40; i++) sim.step([idle({ attack: i < 2, moveX: 0.5 })]);
+      expect(hp0 - D().hp).toBeGreaterThan(0);
+    } finally {
+      T.fighter.startArmed = was;
+    }
+  });
+
+  it('holding grabs the dummy, and letting go flings it', async () => {
+    const T = (await import('../content/tuning')).tuning;
+    const was = T.fighter.startArmed;
+    T.fighter.startArmed = false;
+    try {
+      const { sim, D, P } = await unarmedFace();
+      let held = false;
+      for (let i = 0; i < 40 && !held; i++) { sim.step([idle({ attack: true, moveX: 0.5 })]); held = !!P().hold; }
+      expect(held).toBe(true);
+      expect(P().held).toBe(D());
+      for (let i = 0; i < 20; i++) sim.step([idle({ attack: true, aim: -0.3 + i * 0.12, moveX: 0.5 })]); // swing it round
+      expect(P().hold).not.toBeNull(); // still holding: there is no time limit
+      sim.step([idle()]);
+      expect(P().hold).toBeNull();
+      expect(D().thrownBy).toBe(0);
     } finally {
       T.fighter.startArmed = was;
     }

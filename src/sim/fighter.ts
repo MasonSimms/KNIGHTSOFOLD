@@ -72,6 +72,12 @@ export interface Fighter {
   crouch: number; // 0 standing .. 1 all the way down (lying)
   attackLock: number; // frames left before an attack can start (just after a dodge)
   punchPower: number; // strength (0..1) of the punch being thrown
+  reaching: boolean; // unarmed, attack held: the hand is out, grabbing whatever fighter it touches
+  hold: ImpulseJoint | null; // the hand-to-someone joint while holding a fighter
+  held: Fighter | null; // who is being held
+  thrownBy: number; // who flung this fighter (-1 = nobody)
+  thrown: number; // frames left in which a hard crash hurts
+  slamWait: number; // frames before another crash can hurt
   jumpBuffer: number; // frames a jump press is remembered (so pressing a touch early still jumps)
   coyote: number; // frames after leaving a ledge during which a jump still works
   prevDrop: boolean;
@@ -198,7 +204,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -255,6 +261,36 @@ export function giveStick(world: World, from: Fighter, to: Fighter): void {
     to.parts.push(part);
   }
   attachStick(world, to);
+}
+
+/** Grab: lock the fist of `f` onto `part` (some other fighter's body part) at the world point `pt`. */
+export function grabJoint(world: World, f: Fighter, part: Part, pt: { x: number; y: number }): ImpulseJoint {
+  const b = part.body, t = b.translation(), a = b.rotation(), c = Math.cos(a), s = Math.sin(a);
+  const dx = pt.x - t.x, dy = pt.y - t.y;
+  const j = revolute(world, f.fore.body, T.fighter.armLength / 2, 0, b, dx * c + dy * s, -dx * s + dy * c);
+  j.setContactsEnabled(false); // the hand and what it holds do not push each other apart
+  return j;
+}
+
+/** Let go of whoever `f` is holding. Flung: they keep the speed of the swing (boosted), and a hard crash soon after hurts. */
+export function letGo(world: World, f: Fighter, fling: boolean, events: SimEvent[]): void {
+  const v = f.held;
+  if (!f.hold || !v) return;
+  world.removeImpulseJoint(f.hold, true);
+  f.hold = null;
+  f.held = null;
+  if (!fling) return;
+  const G = T.grab;
+  for (const p of v.parts) {
+    if (p.role === 'stick' && !v.grip) continue;
+    const lv = p.body.linvel(tmp);
+    p.body.setLinvel({ x: lv.x * G.fling, y: lv.y * G.fling }, true);
+  }
+  v.thrownBy = f.index;
+  v.thrown = G.thrownFrames;
+  v.slamWait = 0;
+  const t = v.torso.body.translation(), lv = v.torso.body.linvel(tmp);
+  events.push({ t: 'throw', x: t.x, y: t.y, v: Math.hypot(lv.x, lv.y), owner: f.index, victim: v.index });
 }
 
 /** Lay a fighter's club somewhere in the world, out of the hand and at rest (arena weapon rules, and a lost club coming back). */
@@ -436,6 +472,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
 
   // Dead: arms go floppy (the head and legs of the ragdoll have their own loose joints).
   if (f.limp) {
+    letGo(world, f, false, events);
     for (const j of [f.shoulder, f.elbow]) j.configureMotorPosition(0, 0, A.limpDamping);
     return;
   }
@@ -450,6 +487,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     setBackPlane(f, true);
     // Dodging cancels whatever you were charging: let go of the button and press it again for a new charge.
     f.charge = 0; f.release = 0; f.punch = 0; f.chargeLocked = true;
+    letGo(world, f, false, events);
     events.push({ t: 'dodge', x: body.translation().x, y: body.translation().y, v: 0, owner: f.index, victim: -1 });
   }
   f.prevDodge = input.dodge;
@@ -503,30 +541,32 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
 
   // ---- attack state ----
   const charging = f.controlled && armed && attack && !f.throwPending; // hold to charge a club
-  let punchPhase: 'none' | 'wind' | 'strike' | 'recover' = 'none';
+  let punchPhase: 'none' | 'strike' | 'recover' = 'none';
   let strikeStart = false;
+  const G = T.grab;
+  f.reaching = false;
   if (f.controlled && !armed && f.punch === 0) {
-    // Unarmed: hold to wind up a punch, let go to throw it. A tap is a quick punch, a long hold a heavy one.
+    // Unarmed: a tap throws a punch on release; holding past holdFrames reaches out to grab instead.
     if (attack) {
-      f.charge = Math.min(f.charge + 1, K.maxWindFrames);
-    } else if (f.charge >= K.windFrames) {
-      const heavy = Math.max(0, Math.min(1, (f.charge - K.windFrames) / (K.maxWindFrames - K.windFrames)));
-      f.punchPower = K.quickPower + (1 - K.quickPower) * heavy;
+      f.charge++;
+      f.reaching = f.charge >= G.holdFrames && !f.hold;
+    } else {
+      if (f.charge > 0 && f.charge < G.holdFrames) {
+        f.punchPower = K.power;
+        f.punch = 1;
+        events.push({ t: 'punch', x: body.translation().x, y: body.translation().y, v: f.punchPower, owner: f.index, victim: -1 });
+      }
       f.charge = 0;
-      f.punch = 1;
-      events.push({ t: 'punch', x: body.translation().x, y: body.translation().y, v: f.punchPower, owner: f.index, victim: -1 });
-    } else if (f.charge > 0) {
-      f.charge++; // let go too early: keep drawing back until the minimum wind-up is done
     }
-    if (f.charge > 0) punchPhase = 'wind';
   }
+  if (f.hold && !(attack && f.controlled)) letGo(world, f, true, events); // let go of the button: fling them
+  const grabbing = f.reaching || !!f.hold;
   if (f.punch > 0) {
     const t = f.punch;
     punchPhase = t <= K.strikeFrames ? 'strike' : 'recover';
     strikeStart = t === 1;
     f.punch = t >= K.strikeFrames + K.recoverFrames ? 0 : t + 1;
   }
-  const windFraction = f.charge / K.maxWindFrames;
 
   // ---- lean and balance: the body leans into where it is going (and winds back before a lunge or punch), then springs upright ----
   const B = T.balance;
@@ -537,8 +577,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     lean = clamp(vx * LN.perSpeed + (want - vx) * LN.perAccel, LN.max); // positive = leaning toward +x
     if (charging) lean -= s * LN.chargeBack * (f.charge / C.maxFrames);
     if (f.release > 0) lean += s * LN.slamForward;
-    if (punchPhase === 'wind') lean -= s * LN.punchBack * (0.5 + windFraction);
-    else if (punchPhase === 'strike') lean += s * LN.punchForward * f.punchPower;
+    if (punchPhase === 'strike') lean += s * LN.punchForward * f.punchPower;
   }
   // Near the bottom of a crouch you stop holding yourself upright, so you tip over the way you are leaning and lie down.
   const tip = smooth(T.crouch.tipStart, T.crouch.tipAt, f.crouch);
@@ -575,7 +614,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   if (!f.controlled && grounded) shove(f, clamp(-vx, M.groundAccel * dt) * fighterMass(f), 0); // the dummy plants its feet
   if (f.controlled && f.stun === 0) {
     const accel = (grounded ? M.groundAccel : M.airAccel) * dt;
-    const winding = charging || punchPhase === 'wind';
+    const winding = charging || !!f.hold; // slower while charging a club or holding someone
     // While lunging the walking controller must not brake, or it cancels the lunge.
     const dv = f.release > 0 || f.wallLock > 0 ? 0 : clamp(input.moveX * M.moveSpeed * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
     shove(f, dv * fighterMass(f), 0);
@@ -682,7 +721,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       followAim = c < 0.5;
     }
   } else if (f.controlled) {
-    if (punchPhase === 'wind') { U = aimR + K.cockUpper + K.cockExtra * windFraction; E = K.cockElbow; followAim = false; } // fist drawn back, elbow folded (further back the longer you hold)
+    if (grabbing) { E = 0; gain = G.armMul; } // grab: arm straight out along the aim, strong enough to swing a body
     else if (punchPhase === 'strike') { E = 0; gain = 1 + (K.torqueMul - 1) * f.punchPower; } // arm whips straight out along the aim
     else { U = aimR + K.guardUpper * guardBend; E = K.guardElbow * guardBend; } // guard: fist up in front
   }
@@ -709,6 +748,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     motor(f.elbow, f.poseE, P.elbowStiffness, P.elbowDamping, P.elbowMaxTorque);
     motor(f.grip as RevoluteImpulseJoint, f.poseW, P.wristStiffness, P.wristDamping, P.wristMaxTorque);
   } else {
-    motor(f.elbow, f.poseE, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
+    const eg = grabbing ? gain : 1; // holding a body needs a strong elbow too
+    motor(f.elbow, f.poseE, A.elbowStiffness * eg, A.elbowDamping * eg, A.elbowMaxTorque * eg);
   }
 }

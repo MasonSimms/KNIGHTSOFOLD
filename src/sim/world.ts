@@ -2,7 +2,7 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
-import { buildFighter, controlFighter, giveStick, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
+import { buildFighter, controlFighter, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { makeRng } from './rng';
 import { NEUTRAL } from './types';
@@ -120,6 +120,8 @@ export class Sim {
   }
 
   private respawn(f: Fighter): void {
+    for (const g of this.fighters) if (g.held === f) { g.hold = null; g.held = null; } // removing the bodies removes the grab joint too
+    letGo(this.world, f, false, this.events);
     for (const p of f.parts) {
       this.partByBody.delete(p.body.handle);
       this.world.removeRigidBody(p.body);
@@ -133,6 +135,12 @@ export class Sim {
     this.frame++;
 
     for (const f of this.fighters) {
+      if (f.held) {
+        if (f.held.inBack) letGo(this.world, f, false, this.events); // a dodge slips out of a grab
+        else f.held.stun = Math.max(f.held.stun, 2); // being held: no walking, weak balance
+      }
+    }
+    for (const f of this.fighters) {
       controlFighter(this.world, f, f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events);
       for (const p of f.parts) {
         const v = p.body.linvel(this.tmpV);
@@ -144,7 +152,9 @@ export class Sim {
     this.keepWeaponsInPlay();
     this.world.step();
     this.settlePlanes();
+    this.resolveGrabs();
     this.resolveHits();
+    this.resolveSlams();
     this.checkDeaths();
     this.snapshot();
   }
@@ -168,6 +178,74 @@ export class Sim {
       if (best !== f) this.version++; // the club changed hands, so the renderer must rebuild
       this.events.push({ t: 'pickup', x: bt.x, y: bt.y, v: 0, owner: f.index, victim: -1 });
     }
+  }
+
+  /** An outstretched empty hand locks onto the first part of another fighter it touches (not a club, not the floppy second arm). */
+  private resolveGrabs(): void {
+    for (const f of this.fighters) {
+      if (!f.reaching || f.hold || f.limp) continue;
+      const fist = f.fore.colliders[1];
+      this.world.contactPairsWith(fist, (other) => {
+        if (f.hold) return;
+        const vb = other.parent();
+        const part = vb && this.partByBody.get(vb.handle);
+        if (!part || part.owner === f.index || part.role === 'stick' || part.role === 'off') return;
+        const victim = this.fighters[part.owner];
+        if (!victim || victim.inBack || victim.held === f) return;
+        this.world.contactPair(fist, other, (m) => {
+          const p = !f.hold && m.numSolverContacts() > 0 && m.solverContactPoint(0, this.tmpP);
+          if (!p) return;
+          f.hold = grabJoint(this.world, f, part, p);
+          f.held = victim;
+          this.events.push({ t: 'grab', x: p.x, y: p.y, v: 0, owner: f.index, victim: victim.index });
+        });
+      });
+    }
+  }
+
+  /** A flung fighter crashing hard into the floor, a wall or a third fighter gets hurt (and so does that third fighter). */
+  private resolveSlams(): void {
+    const G = T.grab;
+    for (const v of this.fighters) {
+      if (v.thrown <= 0) continue;
+      v.thrown--;
+      if (v.slamWait > 0) { v.slamWait--; continue; }
+      if (v.limp) continue;
+      for (const p of v.parts) {
+        if (p.role === 'off' || (p.role === 'stick' && !v.grip)) continue;
+        for (const col of p.colliders) {
+          this.world.contactPairsWith(col, (other) => {
+            if (v.slamWait > 0) return;
+            const ob = other.parent();
+            const op = ob ? this.partByBody.get(ob.handle) : undefined;
+            const third = op && op.owner !== v.index && op.owner !== v.thrownBy ? this.fighters[op.owner] : undefined;
+            if (!ob || (!ob.isFixed() && !third)) return;
+            this.world.contactPair(col, other, (m) => {
+              if (v.slamWait > 0 || m.numSolverContacts() === 0) return;
+              const n = m.normal(this.tmpN);
+              const crash = Math.abs((p.vx - (op?.vx ?? 0)) * n.x + (p.vy - (op?.vy ?? 0)) * n.y);
+              const impact = impactValue(crash, G.slamFactor);
+              const dmg = damageFor(impact);
+              if (dmg <= 0) return;
+              v.slamWait = G.slamCooldown;
+              const pt = m.solverContactPoint(0, this.tmpP) ?? p.body.translation();
+              this.wound(v, dmg, impact, pt.x, pt.y, v.thrownBy);
+              if (third && !third.limp) this.wound(third, dmg, impact, pt.x, pt.y, v.thrownBy);
+            });
+          });
+        }
+      }
+    }
+  }
+
+  /** Take hidden HP off a fighter and stagger them; they die at zero. */
+  private wound(victim: Fighter, dmg: number, impact: number, x: number, y: number, owner: number, head = false): void {
+    this.lastImpact = impact;
+    victim.hp -= dmg;
+    victim.stun = T.combat.stunFrames;
+    if (victim.hold && impact >= T.grab.breakImpact) letGo(this.world, victim, false, this.events); // a good hit makes a grabber let go
+    this.events.push({ t: 'hit', x, y, v: impact, owner, victim: victim.index, head });
+    if (victim.hp <= 0) this.kill(victim, false, impact);
   }
 
   /** A club lost in the void comes back from the sky after a while, so there are always weapons in play. */
