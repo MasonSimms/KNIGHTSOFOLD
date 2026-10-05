@@ -42,6 +42,7 @@ export interface Fighter {
   stun: number;
   deadAt: number;
   charge: number; // frames the charge button has been held
+  side: number; // 1 = facing right, -1 = facing left (from the aim, with hysteresis)
   prevAim: number; // last frame's aim angle, to know how fast the mouse is turning
   throwWind: number; // frames left of the automatic cock-back before a throw
   release: number; // frames left of the post-release torque burst
@@ -124,7 +125,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
     grip: null, attackers, hp: F.hp, limp: false, stun: 0, deadAt: 0,
-    charge: 0, prevAim: 0, throwWind: 0, release: 0, releaseMul: 1, prevJump: false, prevThrow: false, prevGrab: false,
+    charge: 0, side: 1, prevAim: 0, throwWind: 0, release: 0, releaseMul: 1, prevJump: false, prevThrow: false, prevGrab: false,
     spawnX: x, spawnY: y,
   };
 
@@ -157,7 +158,7 @@ function attachStick(world: World, f: Fighter): void {
   stick.body.setLinvel({ x: 0, y: 0 }, true);
   stick.body.setAngvel(0, true);
   const j = revolute(world, fore, L / 2, 0, stick.body, -grip, 0);
-  j.setLimits(-T.stick.wristLimit, T.stick.wristLimit);
+  j.setLimits(-T.longMelee.wristLimit, T.longMelee.wristLimit);
   f.grip = j;
   const pose = (p: Part) => { const t = p.body.translation(); p.px = p.cx = t.x; p.py = p.cy = t.y; p.pa = p.ca = p.body.rotation(); };
   pose(stick);
@@ -229,15 +230,19 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   if (fire > 0) {
     f.release = C.releaseFrames;
     f.releaseMul = 1 + (C.torqueMul - 1) * fire;
-    body.applyImpulse({ x: aimX * C.lungeImpulse * fire, y: aimY * C.lungeImpulse * fire }, true);
+    // The lunge follows the aim but stays within lungeMaxAngle of horizontal: it throws you at the opponent, not into the floor or the sky.
+    const flat = aimX >= 0 ? 0 : Math.PI;
+    const la = flat + Math.max(-C.lungeMaxAngle, Math.min(C.lungeMaxAngle, wrapAngle(input.aim - flat)));
+    body.applyImpulse({ x: Math.cos(la) * C.lungeImpulse * fire, y: Math.sin(la) * C.lungeImpulse * fire }, true);
   }
-  let gain = f.release > 0 ? f.releaseMul : 1; // burst: stiffer, stronger arm for a moment
   if (f.release > 0) f.release--;
+  // After release the club stays raised while the fighter flies forward; slamDelay frames later it comes down (the burst).
+  const slamming = f.release > 0 && C.releaseFrames - f.release > C.slamDelay;
+  const holdingUp = f.release > 0 && !slamming;
+  let gain = slamming ? f.releaseMul : 1; // burst: stiffer, stronger arm for the slam
 
-  // Throw: the arm cocks back on its own (opposite side to the aim), then lets go and the weapon flies along the aim.
-  let cockAngle = 0;
+  // Throw: the arm goes to the raised charge pose on its own, then lets go and the weapon flies along the aim.
   if (throwing) {
-    cockAngle = -T.throw.cockAngle * (aimX >= 0 ? 1 : -1);
     gain = T.throw.torqueMul;
     if (--f.throwWind === 0 && f.grip && f.stick) {
       world.removeImpulseJoint(f.grip, true);
@@ -250,23 +255,50 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     }
   }
 
-  // Aim: shoulder motors chase the aim angle (relative to the torso), so body momentum adds to swings.
+  // Pose. Everything is worked out as if the fighter faces right, then mirrored: that keeps the club on the correct side
+  // when you aim left. Angles: U = upper arm (world), E = elbow bend, W = wrist bend (both relative); negative = up/counter-clockwise.
+  if (aimX > 0.25) f.side = 1;
+  else if (aimX < -0.25) f.side = -1;
+  const s = f.side;
+  const mirror = (a: number) => (s > 0 ? a : Math.PI - a); // a right-facing world angle -> the real world angle
+  const aimR = mirror(input.aim);
+  const P = T.longMelee;
+  let U = aimR, E = 0, W = 0; // unarmed: a straight arm pointing at the aim
+  let followAim = true;
+  if (f.grip) {
+    if (throwing || charging || holdingUp) {
+      // Charge: club raised above the head, leaning slightly back; leans further back the longer you hold.
+      const c = holdingUp ? (f.releaseMul - 1) / (C.torqueMul - 1) : f.charge / C.maxFrames;
+      U = P.chargeUpper; E = P.chargeElbow + P.chargeCock * c; W = P.chargeWrist;
+      followAim = false;
+    } else if (slamming) {
+      E = P.slamElbow; W = P.slamWrist; // slam: arm swings down through the aim and straightens
+    } else {
+      E = P.guardElbow; W = P.guardWrist; // guard: elbow bent, club held upright in front
+    }
+  }
+
   const tr = body.rotation();
   const motor = (j: RevoluteImpulseJoint, target: number, stiff: number, damp: number, maxTorque: number) => {
     j.configureMotorPosition(target, stiff, damp);
     j.setMotorMaxForce(maxTorque);
   };
-  // Shoulder: a velocity follower. It turns the arm toward the aim at a speed proportional to the error (no overshoot),
+  // Shoulder: a velocity follower. It turns the arm toward its target at a speed proportional to the error (no overshoot),
   // plus the mouse's own turn rate as feed-forward so a steady sweep has almost no trailing error.
   const clamp = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
-  const aimRate = clamp(wrapAngle(input.aim - f.prevAim) / dt, A.maxAimRate) * A.aimFeedForward;
+  const aimRate = followAim ? clamp(wrapAngle(input.aim - f.prevAim) / dt, A.maxAimRate) * A.aimFeedForward : 0;
   f.prevAim = input.aim;
-  const err = wrapAngle(input.aim + cockAngle - f.upper.body.rotation());
-  const wantRate = clamp(A.shoulderTrack * err, A.shoulderMaxRate * gain) + aimRate; // desired world turn rate of the arm
+  const err = wrapAngle(mirror(U) - f.upper.body.rotation());
+  const wantRate = clamp(A.shoulderTrack * err, A.shoulderMaxRate * (1 + (gain - 1) * A.burstRateShare)) + aimRate; // desired world turn rate of the arm
   f.shoulder.configureMotorVelocity(wantRate - body.angvel(), A.shoulderForce * gain); // the joint works in torso-relative terms
   f.shoulder.setMotorMaxForce(A.shoulderMaxTorque * gain);
-  motor(f.elbow, 0, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
-  if (f.grip) motor(f.grip as RevoluteImpulseJoint, 0, T.stick.wristStiffness, T.stick.wristDamping, T.stick.wristMaxTorque);
+  // Elbow and wrist are springs with a rest angle: soft enough that the club head lags and whips when you flick the mouse.
+  if (f.grip) {
+    motor(f.elbow, s * E, P.elbowStiffness, P.elbowDamping, P.elbowMaxTorque);
+    motor(f.grip as RevoluteImpulseJoint, s * W, P.wristStiffness, P.wristDamping, P.wristMaxTorque);
+  } else {
+    motor(f.elbow, 0, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
+  }
 
   // Grab / drop the stick.
   if (input.grab && !f.prevGrab && f.stick) {

@@ -55,6 +55,7 @@ export const tuning = {
   arm: {
     // The shoulder follows the aim like a velocity servo: turn rate = shoulderTrack x angle error (capped), so no overshoot.
     shoulderTrack: 25, // 1/s: bigger = tighter to the mouse (25 closes a gap in about 3 frames)
+    burstRateShare: 0.5, // during a charge burst or throw wind-up, how much of the extra strength also raises the turn-rate cap (lower = smoother, slower arc)
     shoulderMaxRate: 14, // rad/s cap on how fast the arm can turn
     shoulderForce: 300, // N*m per rad/s of rate error: how firmly it holds that rate
     aimFeedForward: 1, // 0 = ignore how fast the mouse is turning, 1 = full
@@ -63,7 +64,7 @@ export const tuning = {
     elbowStiffness: 1500,
     elbowDamping: 60,
     elbowMaxTorque: 600,
-    elbowLimit: 1.6,
+    elbowLimit: 2.6,
     limpDamping: 0.5,
   },
   stick: {
@@ -72,26 +73,42 @@ export const tuning = {
     mass: 1.2,
     gripFromEnd: 0.25,
     impactFactor: 2.2, // this weapon's damage factor: impact = hit speed (m/s) x this
-    wristStiffness: 1500,
-    wristDamping: 40,
-    wristMaxTorque: 300,
-    wristLimit: 0.35,
     grabRange: 0.8,
+  },
+  longMelee: {
+    // How a club-type weapon is held. Angles are for a fighter facing right (mirrored when facing left):
+    // negative = counter-clockwise = up. U is the upper arm, E the elbow bend, W the wrist bend (both relative to the part before).
+    guardElbow: -1.3, // elbow bent so the forearm points up and the club stands upright in front
+    guardWrist: 0.2,
+    chargeUpper: -1.2, // charge: arm raised above the head...
+    chargeElbow: -0.5, // ...elbow folded back a little
+    chargeWrist: -0.1, // ...so the club leans slightly behind the head
+    chargeCock: -0.2, // extra backward lean added at full charge
+    slamElbow: 0, // slam: the arm straightens...
+    slamWrist: 0.3, // ...and the club is pointing a little downward at the end
+    elbowStiffness: 500, // springs with a rest angle: softer = the club head lags and whips more
+    elbowDamping: 40,
+    elbowMaxTorque: 400,
+    wristStiffness: 150,
+    wristDamping: 12,
+    wristMaxTorque: 150,
+    wristLimit: 2.4, // how far the club can flop relative to the forearm
   },
   charge: {
     // Hold the charge button (left-click): the weapon stays on your aim and loads momentum. Release: the fighter lunges
     // along the aim and the arm gets a torque burst.
     minFrames: 3, // shorter holds do nothing
     maxFrames: 30, // hold this long for a full charge (0.5 s)
+    lungeMaxAngle: 0.61, // radians (35 degrees): the lunge follows the aim but stays this close to horizontal
     lungeImpulse: 100, // N*s along the aim at full charge (about 8 m/s for this body)
     torqueMul: 2, // shoulder strength multiplier at full charge during the burst (1 = none)
+    slamDelay: 7, // frames after release before the club comes down: you fly forward with it raised, then slam
     releaseFrames: 18, // how long the burst lasts
     moveFactor: 0.5, // walking speed while charging
   },
   throw: {
     // Right-click: the arm cocks back automatically, then the weapon flies along the aim.
     windupFrames: 8,
-    cockAngle: 1.9, // how far behind the aim line the arm pulls back (radians)
     torqueMul: 1.5, // arm strength during the wind-up, so it gets there in time
     speed: 16, // m/s
     spin: 18, // rad/s of tumble
@@ -101,8 +118,9 @@ export const tuning = {
   },
   combat: {
     impactMin: 10, // below this nothing happens (resting contact never hurts)
-    damageScale: 2.5,
-    damageMax: 60,
+    damageScale: 0.3,
+    damageExp: 1.5, // 1 = damage grows in a straight line with impact; above 1, big committed swings are worth disproportionately more
+    damageMax: 100,
     knockbackScale: 1.5,
     knockbackUp: 0.3, // extra upward launch per impact
     knockbackMax: 90,

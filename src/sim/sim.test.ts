@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue } from './combat';
 import { hashSim } from './hash';
 import type { PlayerInput } from './types';
@@ -52,6 +53,6 @@ describe('combat maths', () => {
     const slow = damageFor(impactValue(4, 2.2));
     const fast = damageFor(impactValue(9, 2.2));
     expect(fast).toBeGreaterThan(slow);
-    expect(damageFor(impactValue(1000, 2.2))).toBeLessThanOrEqual(60);
+    expect(damageFor(impactValue(1000, 2.2))).toBeLessThanOrEqual(T.combat.damageMax);
   });
 });

@@ -9,7 +9,10 @@ import { toggleOverlay, updateOverlay } from './ui/overlay';
 
 const T = tuning;
 // Open http://localhost:5173/?stress to add two scripted flailing fighters: a 4-fighter frame-time check, not AI.
-const stress = new URLSearchParams(location.search).has('stress');
+const query = new URLSearchParams(location.search);
+const stress = query.has('stress');
+// Open http://localhost:5173/?slow=0.2 to run the game at 20% speed, to study a slam frame by frame.
+const slow = Math.min(1, Number(query.get('slow')) || 1);
 const sim = await Sim.create(1, stress ? 4 : 2);
 
 function flail(frame: number, who: number): PlayerInput {
@@ -51,7 +54,7 @@ function frame(now: number) {
   requestAnimationFrame(frame);
   const ft = Math.min(now - last, 100); // clamp so a tab switch doesn't cause a huge catch-up
   last = now;
-  acc += ft / 1000;
+  acc += (ft / 1000) * slow;
 
   if (wasPressed('F3')) toggleOverlay();
   if (wasPressed('KeyR')) sim.reset();
