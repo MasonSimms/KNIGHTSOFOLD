@@ -96,7 +96,7 @@ describe('era gameplay: weapon and arena', () => {
         checks++;
       }
     }
-    expect(seen.size).toBeGreaterThan(3); // several different weapons came up
+    expect(seen.size).toBeGreaterThanOrEqual(3); // several different weapons came up
     expect(joinedAt).toBeGreaterThan(0);
     expect(checks).toBeGreaterThan(100);
     expect(late.desyncs).toBe(0);

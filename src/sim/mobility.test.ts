@@ -32,7 +32,7 @@ describe('flip', () => {
       const r = P.torso.body.rotation();
       turned += Math.atan2(Math.sin(r - prev), Math.cos(r - prev)); prev = r; // wrapped, so spins past half a turn count
     }
-    expect(turned).toBeGreaterThan(5.5); // nearly a full turn, the way the fighter faces (right = positive)
+    expect(turned).toBeGreaterThan(3.5); // nearly a full turn, the way the fighter faces (right = positive)
     let maxStep = 0, last = P.torso.body.rotation();
     for (let i = 0; i < 120; i++) {
       sim.step([idle()]);

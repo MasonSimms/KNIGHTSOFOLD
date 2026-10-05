@@ -205,7 +205,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const c: Container[] = [];
       for (const p of f.parts as Part[]) {
         const k = new Container();
-        k.zIndex = p.role === 'off' ? -2 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs
+        k.zIndex = p.role === 'off' ? -2 : p.role === 'stick' ? -0.5 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs; a held club is behind the hand and arm so it looks gripped
         const color = p.role === 'stick' ? T.colors.stick : base;
         const shade = p.role === 'off' ? mix(color, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(color, 0x000000, 0.18) : color;
         for (const s of p.shapes) k.addChild(drawShape(s, shade));

@@ -177,7 +177,7 @@ export const tuning = {
   },
   flip: {
     // Hold W (gamepad: left stick up) in the air: the body rotates forward, the way you face. Let go and it rights itself.
-    spin: 11, // rad/s the body spins up to while holding (a bit under 2 turns a second: a full flip fits in one jump)
+    spin: 7, // rad/s the body spins up to while holding W (one turn a second; was 11, owner found it too fast)
     accel: 90, // rad/s^2: how quickly it gets there (and how quickly it stops spinning when you let go)
     // After landing (or letting go of flip on the ground) a body that is not upright turns smoothly back, instead of snapping:
     rightGain: 7, // 1/s: turn rate per radian of tilt
