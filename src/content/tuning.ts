@@ -31,6 +31,9 @@ export const tuning = {
     ground: [] as { x: number; w: number }[], // separate ground slabs instead of one platform (empty = the one platform)
     bridge: null as null | { x0: number; x1: number; planks: number }, // a plank bridge across a gap in the ground
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
+    // The front plane: things between us and the fighters (looks only: nobody can touch them). kind = grass or sign; x, y = where its base
+    // sits (metres, the view is 19.2 x 10.8); scale = size; speed = m/s it slides across (a sign passing the train), wrapping round.
+    front: [] as { kind: 'grass' | 'sign'; x: number; y: number; scale?: number; speed?: number }[],
   },
   fighter: {
     hp: 100, // hidden: never shown on screen (F3 overlay only)
@@ -199,6 +202,7 @@ export const tuning = {
   arm: {
     // The shoulder follows the aim like a velocity servo: turn rate = shoulderTrack x angle error (capped), so no overshoot.
     shoulderTrack: 25, // 1/s: bigger = tighter to the mouse (25 closes a gap in about 3 frames)
+    overTopMin: 1.5, // rad: a swing bigger than this whose short way round points down goes up over the top instead (so turning round never digs the club into the floor)
     burstRateShare: 0.5, // during a charge burst or throw wind-up, how much of the extra strength also raises the turn-rate cap (lower = smoother, slower arc)
     shoulderMaxRate: 14, // rad/s cap on how fast the arm can turn
     shoulderForce: 300, // N*m per rad/s of rate error: how firmly it holds that rate
@@ -223,8 +227,12 @@ export const tuning = {
   longMelee: {
     // How a club-type weapon is held. Angles are for a fighter facing right (mirrored when facing left):
     // negative = counter-clockwise = up. U is the upper arm, E the elbow bend, W the wrist bend (both relative to the part before).
-    guardElbow: -1.0, // elbow bent so the club is held up in front
-    guardWrist: 0.3,
+    // Guard (owner: the club follows the mouse but is HELD like a club, coming out of the fist across the forearm, not pointing straight on
+    // from the arm). The club itself points at the mouse; the wrist holds it bent off the forearm and the arm is placed to suit.
+    // The whole arm turns with the aim from the shoulder (so swings keep their power); the grip itself is fixed. Aiming forward: fist at the
+    // chest, club out level. Aiming up: fist above the head, club up. Aiming down: fist at the waist, club hanging down.
+    holdWrist: 1.3, // the club sits this far off the forearm (about 75 degrees: it comes out of the fist, not along the arm)
+    holdElbow: -2.0, // elbow folded (upper arm down and forward, forearm up)
     bendFade: 0.35, // the bend fades out over this much of aim as the cursor gets near straight up or down, so the arm can sweep over the top
     chargeUpper: -1.2, // charge: arm raised above the head...
     chargeElbow: -0.5, // ...elbow folded back a little
@@ -448,14 +456,19 @@ export const tuning = {
     paint: { width: 1280, under: 0.5, relief: 0.55, bristle: 0.25, jitter: 0.45 },
     // A live oil filter over the fighters, props and paint (off: they are painted textures now; set enabled: true to compare).
     oil: { enabled: false, radius: 3.5, relief: 0.13, stroke: 46 }, // radius = how far colour is blended (px at 1080p), relief = paint thickness lighting, stroke = brush length
+    shadow: { alpha: 0.22, blur: 6, x: 0.05, y: 0.06 }, // the faint soft shadow that lifts each fighter off the map: strength, softness (px at 1080p), offset (m)
+    front: { blur: 3.5 }, // how out of focus the front plane is (px at 1080p)
     boilFps: 9, // how often the painted fighters' brush strokes change (the package: 3 painted variants at 8-10 fps)
     // The hot-colour cape (looks only): where it hangs from (metres from the torso's centre), and how the cloth moves.
     cape: { backX: 0.1, shoulderY: -0.24, gravity: 9, trail: 3, flutter: 2.5, flutterRate: 6, damping: 0.94 },
     underOffset: 0.025, // metres: the dark underpaint peeking out at the lower right of fighters and objects
     paintBlur: 0.6, // softness of the paint on the picture (pixels at 1080p)
     // The painting style. Every era can override any of these in its `style` row (content/eras.ts).
+    // THREE PLANES (owner): the background plane (painted, blurred and hazed), the play plane (fighters, ground, props: sharp), and an
+    // optional front plane (arena data: grass, a passing sign...) between us and the fighters, slightly out of focus.
     style: {
-      blur: 3, // how out of focus the background is (pixels at 1080p; painted in: fighters and the ground stay sharp)
+      blur: 5, // how out of focus the background plane is (pixels at 1080p; painted in: the ground the fighters stand on stays sharp)
+      haze: 0.1, // how much the background plane fades toward the horizon colour (air between us and it)
       grain: 0.035, // how strong the live canvas grain is (0 = none; the painted backdrop has its own weave)
       tint: 0xffe2b0, // a colour wash over the whole picture, like old varnish
       tintAlpha: 0, // (the painted backdrop is already graded; an era can still add a wash)

@@ -45,9 +45,10 @@ describe('picking up and knocking out weapons', () => {
     const missile = P2().stick!.body;
     const ft = P0().fore.body.translation(), fa = P0().fore.body.rotation();
     const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
-    missile.setTranslation({ x: hx, y: hy - 1.0 }, true); // straight above the hand, coming down onto it
-    missile.setRotation(Math.PI / 2, true);
-    missile.setLinvel({ x: 0, y: 30 }, true);
+    // from the front, just under the club, straight at the fist (in guard the club lies across the top of the fist and the body is behind it)
+    missile.setTranslation({ x: hx + 1.0, y: hy + 0.12 }, true);
+    missile.setRotation(0, true);
+    missile.setLinvel({ x: -30, y: 0 }, true);
     let disarmed = false;
     for (let i = 0; i < 10; i++) {
       step({}, {});
@@ -150,7 +151,9 @@ describe('arena weapon rules', () => {
 describe('parry', () => {
   /** Fighter 2's club (let go, then flung) hits fighter 0's club, which is held still in guard. */
   async function swingAtGuard(speed: number) {
-    const { sim, step, P0, P2 } = await three();
+    const { sim, step: step0, P0, P2 } = await three();
+    const step = (a: Partial<PlayerInput> = {}, c: Partial<PlayerInput> = {}) => step0({ aim: -1.1, ...a }, c); // guard raised: the club stands up and forward, side-on to the swing
+    for (let i = 0; i < 30; i++) step();
     step({}, { drop: true });
     const missile = P2().stick!.body;
     const g = P0().stick!.body.translation();

@@ -4,6 +4,7 @@ import { Texture } from 'pixi.js';
 import { eraById } from '../../content/eras';
 import { tuning as T } from '../../content/tuning';
 import type { Arena } from '../../sim/world';
+import type { PaintKnobs } from './bake';
 import type { ArenaGeo } from './scene';
 import type { BakeRequest, BakeResult } from './worker';
 
@@ -20,7 +21,8 @@ export function createBackdrops() {
   let worker: Worker | null = null;
   try { worker = typeof OffscreenCanvas !== 'undefined' ? new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }) : null; } catch { worker = null; }
   const done = new Map<string, Texture>(), pending = new Set<string>(), order: string[] = [];
-  const keyOf = (era: string, A: Arena) => `${era}|${JSON.stringify(geoOf(A))}|${JSON.stringify(T.finish.paint)}`;
+  const knobsOf = (era: string): PaintKnobs => { const P = T.finish.paint, S = { ...T.finish.style, ...eraById(era).style }; return { under: P.under, relief: P.relief, bristle: P.bristle, jitter: P.jitter, dof: S.blur, haze: S.haze }; };
+  const keyOf = (era: string, A: Arena) => `${era}|${JSON.stringify(geoOf(A))}|${JSON.stringify(knobsOf(era))}|${T.finish.paint.width}`;
   worker?.addEventListener('message', (e: MessageEvent<BakeResult>) => {
     const r = e.data;
     pending.delete(r.key);
@@ -35,7 +37,7 @@ export function createBackdrops() {
     if (!worker || done.has(key) || pending.has(key)) return key;
     pending.add(key);
     const P = T.finish.paint, h = Math.round((P.width * 9) / 16);
-    worker.postMessage({ key, era, geo: geoOf(A), w: P.width, h, seed: 7, knobs: { under: P.under, relief: P.relief, bristle: P.bristle, jitter: P.jitter, dof: { ...T.finish.style, ...eraById(era).style }.blur } } satisfies BakeRequest);
+    worker.postMessage({ key, era, geo: geoOf(A), w: P.width, h, seed: 7, knobs: knobsOf(era) } satisfies BakeRequest);
     return key;
   };
   return {

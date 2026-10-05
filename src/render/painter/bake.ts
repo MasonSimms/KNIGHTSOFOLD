@@ -15,6 +15,7 @@ export interface PaintKnobs {
   bristle: number; // how streaky each stroke is
   jitter: number; // colour wobble between strokes
   dof: number; // how out of focus everything but the ground is (px at 1080p)
+  haze: number; // how much the background plane fades toward the horizon colour
 }
 
 export function bakeBackdrop(cfg: Painting, geo: ArenaGeo, W: number, H: number, seed: number, K: PaintKnobs): ImageData {
@@ -78,7 +79,11 @@ export function bakeBackdrop(cfg: Painting, geo: ArenaGeo, W: number, H: number,
   const dofPx = K.dof * (H / 1080);
   if (dofPx > 0.3) {
     const far = blurImg(lit, dofPx), keep = blur(sc.platMask, W, H, Math.max(0.5, scale));
-    for (let c = 0; c < 3; c++) for (let i = 0; i < N; i++) lit.c[c][i] = far.c[c][i] * (1 - keep[i]) + lit.c[c][i] * keep[i];
+    const air = [1, 3, 5].map((o) => parseInt(cfg.sky[2].slice(o, o + 2), 16) / 255); // the horizon colour
+    for (let c = 0; c < 3; c++) for (let i = 0; i < N; i++) {
+      const bg = far.c[c][i] * (1 - K.haze) + air[c] * K.haze; // the background plane: soft, and a little lost in the air
+      lit.c[c][i] = bg * (1 - keep[i]) + lit.c[c][i] * keep[i];
+    }
   }
   return toImageData(lit);
 }

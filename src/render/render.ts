@@ -3,7 +3,7 @@ import { eraById } from '../content/eras';
 import { COLORS } from '../content/looks';
 import { createOilFilter, setOilScale } from './oilpaint';
 import { createBackdrops } from './painter/backdrops';
-import { CAPE, paintedCape, paintedShape, paintedSplats, PPM, VARIANTS } from './painter/sprites';
+import { CAPE, paintedCape, paintedFront, paintedShape, paintedSplats, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Hat } from '../content/looks';
 import { tuning as T } from '../content/tuning';
@@ -140,6 +140,8 @@ interface Entry {
   painted: Painted[][]; // per part: its painted shapes
   cape: Cape; // the hot-colour cape flowing from the shoulders
   under: Container[]; // per part: its dark underpaint silhouette (drawn behind the whole fighter, offset down-right)
+  soft: Container[]; // per part: its share of the fighter's faint soft shadow on the map (in the shadow layer)
+  shade: Container; // all of this fighter's soft shadow
   eyes: Container[]; // painted eyes: they look the way the fighter faces
   blur: BlurFilter; // softens the fighter as they slip back into the background plane (dodge)
   crushed: boolean; // flattened by a stomp or a crash
@@ -196,7 +198,14 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const fighterLayer = new Container();
   const propLayer = new Container(); // planks, logs and other loose objects
   actors.addChild(paintLayer, propLayer, backLayer, fighterLayer, splatLayer);
-  view.addChild(flat, painted, actors);
+  // The three planes (owner): background (the painted backdrop, blurred and hazed), the play plane (fighters, ground, props: sharp, each
+  // fighter lifted off the map by a faint soft shadow) and, on some maps, a front plane between us and the fighters, slightly out of focus.
+  const shadows = new Container(), shadowBlur = new BlurFilter({ strength: 4, quality: 2 });
+  shadows.filters = [shadowBlur];
+  const front = new Container(), frontBlur = new BlurFilter({ strength: 3, quality: 3 });
+  front.filters = [frontBlur];
+  const frontItems: { s: Sprite; x: number; speed: number }[] = [];
+  view.addChild(flat, painted, shadows, actors, front);
 
 
   // Cheap global finish on top of everything (screen space).
@@ -279,14 +288,27 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       propLayer.addChild(k);
       propEntries.push({ p, k, painted, under });
     }
-    for (const e of entries) e.group.destroy({ children: true });
+    for (const e of entries) { e.group.destroy({ children: true }); e.shade.destroy({ children: true }); }
+    // The front plane of this arena (looks only).
+    for (const it of frontItems) it.s.destroy();
+    frontItems.length = 0;
+    const pa = paintingFor(sim.era), PK = { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under };
+    for (const it of sim.arena.front) {
+      const s = new Sprite(paintedFront(it.kind, pa.side.slice(0, 4), PK));
+      s.anchor.set(0.5, 1);
+      s.scale.set((it.scale ?? 1) / PPM);
+      s.position.set(it.x, it.y);
+      front.addChild(s);
+      frontItems.push({ s, x: it.x, speed: it.speed ?? 0 });
+    }
     fighterLayer.removeChildren();
     entries.length = 0;
     for (const f of sim.fighters) {
       const group = new Container();
       const base = fighterColor(f);
       group.sortableChildren = true;
-      const c: Container[] = [], eyes: Container[] = [], painted: Painted[][] = [], under: Container[] = [];
+      const c: Container[] = [], eyes: Container[] = [], painted: Painted[][] = [], under: Container[] = [], soft: Container[] = [], shadeC = new Container();
+      shadows.addChild(shadeC);
       const underAll = new Container();
       underAll.zIndex = -10;
       group.addChild(underAll);
@@ -300,6 +322,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
         underAll.addChild(u);
         under.push(u);
+        const sh = new Container();
+        for (const s of p.shapes) sh.addChild(drawShape(s, 0x000000));
+        shadeC.addChild(sh);
+        soft.push(sh);
         // The hat goes on the head: the head part once it has come off, otherwise the head ball on the torso.
         const hat = f.controlled ? sim.looks[f.index]?.hat : undefined;
         const onHead = p.role === 'head' || (p.role === 'torso' && !f.ragdolled);
@@ -312,7 +338,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         c.push(k);
       }
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, eyes, painted, under, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
+      entries.push({ f, group, c, eyes, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
     }
     builtVersion = sim.version;
   }
@@ -382,7 +408,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       if (builtVersion !== sim.version) rebuild();
       boil += frameSeconds * T.finish.boilFps;
       variant = Math.floor(boil) % VARIANTS;
-      const off = T.finish.underOffset;
+      const off = T.finish.underOffset, SH = T.finish.shadow;
+      shadowBlur.strength = SH.blur * px;
+      shadows.alpha = SH.alpha;
+      frontBlur.strength = T.finish.front.blur * px;
+      const span = A.viewW + 4, now = boil / T.finish.boilFps; // a moving front item slides across and comes round again
+      for (const it of frontItems) if (it.speed) it.s.x = ((((it.x + it.speed * now + 2) % span) + span) % span) - 2;
       for (const { p, k, painted: pp, under } of propEntries) {
         k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha));
         k.rotation = p.pa + wrap(p.ca - p.pa) * alpha;
@@ -418,7 +449,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           u.position.set(k.x + off, k.y + off);
           u.rotation = k.rotation;
           for (const q of e.painted[i]) updatePainted(q, k.rotation, variant);
+          const sh = e.soft[i];
+          sh.position.set(k.x + SH.x, k.y + SH.y);
+          sh.rotation = k.rotation;
         });
+        e.shade.alpha = 1 - e.vis; // a fighter slipping into the background plane leaves the play plane's shadow behind
         for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
         const torso = c[0], tc = Math.cos(torso.rotation), ts = Math.sin(torso.rotation), cx = -f.side * T.finish.cape.backX, cy = T.finish.cape.shoulderY;
         stepCape(e.cape, torso.x + tc * cx - ts * cy, torso.y + ts * cx + tc * cy, f.side, frameSeconds, boil / T.finish.boilFps, variant);

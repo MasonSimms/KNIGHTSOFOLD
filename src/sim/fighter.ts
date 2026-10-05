@@ -829,9 +829,11 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       // The club cocks back gradually as the charge builds, from the guard toward raised-and-leaning-back, and stays there while you
       // fly forward after releasing. The pose is the charge indicator: there is nothing else to look at.
       const c = holdingUp ? (f.releaseMul - 1) / (C.torqueMul - 1) : charging ? f.charge / C.maxFrames : 0;
-      U = lerp(aimR, P.chargeUpper, c);
-      E = lerp(P.guardElbow * guardBend, P.chargeElbow + P.chargeCock * c, c);
-      W = lerp(P.guardWrist * guardBend, P.chargeWrist, c);
+      // Guard: the club points at the aim, gripped across the fist (wrist bent), and the arm is placed so it adds up: arm + elbow + wrist = aim.
+      const gW = P.holdWrist * guardBend, gE = P.holdElbow * guardBend;
+      U = lerp(aimR - gW - gE, P.chargeUpper, c);
+      E = lerp(gE, P.chargeElbow + P.chargeCock * c, c);
+      W = lerp(gW, P.chargeWrist, c);
       followAim = c < 0.5;
     }
   } else if (f.controlled) {
@@ -850,7 +852,10 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // plus the mouse's own turn rate as feed-forward so a steady sweep has almost no trailing error.
   const aimRate = followAim ? clamp(wrapAngle(input.aim - f.prevAim) / dt, A.maxAimRate) * A.aimFeedForward : 0;
   f.prevAim = input.aim;
-  const err = wrapAngle(mirror(U) - f.upper.body.rotation());
+  let err = wrapAngle(mirror(U) - f.upper.body.rotation());
+  // A big swing (turning round, a flick of the mouse) goes up over the top rather than down through the floor, where the club would dig in
+  // and shove the fighter.
+  if (Math.abs(err) > A.overTopMin && Math.sin(f.upper.body.rotation() + err / 2) > 0.5) err -= Math.sign(err) * Math.PI * 2;
   const wantRate = clamp(A.shoulderTrack * err, A.shoulderMaxRate * (1 + (gain - 1) * A.burstRateShare)) + aimRate; // desired world turn rate of the arm
   f.shoulder.configureMotorVelocity(wantRate - body.angvel(), A.shoulderForce * gain); // the joint works in torso-relative terms
   f.shoulder.setMotorMaxForce(A.shoulderMaxTorque * gain);

@@ -155,3 +155,38 @@ export function paintedSplats(K: SpriteKnobs, count = 6): Texture[] {
   cache.set(key, out);
   return out;
 }
+
+/**
+ * Something on the front plane, between us and the fighters (grass, a sign): painted like the rest, base at the bottom middle.
+ * `greens` = the era's foliage colours, darkest first (used for grass).
+ */
+export function paintedFront(kind: 'grass' | 'sign', greens: string[], K: SpriteKnobs): Texture {
+  const key = `front|${kind}|${greens.join()}|${JSON.stringify(K)}`;
+  const hit = cache.get(key);
+  if (hit) return hit[0];
+  const W = kind === 'grass' ? 220 : 200, H = kind === 'grass' ? 150 : 190, N = W * H, R = makeRandom(kind === 'grass' ? 31 : 37);
+  const c = new OffscreenCanvas(W, H), g = c.getContext('2d', { willReadFrequently: true })!;
+  const lean = new Float32Array(N); // brush direction per pixel, filled in as the shapes are drawn
+  if (kind === 'grass') {
+    for (let i = 0; i < 46; i++) { // tapered blades from the ground, the tall ones lighter (lit), bending a little
+      const x = R.range(12, W - 12), h = R.range(50, H - 6), bend = R.range(-28, 28), w = R.range(5, 11), col = greens[Math.min(greens.length - 1, Math.floor((h / H) * greens.length + R.range(-1, 1)))] ?? greens[0];
+      g.fillStyle = col;
+      g.beginPath(); g.moveTo(x - w / 2, H); g.quadraticCurveTo(x + bend * 0.3, H - h * 0.6, x + bend, H - h); g.quadraticCurveTo(x + bend * 0.3 + w * 0.3, H - h * 0.6, x + w / 2, H); g.closePath(); g.fill();
+    }
+  } else { // a wooden sign on a post
+    g.fillStyle = '#4A3020'; g.fillRect(W / 2 - 9, 60, 18, H - 60);
+    g.fillStyle = '#7A5634'; g.fillRect(14, 14, W - 28, 74);
+    g.fillStyle = '#9C7448'; g.fillRect(20, 20, W - 40, 30);
+    g.fillStyle = '#5E4026'; for (const y of [40, 62]) g.fillRect(20, y, W - 40, 3);
+  }
+  const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    alpha[i] = d[4 * i + 3] / 255;
+    for (let ch = 0; ch < 3; ch++) img.c[ch][i] = d[4 * i + ch] / 255;
+    const y = (i / W) | 0;
+    lean[i] = kind === 'grass' || y > 88 ? -Math.PI / 2 + R.normal() * 0.15 : R.normal() * 0.05; // blades and post upright, the board along its grain
+  }
+  const out = paintFlat(img, alpha, lean, kind === 'grass' ? 41 : 43, K, 1);
+  cache.set(key, out);
+  return out[0];
+}

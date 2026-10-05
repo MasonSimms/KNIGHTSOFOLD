@@ -5,7 +5,7 @@ import { bakeBackdrop } from './bake';
 import type { PaintKnobs } from './bake';
 import type { ArenaGeo } from './scene';
 
-const PAINTER_VERSION = 1; // bump when the painting code changes, so stored paintings are painted again
+const PAINTER_VERSION = 2; // bump when the painting code changes, so stored paintings are painted again
 
 export interface BakeRequest { key: string; era: string; geo: ArenaGeo; w: number; h: number; seed: number; knobs: PaintKnobs }
 export interface BakeResult { key: string; bitmap?: ImageBitmap; ms: number; cached?: boolean; error?: string }
