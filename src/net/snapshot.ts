@@ -1,4 +1,5 @@
 import type { SimEvent } from '../sim/types';
+import type { Look } from '../content/looks';
 import type { Sim } from '../sim/world';
 
 // What the server sends the clients: where every body part is, plus the structural events since the last snapshot (deaths, pickups,
@@ -10,6 +11,9 @@ export interface Snapshot {
   roundWinner: number;
   scores: number[];
   f: { hp: number; back: boolean; p: number[] }[]; // per fighter: hp, on the background plane, and x, y, angle for each part
+  era: string;
+  outfits: number[];
+  looks: Look[]; // everyone's colour and hat (so a player who joins late or rejoins sees the right ones)
   ev: SimEvent[];
 }
 
@@ -19,6 +23,7 @@ const r3 = (n: number) => Math.round(n * 1000) / 1000;
 export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot {
   return {
     frame, round: sim.round, roundOver: sim.roundOver, roundWinner: sim.roundWinner, scores: sim.scores.slice(), ev,
+    era: sim.era, outfits: sim.outfits.slice(), looks: sim.looks.map((l) => ({ ...l })),
     f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
   };
 }
@@ -33,6 +38,7 @@ export class Mirror {
   private applied = -1; // server tick of the newest snapshot whose events were replayed
   private head = 0; // the server tick being shown (it runs `delay` ticks behind the newest snapshot, so there is always a pair to blend)
   private started = false;
+  private lastLooks = '';
 
   constructor(readonly sim: Sim, readonly delay = 6) {}
 
@@ -75,6 +81,9 @@ export class Mirror {
     const a = this.snaps[ai], b = this.snaps[ai + 1] ?? a;
     const alpha = b === a ? 1 : Math.min(1, Math.max(0, (at - a.frame) / (b.frame - a.frame)));
     const sim = this.sim;
+    const looksNow = JSON.stringify(a.looks);
+    if (looksNow !== this.lastLooks) { this.lastLooks = looksNow; sim.version++; } // someone picked a new hat or colour: the renderer must redraw the fighters
+    sim.era = a.era; sim.outfits = a.outfits; sim.looks = a.looks;
     sim.scores = a.scores.slice(); sim.round = a.round; sim.roundOver = a.roundOver; sim.roundWinner = a.roundWinner;
     sim.fighters.forEach((f, i) => {
       const pa = a.f[i]?.p, pb = b.f[i]?.p;

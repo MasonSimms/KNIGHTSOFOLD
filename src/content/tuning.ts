@@ -283,6 +283,9 @@ export const tuning = {
     spin: 12, // tumble given to it (rad/s)
     pickupDelay: 45, // frames before the dropped club can be picked up
   },
+  eras: {
+    specialChance: 0.15, // each round has this chance of being one of the special eras (fantasy archers, mobsters...) instead of the normal rotation
+  },
   death: {
     // How a death is staged (cartoon, never gory). What killed you decides: a huge blow blows the body apart, a stomp or a hard crash flattens
     // it, a hard club hit takes off whatever it hit. (Impact = the same number the damage curve uses.)

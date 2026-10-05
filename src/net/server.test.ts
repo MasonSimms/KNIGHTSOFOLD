@@ -223,6 +223,35 @@ describe('room server', () => {
     expect(game.sim.scores[3]).toBe(0);
   });
 
+  it('players pick a colour and a hat: colours are unique in the room, junk is refused, and the choice reaches the fight', async () => {
+    const { host, others, code } = await lobbyOf(2);
+    expect((await host.wait('lobby', (m) => m.n === 2)).looks.map((l) => l?.color)).toEqual([0, 1]); // starting colours are the first free ones
+    host.send({ t: 'look', color: 5, hat: 'crown' });
+    const lob = await others[0].wait('lobby', (m) => m.looks[0]?.color === 5);
+    expect(lob.looks[0]?.hat).toBe('crown');
+    others[0].clear();
+    others[0].send({ t: 'look', color: 5, hat: 'none' }); // taken
+    expect((await others[0].wait('error')).why).toMatch(/colour/);
+    others[0].clear();
+    others[0].send({ t: 'look', color: 99, hat: 'none' });
+    expect((await others[0].wait('error')).why).toMatch(/not allowed/);
+    others[0].clear();
+    others[0].send({ t: 'look', color: 2, hat: 'a hat that does not exist' });
+    expect((await others[0].wait('error')).why).toMatch(/not allowed/);
+    others[0].send({ t: 'look', color: 6, hat: 'horns' });
+    host.send({ t: 'start' });
+    await host.wait('start');
+    const sim = server!.rooms.get(code)!.game!.sim;
+    expect(sim.looks[0]).toEqual({ color: 5, hat: 'crown' });
+    expect(sim.looks[1]).toEqual({ color: 6, hat: 'horns' });
+    // and a change during the fight shows up in the snapshots everyone gets
+    others[0].send({ t: 'look', color: 7, hat: 'cap' });
+    const snap = await host.wait('snap', (m) => m.s.looks[1].color === 7, 3000);
+    expect(snap.s.looks[1].hat).toBe('cap');
+    expect(snap.s.era.length).toBeGreaterThan(2);
+    expect(snap.s.outfits.length).toBe(4);
+  });
+
   it('a fight nobody is connected to is deleted after a while', async () => {
     const { code, all } = await fightOf(2, { emptyMs: 300 });
     all.forEach((c) => c.ws.terminate());

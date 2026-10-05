@@ -1,4 +1,7 @@
 import { Application, Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { eraById } from '../content/eras';
+import { COLORS } from '../content/looks';
+import type { Hat } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
 import type { SimEvent } from '../sim/types';
@@ -15,6 +18,22 @@ function mix(a: number, b: number, t: number): number {
 // Pixi picks curve detail from the size it is drawn at, and our shapes are fractions of a metre, so draw big and scale down
 // (otherwise heads come out as octagons).
 const BIG = 100;
+
+/** A hat for the head (placeholder vector shapes until the art arrives). Drawn at the origin = the centre of the head; units are metres. */
+function drawHat(hat: Hat, tint: number, headR: number): Graphics | null {
+  if (hat === 'none') return null;
+  const g = new Graphics(), r = headR * BIG, edge = { width: 0.025 * BIG, color: T.colors.outline };
+  const dark = mix(tint, 0x000000, 0.3);
+  if (hat === 'cap') { g.arc(0, -r * 0.2, r * 1.02, Math.PI, 0).fill(dark).stroke(edge); g.rect(-r * 0.2, -r * 0.35, r * 1.5, r * 0.28).fill(dark).stroke(edge); }
+  else if (hat === 'tophat') { g.rect(-r * 1.2, -r * 0.95, r * 2.4, r * 0.3).fill(0x222222).stroke(edge); g.rect(-r * 0.7, -r * 2.2, r * 1.4, r * 1.3).fill(0x222222).stroke(edge); g.rect(-r * 0.7, -r * 1.2, r * 1.4, r * 0.25).fill(tint); }
+  else if (hat === 'helmet') { g.arc(0, -r * 0.1, r * 1.1, Math.PI, 0).fill(0x8a929b).stroke(edge); g.rect(-r * 1.1, -r * 0.15, r * 2.2, r * 0.22).fill(0x6b727a).stroke(edge); }
+  else if (hat === 'crown') { g.poly([-r * 0.9, -r * 0.8, -r * 0.9, -r * 1.8, -r * 0.45, -r * 1.2, 0, -r * 1.9, r * 0.45, -r * 1.2, r * 0.9, -r * 1.8, r * 0.9, -r * 0.8]).fill(0xf2c230).stroke(edge); }
+  else if (hat === 'horns') { g.arc(0, -r * 0.1, r * 1.02, Math.PI, 0).fill(0x8a929b).stroke(edge); g.poly([-r * 0.9, -r * 0.5, -r * 1.7, -r * 1.7, -r * 0.5, -r * 0.9]).fill(0xeeeeee).stroke(edge); g.poly([r * 0.9, -r * 0.5, r * 1.7, -r * 1.7, r * 0.5, -r * 0.9]).fill(0xeeeeee).stroke(edge); }
+  else if (hat === 'cowboy') { g.ellipse(0, -r * 0.75, r * 1.9, r * 0.35).fill(0x8a6a44).stroke(edge); g.rect(-r * 0.7, -r * 1.7, r * 1.4, r * 1.0).fill(0x8a6a44).stroke(edge); }
+  else if (hat === 'beanie') { g.arc(0, -r * 0.2, r * 1.05, Math.PI, 0).fill(tint).stroke(edge); g.circle(0, -r * 1.3, r * 0.25).fill(0xffffff).stroke(edge); }
+  g.scale.set(1 / BIG);
+  return g;
+}
 
 function drawShape(s: Shape, color: number): Graphics {
   const g = new Graphics();
@@ -64,14 +83,20 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const view = new Container(); // metres -> pixels, letterboxed, shaken
   app.stage.addChild(view);
   const A = T.arena;
-  const sky = new Graphics().rect(0, 0, A.viewW, A.viewH).fill(T.colors.sky);
-  const platform = new Graphics()
-    .rect(A.platformX, A.platformTop, A.platformW, A.platformThickness).fill(T.colors.platform)
-    .stroke({ width: 0.04, color: T.colors.platformEdge });
-  const walls = new Graphics();
-  for (const cx of [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2]) {
-    walls.rect(cx - A.wallThickness / 2, A.wallTop, A.wallThickness, A.killY + 2 - A.wallTop).fill(T.colors.wall).stroke({ width: 0.04, color: T.colors.platformEdge });
-  }
+  const sky = new Graphics(), platform = new Graphics(), walls = new Graphics();
+  /** (Re)paint the arena in an era's colours. */
+  let paintedEra = '';
+  const paintArena = (id: string) => {
+    const era = eraById(id);
+    paintedEra = id;
+    sky.clear().rect(0, 0, A.viewW, A.viewH).fill(era.sky);
+    platform.clear().rect(A.platformX, A.platformTop, A.platformW, A.platformThickness).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
+    walls.clear();
+    for (const cx of [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2]) {
+      walls.rect(cx - A.wallThickness / 2, A.wallTop, A.wallThickness, A.killY + 2 - A.wallTop).fill(era.wall).stroke({ width: 0.04, color: T.colors.platformEdge });
+    }
+  };
+  paintArena(sim.era);
   const splatLayer = new Container();
   const backLayer = new Container(); // a dodging fighter is drawn here, behind everyone else
   const fighterLayer = new Container();
@@ -130,7 +155,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     r.age = 0;
     r.g.visible = true;
   };
-  const playerColor = (i: number) => T.colors.players[i % T.colors.players.length];
+  const playerColor = (i: number) => COLORS[sim.looks[i]?.color ?? i % COLORS.length].hex; // each player's chosen colour
   const fighterColor = (f: Fighter) => (f.controlled ? playerColor(f.index) : T.colors.dummy); // the training dummy has its own colour
 
   let scale = 1, shake = 0, builtVersion = -1;
@@ -151,6 +176,13 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const color = p.role === 'stick' ? T.colors.stick : base;
         const shade = p.role === 'off' ? mix(color, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(color, 0x000000, 0.18) : color;
         for (const s of p.shapes) k.addChild(drawShape(s, shade));
+        // The hat goes on the head: the head part once it has come off, otherwise the head ball on the torso.
+        const hat = f.controlled ? sim.looks[f.index]?.hat : undefined;
+        const onHead = p.role === 'head' || (p.role === 'torso' && !f.ragdolled);
+        if (hat && onHead) {
+          const h = drawHat(hat, color, T.fighter.headRadius);
+          if (h) { h.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(h); }
+        }
         group.addChild(k);
         c.push(k);
       }
@@ -195,6 +227,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       view.scale.set(scale);
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
+      if (paintedEra !== sim.era) paintArena(sim.era); // a new round in a new era
       if (builtVersion !== sim.version) rebuild();
       shake *= Math.pow(T.shake.decayPerSecond, frameSeconds);
       for (const r of rings) {

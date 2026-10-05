@@ -4,7 +4,9 @@ import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
 import { buildFighter, controlFighter, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
+import { eraFor, outfitsFor } from './era';
 import { makeRng } from './rng';
+import type { Look } from '../content/looks';
 import { NEUTRAL } from './types';
 import type { PlayerInput, SimEvent } from './types';
 
@@ -34,6 +36,10 @@ export class Sim {
   private tmpP = { x: 0, y: 0 };
 
   scores = [0, 0, 0, 0]; // points per player this match
+  era = 'caveman'; // the era of this round (picks the arena look and the outfits)
+  outfits = [0, 1, 2, 3]; // which of the era's 4 outfits each fighter wears this round
+  forceEra: string | null = null; // testing: ?era=samurai keeps every round in one era
+  looks: Look[] = [0, 1, 2, 3].map((color) => ({ color, hat: 'none' as const })); // each player's colour and hat (looks only: nothing in the physics reads them)
   gone = [false, false, false, false]; // players who left (online): dead this round, and parked out of sight in later rounds
   round = 1;
   roundOver = false;
@@ -76,6 +82,8 @@ export class Sim {
   /** Build a fresh arena and fighters (the scores are kept). */
   private build(): void {
     this.world?.free();
+    this.era = this.forceEra ?? eraFor(this.seed, this.round).id;
+    this.outfits = outfitsFor(this.seed, this.round);
     this.rng = makeRng(this.seed);
     this.frame = 0;
     this.lastImpact = 0;

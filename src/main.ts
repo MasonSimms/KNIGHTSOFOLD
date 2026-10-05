@@ -1,4 +1,5 @@
 import { sfx, unlockAudio } from './audio/sfx';
+import { eraById } from './content/eras';
 import { tuning } from './content/tuning';
 import { connectedPads, readInput, readPadInput, wasPressed } from './input/input';
 import { createRenderer } from './render/render';
@@ -20,6 +21,11 @@ const stress = query.has('stress');
 // Open http://localhost:5173/?slow=0.2 to run the game at 20% speed, to study a slam frame by frame.
 const slow = Math.min(1, Number(query.get('slow')) || 1);
 const sim = await Sim.create(1, stress ? 4 : 2);
+// Look testing without a server: ?era=samurai keeps every round in that era; ?hats=cap,crown,horns,tophat and ?colors=4,5,6,7 dress the fighters.
+const eraParam = query.get('era');
+if (eraParam) { sim.forceEra = eraParam; sim.reset(); }
+query.get('hats')?.split(',').forEach((h, i) => { if (sim.looks[i]) sim.looks[i].hat = h as typeof sim.looks[0]['hat']; });
+query.get('colors')?.split(',').forEach((c, i) => { if (sim.looks[i]) sim.looks[i].color = Number(c) || 0; });
 // Open http://localhost:5173/?lag=100 to play through a pretend network: the real sim runs as a "server" in this page, your inputs and its
 // snapshots each take 100 ms to arrive, and what you see is a client copy built only from those snapshots (solo vs the dummy; R is off).
 const lagMs = Number(query.get('lag')) || 0;
@@ -161,6 +167,7 @@ function frame(now: number) {
       `bodies ${view.world.bodies.len()}   frame# ${view.frame}`,
       `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: ${view.fighters.map((f) => (f.controlled ? 'P' + (f.index + 1) : 'dummy') + ' ' + Math.max(0, f.hp).toFixed(0)).join('  ')}   players ${players}`,
       `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} charge ${view.fighters[mySlot].charge}/${T.charge.maxFrames} dodge-ready-in ${(view.fighters[mySlot].dodgeCooldown / 60).toFixed(1)}s`,
+      `era ${eraById(view.era).name}   outfit ${eraById(view.era).outfits[view.outfits[mySlot]]}`,
       net ? `ONLINE: you are fighter ${mySlot + 1}, ${mirror!.desyncs} desyncs` : room ? `PRETEND NETWORK: ${lagMs} ms each way, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
     ]);
     frames = 0; msSum = 0; simMsSum = 0; statTime = now;

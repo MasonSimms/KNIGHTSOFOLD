@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
+import { COLORS, HATS } from '../src/content/looks';
+import type { Look } from '../src/content/looks';
 import { cleanInput, EMPTY_MS, MAX_PLAYERS, MIN_PLAYERS, RESERVE_MS } from '../src/net/protocol';
 import type { ClientMsg, ServerMsg } from '../src/net/protocol';
 import { Room } from '../src/net/room';
@@ -13,7 +15,7 @@ const LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ'; // no I, L or O: they read as 1 and 0
 const DT = 1000 / 60;
 
 /** A player's place in a room. It outlives their connection: `ws` is null while they are away, and `token` is how they prove they are the same person. */
-interface Seat { token: string; ws: WebSocket | null; leftAt: number }
+interface Seat { token: string; ws: WebSocket | null; leftAt: number; look: Look }
 
 class GameRoom {
   seats: (Seat | null)[] = []; // in a lobby: join order. In a fight: exactly MAX_PLAYERS entries, the index is the fighter number
@@ -37,10 +39,17 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
   const newToken = () => randomBytes(12).toString('hex');
   const newCode = () => { for (;;) { const c = Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join(''); if (!rooms.has(c)) return c; } };
   const slotOf = (r: GameRoom, seat: Seat) => r.seats.indexOf(seat);
+  /** A new player's starting look: the first colour nobody in the room has. */
+  const newSeat = (r: GameRoom): Seat => {
+    const used = new Set(r.seats.map((s) => s?.look.color));
+    return { token: newToken(), ws: null, leftAt: 0, look: { color: COLORS.findIndex((_, i) => !used.has(i)), hat: 'none' } };
+  };
+  const applyLooks = (r: GameRoom) => { if (r.game) r.seats.forEach((s, i) => { if (s) r.game!.sim.looks[i] = { ...s.look }; }); };
 
   const lobby = (r: GameRoom) => {
     const list = r.present;
-    list.forEach((s) => send(s.ws, { t: 'lobby', code: r.code, n: list.length, you: slotOf(r, s), host: s === list[0], token: s.token }));
+    const looks = r.seats.map((s) => s?.look ?? null);
+    list.forEach((s) => send(s.ws, { t: 'lobby', code: r.code, n: list.length, you: slotOf(r, s), host: s === list[0], token: s.token, looks }));
   };
 
   /** Tell a player they are in the fight, with everything their client needs to build (or rebuild) its copy of it. */
@@ -92,7 +101,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       if (rooms.size >= maxRooms) return send(ws, { t: 'error', why: 'the server is full, try again later' });
       const r = new GameRoom(newCode());
       rooms.set(r.code, r);
-      const seat = { token: newToken(), ws: null, leftAt: 0 };
+      const seat = newSeat(r);
       r.seats.push(seat);
       seatPlayer(r, ws, seat);
       lobby(r);
@@ -100,7 +109,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       if (at) return send(ws, { t: 'error', why: 'already in a room' });
       const r = rooms.get(String(m.code).toUpperCase().trim());
       if (!r) return send(ws, { t: 'error', why: 'no room with that code' });
-      const seat = { token: newToken(), ws: null, leftAt: 0 };
+      const seat = newSeat(r);
       if (!r.game) {
         if (r.seats.length >= MAX_PLAYERS) return send(ws, { t: 'error', why: 'that room is full' });
         r.seats.push(seat);
@@ -114,6 +123,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       if (r.seats[slot]) r.game.room.sim.scores[slot] = 0; // someone else's old seat: a fresh score
       r.seats[slot] = seat;
       seatPlayer(r, ws, seat);
+      applyLooks(r);
       r.game.room.restorePlayer(slot, true);
       sendStart(r, seat, true, seeds.get(r)!);
     } else if (m.t === 'rejoin') {
@@ -127,6 +137,14 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
         r.game.room.restorePlayer(slotOf(r, seat), false);
         sendStart(r, seat, true, seeds.get(r)!);
       } else lobby(r);
+    } else if (m.t === 'look') {
+      if (!at) return;
+      const color = Number(m.color), hat = String(m.hat);
+      if (!Number.isInteger(color) || color < 0 || color >= COLORS.length || !(HATS as readonly string[]).includes(hat)) return send(ws, { t: 'error', why: 'that look is not allowed' });
+      if (at.room.seats.some((s) => s && s !== at.seat && s.look.color === color)) return send(ws, { t: 'error', why: 'someone already has that colour' });
+      at.seat.look = { color, hat: hat as Look['hat'] };
+      applyLooks(at.room);
+      if (!at.room.game) lobby(at.room);
     } else if (m.t === 'start') {
       if (!at || at.room.game || at.room.present[0] !== at.seat) return send(ws, { t: 'error', why: 'only the host can start' });
       const r = at.room;
@@ -136,6 +154,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
         if (r.game || !r.seats.length) return;
         while (r.seats.length < MAX_PLAYERS) r.seats.push(null);
         sim.gone = r.seats.map((s) => !s); // empty seats are parked from the first round
+        sim.looks = Array.from({ length: MAX_PLAYERS }, (_, i) => ({ ...(r.seats[i]?.look ?? { color: i, hat: 'none' as const }) }));
         sim.reset();
         r.game = { room: new Room(sim), sim };
         seeds.set(r, seed);

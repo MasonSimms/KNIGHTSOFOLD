@@ -1,3 +1,4 @@
+import type { Look } from '../content/looks';
 import type { PlayerInput } from '../sim/types';
 import type { Snapshot } from './snapshot';
 
@@ -6,12 +7,13 @@ export type ClientMsg =
   | { t: 'create' } // make a room and become its host
   | { t: 'join'; code: string } // also works while a fight is under way: you join at the start of the next round
   | { t: 'rejoin'; code: string; token: string } // back after a dropped connection or a page reload: you get your own seat and score back
+  | { t: 'look'; color: number; hat: string } // pick my colour (unique in the room) and hat; allowed any time, in the lobby or in a fight
   | { t: 'start' } // host only
   | { t: 'end' } // host only: back to the lobby
   | { t: 'in'; i: PlayerInput }; // my controls, sent every tick
 
 export type ServerMsg =
-  | { t: 'lobby'; code: string; n: number; you: number; host: boolean; token: string } // who is in the room (sent to everyone whenever it changes); `token` is your private key to rejoin
+  | { t: 'lobby'; code: string; n: number; you: number; host: boolean; token: string; looks: (Look | null)[] } // who is in the room (sent to everyone whenever it changes); `token` is your private key to rejoin
   | { t: 'start'; seed: number; you: number; queued: boolean; token: string } // you are in a fight (new, or back): build or reset the Mirror (always 4 fighters; the snapshot that follows says which seats are empty), you are fighter `you`; `queued` = you appear next round
   | { t: 'snap'; s: Snapshot }
   | { t: 'over'; why: string } // the host ended the fight (or everyone left): back to the menu
