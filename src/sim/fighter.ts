@@ -363,7 +363,8 @@ export function letGo(world: World, f: Fighter, fling: boolean, events: SimEvent
   for (const p of v.parts) {
     if (p.role === 'stick' && !v.grip) continue;
     const lv = p.body.linvel(tmp);
-    p.body.setLinvel({ x: lv.x * G.fling, y: lv.y * G.fling }, true);
+    const k = Math.min(G.fling, G.maxFling / Math.max(1e-6, Math.hypot(lv.x, lv.y))); // boosted, but never past the speed cap
+    p.body.setLinvel({ x: lv.x * k, y: lv.y * k }, true);
   }
   v.thrownBy = f.index;
   v.thrown = G.thrownFrames;
