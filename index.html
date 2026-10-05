@@ -9,12 +9,16 @@
   html, body { margin: 0; height: 100%; overflow: hidden; background: #141018; }
   #overlay { position: fixed; top: 8px; left: 8px; margin: 0; padding: 6px 8px; color: #9f9; background: rgba(0,0,0,.6);
              font: 12px/1.35 Consolas, monospace; pointer-events: none; white-space: pre; }
+  #score { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); font: bold 22px sans-serif; text-shadow: 0 2px 4px #000; pointer-events: none; white-space: nowrap; }
+  #banner { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); font: bold 46px sans-serif; text-shadow: 0 3px 8px #000; pointer-events: none; white-space: nowrap; }
   #hint { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); color: #ddd; font: 13px sans-serif;
           background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 4px; pointer-events: none; }
 </style>
 </head>
 <body>
 <pre id="overlay"></pre>
+<div id="score"></div>
+<div id="banner"></div>
 <div id="hint">WASD move &middot; Space jump &middot; Mouse aims &middot; left-click: club = hold to charge, release to lunge &middot; fists = punch &middot; right-click drops the club (swing first to throw it) or picks it up &middot; Shift dodge &middot; S crouch &middot; hold toward a wall to slide, jump to wall-jump &middot; R reset &middot; F3 overlay</div>
 <script type="module" src="/src/main.ts"></script>
 </body>

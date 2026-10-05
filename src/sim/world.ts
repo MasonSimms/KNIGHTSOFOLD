@@ -30,20 +30,47 @@ export class Sim {
   private tmpN = { x: 0, y: 0 };
   private tmpP = { x: 0, y: 0 };
 
-  private constructor(seed: number, private count: number) {
+  scores = [0, 0, 0, 0]; // points per player this match
+  round = 1;
+  roundOver = false;
+  roundWinner = -1; // index of the winner of the round just finished, or -1 for a draw
+  private roundOverAt = 0;
+
+  private constructor(seed: number, private count: number, private dummy: boolean) {
     this.seed = seed;
     this.rng = makeRng(seed);
     this.reset();
   }
 
-  /** `count` fighters: 0 = you, 1 = the dummy, 2+ = extra armed fighters (used by the ?stress test). */
-  static async create(seed: number, count = 2): Promise<Sim> {
+  /**
+   * `count` fighters. With `dummy` (the default) fighter 1 is the training dummy and 2+ are extra armed fighters (the ?stress test);
+   * without it all `count` fighters are real players in a fight.
+   */
+  static async create(seed: number, count = 2, dummy = true): Promise<Sim> {
     await initRapier();
-    return new Sim(seed, count);
+    return new Sim(seed, count, dummy);
   }
 
-  /** Rebuild the whole world from the current tuning values. */
+  /** Playing alone: you and the training dummy. 2-4 players: a real fight with a score. */
+  setPlayers(n: number): void {
+    if (n <= 1) { this.count = 2; this.dummy = true; }
+    else { this.count = Math.min(4, n); this.dummy = false; }
+    this.reset();
+  }
+
+  get matchActive(): boolean { return !this.dummy && this.count >= 2; }
+
+  /** Rebuild everything from the current tuning values and start the scores again. */
   reset(): void {
+    this.scores = [0, 0, 0, 0];
+    this.round = 1;
+    this.roundOver = false;
+    this.roundWinner = -1;
+    this.build();
+  }
+
+  /** Build a fresh arena and fighters (the scores are kept). */
+  private build(): void {
     this.world?.free();
     this.rng = makeRng(this.seed);
     this.frame = 0;
@@ -71,7 +98,8 @@ export class Sim {
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(A.wallThickness / 2, wallH).setFriction(0.05).setCollisionGroups(worldGroups), wall);
     }
 
-    this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, A.spawnX[i], i !== 1));
+    const xs = this.dummy ? A.spawnX : A.fightSpawnX;
+    this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, xs[i], !(this.dummy && i === 1)));
     // Arena weapon rule: with 'spots' or 'sky' nobody starts armed; the clubs lie at fixed spots or fall from above.
     if (A.weaponRule !== 'start') {
       this.fighters.forEach((f, i) => {
@@ -296,7 +324,28 @@ export class Sim {
     for (const f of this.fighters.slice()) {
       const t = f.torso.body.translation();
       if (!f.limp && (t.y > A.killY || t.x < -A.killXMargin || t.x > A.viewW + A.killXMargin)) this.kill(f, true);
-      if (f.limp && this.frame - f.deadAt >= T.respawn.frames) this.respawn(f);
+      if (!this.matchActive && f.limp && this.frame - f.deadAt >= T.respawn.frames) this.respawn(f); // alone, you respawn; in a fight you stay down
     }
+    if (this.matchActive) this.updateRound();
+  }
+
+  /** The last fighter standing wins the round and scores a point; after a short pause the next round starts. */
+  private updateRound(): void {
+    if (this.roundOver) {
+      if (this.frame - this.roundOverAt >= T.match.resultFrames) {
+        this.round++;
+        this.roundOver = false;
+        this.roundWinner = -1;
+        this.build();
+      }
+      return;
+    }
+    const alive = this.fighters.filter((f) => f.controlled && !f.limp);
+    if (alive.length > 1) return;
+    this.roundOver = true;
+    this.roundOverAt = this.frame;
+    this.roundWinner = alive.length === 1 ? alive[0].index : -1;
+    if (this.roundWinner >= 0) this.scores[this.roundWinner]++;
+    this.events.push({ t: 'round', x: 0, y: 0, v: 0, owner: this.roundWinner, victim: -1 });
   }
 }

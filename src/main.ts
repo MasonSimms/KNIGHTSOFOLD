@@ -1,10 +1,11 @@
 import { sfx, unlockAudio } from './audio/sfx';
 import { tuning } from './content/tuning';
-import { readInput, wasPressed } from './input/input';
+import { connectedPads, readInput, readPadInput, wasPressed } from './input/input';
 import { createRenderer } from './render/render';
 import { NEUTRAL } from './sim/types';
 import type { PlayerInput } from './sim/types';
 import { Sim } from './sim/world';
+import { updateHud } from './ui/hud';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 
 const T = tuning;
@@ -49,12 +50,21 @@ function toScreen(x: number, y: number) {
 let acc = 0, last = performance.now();
 let frames = 0, msSum = 0, simMsSum = 0, statTime = last;
 let lastInput: PlayerInput = NEUTRAL;
+let players = 1; // how many people are playing: 1 plus every gamepad beyond the first
 
 function frame(now: number) {
   requestAnimationFrame(frame);
   const ft = Math.min(now - last, 100); // clamp so a tab switch doesn't cause a huge catch-up
   last = now;
   acc += (ft / 1000) * slow;
+
+  // Plugging in or unplugging a gamepad changes the number of players (2-4 starts a real fight; alone you get the training dummy).
+  const pads = connectedPads();
+  const wanted = stress ? 1 : Math.max(1, Math.min(4, pads.length));
+  if (wanted !== players) {
+    players = wanted;
+    sim.setPlayers(players);
+  }
 
   if (wasPressed('F3')) toggleOverlay();
   if (wasPressed('KeyR')) sim.reset();
@@ -63,7 +73,9 @@ function frame(now: number) {
   for (let steps = 0; acc >= T.sim.dt && steps < T.sim.maxStepsPerFrame; steps++, acc -= T.sim.dt) {
     const p = sim.fighters[0].torso;
     lastInput = readInput(toScreen(p.cx, p.cy));
-    sim.step([lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)]);
+    const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
+    if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
+    sim.step(inputs);
     for (const e of sim.events) {
       renderer.onEvent(e);
       if (e.t === 'hit') sfx.hit(e.v, !!e.head);
@@ -74,16 +86,16 @@ function frame(now: number) {
   simMsSum += performance.now() - t0;
 
   renderer.draw(acc / T.sim.dt, ft / 1000);
+  updateHud(sim);
 
   frames++;
   msSum += ft;
   if (now - statTime >= 500) {
     const fps = (frames * 1000) / (now - statTime);
-    const [p1, dummy] = sim.fighters;
     updateOverlay([
       `FPS ${fps.toFixed(0)}   frame ${(msSum / frames).toFixed(1)} ms   sim ${(simMsSum / frames).toFixed(2)} ms`,
       `bodies ${sim.world.bodies.len()}   frame# ${sim.frame}`,
-      `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: you ${p1.hp.toFixed(0)}  dummy ${dummy.hp.toFixed(0)}`,
+      `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: ${sim.fighters.map((f) => (f.controlled ? 'P' + (f.index + 1) : 'dummy') + ' ' + Math.max(0, f.hp).toFixed(0)).join('  ')}   players ${players}`,
       `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} charge ${sim.fighters[0].charge}/${T.charge.maxFrames} dodge-ready-in ${(sim.fighters[0].dodgeCooldown / 60).toFixed(1)}s`,
       `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
     ]);

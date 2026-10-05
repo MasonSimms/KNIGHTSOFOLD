@@ -52,6 +52,7 @@ export const sfx = {
   drop() { tone('triangle', 520, 240, 0.09, 0.2); }, // let go of the club
   throw() { tone('sawtooth', 220, 650, 0.12, 0.2); burst(0.1, 0.2); }, // whoosh
   disarm() { tone('square', 900, 300, 0.14, 0.3); burst(0.08, 0.3); }, // a metallic clang
+  round() { tone('triangle', 392, 392, 0.12, 0.25); setTimeout(() => tone('triangle', 523, 523, 0.12, 0.25), 130); setTimeout(() => tone('triangle', 659, 659, 0.25, 0.25), 260); }, // a little win jingle
   pickup() { tone('triangle', 300, 520, 0.07, 0.2); },
   die() { tone('sawtooth', 330, 90, 0.35, 0.2); }, // a short comic "wah"
   fall() { tone('sine', 700, 80, 0.6, 0.3); },

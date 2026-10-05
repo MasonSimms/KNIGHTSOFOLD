@@ -24,7 +24,8 @@ export const tuning = {
     wallGap: 1.3, // metres between each platform end and its wall: a fighter knocked off the end falls into the gap and can wall-jump out
     wallThickness: 0.5,
     wallTop: 3.2, // how high the walls reach (the platform top is at 7.4)
-    spawnX: [7, 11.5, 5.5, 13.5], // fighter 0 = you, 1 = dummy, 2 and 3 = extra fighters (stress test)
+    spawnX: [7, 11.5, 5.5, 13.5], // playing alone: fighter 0 = you, 1 = the training dummy, 2 and 3 = extra fighters (stress test)
+    fightSpawnX: [6.2, 13.0, 8.6, 10.6], // a real fight of 2-4 players: where each one starts
   },
   fighter: {
     hp: 100, // hidden: never shown on screen (F3 overlay only)
@@ -256,6 +257,10 @@ export const tuning = {
     hitCooldown: 20, // frames before the same weapon can hit again
     stunFrames: 25,
   },
+  match: {
+    // A fight: last fighter standing wins the round and scores a point. Dead fighters stay down until the round is over.
+    resultFrames: 150, // how long the result is shown before the next round starts (2.5 s)
+  },
   respawn: {
     frames: 120,
   },
@@ -290,7 +295,8 @@ export const tuning = {
     platformEdge: 0x3a2618,
     outline: 0x3a2618,
     stick: 0x8c5a2f,
-    players: [0xd94a3a, 0xe9ddc1, 0x2f6fb5, 0xe8b931], // player 1, dummy, then blue and yellow later
+    players: [0xd94a3a, 0x2f6fb5, 0xe8b931, 0x3e9b5a], // player 1 to 4: red, blue, yellow, green
+    dummy: 0xe9ddc1, // the training dummy
     damaged: 0xb04030, // tint blended in as hidden HP drops
   },
 };

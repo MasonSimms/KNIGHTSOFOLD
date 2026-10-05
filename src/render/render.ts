@@ -138,6 +138,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     r.g.visible = true;
   };
   const playerColor = (i: number) => T.colors.players[i % T.colors.players.length];
+  const fighterColor = (f: Fighter) => (f.controlled ? playerColor(f.index) : T.colors.dummy); // the training dummy has its own colour
 
   let scale = 1, shake = 0, builtVersion = -1;
   const entries: Entry[] = [];
@@ -148,7 +149,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     entries.length = 0;
     for (const f of sim.fighters) {
       const group = new Container();
-      const base = playerColor(f.index);
+      const base = fighterColor(f);
       const legs = [new Graphics(), new Graphics()];
       for (const g of legs) { g.scale.set(1 / BIG); group.addChild(g); }
       const c: Container[] = [];
@@ -181,7 +182,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     e.ax += ((vx - e.prevVx) / Math.max(dt, 1e-4) - e.ax) * 0.25; // smoothed: the sim steps in 1/60 s jumps
     e.prevVx = vx;
     e.phase += (f.grounded ? speed * L.runRate : 9) * dt;
-    const dark = mix(playerColor(f.index), 0x000000, 0.12);
+    const dark = mix(fighterColor(f), 0x000000, 0.12);
     for (let i = 0; i < 2; i++) {
       const sgn = i === 0 ? -1 : 1, leg = e.leg[i];
       const cycle = Math.sin(e.phase + i * Math.PI);
