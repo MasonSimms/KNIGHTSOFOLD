@@ -143,7 +143,8 @@ export class Sim {
     for (const f of this.fighters) {
       controlFighter(this.world, f, f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events);
       for (const p of f.parts) {
-        const v = p.body.linvel(this.tmpV);
+        let v = p.body.linvel(this.tmpV);
+        if (v.y > T.sim.maxFallSpeed) { p.body.setLinvel({ x: v.x, y: T.sim.maxFallSpeed }, true); v = p.body.linvel(this.tmpV); }
         p.vx = v.x; p.vy = v.y; p.w = p.body.angvel();
       }
     }
@@ -192,7 +193,7 @@ export class Sim {
         const part = vb && this.partByBody.get(vb.handle);
         if (!part || part.owner === f.index || part.role === 'stick' || part.role === 'off') return;
         const victim = this.fighters[part.owner];
-        if (!victim || victim.inBack || victim.held === f) return;
+        if (!victim || victim.inBack || victim.limp || victim.held === f) return; // no grabbing the dead (a limp ragdoll under the strong grabbing arm blows up)
         this.world.contactPair(fist, other, (m) => {
           const p = !f.hold && m.numSolverContacts() > 0 && m.solverContactPoint(0, this.tmpP);
           if (!p) return;

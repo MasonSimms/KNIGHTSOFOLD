@@ -248,21 +248,29 @@ function attachStick(world: World, f: Fighter): void {
   pose(stick);
 }
 
-/** Take a loose club from `from` and put it in `to`'s hand (`from` may be `to`: picking up your own club). */
+/** Make `part` (a club) belong to `to`: its owner, its parts list, its damage credit and its collision group. */
+function reassign(part: Part, from: Fighter, to: Fighter): void {
+  from.parts.splice(from.parts.indexOf(part), 1);
+  const att = from.attackers.splice(from.attackers.findIndex((a) => a.part === part), 1)[0];
+  att.nextHit = 0;
+  to.attackers.push(att);
+  part.owner = to.index;
+  for (const c of part.colliders) c.setCollisionGroups(to.inBack ? backGroups : ownerGroups(to.index));
+  to.stick = part;
+  to.parts.push(part);
+}
+
+/**
+ * Take a loose club from `from` and put it in `to`'s hand (`from` may be `to`: picking up your own club).
+ * If `to` has a club of their own lying loose, the two loose clubs trade owners (otherwise that club would be orphaned and never come back).
+ */
 export function giveStick(world: World, from: Fighter, to: Fighter): void {
-  const part = from.stick!;
   if (from !== to) {
+    const take = from.stick!, mine = to.stick;
     from.stick = null;
-    from.parts.splice(from.parts.indexOf(part), 1);
-    const ai = from.attackers.findIndex((a) => a.part === part);
-    const att = from.attackers.splice(ai, 1)[0];
-    att.nextHit = 0;
-    to.attackers.push(att);
-    part.owner = to.index;
-    const g = to.inBack ? backGroups : ownerGroups(to.index);
-    for (const c of part.colliders) c.setCollisionGroups(g);
-    to.stick = part;
-    to.parts.push(part);
+    to.stick = null;
+    reassign(take, from, to);
+    if (mine) reassign(mine, to, from);
   }
   attachStick(world, to);
 }

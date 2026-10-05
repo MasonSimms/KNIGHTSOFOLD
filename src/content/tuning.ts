@@ -5,6 +5,7 @@ export const tuning = {
     dt: 1 / 60,
     gravity: 22, // heavier than Earth: snappier, more comedic arcs
     maxStepsPerFrame: 5,
+    maxFallSpeed: 18, // terminal fall speed (m/s): a body landing faster than this on its legs gets blasted back out of the floor
     solverIterations: 32, // Rapier default is 4; more = stiffer joints (arm chain) at some CPU cost
     pgsIterations: 4,
   },

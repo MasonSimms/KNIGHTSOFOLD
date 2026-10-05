@@ -34,7 +34,7 @@ describe('picking up and knocking out weapons', () => {
     step({ aim: Math.PI / 2 }, { drop: true });
     expect(P2().grip).not.toBeNull();
     expect(P2().stick).toBe(club); // it now holds fighter 1's old club
-    expect(P0().stick).toBeNull(); // and fighter 1 no longer has one
+    expect(P0().stick).not.toBe(club); // and fighter 1 no longer has that club (it got fighter 2 loose one in exchange)
     expect(club.owner).toBe(2);
     sim.step([idle(), idle(), idle()]); // and the game keeps going
   });
