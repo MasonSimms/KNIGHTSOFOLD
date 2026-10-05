@@ -116,10 +116,8 @@ export const tuning = {
     speedFactor: 0.5, // walking speed while fully crouched
     jumpBonus: 0.12, // a jump from a full crouch goes this much higher
     lungeBonus: 0.3, // a lunge or punch from a full crouch has this much more momentum
-    minHalfHeight: 0.11, // how short the body gets (it is 0.25 standing)
-    headLift: 0.16, // how far the head comes down toward the shoulders
-    legShorten: 0.72, // how much shorter the drawn legs get
-    legSpread: 0.28, // how much further apart the drawn legs go
+    minHalfHeight: 0.06, // how far the hips sink: the body's middle drops by (0.25 - this). The body and head stay rigid, only the hips go down
+    legSpread: 0.86, // how much further apart the legs splay at full crouch (radians each side): keep it so the feet stay on the floor (bigger = wider, hips sit lower)
   },
   indicator: {
     // A ring that flashes where a big hit lands (there is no hit freeze: big moments are shown, not felt as a stutter).

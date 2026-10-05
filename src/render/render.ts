@@ -175,7 +175,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     const dt = Math.min(frameSeconds, 1 / 30);
     const rot = torso.rotation;
     const crouchAmt = f.crouch;
-    const legLen = L.length * lerp(1, T.crouch.legShorten, crouchAmt);
+    const legLen = L.length;
     const hip = { x: torso.x - Math.sin(rot) * L.hipY, y: torso.y + Math.cos(rot) * L.hipY };
     const speed = Math.abs(vx);
     const dir = speed > 0.3 ? Math.sign(vx) : f.side;
@@ -245,10 +245,6 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           k.tint = tint;
         });
         const torso = c[0];
-        const cr = f.crouch;
-        const head = torso.children[1];
-        if (head && !f.ragdolled) head.position.y = lerp(T.fighter.headY, T.fighter.headY + T.crouch.headLift, cr);
-        if (torso.children[0] && !f.ragdolled) torso.children[0].scale.y = lerp(1, 0.6, cr) / BIG;
         const vx = (f.torso.cx - f.torso.px) / T.sim.dt;
         drawLegs(e, torso, vx, frameSeconds);
         for (const g of e.legs) g.tint = tint;

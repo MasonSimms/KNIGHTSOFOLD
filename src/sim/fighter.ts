@@ -339,12 +339,10 @@ const clamp = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const FLIP = 0.25;
 
-/** Crouching shortens the body for real: the capsule gets shorter and the head comes down, so swings aimed at the head can miss. */
+/** Crouching lowers the hips for real: the capsule gets shorter, so the whole body (head included) sinks and swings aimed at the head can miss. */
 function applyCrouch(f: Fighter): void {
-  const F = T.fighter, c = f.crouch;
-  f.torso.colliders[0].setHalfHeight(lerp(F.torsoHalfHeight, T.crouch.minHalfHeight, c));
-  if (f.headCollider) f.headCollider.setTranslationWrtParent({ x: 0, y: lerp(F.headY, F.headY + T.crouch.headLift, c) });
-  f.crouchApplied = c;
+  f.torso.colliders[0].setHalfHeight(lerp(T.fighter.torsoHalfHeight, T.crouch.minHalfHeight, f.crouch));
+  f.crouchApplied = f.crouch;
 } // the cursor has to get this far past straight up (or down) before the fighter turns to face the other way
 
 /** Direction of a lunge: along the aim, but only within `max` of horizontal, and always the way the fighter faces (never backward). */
