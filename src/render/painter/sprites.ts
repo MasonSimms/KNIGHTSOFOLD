@@ -5,6 +5,7 @@
 // Painted once per shape, size and colour, then kept (small textures; nothing is painted while playing after the first build).
 import { Texture } from 'pixi.js';
 import { blur, licSmooth, makeRandom, newImg, relight, sobel } from './core';
+import type { Img } from './core';
 import { paintLayer } from './strokes';
 
 export const PPM = 160; // texture pixels per metre (the view is 100 px per metre at 1080p)
@@ -50,11 +51,25 @@ export function paintedShape(s: Part, color: number, K: SpriteKnobs): Texture[] 
     // strokes follow the form: along a capsule, around a ball
     ang[i] = s.k === 'ball' ? Math.atan2(v0, u) + Math.PI / 2 : Math.PI / 2 + R.normal() * 0.05;
   }
+  const out = paintFlat(img, alpha, ang, vntSeed(color, r, hl), K);
+  cache.set(key, out);
+  return out;
+}
+
+const vntSeed = (color: number, r: number, hl: number) => (color & 0xffff) + Math.round(r * 13 + hl);
+
+/**
+ * Paint a flat, shaded picture (with its coverage `alpha` and brush direction `ang`) the way the package paints its fighters: smoothed
+ * along the form, two layers of small tapered strokes, some underpaint showing through, then relit for paint thickness. Returns the
+ * VARIANTS painted versions (different strokes each) as textures.
+ */
+function paintFlat(img: Img, alpha: Float32Array, ang: Float32Array, seed0: number, K: SpriteKnobs, variants = VARIANTS): Texture[] {
+  const { w: W, h: H } = img, N = W * H;
   const smoothBase = licSmooth(img, ang, 14 * STROKE_SCALE * 0.5, 8, 0.09);
   const [ex, ey] = sobel(blur(smoothBase.c[1], W, H, 1), W, H), ed = new Float32Array(N);
   for (let i = 0; i < N; i++) ed[i] = Math.min(1, Math.hypot(ex[i], ey[i]) * 4);
   const out: Texture[] = [];
-  for (let vnt = 0; vnt < VARIANTS; vnt++) {
+  for (let vnt = 0; vnt < variants; vnt++) {
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!, hb = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!, hr = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
@@ -63,9 +78,9 @@ export function paintedShape(s: Part, color: number, K: SpriteKnobs): Texture[] 
     ctx.putImageData(id, 0, 0);
     hb.fillStyle = 'rgb(77,77,77)'; hb.fillRect(0, 0, W, H);
     hr.fillStyle = '#000'; hr.fillRect(0, 0, W, H);
-    const seed = vnt * 7919 + (color & 0xffff) + Math.round(r * 13 + hl);
-    paintLayer(ctx, hb, hr, smoothBase, ang, { blur: 1.4, spacing: 6.5, L: 38, W: 9.5, thr: 0.12, bristles: 5, jv: 0.04, jh: 0.012, contrast: 0.06, prob: (i) => (alpha[i] > 0.5 ? Math.min(0.95, 0.65 + ed[i]) : 0) }, seed, STROKE_SCALE, { jitter: K.jitter * 1.6, bristle: K.bristle * 2 });
-    paintLayer(ctx, hb, hr, img, ang, { blur: 0.6, spacing: 4.4, L: 18, W: 5.2, thr: 0.08, bristles: 3, jv: 0.035, jh: 0.01, contrast: 0.06, prob: (i) => (alpha[i] > 0.5 ? 0.8 : 0) }, seed + 1, STROKE_SCALE, { jitter: K.jitter * 1.6, bristle: K.bristle * 2 });
+    const seed = vnt * 7919 + seed0, J = { jitter: K.jitter * 1.6, bristle: K.bristle * 2 };
+    paintLayer(ctx, hb, hr, smoothBase, ang, { blur: 1.4, spacing: 6.5, L: 38, W: 9.5, thr: 0.12, bristles: 5, jv: 0.04, jh: 0.012, contrast: 0.06, prob: (i) => (alpha[i] > 0.5 ? Math.min(0.95, 0.65 + ed[i]) : 0) }, seed, STROKE_SCALE, J);
+    paintLayer(ctx, hb, hr, img, ang, { blur: 0.6, spacing: 4.4, L: 18, W: 5.2, thr: 0.08, bristles: 3, jv: 0.035, jh: 0.01, contrast: 0.06, prob: (i) => (alpha[i] > 0.5 ? 0.8 : 0) }, seed + 1, STROKE_SCALE, J);
     const painted = ctx.getImageData(0, 0, W, H), hbd = hb.getImageData(0, 0, W, H).data, hrd = hr.getImageData(0, 0, W, H).data;
     const pimg = newImg(W, H), hbase = new Float32Array(N), hbris = new Float32Array(N);
     for (let i = 0; i < N; i++) {
@@ -80,6 +95,62 @@ export function paintedShape(s: Part, color: number, K: SpriteKnobs): Texture[] 
     }
     ctx.putImageData(painted, 0, 0);
     out.push(Texture.from(canvas));
+  }
+  return out;
+}
+
+export const CAPE = { length: 0.62, top: 0.06, bottom: 0.16, hem: 0.07 }; // metres: cape length, half-width at the shoulders and at the hem, hem notch depth
+
+/**
+ * The hot-colour cape (the package's signature shape), laid out flat for a rope mesh: x runs from the shoulders (0) to the hem, y across.
+ * It flares toward a jagged hem and has soft folds; strokes run down its length.
+ */
+export function paintedCape(color: number, K: SpriteKnobs): Texture[] {
+  const key = `cape|${color}|${JSON.stringify(K)}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const L = CAPE.length * PPM, Wh = CAPE.bottom * PPM, W = Math.ceil(L + 2 * PAD), H = Math.ceil(2 * Wh + 2 * PAD), cy = H / 2, N = W * H;
+  const hot = [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255];
+  const img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, t = Math.max(0, (x - PAD) / L), hw = (CAPE.top + (CAPE.bottom - CAPE.top) * t ** 0.8) * PPM, dy = y + 0.5 - cy;
+    const across = dy / Wh; // -1..1 at the widest
+    const hem = L + PAD - CAPE.hem * PPM * Math.abs(Math.sin(Math.PI * 1.5 * (across + 1))); // two teeth at the hem
+    const inside = Math.min(hw - Math.abs(dy), hem - x, x - PAD + 2);
+    alpha[i] = Math.min(1, Math.max(0, inside + 0.5));
+    const fold = Math.sin(across * Math.PI * 1.6 + t * 2.2), shade = 0.86 + 0.2 * fold - 0.12 * t; // soft folds, a little darker toward the hem
+    for (let c = 0; c < 3; c++) img.c[c][i] = Math.min(1, hot[c] * shade + (fold > 0.75 ? (fold - 0.75) * 0.35 : 0));
+    ang[i] = across * 0.25 * t; // down the cape, fanning out a little toward the hem
+  }
+  const out = paintFlat(img, alpha, ang, color & 0xfff, K);
+  cache.set(key, out);
+  return out;
+}
+
+/** A few painted paint splats (white, tinted when used): a cluster of blobs with drips running down. Anchor them at (0.5, 0.35). */
+export function paintedSplats(K: SpriteKnobs, count = 6): Texture[] {
+  const key = `splats|${count}|${JSON.stringify(K)}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const out: Texture[] = [];
+  for (let n = 0; n < count; n++) {
+    const W = 112, H = 144, cx = W / 2, cy = H * 0.35, N = W * H, R = makeRandom(9001 + n * 31);
+    const c = new OffscreenCanvas(W, H), g = c.getContext('2d', { willReadFrequently: true })!;
+    g.fillStyle = '#fff'; g.strokeStyle = '#fff'; g.lineCap = 'round';
+    for (let i = 0; i < 16; i++) { const a = R.range(0, Math.PI * 2), d = R.range(0, 30); g.beginPath(); g.arc(cx + Math.cos(a) * d * 1.1, cy + Math.sin(a) * d, R.range(5, 17), 0, Math.PI * 2); g.fill(); }
+    for (let i = 0; i < 3; i++) { const x = cx + R.range(-24, 24); g.lineWidth = R.range(4, 8); g.beginPath(); g.moveTo(x, cy); g.lineTo(x + R.range(-4, 4), cy + R.range(30, 80)); g.stroke(); }
+    const a0 = new Float32Array(N), d = g.getImageData(0, 0, W, H).data;
+    for (let i = 0; i < N; i++) a0[i] = d[4 * i + 3] / 255;
+    const a1 = blur(a0, W, H, 1.2), alpha = new Float32Array(N), img = newImg(W, H), ang = new Float32Array(N);
+    const [gx, gy] = sobel(blur(a0, W, H, 4), W, H);
+    for (let i = 0; i < N; i++) {
+      alpha[i] = Math.min(1, Math.max(0, (a1[i] - 0.35) * 3)); // a firm but soft edge
+      const lit = Math.max(-1, Math.min(1, (gx[i] * 0.6 + gy[i] * 0.8) * 2)); // the blob's rounded edge catches the light at the upper left
+      for (let ch = 0; ch < 3; ch++) img.c[ch][i] = 0.86 + 0.12 * lit;
+      const x = i % W, y = (i / W) | 0;
+      ang[i] = y > cy + 20 ? Math.PI / 2 : Math.atan2(y - cy, x - cx) + Math.PI / 2; // drips run down, the blob is dabbed round
+    }
+    out.push(paintFlat(img, alpha, ang, 77 + n, K, 1)[0]); // splats lie still: one variant
   }
   cache.set(key, out);
   return out;

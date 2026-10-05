@@ -69,7 +69,7 @@ ONE-OFF: if a single question needs deep reasoning, say: `TIP: add the word ultr
 Rules: suggest at most once per task; never suggest max effort unless the owner asks; if unsure what model is active, ask the owner to run `/status`.
 
 ## Status
-Latest (2026-10-05): depth-of-field painting look, 12-era chronological match schedule, escalating weapon spawner (see DECISIONS.md, ERAS.md). Next: pirate water and boat physics (needs the owner to run /model opus), then the other four arenas per era.
+Latest (2026-10-05): the art package is applied for real: its oil painter is ported to the browser (src/render/painter/: painted era backdrops with the real ground, painted fighters with boil, capes, painted splats; per-era painting data in src/content/paintings.ts), plus the 12-era chronological match schedule and an escalating weapon spawner (see DECISIONS.md, ERAS.md, art-guide/ART_STYLE.md). Next: pirate water and boat physics, then the other four arenas per era.
 
 Phases 0, 1 and 2 are built (see the git log and DECISIONS.md for what and why; DESIGN.pdf is the plan). **Waiting at the Phase 2 gate**: the owner and friends playing a real 2-4 player fight and asking for a rematch. The owner treated the Phase 1 gate as passed and told us to "progress through the next milestone", so Phase 2 was built in slices (quick feel fixes, walls and wall jump, weapons and disarming, local gamepad multiplayer with rounds and a scoreboard).
 

@@ -431,7 +431,7 @@ export const tuning = {
     radiusMin: 10, // pixels
     radiusMax: 40,
     radiusPerImpact: 1.2,
-    alpha: 0.8,
+    alpha: 0.95,
   },
   audio: {
     master: 0.4,
@@ -449,8 +449,10 @@ export const tuning = {
     // A live oil filter over the fighters, props and paint (off: they are painted textures now; set enabled: true to compare).
     oil: { enabled: false, radius: 3.5, relief: 0.13, stroke: 46 }, // radius = how far colour is blended (px at 1080p), relief = paint thickness lighting, stroke = brush length
     boilFps: 9, // how often the painted fighters' brush strokes change (the package: 3 painted variants at 8-10 fps)
+    // The hot-colour cape (looks only): where it hangs from (metres from the torso's centre), and how the cloth moves.
+    cape: { backX: 0.1, shoulderY: -0.24, gravity: 9, trail: 3, flutter: 2.5, flutterRate: 6, damping: 0.94 },
     underOffset: 0.025, // metres: the dark underpaint peeking out at the lower right of fighters and objects
-    paintBlur: 2, // softness of the paint on the picture (pixels at 1080p)
+    paintBlur: 0.6, // softness of the paint on the picture (pixels at 1080p)
     // The painting style. Every era can override any of these in its `style` row (content/eras.ts).
     style: {
       blur: 3, // how out of focus the background is (pixels at 1080p; painted in: fighters and the ground stay sharp)

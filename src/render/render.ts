@@ -1,9 +1,10 @@
-import { Application, BlurFilter, Container, Graphics, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { Application, BlurFilter, Container, Graphics, MeshRope, Point, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { eraById } from '../content/eras';
 import { COLORS } from '../content/looks';
 import { createOilFilter, setOilScale } from './oilpaint';
 import { createBackdrops } from './painter/backdrops';
-import { paintedShape, PPM, VARIANTS } from './painter/sprites';
+import { CAPE, paintedCape, paintedShape, paintedSplats, PPM, VARIANTS } from './painter/sprites';
+import { paintingFor } from '../content/paintings';
 import type { Hat } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
@@ -90,6 +91,39 @@ function updatePainted(p: Painted, partRot: number, variant: number): void {
   } else p.a.rotation = -partRot; // a ball keeps its highlight at the upper left
 }
 
+/** The cape: a rope mesh along a short chain of points that swings with the fighter (looks only: the simulation never sees it). */
+interface Cape { rope: MeshRope; pts: Point[]; x: Float32Array; y: Float32Array; px: Float32Array; py: Float32Array; tex: Texture[]; live: boolean }
+const CAPE_LINKS = 6;
+function makeCape(parent: Container, tex: Texture[]): Cape {
+  const pts = Array.from({ length: CAPE_LINKS }, () => new Point(0, 0)), holder = new Container();
+  const rope = new MeshRope({ texture: tex[0], points: pts });
+  holder.scale.set(1 / PPM); // the rope works in texture pixels
+  holder.zIndex = -5; // behind the body, in front of the underpaint
+  holder.addChild(rope);
+  parent.addChild(holder);
+  const z = () => new Float32Array(CAPE_LINKS);
+  return { rope, pts, x: z(), y: z(), px: z(), py: z(), tex, live: false };
+}
+/** Cloth: each point keeps its momentum, falls, trails a little behind the way the fighter faces, flutters, and keeps its distance. */
+function stepCape(c: Cape, ax: number, ay: number, side: number, dt: number, time: number, variant: number): void {
+  const seg = CAPE.length / (CAPE_LINKS - 1), C = T.finish.cape;
+  if (!c.live) { for (let i = 0; i < CAPE_LINKS; i++) { c.x[i] = c.px[i] = ax; c.y[i] = c.py[i] = ay + i * seg; } c.live = true; }
+  const h = Math.min(dt, 1 / 30);
+  for (let i = 1; i < CAPE_LINKS; i++) {
+    const vx = (c.x[i] - c.px[i]) * C.damping, vy = (c.y[i] - c.py[i]) * C.damping;
+    c.px[i] = c.x[i]; c.py[i] = c.y[i];
+    c.x[i] += vx + (-side * C.trail + Math.sin(time * C.flutterRate + i * 0.9) * C.flutter) * h * h;
+    c.y[i] += vy + (C.gravity + Math.cos(time * C.flutterRate * 0.7 + i) * C.flutter * 0.5) * h * h;
+  }
+  c.x[0] = c.px[0] = ax; c.y[0] = c.py[0] = ay;
+  for (let it = 0; it < 4; it++) for (let i = 1; i < CAPE_LINKS; i++) {
+    const dx = c.x[i] - c.x[i - 1], dy = c.y[i] - c.y[i - 1], d = Math.hypot(dx, dy) || 1e-6, k = seg / d;
+    c.x[i] = c.x[i - 1] + dx * k; c.y[i] = c.y[i - 1] + dy * k;
+  }
+  for (let i = 0; i < CAPE_LINKS; i++) c.pts[i].set(c.x[i] * PPM, c.y[i] * PPM);
+  c.rope.texture = c.tex[variant];
+}
+
 /** A small texture painted in code (used for the vignette): no asset files. */
 function canvasTexture(size: number, paint: (ctx: CanvasRenderingContext2D) => void): Texture {
   const c = document.createElement('canvas');
@@ -104,6 +138,7 @@ interface Entry {
   c: Container[]; // one per part
   vis: number; // 0 = normal plane, 1 = background plane (smoothed)
   painted: Painted[][]; // per part: its painted shapes
+  cape: Cape; // the hot-colour cape flowing from the shoulders
   under: Container[]; // per part: its dark underpaint silhouette (drawn behind the whole fighter, offset down-right)
   eyes: Container[]; // painted eyes: they look the way the fighter faces
   blur: BlurFilter; // softens the fighter as they slip back into the background plane (dodge)
@@ -176,11 +211,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   app.stage.addChild(grain, tintWash, vignette);
 
   // Splat decal pool (ring buffer: no allocation after start-up).
-  const splatTex: Texture = app.renderer.generateTexture(new Graphics().circle(32, 32, 32).fill(0xffffff));
+  // Painted paint: blobs with drips running down (white, tinted with the colour of whoever bled), soaked into the picture.
+  const P1 = T.finish.paint, splatTexs = paintedSplats({ relief: P1.relief, bristle: P1.bristle, jitter: P1.jitter, under: P1.under });
   const splats: Sprite[] = [];
   for (let i = 0; i < T.splat.max; i++) {
-    const s = new Sprite(splatTex);
-    s.anchor.set(0.5);
+    const s = new Sprite(splatTexs[i % splatTexs.length]);
+    s.anchor.set(0.5, 0.35);
     s.visible = false;
     paintLayer.addChild(s);
     splats.push(s);
@@ -190,7 +226,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const splat = (x: number, y: number, radiusPx: number, color: number, grow = 0) => {
     const s = splats[nextSplat++ % splats.length];
     s.position.set(x, y);
-    s.scale.set((radiusPx / 100 * 2) / 64); // px at 1080p -> metres
+    s.scale.set(radiusPx / 100 / 45); // px at 1080p -> metres (the painted blob is about 45 texture px across its middle)
+    s.rotation = (Math.random() - 0.5) * 0.4; // drips always run more or less down
     if (grow > 0) { growing.push({ s, to: s.scale.x, t: 0, dur: grow }); s.scale.set(0); }
     s.tint = color;
     s.alpha = T.splat.alpha;
@@ -253,6 +290,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const underAll = new Container();
       underAll.zIndex = -10;
       group.addChild(underAll);
+      const cape = makeCape(group, paintedCape(parseInt(paintingFor(sim.era).hot.slice(1), 16), { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under }));
       for (const p of f.parts as Part[]) {
         const k = new Container(), u = new Container();
         k.zIndex = p.role === 'off' ? -2 : p.role === 'stick' ? -0.5 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs; a held club is behind the hand and arm so it looks gripped
@@ -274,7 +312,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         c.push(k);
       }
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, eyes, painted, under, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
+      entries.push({ f, group, c, eyes, painted, under, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
     }
     builtVersion = sim.version;
   }
@@ -382,7 +420,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           for (const q of e.painted[i]) updatePainted(q, k.rotation, variant);
         });
         for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
-        const torso = c[0];
+        const torso = c[0], tc = Math.cos(torso.rotation), ts = Math.sin(torso.rotation), cx = -f.side * T.finish.cape.backX, cy = T.finish.cape.shoulderY;
+        stepCape(e.cape, torso.x + tc * cx - ts * cy, torso.y + ts * cx + tc * cy, f.side, frameSeconds, boil / T.finish.boilFps, variant);
         // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.
         e.group.pivot.set(torso.x, torso.y);
         e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis + T.death.squashDrop * e.sq);
