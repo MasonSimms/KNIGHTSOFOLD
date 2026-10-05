@@ -76,3 +76,79 @@ describe('right-click: drop and pick up', () => {
     }
   });
 });
+
+describe('charge, punch and throw (the newer controls)', () => {
+  it('dodging cancels a charge, and a new charge needs a fresh press', async () => {
+    const sim = await settled(0);
+    const f = () => sim.fighters[0];
+    for (let i = 0; i < 20; i++) sim.step([idle({ attack: true })]);
+    expect(f().charge).toBe(20);
+    sim.step([idle({ attack: true, dodge: true })]);
+    expect(f().charge).toBe(0);
+    for (let i = 0; i < 10; i++) sim.step([idle({ attack: true })]); // still holding the button
+    expect(f().charge).toBe(0);
+    sim.step([idle()]); // let go
+    for (let i = 0; i < 5; i++) sim.step([idle({ attack: true })]); // press again
+    expect(f().charge).toBe(5);
+  });
+
+  it('a held punch hits harder than a tap', async () => {
+    const T = (await import('../content/tuning')).tuning;
+    const was = T.fighter.startArmed;
+    T.fighter.startArmed = false;
+    try {
+      const damageFor = async (hold: number) => {
+        const sim = await Sim.create(11);
+        const D = () => sim.fighters[1], P = () => sim.fighters[0];
+        while (D().torso.body.translation().x - P().torso.body.translation().x > 0.9) sim.step([idle({ moveX: 1, aim: Math.PI / 2 })]);
+        for (let i = 0; i < 40; i++) sim.step([idle()]);
+        const hp0 = D().hp;
+        for (let i = 0; i < 90; i++) sim.step([idle({ attack: i < hold })]);
+        return hp0 - D().hp;
+      };
+      const tap = await damageFor(1), full = await damageFor(30);
+      expect(full).toBeGreaterThan(tap * 2);
+    } finally {
+      T.fighter.startArmed = was;
+    }
+  });
+
+  it('right-click while holding the charge throws the club partway through the swing, forward', async () => {
+    const sim = await settled(0);
+    const f = () => sim.fighters[0];
+    for (let i = 0; i < 20; i++) sim.step([idle({ attack: true })]);
+    sim.step([idle({ attack: true, drop: true })]);
+    let thrownAfter = -1, speed = 0, forward = 0;
+    for (let i = 1; i < 30 && thrownAfter < 0; i++) {
+      sim.step([idle({ attack: true })]);
+      if (sim.events.some((e) => e.t === 'throw')) {
+        thrownAfter = i;
+        const v = f().stick!.body.linvel();
+        speed = Math.hypot(v.x, v.y);
+        forward = v.x;
+      }
+    }
+    expect(thrownAfter).toBeGreaterThan(0); // it did get thrown, a few frames into the swing
+    expect(thrownAfter).toBeLessThan(15);
+    expect(f().grip).toBeNull();
+    expect(forward).toBeGreaterThan(8); // and it went forward, fast
+    expect(speed).toBeGreaterThan(8);
+  });
+
+  it('a jump pressed a little early still happens, and letting go early cuts it short', async () => {
+    const full = await settled(0), tap = await settled(0);
+    const rise = (sim: Sim, holdFrames: number) => {
+      const y0 = sim.fighters[0].torso.body.translation().y;
+      let top = 0;
+      for (let i = 0; i < 80; i++) {
+        sim.step([idle({ jump: i < holdFrames })]);
+        top = Math.max(top, y0 - sim.fighters[0].torso.body.translation().y);
+      }
+      return top;
+    };
+    const high = rise(full, 40), hop = rise(tap, 3);
+    expect(high).toBeGreaterThan(1.4);
+    expect(hop).toBeGreaterThan(0.2);
+    expect(hop).toBeLessThan(high * 0.7);
+  });
+});
