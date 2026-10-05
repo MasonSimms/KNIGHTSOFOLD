@@ -283,6 +283,24 @@ export const tuning = {
     spin: 12, // tumble given to it (rad/s)
     pickupDelay: 45, // frames before the dropped club can be picked up
   },
+  death: {
+    // How a death is staged (cartoon, never gory). What killed you decides: a huge blow blows the body apart, a stomp or a hard crash flattens
+    // it, a hard club hit takes off whatever it hit. (Impact = the same number the damage curve uses.)
+    explodeImpact: 110, // any blow this big makes the body fly apart
+    explodeSpeed: 9, // m/s each piece flies outward
+    explodeLift: 3, // ...and upward
+    explodeSpin: 14, // tumble (rad/s)
+    crushImpact: 25, // a stomp or a crash at least this big flattens the victim (the picture squashes; physics is a normal fall)
+    dismemberImpact: 42, // a killing club hit at least this big takes off the limb it hit (or the head)
+    limbKick: 8, // m/s the lost limb flies away from the blow
+    limbLift: 4,
+    limbSpin: 16,
+    shake: 0.05, // screen shake on an explosion or a crush
+    squashSeconds: 0.12, // how fast a crushed fighter goes flat
+    squashFlat: 0.65, // how much of their height is squashed away
+    squashWide: 0.6, // how much wider they get
+    squashDrop: 0.2, // metres they sink so the pancake rests on the floor
+  },
   parry: {
     // Block a swing with your own club: hold it still (or nearly) in the path of a fast swing. The swinger's club flies back the way it came,
     // the swinger is pushed back a little and staggers, and you are untouched. Swing your own club into theirs and it is a clash instead.

@@ -16,6 +16,9 @@ const initRapier = () => (ready ??= RAPIER.init());
 /** The training dummy never gets real input: it holds its club in a low guard, facing the player (to its left). */
 const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI - 0.4 };
 
+/** What killed a fighter, so the death can be staged to fit (crushed, blown apart, a limb lost). */
+export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam'; part?: Part; head?: boolean; nx: number; ny: number }
+
 export class Sim {
   frame = 0;
   version = 0; // bumps whenever bodies are rebuilt, so the renderer knows to rebuild its sprites
@@ -283,7 +286,7 @@ export class Sim {
               const k = knockbackFor(impact) * B.knockbackMul;
               shove(victim, c.nx * k, c.ny * k);
               if (stomp) this.events.push({ t: 'stomp', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head }); // an ordinary slam is announced as a 'hit' by wound()
-              this.wound(victim, dmg * (head ? T.combat.headMult : 1), impact, pt.x, pt.y, f.index, head, !stomp);
+              this.wound(victim, dmg * (head ? T.combat.headMult : 1), impact, pt.x, pt.y, f.index, head, !stomp, { how: stomp ? 'stomp' : 'body', nx: c.nx, ny: c.ny });
             });
           });
         }
@@ -317,8 +320,9 @@ export class Sim {
               if (dmg <= 0) return;
               v.slamWait = G.slamCooldown;
               const pt = m.solverContactPoint(0, this.tmpP) ?? p.body.translation();
-              this.wound(v, dmg, impact, pt.x, pt.y, v.thrownBy);
-              if (third && !third.limp) this.wound(third, dmg, impact, pt.x, pt.y, v.thrownBy);
+              const cause: Cause = { how: 'slam', nx: n.x, ny: n.y };
+              this.wound(v, dmg, impact, pt.x, pt.y, v.thrownBy, false, true, cause);
+              if (third && !third.limp) this.wound(third, dmg, impact, pt.x, pt.y, v.thrownBy, false, true, cause);
             });
           });
         }
@@ -327,13 +331,13 @@ export class Sim {
   }
 
   /** Take hidden HP off a fighter and stagger them; they die at zero. */
-  private wound(victim: Fighter, dmg: number, impact: number, x: number, y: number, owner: number, head = false, announce = true): void {
+  private wound(victim: Fighter, dmg: number, impact: number, x: number, y: number, owner: number, head = false, announce = true, cause?: Cause): void {
     this.lastImpact = impact;
     victim.hp -= dmg;
     victim.stun = T.combat.stunFrames;
     if (victim.hold && impact >= T.grab.breakImpact) letGo(this.world, victim, false, this.events); // a good hit makes a grabber let go
     if (announce) this.events.push({ t: 'hit', x, y, v: impact, owner, victim: victim.index, head });
-    if (victim.hp <= 0) this.kill(victim, false, impact);
+    if (victim.hp <= 0) this.kill(victim, false, impact, cause);
   }
 
   /** A club lost in the void comes back from the sky after a while, so there are always weapons in play. */
@@ -503,19 +507,59 @@ export class Sim {
     // A hit tips the victim backward (head swings away from the blow) a little: smooth and funny, not a random flip.
     victim.torso.body.applyTorqueImpulse(-Math.sign(nx || 1) * impact * T.combat.spinScale * (0.8 + 0.4 * this.rng()), true);
     this.events.push({ t: 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head });
-    if (killing) this.kill(victim, false, impact);
+    if (killing) this.kill(victim, false, impact, { how: att.kind === 'stick' ? 'club' : 'fist', part: vp, head, nx, ny });
   }
 
-  private kill(f: Fighter, fell: boolean, impact = 0): void {
+  private kill(f: Fighter, fell: boolean, impact = 0, cause?: Cause): void {
     f.limp = true;
     f.deadAt = this.frame;
     f.dropCooldown = 0; // the club they were holding can be taken straight away
+    for (const g of this.fighters) if (g.held === f) letGo(this.world, g, false, this.events); // nobody keeps hold of a falling ragdoll
     if (f.inBack) setBackPlane(f, false);
     if (f.grip) { this.world.removeImpulseJoint(f.grip, true); f.grip = null; }
     for (const p of ragdoll(this.world, f, this.rng)) this.partByBody.set(p.body.handle, p);
     this.version++; // the ragdoll added parts, so the renderer must rebuild its sprites
     const t = f.torso.body.translation();
     this.events.push({ t: fell ? 'fall' : 'die', x: t.x, y: t.y, v: impact, owner: f.index, victim: f.index });
+    if (!fell && cause) this.stageDeath(f, impact, cause);
+  }
+
+  /**
+   * How a death looks (cartoon, not gory), decided by what killed them. A huge blow blows the body apart; a stomp or a crash flattens it;
+   * a hard club hit takes off whatever it hit. Only the server runs the physics of this; clients see the pieces move and get the event for the effect.
+   */
+  private stageDeath(f: Fighter, impact: number, c: Cause): void {
+    const D = T.death, t = f.torso.body.translation();
+    const cut = (j: { handle: number } | null) => { if (j) { this.world.removeImpulseJoint(j as never, true); if (j === f.shoulder || j === f.elbow) f.severed = true; } };
+    if (impact >= D.explodeImpact) {
+      f.severed = true;
+      for (const j of [f.shoulder, f.elbow, f.neck, f.offShoulder, f.offElbow, ...f.legs.flatMap((l) => [l.hip, l.knee])]) cut(j);
+      for (const p of f.parts) {
+        if (p.role === 'stick') continue;
+        const q = p.body.translation(), dx = q.x - t.x, dy = q.y - t.y, d = Math.hypot(dx, dy) || 1;
+        const v = p.body.linvel(this.tmpV), s = D.explodeSpeed * (0.7 + 0.6 * this.rng());
+        p.body.setLinvel({ x: v.x + (dx / d) * s, y: v.y + (dy / d) * s - D.explodeLift }, true);
+        p.body.setAngvel((this.rng() - 0.5) * 2 * D.explodeSpin, true);
+      }
+      this.events.push({ t: 'explode', x: t.x, y: t.y, v: impact, owner: f.index, victim: f.index });
+    } else if ((c.how === 'stomp' || c.how === 'slam') && impact >= D.crushImpact) {
+      this.events.push({ t: 'crush', x: t.x, y: t.y, v: impact, owner: f.index, victim: f.index });
+    } else if (c.how === 'club' && impact >= D.dismemberImpact) {
+      const limbs: { j: { handle: number } | null; p: Part | undefined }[] = [
+        { j: f.shoulder, p: f.upper }, { j: f.elbow, p: f.fore }, { j: f.neck, p: f.parts.find((p) => p.role === 'head') },
+        ...f.legs.flatMap((l) => [{ j: l.hip, p: l.thigh }, { j: l.knee, p: l.shin }]),
+      ];
+      let pick = c.head ? limbs[2] : limbs.find((l) => l.p === c.part);
+      if (!pick) pick = limbs[Math.floor(this.rng() * limbs.length)]; // a hit to the body: some limb goes
+      cut(pick.j);
+      if (pick.p) {
+        const v = pick.p.body.linvel(this.tmpV);
+        pick.p.body.setLinvel({ x: v.x + c.nx * D.limbKick, y: v.y + c.ny * D.limbKick - D.limbLift }, true);
+        pick.p.body.setAngvel((this.rng() - 0.5) * 2 * D.limbSpin, true);
+        const q = pick.p.body.translation();
+        this.events.push({ t: 'dismember', x: q.x, y: q.y, v: impact, owner: f.index, victim: f.index });
+      }
+    }
   }
 
   private checkDeaths(): void {

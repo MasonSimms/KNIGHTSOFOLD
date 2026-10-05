@@ -45,6 +45,8 @@ export interface Fighter {
   grounded: boolean;
   groundDist: number; // how far below the hips the floor is (Infinity = nothing in reach)
   legs: { thigh: Part; shin: Part; hip: RevoluteImpulseJoint; knee: RevoluteImpulseJoint }[];
+  severed: boolean; // a shoulder or elbow joint was cut (a lost arm, or blown apart): never touch those joints again
+  neck: RevoluteImpulseJoint | null; // once the head has come off onto a floppy neck (death)
   offShoulder: RevoluteImpulseJoint; // the second arm: only for show
   offElbow: RevoluteImpulseJoint;
   bodyHitAt: number; // earliest frame this fighter may body-slam again
@@ -205,7 +207,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, severed: false, neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
@@ -348,6 +350,7 @@ export function ragdoll(world: World, f: Fighter, rng: () => number): Part[] {
     const neck = revolute(world, tb, 0, F.headY + F.headRadius, head.body, 0, F.headRadius);
     neck.setLimits(-R.neckLimit, R.neckLimit);
     neck.configureMotorPosition(0, R.neckStiffness, R.neckDamping);
+    f.neck = neck;
     launch(head, 0, F.headY, (rng() - 0.5) * R.spin);
     out.push(head);
   }
@@ -485,7 +488,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // Dead: arms go floppy (the head and legs of the ragdoll have their own loose joints).
   if (f.limp) {
     letGo(world, f, false, events);
-    for (const j of [f.shoulder, f.elbow]) j.configureMotorPosition(0, 0, A.limpDamping);
+    if (!f.severed) for (const j of [f.shoulder, f.elbow]) j.configureMotorPosition(0, 0, A.limpDamping);
     return;
   }
 

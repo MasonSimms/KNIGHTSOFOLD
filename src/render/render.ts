@@ -51,6 +51,8 @@ interface Entry {
   group: Container; // everything of one fighter, so the dodge can shrink them about the torso
   c: Container[]; // one per part
   vis: number; // 0 = normal plane, 1 = background plane (smoothed)
+  crushed: boolean; // flattened by a stomp or a crash
+  sq: number; // how flat (0..1, eases toward 1 once crushed)
 }
 
 export async function createRenderer(sim: Sim, host: HTMLElement) {
@@ -153,7 +155,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         c.push(k);
       }
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, vis: 0 });
+      entries.push({ f, group, c, vis: 0, crushed: false, sq: 0 });
     }
     builtVersion = sim.version;
   }
@@ -170,6 +172,18 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (e.v * boost >= T.indicator.minImpact) ring(e.x, e.y, T.indicator.color);
       } else if (e.t === 'disarm') {
         ring(e.x, e.y, 0xffd24a); // a golden ring where a club is knocked loose
+      } else if (e.t === 'explode') { // a cartoon burst: big rings and a spray of colour (the pieces fly on their own)
+        ring(e.x, e.y, 0xffffff); ring(e.x, e.y, 0xffd24a);
+        shake = Math.max(shake, T.death.shake);
+        for (let i = 0; i < 8; i++) splat(e.x + Math.cos(i * 0.785) * 0.4, e.y + Math.sin(i * 0.785) * 0.4, T.splat.radiusMax, playerColor(e.victim));
+      } else if (e.t === 'dismember') {
+        ring(e.x, e.y, 0xffffff);
+        splat(e.x, e.y, T.splat.radiusMax * 0.8, playerColor(e.victim));
+      } else if (e.t === 'crush') {
+        const v = entries.find((x) => x.f.index === e.victim);
+        if (v) v.crushed = true;
+        ring(e.x, e.y + 0.3, 0xcccccc);
+        shake = Math.max(shake, T.death.shake);
       } else if (e.t === 'parry') {
         ring(e.x, e.y, 0x9fe8ff); // a bright double ring where a swing is blocked, and a little shake
         ring(e.x, e.y, 0xffffff);
@@ -195,6 +209,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       for (const e of entries) {
         const { f, c } = e;
         e.vis += ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds);
+        if (e.crushed) e.sq = Math.min(1, e.sq + frameSeconds / T.death.squashSeconds);
         let tint = mix(0xffffff, T.colors.damaged, 1 - Math.max(0, f.hp) / T.fighter.hp);
         tint = mix(tint, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker
         const layer = f.inBack ? backLayer : fighterLayer;
@@ -208,8 +223,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const torso = c[0];
         // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.
         e.group.pivot.set(torso.x, torso.y);
-        e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis);
-        e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis), lerp(1, 0.97, e.vis));
+        e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis + T.death.squashDrop * e.sq);
+        e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis) * (1 + T.death.squashWide * e.sq), lerp(1, 0.97, e.vis) * (1 - T.death.squashFlat * e.sq));
       }
       app.render();
     },
