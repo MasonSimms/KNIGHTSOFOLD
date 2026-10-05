@@ -289,7 +289,20 @@ export const tuning = {
     spin: 12, // tumble given to it (rad/s)
     pickupDelay: 45, // frames before the dropped club can be picked up
   },
+  spawn: {
+    // Weapons keep arriving during a round, faster and better as it goes on (so rounds finish by themselves). Each era's pickups are in eras.ts.
+    firstGap: 480, // frames from one spawn to the next at the start of a round (8 s)
+    minGap: 150, // ...shrinking to this by rampFrames (2.5 s)
+    rampFrames: 3600, // a minute
+    strongAfterFrames: 1500, // the era's strong pickup can only appear after this (25 s)
+    strongChance: 0.6, // once it can appear, this share of spawns are the strong one
+    maxLoose: 6, // never more pickups lying around than this
+    airdropChance: 0.5, // a spawn falls from the sky (otherwise it appears at one of the fixed spots)
+    spots: [0.18, 0.5, 0.82], // fixed spots along the platform (0 = left end, 1 = right end)
+    startRules: { start: 0.5, spots: 0.25, sky: 0.25 }, // how a round begins: everyone armed, clubs on the floor at fixed spots, or clubs falling from the sky
+  },
   eras: {
+    mixStarts: true, // each round picks its starting rule from spawn.startRules (false = always the arena's weaponRule: the tests do this)
     changeGameplay: true, // an era changes the arena layout and the weapon (false = every round uses the standard arena and club: the tests do this)
     specialChance: 0.15, // each slot of a match has this chance of being one of the special eras (fantasy archers, mobsters...) instead of its normal era
   },

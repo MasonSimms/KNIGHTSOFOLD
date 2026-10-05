@@ -5,7 +5,7 @@ import { damageFor, impactValue, knockbackFor } from './combat';
 import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { eraById } from '../content/eras';
-import { PROPS } from '../content/props';
+import { PROPS, PROP_KINDS } from '../content/props';
 import { weaponById } from '../content/weapons';
 import type { Weapon } from '../content/weapons';
 import { eraFor, mapFor, outfitsFor } from './era';
@@ -64,6 +64,7 @@ export class Sim {
   roundOver = false;
   roundWinner = -1; // index of the winner of the round just finished, or -1 for a draw
   private roundOverAt = 0;
+  private nextSpawn = 0; // the frame the next pickup weapon spawns
 
   private constructor(seed: number, private count: number, private dummy: boolean) {
     this.seed = seed;
@@ -129,6 +130,7 @@ export class Sim {
     this.outfits = outfitsFor(this.seed, this.round);
     this.rng = makeRng(this.seed);
     this.frame = 0;
+    this.nextSpawn = T.spawn.firstGap;
     this.lastImpact = 0;
     this.events.length = 0;
     this.partByBody.clear();
@@ -169,11 +171,12 @@ export class Sim {
     this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, xs[i], !(this.dummy && i === 1)));
     this.fighters.forEach((f) => { if (this.gone[f.index]) this.park(f); });
     // Arena weapon rule: with 'spots' or 'sky' nobody starts armed; the clubs lie at fixed spots or fall from above.
-    if (A.weaponRule !== 'start') {
+    const rule = T.eras.changeGameplay && T.eras.mixStarts ? this.startRule() : A.weaponRule;
+    if (rule !== 'start') {
       this.fighters.forEach((f, i) => {
         if (!f.controlled || !f.stick) return;
         const x = A.platformX + A.platformW * A.weaponSpots[i % A.weaponSpots.length];
-        if (A.weaponRule === 'spots') placeLoose(this.world, f, x, A.platformTop - 0.1, 0);
+        if (rule === 'spots') placeLoose(this.world, f, x, A.platformTop - 0.1, 0);
         else placeLoose(this.world, f, x, -1.5 - 2.5 * i, 0.4 * i);
       });
     }
@@ -311,6 +314,7 @@ export class Sim {
     }
 
     for (const p of this.props) { const v = p.body.linvel(this.tmpV); p.vx = v.x; p.vy = v.y; p.w = p.body.angvel(); }
+    this.spawnPickups();
     this.resolvePickups();
     this.keepWeaponsInPlay();
     this.world.step();
@@ -337,7 +341,35 @@ export class Sim {
     else if (e.t === 'respawn') { if (f) this.respawn(f); }
     else if (e.t === 'back') this.gone[e.owner] = false;
     else if (e.t === 'gone') { this.gone[e.owner] = true; if (f && !f.limp) this.kill(f, true); }
+    else if (e.t === 'spawn') this.addProp(PROP_KINDS[e.v], e.x, e.y);
     else if (e.t === 'newround') { this.round++; this.build(); }
+  }
+
+  /** How this round begins (a pure function of the seed and round): armed, clubs at fixed spots, or clubs from the sky. */
+  private startRule(): 'start' | 'spots' | 'sky' {
+    const W = T.spawn.startRules, r = makeRng(((this.seed * 17 + this.round) ^ 0x27d4eb2f) >>> 0)() * (W.start + W.spots + W.sky);
+    return r < W.start ? 'start' : r < W.start + W.spots ? 'spots' : 'sky';
+  }
+
+  private addProp(kind: string, x: number, y: number): void {
+    const p = createProp(this.world, x, y, 0, { kind, ...PROPS[kind] });
+    this.props.push(p);
+    this.partByBody.set(p.body.handle, p);
+    this.version++;
+  }
+
+  /** Better weapons drop in during the round, faster and stronger as it goes on, at fixed spots or from the sky. */
+  private spawnPickups(): void {
+    const S = T.spawn, pickups = eraById(this.era).pickups;
+    if (!T.eras.changeGameplay || !pickups?.length || this.frame < this.nextSpawn) return;
+    this.nextSpawn = this.frame + Math.round(S.firstGap + (S.minGap - S.firstGap) * Math.min(1, this.frame / S.rampFrames));
+    if (this.props.filter((p) => pickups.includes(p.weapon?.id ?? '')).length >= S.maxLoose) return;
+    const strong = pickups.length > 1 && this.frame >= S.strongAfterFrames && this.rng() < S.strongChance;
+    const kind = pickups[strong ? pickups.length - 1 : 0], A = this.arena;
+    const sky = this.rng() < S.airdropChance, x = sky ? A.platformX + 0.8 + this.rng() * (A.platformW - 1.6) : A.platformX + A.platformW * S.spots[Math.floor(this.rng() * S.spots.length)];
+    const y = sky ? -1.5 : A.platformTop - 0.4;
+    this.addProp(kind, x, y);
+    this.events.push({ t: 'spawn', x, y, v: PROP_KINDS.indexOf(kind), owner: -1, victim: -1 });
   }
 
   /** Right-click with empty hands: pick up the nearest loose weapon in reach, anyone's. */

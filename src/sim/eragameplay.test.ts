@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eras } from '../content/eras';
 import { tuning as T } from '../content/tuning';
+import { PROPS } from '../content/props';
 import { weaponById } from '../content/weapons';
 import { Room } from '../net/room';
 import { Mirror } from '../net/snapshot';
@@ -11,7 +12,7 @@ import { Sim } from './world';
 const idle = (over: Partial<PlayerInput> = {}): PlayerInput => ({ moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false, ...over });
 
 // These tests are about the eras' own weapon and arena, so they turn that on (the other tests run with it off).
-beforeAll(() => { T.eras.changeGameplay = true; });
+beforeAll(() => { T.eras.changeGameplay = true; T.eras.mixStarts = false; });
 afterAll(() => { T.eras.changeGameplay = false; });
 
 async function inEra(id: string, players = 4) {
@@ -100,4 +101,25 @@ describe('era gameplay: weapon and arena', () => {
     expect(checks).toBeGreaterThan(100);
     expect(late.desyncs).toBe(0);
   }, 120_000);
+
+  it('better weapons spawn during a round: faster as it goes on, the strong one only later, never more than the cap, and the same every time', async () => {
+    const run = async () => {
+      const sim = await inEra('pirates', 2);
+      const era = eras.find((e) => e.id === 'pirates')!, log: { f: number; kind: string }[] = [];
+      for (let i = 0; i < 4000; i++) {
+        sim.step([idle(), idle()]);
+        for (const e of sim.events) if (e.t === 'spawn') log.push({ f: sim.frame, kind: Object.keys(PROPS)[e.v] });
+        expect(sim.props.filter((p) => era.pickups!.includes(p.weapon!.id)).length).toBeLessThanOrEqual(T.spawn.maxLoose);
+      }
+      return log;
+    };
+    const log = await run();
+    expect(log.length).toBe(T.spawn.maxLoose); // nobody picks anything up here, so it stops at the cap
+    expect(log[0].f).toBe(T.spawn.firstGap);
+    expect(log.filter((s) => s.kind === 'boat-hook').every((s) => s.f >= T.spawn.strongAfterFrames)).toBe(true);
+    expect(log.some((s) => s.kind === 'boat-hook')).toBe(true);
+    const gaps = log.slice(1).map((s, i) => s.f - log[i].f);
+    expect(gaps[gaps.length - 1]).toBeLessThan(gaps[0]); // more rapid over time
+    expect(await run()).toEqual(log);
+  }, 60000);
 });

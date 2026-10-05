@@ -271,7 +271,7 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
 }
 
 /** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
-export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number }): Part {
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number }): Part {
   const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
   const collider = world.createCollider(
@@ -279,7 +279,7 @@ export function createProp(world: World, x: number, y: number, angle: number, sp
   return {
     body, shapes: [{ k: 'cap', hl, r, x: 0, y: 0, rot: Math.PI / 2 }], colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
-    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: Math.min(0.2, spec.len * 0.25), impactFactor: T.props.factor },
+    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: Math.min(0.2, spec.len * 0.25), impactFactor: spec.factor ?? T.props.factor },
   };
 }
 
