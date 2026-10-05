@@ -210,6 +210,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (big > 0) shake = Math.min(T.shake.max, Math.max(shake, big * T.shake.perImpact));
         splat(e.x, e.y, Math.min(T.splat.radiusMax, T.splat.radiusMin + e.v * T.splat.radiusPerImpact) * boost, playerColor(e.owner));
         if (e.v * boost >= T.indicator.minImpact) ring(e.x, e.y, T.indicator.color);
+      } else if (e.t === 'disarm') {
+        ring(e.x, e.y, 0xffd24a); // a golden ring where a club is knocked loose
       }
     },
     draw(alpha: number, frameSeconds: number) {

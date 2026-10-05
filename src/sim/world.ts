@@ -2,7 +2,7 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
-import { buildFighter, controlFighter, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
+import { buildFighter, controlFighter, giveStick, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { makeRng } from './rng';
 import { NEUTRAL } from './types';
@@ -72,6 +72,15 @@ export class Sim {
     }
 
     this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, A.spawnX[i], i !== 1));
+    // Arena weapon rule: with 'spots' or 'sky' nobody starts armed; the clubs lie at fixed spots or fall from above.
+    if (A.weaponRule !== 'start') {
+      this.fighters.forEach((f, i) => {
+        if (!f.controlled || !f.stick) return;
+        const x = A.platformX + A.platformW * A.weaponSpots[i % A.weaponSpots.length];
+        if (A.weaponRule === 'spots') placeLoose(this.world, f, x, A.platformTop - 0.1, 0);
+        else placeLoose(this.world, f, x, -1.5 - 2.5 * i, 0.4 * i);
+      });
+    }
     this.version++;
   }
 
@@ -104,11 +113,47 @@ export class Sim {
       }
     }
 
+    this.resolvePickups();
+    this.keepWeaponsInPlay();
     this.world.step();
     this.settlePlanes();
     this.resolveHits();
     this.checkDeaths();
     this.snapshot();
+  }
+
+  /** Right-click with empty hands: pick up the nearest loose weapon in reach, anyone's. */
+  private resolvePickups(): void {
+    for (const f of this.fighters) {
+      if (!f.pickupRequest) continue;
+      f.pickupRequest = false;
+      if (f.limp || f.grip) continue;
+      const bt = f.torso.body.translation();
+      let best: Fighter | null = null, bestD = T.drop.pickupRange;
+      for (const g of this.fighters) {
+        if (!g.stick || g.grip || g.dropCooldown > 0) continue; // loose, and not just dropped
+        const st = g.stick.body.translation();
+        const d = Math.hypot(st.x - bt.x, st.y - bt.y);
+        if (d < bestD) { bestD = d; best = g; }
+      }
+      if (!best) continue;
+      giveStick(this.world, best, f);
+      if (best !== f) this.version++; // the club changed hands, so the renderer must rebuild
+      this.events.push({ t: 'pickup', x: bt.x, y: bt.y, v: 0, owner: f.index, victim: -1 });
+    }
+  }
+
+  /** A club lost in the void comes back from the sky after a while, so there are always weapons in play. */
+  private keepWeaponsInPlay(): void {
+    const A = T.arena;
+    for (const g of this.fighters) {
+      if (!g.stick || g.grip) continue;
+      if (g.stick.body.translation().y > A.killY) g.lostFrames++;
+      else g.lostFrames = 0;
+      if (g.lostFrames > A.weaponReturnFrames) {
+        placeLoose(this.world, g, A.platformX + 0.8 + this.rng() * (A.platformW - 1.6), -1.5, this.rng() * 3);
+      }
+    }
   }
 
   /** A dodging fighter returns to the normal plane only when nobody is standing inside them (otherwise the physics would fling them apart). */
@@ -144,12 +189,18 @@ export class Sim {
       if (f.inBack) continue; // on the background plane you cannot hit anyone
       for (const att of f.attackers) {
         if (this.frame < att.nextHit) continue;
+        if (f.limp && att.kind === 'fist') continue; // a dead fighter's floppy fists hurt nobody (a club they threw still does)
         this.world.contactPairsWith(att.collider, (other) => {
           const vb = other.parent();
           const victimPart = vb && this.partByBody.get(vb.handle);
-          if (!victimPart || victimPart.owner === f.index || victimPart.role === 'stick') return;
+          if (!victimPart || victimPart.owner === f.index) return;
           this.world.contactPair(att.collider, other, (m) => {
             if (m.numSolverContacts() === 0) return;
+            if (victimPart.role === 'stick') { // a club hit by a club or fist: no damage, but a great clash can knock it out of a hand
+              const holder = this.fighters[victimPart.owner];
+              if (holder && holder.stick === victimPart && holder.grip) this.clash(f, att, holder, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN));
+              return;
+            }
             const victim = this.fighters[victimPart.owner];
             const head = !!victim && !!victim.headCollider && other.handle === victim.headCollider.handle;
             this.hit(f, att, victim, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN), head);
@@ -159,21 +210,59 @@ export class Sim {
     }
   }
 
-  private hit(f: Fighter, att: Attacker, victim: Fighter | undefined, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }, head: boolean): void {
-    if (!victim || victim.limp) return;
-    const ab = att.part.body;
-    const at = ab.translation();
+  /** Closing speed at a contact point (from the speeds just before the physics step), the normal pointing attacker -> victim, and each side's own speed there. */
+  private contact(att: Attacker, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }) {
+    const at = att.part.body.translation();
     const vt = vp.body.translation();
-    // Orient the normal from attacker to victim.
-    const sign = (vt.x - at.x) * n.x + (vt.y - at.y) * n.y < 0 ? -1 : 1;
+    const sign = (vt.x - at.x) * n.x + (vt.y - at.y) * n.y < 0 ? -1 : 1; // orient the normal from attacker to victim
     const nx = n.x * sign, ny = n.y * sign;
-    // Velocity of each body at the contact point, from the pre-step snapshot.
     const ap = att.part, rax = pt.x - at.x, ray = pt.y - at.y, rvx = pt.x - vt.x, rvy = pt.y - vt.y;
     const avx = ap.vx - ap.w * ray, avy = ap.vy + ap.w * rax;
     const bvx = vp.vx - vp.w * rvy, bvy = vp.vy + vp.w * rvx;
-    const closing = (avx - bvx) * nx + (avy - bvy) * ny;
+    return { nx, ny, closing: (avx - bvx) * nx + (avy - bvy) * ny, sa: Math.hypot(avx, avy), sb: Math.hypot(bvx, bvy) };
+  }
+
+  /** A club hit by a club or a fist: no damage, but a great clash can knock it out of the holder's hand. */
+  private clash(f: Fighter, att: Attacker, holder: Fighter, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }): void {
+    const c = this.contact(att, vp, pt, n);
+    const impact = impactValue(c.closing, (att.kind === 'stick' ? T.stick : T.fist).impactFactor);
+    this.tryDisarm(f, holder, vp, pt, impact, c.nx, c.ny, c.sa, c.sb);
+  }
+
+  /**
+   * Where a hit lands decides whether it disarms. The hand (and the grip end of the club) is the weak spot; elsewhere on the arm
+   * needs a much bigger hit; in a club-on-club clash only a clearly faster club wins.
+   */
+  private tryDisarm(f: Fighter, victim: Fighter, vp: Part, pt: { x: number; y: number }, impact: number, nx: number, ny: number, sa = 0, sb = 0): void {
+    const D = T.disarm;
+    if (!victim.grip || !victim.stick || impact < Math.min(D.handImpact, D.armImpact, D.clashImpact)) return;
+    const ft = victim.fore.body.translation(), fa = victim.fore.body.rotation();
+    const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
+    const nearHand = Math.hypot(pt.x - hx, pt.y - hy) < D.handRadius;
+    let ok = false;
+    if (nearHand) ok = impact >= D.handImpact;
+    else if (vp.role === 'fore' || vp.role === 'upper') ok = impact >= D.armImpact;
+    else if (vp.role === 'stick') ok = impact >= D.clashImpact && sa > sb * D.clashRatio;
+    if (!ok) return;
+    this.world.removeImpulseJoint(victim.grip, true);
+    victim.grip = null;
+    victim.charge = 0;
+    victim.release = 0;
+    victim.throwPending = false;
+    victim.stun = Math.max(victim.stun, 10);
+    victim.dropCooldown = D.pickupDelay;
+    const sbody = victim.stick.body, v = sbody.linvel(this.tmpV);
+    sbody.setLinvel({ x: v.x + nx * D.kick, y: v.y + ny * D.kick - D.kickUp }, true);
+    sbody.setAngvel((this.rng() - 0.5) * 2 * D.spin, true);
+    this.events.push({ t: 'disarm', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index });
+  }
+
+  private hit(f: Fighter, att: Attacker, victim: Fighter | undefined, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }, head: boolean): void {
+    if (!victim || victim.limp) return;
+    const { nx, ny, closing, sa, sb } = this.contact(att, vp, pt, n);
     const W = att.kind === 'stick' ? T.stick : T.fist;
     const impact = impactValue(closing, W.impactFactor);
+    this.tryDisarm(f, victim, vp, pt, impact, nx, ny, sa, sb); // a great hit on the hand or arm can knock the club out
     const dmg = damageFor(impact, head ? T.combat.headMult : 1);
     if (dmg <= 0) return;
 
@@ -193,6 +282,7 @@ export class Sim {
   private kill(f: Fighter, fell: boolean, impact = 0): void {
     f.limp = true;
     f.deadAt = this.frame;
+    f.dropCooldown = 0; // the club they were holding can be taken straight away
     if (f.inBack) setBackPlane(f, false);
     if (f.grip) { this.world.removeImpulseJoint(f.grip, true); f.grip = null; }
     for (const p of ragdoll(this.world, f, this.rng)) this.partByBody.set(p.body.handle, p);

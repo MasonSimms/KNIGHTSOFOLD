@@ -11,7 +11,7 @@ export interface PlayerInput {
 
 export const NEUTRAL: PlayerInput = { moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false };
 
-export type EventType = 'hit' | 'jump' | 'punch' | 'dodge' | 'drop' | 'throw' | 'pickup' | 'die' | 'fall';
+export type EventType = 'hit' | 'jump' | 'punch' | 'dodge' | 'drop' | 'throw' | 'pickup' | 'disarm' | 'die' | 'fall';
 
 // Sim -> render/audio messages. Cleared at the start of every sim step.
 export interface SimEvent {

@@ -72,6 +72,8 @@ export interface Fighter {
   jumpBuffer: number; // frames a jump press is remembered (so pressing a touch early still jumps)
   coyote: number; // frames after leaving a ledge during which a jump still works
   prevDrop: boolean;
+  pickupRequest: boolean; // right-click with empty hands: the world looks for a loose weapon in reach
+  lostFrames: number; // how long this fighter's club has been lost in the void
   dropCooldown: number; // frames until a dropped club can be picked up again
   spawnX: number;
   spawnY: number;
@@ -164,7 +166,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, crouchApplied: 0, attackLock: 0, punchPower: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, crouchApplied: 0, attackLock: 0, punchPower: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -202,6 +204,39 @@ function attachStick(world: World, f: Fighter): void {
   f.grip = j;
   const pose = (p: Part) => { const t = p.body.translation(); p.px = p.cx = t.x; p.py = p.cy = t.y; p.pa = p.ca = p.body.rotation(); };
   pose(stick);
+}
+
+/** Take a loose club from `from` and put it in `to`'s hand (`from` may be `to`: picking up your own club). */
+export function giveStick(world: World, from: Fighter, to: Fighter): void {
+  const part = from.stick!;
+  if (from !== to) {
+    from.stick = null;
+    from.parts.splice(from.parts.indexOf(part), 1);
+    const ai = from.attackers.findIndex((a) => a.part === part);
+    const att = from.attackers.splice(ai, 1)[0];
+    att.nextHit = 0;
+    to.attackers.push(att);
+    part.owner = to.index;
+    const g = to.inBack ? backGroups : ownerGroups(to.index);
+    for (const c of part.colliders) c.setCollisionGroups(g);
+    to.stick = part;
+    to.parts.push(part);
+  }
+  attachStick(world, to);
+}
+
+/** Lay a fighter's club somewhere in the world, out of the hand and at rest (arena weapon rules, and a lost club coming back). */
+export function placeLoose(world: World, f: Fighter, x: number, y: number, angle: number): void {
+  if (f.grip) { world.removeImpulseJoint(f.grip, true); f.grip = null; }
+  const b = f.stick!.body;
+  b.setTranslation({ x, y }, true);
+  b.setRotation(angle, true);
+  b.setLinvel({ x: 0, y: 0 }, true);
+  b.setAngvel(0, true);
+  const p = f.stick!;
+  p.px = p.cx = x; p.py = p.cy = y; p.pa = p.ca = angle;
+  f.dropCooldown = 0;
+  f.lostFrames = 0;
 }
 
 /**
@@ -352,9 +387,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // ---- right-click: with a club in your hand it lets go (the club keeps the speed of your swing plus a small push, so swing first,
   // then drop it to throw it); with empty hands it picks your club up again if it is within reach ----
   if (f.dropCooldown > 0) f.dropCooldown--;
-  if (f.controlled && input.drop && !f.prevDrop && f.stick) {
-    const st = f.stick.body.translation();
-    if (f.grip && attack && !f.throwPending) {
+  if (f.controlled && input.drop && !f.prevDrop) {
+    if (f.grip && f.stick && attack && !f.throwPending) {
       // Right-click while holding the charge: a charged throw. The swing starts as usual (with a smaller lunge) and the club is
       // let go partway through it, along the aim, with a boost that grows with how long you held.
       const power = Math.max(T.throw.minPower, f.charge / T.charge.maxFrames);
@@ -366,7 +400,9 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       f.releaseMul = 1 + (T.charge.torqueMul - 1) * power;
       const la = lungeAngle(f.side, input.aim, T.charge.lungeMaxAngle);
       shove(f, Math.cos(la) * T.charge.lungeImpulse * power * T.throw.lungeShare, Math.sin(la) * T.charge.lungeImpulse * power * T.throw.lungeShare);
-    } else if (f.grip) {
+    } else if (f.grip && f.stick) {
+      // Right-click with a club: let go. It keeps the speed of your swing plus a small push, so swing first, then drop it to throw it.
+      const st = f.stick.body.translation();
       world.removeImpulseJoint(f.grip, true);
       f.grip = null;
       f.throwPending = false;
@@ -376,12 +412,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       f.stick.body.setLinvel({ x: sv.x + Math.cos(input.aim) * T.drop.push, y: sv.y + Math.sin(input.aim) * T.drop.push }, true);
       f.dropCooldown = T.drop.pickupDelay;
       events.push({ t: 'drop', x: st.x, y: st.y, v: 0, owner: f.index, victim: -1 });
-    } else if (f.dropCooldown === 0) {
-      const bt = body.translation();
-      if (Math.hypot(st.x - bt.x, st.y - bt.y) < T.drop.pickupRange) {
-        attachStick(world, f);
-        events.push({ t: 'pickup', x: bt.x, y: bt.y, v: 0, owner: f.index, victim: -1 });
-      }
+    } else if (!f.grip) {
+      f.pickupRequest = true; // right-click with empty hands: the world picks up the nearest loose weapon in reach
     }
   }
   f.prevDrop = input.drop;

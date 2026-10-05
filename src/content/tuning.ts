@@ -18,6 +18,9 @@ export const tuning = {
     friction: 0.8,
     killY: 13, // below this is the void: instant kill
     killXMargin: 4, // metres past either screen edge
+    weaponRule: 'start' as 'start' | 'sky' | 'spots', // how weapons reach fighters: 'start' = everyone starts armed, 'sky' = clubs rain from above, 'spots' = clubs lie at fixed spots
+    weaponSpots: [0.42, 0.58, 0.34, 0.66], // where along the platform (0 = left end, 1 = right end) the clubs lie in the 'spots' rule
+    weaponReturnFrames: 120, // a weapon lost in the void comes back from the sky after this long (2 s)
     wallGap: 1.3, // metres between each platform end and its wall: a fighter knocked off the end falls into the gap and can wall-jump out
     wallThickness: 0.5,
     wallTop: 3.2, // how high the walls reach (the platform top is at 7.4)
@@ -214,6 +217,19 @@ export const tuning = {
     torqueMul: 2.5, // arm strength during a full-power throw
     strikeImpulse: 0.8, // extra shove on the fist each frame of a full-power throw
     lunge: 35, // push the whole body forward into a full-power punch
+  },
+  disarm: {
+    // A great hit can knock a club out of an opponent's hand. Where it lands matters: the hand (and the grip end of the club) is the
+    // weak spot; elsewhere on the arm needs a much bigger hit; and when two clubs clash, only a clearly faster club wins the clash.
+    handRadius: 0.3, // metres around the hand that count as "the hand"
+    handImpact: 28, // impact needed to disarm with a hit on the hand
+    armImpact: 55, // ...on the rest of the arm
+    clashImpact: 40, // ...in a club-on-club clash
+    clashRatio: 1.4, // in a clash the attacker's club must be this many times faster than the defender's
+    kick: 7, // how hard the knocked-out club is flung away from the blow (m/s)
+    kickUp: 3, // ...and upward
+    spin: 12, // tumble given to it (rad/s)
+    pickupDelay: 45, // frames before the dropped club can be picked up
   },
   throw: {
     // Right-click while holding the charge: the swing starts, then the club is let go partway through it.
