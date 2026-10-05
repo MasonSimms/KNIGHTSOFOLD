@@ -45,6 +45,9 @@ export interface Fighter {
   grounded: boolean;
   groundDist: number; // how far below the hips the floor is (Infinity = nothing in reach)
   legs: { thigh: Part; shin: Part; hip: RevoluteImpulseJoint; knee: RevoluteImpulseJoint }[];
+  offShoulder: RevoluteImpulseJoint; // the second arm: only for show
+  offElbow: RevoluteImpulseJoint;
+  bodyHitAt: number; // earliest frame this fighter may body-slam again
   gait: number; // walk cycle phase
   kneeSide: number; // which way the knees currently fold (follows the facing)
   wall: number; // -1 / 0 / 1: touching a wall on the left / none / the right (in the air only)
@@ -201,7 +204,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
@@ -583,8 +586,22 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const tip = smooth(T.crouch.tipStart, T.crouch.tipAt, f.crouch);
   const balance = f.stun > 0 ? B.stunFactor : 1;
   // Lying down lets go of the upright spring but keeps the spin damping, so crawling does not roll you over.
-  const torque = clamp(-B.kp * (1 - tip) * wrapAngle(body.rotation() - lean) - B.kd * body.angvel(), B.maxTorque) * balance;
-  body.applyTorqueImpulse(torque * dt, true);
+  const FL = T.flip;
+  const flipping = f.controlled && !!input.flip && !f.grounded && !f.hold && f.stun === 0;
+  const tilt = wrapAngle(body.rotation());
+  if (flipping) {
+    // Forward rotation: spin up toward the way you face. Balance is switched off while you hold it.
+    const w = body.angvel();
+    body.setAngvel(w + clamp(s * FL.spin - w, FL.accel * dt), true);
+  } else if (tip === 0 && Math.abs(tilt) > FL.rightFrom && f.stun === 0) {
+    // Far from upright (after a flip, a knock, a landing): turn back smoothly at a capped rate instead of a hard spring.
+    const w = body.angvel();
+    body.setAngvel(w + clamp(clamp(-FL.rightGain * tilt, FL.rightMax) - w, FL.rightAccel * dt), true);
+  } else {
+    // Lying down lets go of the upright spring but keeps the spin damping, so crawling does not roll you over.
+    const torque = clamp(-B.kp * (1 - tip) * wrapAngle(body.rotation() - lean) - B.kd * body.angvel(), B.maxTorque) * balance;
+    body.applyTorqueImpulse(torque * dt, true);
+  }
 
   // ---- movement and jumping ----
   senseContacts(world, f);
@@ -750,5 +767,19 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   } else {
     const eg = grabbing ? gain : 1; // holding a body needs a strong elbow too
     motor(f.elbow, f.poseE, A.elbowStiffness * eg, A.elbowDamping * eg, A.elbowMaxTorque * eg);
+  }
+
+  // The second arm joins punches and grabs (for show: it only ever touches the floor and walls); otherwise it just flops.
+  const OH = T.offHand;
+  if (!armed && f.controlled && (grabbing || f.punch > 0)) {
+    f.offShoulder.configureMotorPosition(wrapAngle(mirror(aimR + OH.trail) - tr), OH.stiffness, OH.damping);
+    f.offElbow.configureMotorPosition(f.punch > 0 && punchPhase === 'recover' ? s * K.guardElbow : 0, OH.stiffness, OH.damping);
+    f.offShoulder.setMotorMaxForce(OH.maxTorque);
+    f.offElbow.setMotorMaxForce(OH.maxTorque);
+  } else {
+    f.offShoulder.configureMotorPosition(0, 0, T.offArm.damping);
+    f.offElbow.configureMotorPosition(0, 0, T.offArm.damping);
+    f.offShoulder.setMotorMaxForce(1e6);
+    f.offElbow.setMotorMaxForce(1e6);
   }
 }

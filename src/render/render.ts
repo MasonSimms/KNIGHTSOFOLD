@@ -162,7 +162,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     /** Screen pixels -> world metres. */
     toWorld(px: number, py: number) { return { x: (px - view.x) / scale, y: (py - view.y) / scale }; },
     onEvent(e: SimEvent) {
-      if (e.t === 'hit') {
+      if (e.t === 'hit' || e.t === 'stomp') {
         const boost = e.head ? 1.5 : 1;
         const big = e.v * boost - T.shake.minImpact; // only big hits shake the screen
         if (big > 0) shake = Math.min(T.shake.max, Math.max(shake, big * T.shake.perImpact));

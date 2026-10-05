@@ -163,6 +163,34 @@ export const tuning = {
     maxTorque: 900,
     stunFactor: 0.25, // balance strength while stunned
   },
+  flip: {
+    // Hold W (gamepad: left stick up) in the air: the body rotates forward, the way you face. Let go and it rights itself.
+    spin: 11, // rad/s the body spins up to while holding (a bit under 2 turns a second: a full flip fits in one jump)
+    accel: 90, // rad/s^2: how quickly it gets there (and how quickly it stops spinning when you let go)
+    // After landing (or letting go of flip on the ground) a body that is not upright turns smoothly back, instead of snapping:
+    rightGain: 7, // 1/s: turn rate per radian of tilt
+    rightMax: 6, // rad/s cap on that turn
+    rightAccel: 45, // rad/s^2
+    rightFrom: 0.7, // radians of tilt (40 degrees) beyond which the smooth righting takes over from normal balance
+  },
+  body: {
+    // Body collisions: a fighter moving much faster than the one they hit deals damage by closing speed x factor (through the usual damage
+    // curve). Landing on top of someone from above is a stomp: bigger damage and a 'stomp' event (for the special animation later).
+    minSpeed: 5, // the faster fighter must be moving at least this fast (m/s) at the contact
+    ratio: 1.6, // ...and this many times faster than the one they hit (so two people running into each other is harmless)
+    factor: 1.6, // damage factor for an ordinary body slam
+    stompFactor: 3.2, // damage factor for landing on someone
+    stompAngle: 0.6, // how vertical the contact must be (0 = exactly from above, 1 = sideways) to count as a stomp
+    knockbackMul: 0.6, // how hard a body slam shoves the victim (1 = like a club hit)
+    cooldown: 20, // frames before the same fighter can slam again
+  },
+  offHand: {
+    // The second arm joins punches and grabs (for show: it still touches nothing but the floor and walls).
+    stiffness: 60, // how firmly it holds its pose
+    damping: 6,
+    maxTorque: 40,
+    trail: 0.35, // radians it lags behind the main arm, so the two arms look like two arms
+  },
   arm: {
     // The shoulder follows the aim like a velocity servo: turn rate = shoulderTrack x angle error (capped), so no overshoot.
     shoulderTrack: 25, // 1/s: bigger = tighter to the mouse (25 closes a gap in about 3 frames)

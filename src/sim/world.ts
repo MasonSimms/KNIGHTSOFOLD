@@ -154,6 +154,7 @@ export class Sim {
     this.settlePlanes();
     this.resolveGrabs();
     this.resolveHits();
+    this.resolveBodyHits();
     this.resolveSlams();
     this.checkDeaths();
     this.snapshot();
@@ -203,6 +204,48 @@ export class Sim {
     }
   }
 
+  /**
+   * Body collisions: a fighter moving much faster than the one they run into hurts them. Landing on top of someone from above is a
+   * stomp (bigger damage, and a 'stomp' event so a special animation can be hooked in later).
+   */
+  private resolveBodyHits(): void {
+    const B = T.body;
+    for (const f of this.fighters) {
+      if (f.limp || f.inBack || f.thrown > 0 || this.frame < f.bodyHitAt) continue; // a flung fighter's crashes are the slam rules instead
+      for (const p of f.parts) {
+        if (p.role !== 'torso' && p.role !== 'thigh' && p.role !== 'shin') continue;
+        for (const col of p.colliders) {
+          this.world.contactPairsWith(col, (other) => {
+            if (this.frame < f.bodyHitAt) return;
+            const vb = other.parent();
+            const vp = vb && this.partByBody.get(vb.handle);
+            if (!vp || vp.owner === f.index || (vp.role !== 'torso' && vp.role !== 'thigh' && vp.role !== 'shin')) return;
+            const victim = this.fighters[vp.owner];
+            if (!victim || victim.limp || victim.inBack) return;
+            this.world.contactPair(col, other, (m) => {
+              if (this.frame < f.bodyHitAt || m.numSolverContacts() === 0) return;
+              const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP;
+              const c = this.contact(p, vp, pt, m.normal(this.tmpN));
+              if (c.closing <= 0 || c.sa < B.minSpeed || c.sa < c.sb * B.ratio) return; // only a much faster fighter hurts
+              const vt = victim.torso.body.translation();
+              const fromAbove = c.ny > 1 - B.stompAngle && pt.y < vt.y; // contact along the vertical, with the attacker higher up and coming down
+              const stomp = fromAbove && p.vy > 0;
+              const impact = impactValue(c.closing, stomp ? B.stompFactor : B.factor);
+              const dmg = damageFor(impact);
+              if (dmg <= 0) return;
+              f.bodyHitAt = this.frame + B.cooldown;
+              const head = !!victim.headCollider && other.handle === victim.headCollider.handle;
+              const k = knockbackFor(impact) * B.knockbackMul;
+              shove(victim, c.nx * k, c.ny * k);
+              this.events.push({ t: stomp ? 'stomp' : 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head });
+              this.wound(victim, dmg * (head ? T.combat.headMult : 1), impact, pt.x, pt.y, f.index, head, !stomp);
+            });
+          });
+        }
+      }
+    }
+  }
+
   /** A flung fighter crashing hard into the floor, a wall or a third fighter gets hurt (and so does that third fighter). */
   private resolveSlams(): void {
     const G = T.grab;
@@ -239,12 +282,12 @@ export class Sim {
   }
 
   /** Take hidden HP off a fighter and stagger them; they die at zero. */
-  private wound(victim: Fighter, dmg: number, impact: number, x: number, y: number, owner: number, head = false): void {
+  private wound(victim: Fighter, dmg: number, impact: number, x: number, y: number, owner: number, head = false, announce = true): void {
     this.lastImpact = impact;
     victim.hp -= dmg;
     victim.stun = T.combat.stunFrames;
     if (victim.hold && impact >= T.grab.breakImpact) letGo(this.world, victim, false, this.events); // a good hit makes a grabber let go
-    this.events.push({ t: 'hit', x, y, v: impact, owner, victim: victim.index, head });
+    if (announce) this.events.push({ t: 'hit', x, y, v: impact, owner, victim: victim.index, head });
     if (victim.hp <= 0) this.kill(victim, false, impact);
   }
 
@@ -316,12 +359,12 @@ export class Sim {
   }
 
   /** Closing speed at a contact point (from the speeds just before the physics step), the normal pointing attacker -> victim, and each side's own speed there. */
-  private contact(att: Attacker, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }) {
-    const at = att.part.body.translation();
+  private contact(ap: Part, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }) {
+    const at = ap.body.translation();
     const vt = vp.body.translation();
     const sign = (vt.x - at.x) * n.x + (vt.y - at.y) * n.y < 0 ? -1 : 1; // orient the normal from attacker to victim
     const nx = n.x * sign, ny = n.y * sign;
-    const ap = att.part, rax = pt.x - at.x, ray = pt.y - at.y, rvx = pt.x - vt.x, rvy = pt.y - vt.y;
+    const rax = pt.x - at.x, ray = pt.y - at.y, rvx = pt.x - vt.x, rvy = pt.y - vt.y;
     const avx = ap.vx - ap.w * ray, avy = ap.vy + ap.w * rax;
     const bvx = vp.vx - vp.w * rvy, bvy = vp.vy + vp.w * rvx;
     return { nx, ny, closing: (avx - bvx) * nx + (avy - bvy) * ny, sa: Math.hypot(avx, avy), sb: Math.hypot(bvx, bvy) };
@@ -329,7 +372,7 @@ export class Sim {
 
   /** A club hit by a club or a fist: no damage, but a great clash can knock it out of the holder's hand. */
   private clash(f: Fighter, att: Attacker, holder: Fighter, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }): void {
-    const c = this.contact(att, vp, pt, n);
+    const c = this.contact(att.part, vp, pt, n);
     const impact = impactValue(c.closing, (att.kind === 'stick' ? T.stick : T.fist).impactFactor);
     this.tryDisarm(f, holder, vp, pt, impact, c.nx, c.ny, c.sa, c.sb);
   }
@@ -364,7 +407,7 @@ export class Sim {
 
   private hit(f: Fighter, att: Attacker, victim: Fighter | undefined, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }, head: boolean): void {
     if (!victim || victim.limp) return;
-    const { nx, ny, closing, sa, sb } = this.contact(att, vp, pt, n);
+    const { nx, ny, closing, sa, sb } = this.contact(att.part, vp, pt, n);
     const W = att.kind === 'stick' ? T.stick : T.fist;
     const impact = impactValue(closing, W.impactFactor);
     this.tryDisarm(f, victim, vp, pt, impact, nx, ny, sa, sb); // a great hit on the hand or arm can knock the club out
