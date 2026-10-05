@@ -78,6 +78,7 @@ export interface Fighter {
   reaching: boolean; // unarmed, attack held: the hand is out, grabbing whatever fighter it touches
   hold: ImpulseJoint | null; // the hand-to-someone joint while holding a fighter
   held: Fighter | null; // who is being held
+  holdFrames: number; // how long the current grab has lasted
   thrownBy: number; // who flung this fighter (-1 = nobody)
   thrown: number; // frames left in which a hard crash hurts
   slamWait: number; // frames before another crash can hurt
@@ -207,7 +208,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -282,7 +283,7 @@ export function letGo(world: World, f: Fighter, fling: boolean, events: SimEvent
   world.removeImpulseJoint(f.hold, true);
   f.hold = null;
   f.held = null;
-  if (!fling) return;
+  if (!fling) { f.chargeLocked = true; return; } // let go of the button and press again to grab again
   const G = T.grab;
   for (const p of v.parts) {
     if (p.role === 'stick' && !v.grip) continue;
@@ -561,6 +562,10 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       }
       f.charge = 0;
     }
+  }
+  if (f.hold) {
+    f.holdFrames++;
+    if (f.holdFrames > G.maxFrames) letGo(world, f, false, events); // the grip gives out: they drop out of your hands
   }
   if (f.hold && !(attack && f.controlled)) letGo(world, f, true, events); // let go of the button: fling them
   const grabbing = f.reaching || !!f.hold;

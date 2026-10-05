@@ -198,6 +198,7 @@ export class Sim {
           if (!p) return;
           f.hold = grabJoint(this.world, f, part, p);
           f.held = victim;
+          f.holdFrames = 0;
           this.events.push({ t: 'grab', x: p.x, y: p.y, v: 0, owner: f.index, victim: victim.index });
         });
       });
@@ -451,6 +452,7 @@ export class Sim {
     this.lastImpact = impact;
     victim.hp -= dmg;
     victim.stun = T.combat.stunFrames;
+    if (victim.hold && impact >= T.grab.breakImpact) letGo(this.world, victim, false, this.events); // a good hit on a grabber, from the one they hold or anyone else, breaks the hold
     const killing = victim.hp <= 0;
     const k = knockbackFor(impact) * (att.kind === 'fist' ? T.fist.knockbackMul : 1); // punches shove much less than a club
     shove(victim, nx * k, ny * k - impact * T.combat.knockbackUp);

@@ -139,6 +139,53 @@ describe('charge, punch and throw (the newer controls)', () => {
     }
   });
 
+  it('a grab gives out after its time limit, and you must press again to regrab', async () => {
+    const T = (await import('../content/tuning')).tuning;
+    const was = T.fighter.startArmed;
+    T.fighter.startArmed = false;
+    try {
+      const { sim, P } = await unarmedFace();
+      let frames = 0, held = false;
+      for (; frames < 400; frames++) {
+        sim.step([idle({ attack: true, moveX: 0.5 })]);
+        if (P().hold) held = true;
+        else if (held) break; // it let go on its own while the button was still down
+      }
+      expect(held).toBe(true);
+      expect(frames).toBeLessThan(T.grab.maxFrames + 80);
+      expect(frames).toBeGreaterThan(T.grab.maxFrames - 20);
+      for (let i = 0; i < 20; i++) sim.step([idle({ attack: true })]);
+      expect(P().hold).toBeNull(); // still holding the button: no instant regrab
+    } finally {
+      T.fighter.startArmed = was;
+    }
+  });
+
+  it('a hard hit on the grabber, even from a third fighter, breaks the hold', async () => {
+    const T = (await import('../content/tuning')).tuning;
+    const was = T.fighter.startArmed;
+    T.fighter.startArmed = false;
+    try {
+      const sim = await Sim.create(11, 3);
+      const P = () => sim.fighters[0], D = () => sim.fighters[1], X = () => sim.fighters[2];
+      const step = (a: Partial<PlayerInput> = {}) => sim.step([idle(a), idle(), idle()]);
+      for (let i = 0; i < 40; i++) step();
+      while (D().torso.body.translation().x - P().torso.body.translation().x > 1.3) step({ moveX: 1, aim: Math.PI / 2 });
+      for (let i = 0; i < 40; i++) step();
+      let held = false;
+      for (let i = 0; i < 120 && !held; i++) { step({ attack: true, moveX: 0.5 }); held = !!P().hold; }
+      expect(held).toBe(true);
+      const fist = X().fore.body, pt = P().torso.body.translation(); // fighter 2's fist, thrown hard at the grabber's back
+      fist.setTranslation({ x: pt.x - 0.6, y: pt.y - 0.1 }, true);
+      fist.setLinvel({ x: 18, y: 0 }, true);
+      for (let i = 0; i < 8; i++) step({ attack: true });
+      expect(P().hp).toBeLessThan(T.fighter.hp);
+      expect(P().hold).toBeNull();
+    } finally {
+      T.fighter.startArmed = was;
+    }
+  });
+
   it('right-click while holding the charge throws the club partway through the swing, forward', async () => {
     const sim = await settled(0);
     const f = () => sim.fighters[0];

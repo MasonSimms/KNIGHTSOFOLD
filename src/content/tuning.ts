@@ -261,11 +261,12 @@ export const tuning = {
   },
   grab: {
     // Unarmed left-click, HELD: your hand reaches out along the aim and grabs whatever part of a fighter it touches.
-    // Keep holding to keep hold of them (for as long as you like) and swing the mouse to whirl them; let go to fling them.
+    // Keep holding to keep hold of them (up to maxFrames) and swing the mouse to whirl them; let go to fling them.
+    maxFrames: 150, // a grab gives out after this long (2.5 s) and they drop out of your hands (no fling)
     holdFrames: 8, // hold the button this long (0.13 s) and it is a grab, not a punch
     armMul: 4, // how much stronger (and somewhat faster) your arm is while reaching or holding someone: enough to swing a whole body
     fling: 1.25, // the flung fighter's speed is multiplied by this when you let go (1 = only the swing itself)
-    breakImpact: 30, // a hit on the grabber at least this big makes them drop who they are holding
+    breakImpact: 20, // a hit on the grabber at least this big makes them drop who they are holding: the one held can hit their way out, or anyone else can
     thrownFrames: 90, // for this long after being flung (1.5 s) a hard crash hurts
     slamFactor: 2.0, // damage factor for crashing into the floor, a wall or another fighter: impact = crash speed (m/s) x this
     slamCooldown: 12, // frames between two crash hits on the same thrown fighter
