@@ -283,6 +283,20 @@ export const tuning = {
     spin: 12, // tumble given to it (rad/s)
     pickupDelay: 45, // frames before the dropped club can be picked up
   },
+  parry: {
+    // Block a swing with your own club: hold it still (or nearly) in the path of a fast swing. The swinger's club flies back the way it came,
+    // the swinger is pushed back a little and staggers, and you are untouched. Swing your own club into theirs and it is a clash instead.
+    minSpeed: 6, // the incoming club must be moving at least this fast at the contact (m/s)
+    maxSpeed: 2.5, // ...and the blocking club slower than this
+    ratio: 3, // ...and the incoming club this many times faster
+    bounce: 0.9, // the incoming club goes back at this much of its own speed...
+    bounceMin: 7, // ...and never slower than this (m/s)
+    knock: 3, // m/s the swinger's whole body is pushed back
+    stun: 14, // frames the swinger staggers
+    lockFrames: 24, // frames before the swinger can start another attack (0.4 s: the window to counter)
+    cooldown: 20, // frames before that same club can parry-trigger again
+    shake: 0.04, // screen shake
+  },
   throw: {
     // Right-click while holding the charge: the swing starts, then the club is let go partway through it.
     // (Right-click with no charge just drops the club with whatever speed your own swing and movement gave it.)

@@ -146,3 +146,37 @@ describe('arena weapon rules', () => {
     expect(b.translation().x).toBeGreaterThan(T.arena.platformX);
   });
 });
+
+describe('parry', () => {
+  /** Fighter 2's club (let go, then flung) hits fighter 0's club, which is held still in guard. */
+  async function swingAtGuard(speed: number) {
+    const { sim, step, P0, P2 } = await three();
+    step({}, { drop: true });
+    const missile = P2().stick!.body;
+    const g = P0().stick!.body.translation();
+    missile.setTranslation({ x: g.x + 0.9, y: g.y }, true); // beside the held club, coming in
+    missile.setRotation(Math.PI / 2, true);
+    missile.setLinvel({ x: -speed, y: 0 }, true);
+    let parried = false, disarmed = false;
+    for (let i = 0; i < 12; i++) {
+      step({}, {});
+      if (sim.events.some((e) => e.t === 'parry')) parried = true;
+      if (sim.events.some((e) => e.t === 'disarm')) disarmed = true;
+    }
+    return { sim, P0, P2, missile, parried, disarmed };
+  }
+
+  it('a fast club into a held-still club is thrown back, the blocker keeps their club and takes no damage', async () => {
+    const { P0, missile, parried, disarmed } = await swingAtGuard(25);
+    expect(parried).toBe(true);
+    expect(disarmed).toBe(false);
+    expect(missile.linvel().x).toBeGreaterThan(3); // it went back the way it came (it was moving left)
+    expect(P0().grip).not.toBeNull();
+    expect(P0().hp).toBe(T.fighter.hp);
+  });
+
+  it('a slow tap on a held club is not a parry', async () => {
+    const { parried } = await swingAtGuard(2);
+    expect(parried).toBe(false);
+  });
+});

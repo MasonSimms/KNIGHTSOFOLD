@@ -53,6 +53,7 @@ export const sfx = {
   throw() { tone('sawtooth', 220, 650, 0.12, 0.2); burst(0.1, 0.2); }, // whoosh
   disarm() { tone('square', 900, 300, 0.14, 0.3); burst(0.08, 0.3); }, // a metallic clang
   round() { tone('triangle', 392, 392, 0.12, 0.25); setTimeout(() => tone('triangle', 523, 523, 0.12, 0.25), 130); setTimeout(() => tone('triangle', 659, 659, 0.25, 0.25), 260); }, // a little win jingle
+  parry() { tone('square', 1400, 900, 0.1, 0.35); tone('triangle', 2200, 1500, 0.15, 0.2); burst(0.05, 0.3); }, // a bright ring of steel
   stomp() { tone('square', 120, 60, 0.18, 0.5); burst(0.12, 0.5); }, // a heavy squash
   grab() { tone('square', 180, 120, 0.08, 0.25); burst(0.05, 0.2); }, // a grunt-like thud
   pickup() { tone('triangle', 300, 520, 0.07, 0.2); },

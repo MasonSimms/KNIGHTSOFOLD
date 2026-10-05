@@ -2,7 +2,7 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
-import { buildFighter, controlFighter, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
+import { buildFighter, controlFighter, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { makeRng } from './rng';
 import { NEUTRAL } from './types';
@@ -338,22 +338,26 @@ export class Sim {
       for (const att of f.attackers) {
         if (this.frame < att.nextHit) continue;
         if (f.limp && att.kind === 'fist') continue; // a dead fighter's floppy fists hurt nobody (a club they threw still does)
-        this.world.contactPairsWith(att.collider, (other) => {
-          const vb = other.parent();
-          const victimPart = vb && this.partByBody.get(vb.handle);
-          if (!victimPart || victimPart.owner === f.index) return;
-          this.world.contactPair(att.collider, other, (m) => {
-            if (m.numSolverContacts() === 0) return;
-            if (victimPart.role === 'stick') { // a club hit by a club or fist: no damage, but a great clash can knock it out of a hand
-              const holder = this.fighters[victimPart.owner];
-              if (holder && holder.stick === victimPart && holder.grip) this.clash(f, att, holder, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN));
-              return;
-            }
-            const victim = this.fighters[victimPart.owner];
-            const head = !!victim && !!victim.headCollider && other.handle === victim.headCollider.handle;
-            this.hit(f, att, victim, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN), head);
+        // Clubs first: a parry throws this swing back, so it must cancel the hits it would otherwise land on the body in the same frame.
+        for (const clubsOnly of [true, false]) {
+          if (this.frame < att.nextHit) break;
+          this.world.contactPairsWith(att.collider, (other) => {
+            const vb = other.parent();
+            const victimPart = vb && this.partByBody.get(vb.handle);
+            if (!victimPart || victimPart.owner === f.index || (victimPart.role === 'stick') !== clubsOnly) return;
+            this.world.contactPair(att.collider, other, (m) => {
+              if (m.numSolverContacts() === 0) return;
+              if (victimPart.role === 'stick') { // a club hit by a club or fist: no damage, but a great clash can knock it out of a hand
+                const holder = this.fighters[victimPart.owner];
+                if (holder && holder.stick === victimPart && holder.grip) this.clash(f, att, holder, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN));
+                return;
+              }
+              const victim = this.fighters[victimPart.owner];
+              const head = !!victim && !!victim.headCollider && other.handle === victim.headCollider.handle;
+              this.hit(f, att, victim, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN), head);
+            });
           });
-        });
+        }
       }
     }
   }
@@ -373,8 +377,39 @@ export class Sim {
   /** A club hit by a club or a fist: no damage, but a great clash can knock it out of the holder's hand. */
   private clash(f: Fighter, att: Attacker, holder: Fighter, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }): void {
     const c = this.contact(att.part, vp, pt, n);
+    if (att.kind === 'stick' && this.parry(f, att, holder, c, pt)) return;
     const impact = impactValue(c.closing, (att.kind === 'stick' ? T.stick : T.fist).impactFactor);
     this.tryDisarm(f, holder, vp, pt, impact, c.nx, c.ny, c.sa, c.sb);
+  }
+
+  /** Is this point within the weak spot around the fighter's hand? */
+  private nearHand(f: Fighter, pt: { x: number; y: number }): boolean {
+    const ft = f.fore.body.translation(), fa = f.fore.body.rotation();
+    const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
+    return Math.hypot(pt.x - hx, pt.y - hy) < T.disarm.handRadius;
+  }
+
+  /**
+   * Parry: a fast swing that runs into a club that is held still (or nearly) is thrown back the way it came, the swinger is pushed back a
+   * little and staggers, and the blocker is unmoved. A club that is itself swinging fast does not parry (that is a clash), nor does a hit at the hand.
+   */
+  private parry(f: Fighter, att: Attacker, holder: Fighter, c: { nx: number; ny: number; closing: number; sa: number; sb: number }, pt: { x: number; y: number }): boolean {
+    const P = T.parry;
+    if (c.closing <= 0 || c.sa < P.minSpeed || c.sb > P.maxSpeed || c.sa < c.sb * P.ratio) return false;
+    if (this.nearHand(holder, pt)) return false; // the grip end is the weak spot: a hit there can disarm instead
+    att.nextHit = this.frame + P.cooldown;
+    // The weapon goes back the opposite way, fast: its own speed reversed (and at least a minimum), and its spin reversed.
+    const wb = att.part.body, v = wb.linvel(this.tmpV), sp = Math.hypot(v.x, v.y) || 1;
+    const out = Math.max(P.bounceMin, sp * P.bounce);
+    wb.setLinvel({ x: (-v.x / sp) * out, y: (-v.y / sp) * out }, true);
+    wb.setAngvel(-wb.angvel() * P.bounce, true);
+    // The swinger: a small push back from the blocker, a stagger, and a short pause before the next swing.
+    shove(f, -c.nx * P.knock * fighterMass(f), -c.ny * P.knock * fighterMass(f));
+    f.stun = Math.max(f.stun, P.stun);
+    f.attackLock = Math.max(f.attackLock, P.lockFrames);
+    f.charge = 0; f.release = 0; f.throwPending = false;
+    this.events.push({ t: 'parry', x: pt.x, y: pt.y, v: c.sa, owner: holder.index, victim: f.index });
+    return true;
   }
 
   /**
@@ -384,9 +419,7 @@ export class Sim {
   private tryDisarm(f: Fighter, victim: Fighter, vp: Part, pt: { x: number; y: number }, impact: number, nx: number, ny: number, sa = 0, sb = 0): void {
     const D = T.disarm;
     if (!victim.grip || !victim.stick || impact < Math.min(D.handImpact, D.armImpact, D.clashImpact)) return;
-    const ft = victim.fore.body.translation(), fa = victim.fore.body.rotation();
-    const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
-    const nearHand = Math.hypot(pt.x - hx, pt.y - hy) < D.handRadius;
+    const nearHand = this.nearHand(victim, pt);
     let ok = false;
     if (nearHand) ok = impact >= D.handImpact;
     else if (vp.role === 'fore' || vp.role === 'upper') ok = impact >= D.armImpact;

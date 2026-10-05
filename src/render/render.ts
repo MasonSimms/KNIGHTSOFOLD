@@ -170,6 +170,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (e.v * boost >= T.indicator.minImpact) ring(e.x, e.y, T.indicator.color);
       } else if (e.t === 'disarm') {
         ring(e.x, e.y, 0xffd24a); // a golden ring where a club is knocked loose
+      } else if (e.t === 'parry') {
+        ring(e.x, e.y, 0x9fe8ff); // a bright double ring where a swing is blocked, and a little shake
+        ring(e.x, e.y, 0xffffff);
+        shake = Math.max(shake, T.parry.shake);
       }
     },
     draw(alpha: number, frameSeconds: number) {
