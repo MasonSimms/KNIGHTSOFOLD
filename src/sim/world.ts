@@ -161,6 +161,18 @@ export class Sim {
     this.snapshot();
   }
 
+  /**
+   * Online client: copy a structural change the server announced (the client never steps the physics, so this is all it needs to keep
+   * its fighters' part lists identical to the server's; the poses are written in separately).
+   */
+  mirrorEvent(e: SimEvent): void {
+    const f = this.fighters[e.owner];
+    if (e.t === 'die' || e.t === 'fall') { if (f && !f.limp) this.kill(f, e.t === 'fall', e.v); }
+    else if (e.t === 'pickup') { const g = this.fighters[e.victim]; if (f && g?.stick) { giveStick(this.world, g, f); if (g !== f) this.version++; } }
+    else if (e.t === 'respawn') { if (f) this.respawn(f); }
+    else if (e.t === 'newround') { this.round++; this.build(); }
+  }
+
   /** Right-click with empty hands: pick up the nearest loose weapon in reach, anyone's. */
   private resolvePickups(): void {
     for (const f of this.fighters) {
@@ -178,7 +190,7 @@ export class Sim {
       if (!best) continue;
       giveStick(this.world, best, f);
       if (best !== f) this.version++; // the club changed hands, so the renderer must rebuild
-      this.events.push({ t: 'pickup', x: bt.x, y: bt.y, v: 0, owner: f.index, victim: -1 });
+      this.events.push({ t: 'pickup', x: bt.x, y: bt.y, v: 0, owner: f.index, victim: best.index }); // victim = who the club came from
     }
   }
 
@@ -480,7 +492,7 @@ export class Sim {
     for (const f of this.fighters.slice()) {
       const t = f.torso.body.translation();
       if (!f.limp && (t.y > A.killY || t.x < -A.killXMargin || t.x > A.viewW + A.killXMargin)) this.kill(f, true);
-      if (!this.matchActive && f.limp && this.frame - f.deadAt >= T.respawn.frames) this.respawn(f); // alone, you respawn; in a fight you stay down
+      if (!this.matchActive && f.limp && this.frame - f.deadAt >= T.respawn.frames) { this.respawn(f); this.events.push({ t: 'respawn', x: f.spawnX, y: f.spawnY, v: 0, owner: f.index, victim: -1 }); } // alone, you respawn; in a fight you stay down
     }
     if (this.matchActive) this.updateRound();
   }
@@ -493,6 +505,7 @@ export class Sim {
         this.roundOver = false;
         this.roundWinner = -1;
         this.build();
+        this.events.push({ t: 'newround', x: 0, y: 0, v: 0, owner: -1, victim: -1 });
       }
       return;
     }

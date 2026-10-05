@@ -1,0 +1,86 @@
+import type { SimEvent } from '../sim/types';
+import type { Sim } from '../sim/world';
+
+// What the server sends the clients: where every body part is, plus the structural events since the last snapshot (deaths, pickups,
+// respawns, new rounds) so the client's copy of the sim keeps the same list of parts. Plain JSON-safe data.
+export interface Snapshot {
+  frame: number; // server tick
+  round: number;
+  roundOver: boolean;
+  roundWinner: number;
+  scores: number[];
+  f: { hp: number; back: boolean; p: number[] }[]; // per fighter: hp, on the background plane, and x, y, angle for each part
+  ev: SimEvent[];
+}
+
+const TELEPORT = 4; // metres moved between two snapshots (50 ms) that can only be a teleport
+const r3 = (n: number) => Math.round(n * 1000) / 1000;
+
+export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot {
+  return {
+    frame, round: sim.round, roundOver: sim.roundOver, roundWinner: sim.roundWinner, scores: sim.scores.slice(), ev,
+    f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
+  };
+}
+
+/** Events that change which parts exist or who holds what: the only ones a client must replay to keep its parts in step. */
+export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround']);
+
+/** Client side: a copy of the sim that is never stepped. It replays structural events, then has its poses written in from snapshots. */
+export class Mirror {
+  desyncs = 0; // how many times a snapshot's part count disagreed with ours: should stay 0 (it means a missed or misordered event)
+  private snaps: Snapshot[] = [];
+  private applied = -1; // server tick of the newest snapshot whose events were replayed
+  private head = 0; // the server tick being shown (it runs `delay` ticks behind the newest snapshot, so there is always a pair to blend)
+  private started = false;
+
+  constructor(readonly sim: Sim, readonly delay = 6) {}
+
+  push(s: Snapshot): void {
+    if (s.frame > (this.snaps.at(-1)?.frame ?? -1)) this.snaps.push(s);
+    if (this.snaps.length > 60) this.snaps.shift();
+  }
+
+  /** Advance the clock by real seconds and show the world. Returns the blend between the last two poses (for renderer.draw) and the events now due. */
+  update(seconds: number): { alpha: number; events: SimEvent[] } {
+    const latest = this.snaps.at(-1);
+    if (!latest) return { alpha: 1, events: [] };
+    const target = latest.frame - this.delay;
+    if (!this.started) { this.head = target; this.started = true; }
+    this.head += seconds * 60;
+    const err = target - this.head;
+    this.head = Math.abs(err) > 12 ? target : this.head + err * 0.05; // drift back toward the target gently, jump if far off
+    this.head = Math.min(this.head, latest.frame);
+    return this.show(this.head);
+  }
+
+  /** Show the world at server tick `at` (exact: used directly by tests). */
+  show(at: number): { alpha: number; events: SimEvent[] } {
+    const due: SimEvent[] = [];
+    for (const s of this.snaps) {
+      if (s.frame > at || s.frame <= this.applied) continue;
+      for (const e of s.ev) { due.push(e); if (STRUCTURAL.has(e.t)) this.sim.mirrorEvent(e); }
+      this.applied = s.frame;
+    }
+    let ai = -1;
+    this.snaps.forEach((s, i) => { if (s.frame <= at) ai = i; });
+    if (ai < 0) return { alpha: 1, events: due };
+    const a = this.snaps[ai], b = this.snaps[ai + 1] ?? a;
+    const alpha = b === a ? 1 : Math.min(1, Math.max(0, (at - a.frame) / (b.frame - a.frame)));
+    const sim = this.sim;
+    sim.scores = a.scores.slice(); sim.round = a.round; sim.roundOver = a.roundOver; sim.roundWinner = a.roundWinner;
+    sim.fighters.forEach((f, i) => {
+      const pa = a.f[i]?.p, pb = b.f[i]?.p;
+      if (!pa || pa.length !== f.parts.length * 3) { this.desyncs++; return; }
+      const to = pb && pb.length === pa.length ? pb : pa; // the next snapshot has a different part count (a death just happened): hold still until we get there
+      f.hp = a.f[i].hp; f.inBack = a.f[i].back;
+      f.parts.forEach((p, j) => {
+        const teleport = Math.hypot(to[j * 3] - pa[j * 3], to[j * 3 + 1] - pa[j * 3 + 1]) > TELEPORT; // a club back from the void, a new round: do not smear it across the screen
+        const from = teleport ? to : pa;
+        p.px = from[j * 3]; p.py = from[j * 3 + 1]; p.pa = from[j * 3 + 2];
+        p.cx = to[j * 3]; p.cy = to[j * 3 + 1]; p.ca = to[j * 3 + 2];
+      });
+    });
+    return { alpha, events: due };
+  }
+}

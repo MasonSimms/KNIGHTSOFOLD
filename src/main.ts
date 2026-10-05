@@ -4,6 +4,9 @@ import { connectedPads, readInput, readPadInput, wasPressed } from './input/inpu
 import { createRenderer } from './render/render';
 import { NEUTRAL } from './sim/types';
 import type { PlayerInput } from './sim/types';
+import { Mirror } from './net/snapshot';
+import type { Snapshot } from './net/snapshot';
+import { Room } from './net/room';
 import { Sim } from './sim/world';
 import { updateHud } from './ui/hud';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
@@ -15,12 +18,19 @@ const stress = query.has('stress');
 // Open http://localhost:5173/?slow=0.2 to run the game at 20% speed, to study a slam frame by frame.
 const slow = Math.min(1, Number(query.get('slow')) || 1);
 const sim = await Sim.create(1, stress ? 4 : 2);
+// Open http://localhost:5173/?lag=100 to play through a pretend network: the real sim runs as a "server" in this page, your inputs and its
+// snapshots each take 100 ms to arrive, and what you see is a client copy built only from those snapshots (solo vs the dummy; R is off).
+const lagMs = Number(query.get('lag')) || 0;
+const room = lagMs ? new Room(sim) : null;
+const mirror = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 2)) : null;
+const view = mirror ? mirror.sim : sim; // what is drawn
+const toServer: { at: number; input: PlayerInput }[] = [], toClient: { at: number; s: Snapshot }[] = [];
 
 function flail(frame: number, who: number): PlayerInput {
   const t = frame * (0.05 + who * 0.013);
   return { moveX: Math.sin(t * 0.7), jump: frame % (90 + who * 17) === 0, aim: Math.sin(t) * 3, attack: frame % 120 < 30, drop: false, crouch: false, dodge: frame % 400 === 150 + who * 20 };
 }
-const renderer = await createRenderer(sim, document.body);
+const renderer = await createRenderer(view, document.body);
 
 addEventListener('pointerdown', unlockAudio);
 addEventListener('keydown', unlockAudio);
@@ -67,26 +77,45 @@ function frame(now: number) {
   }
 
   if (wasPressed('F3')) toggleOverlay();
-  if (wasPressed('KeyR')) sim.reset();
+  if (wasPressed('KeyR') && !room) sim.reset(); // (a reset is not an event a client can replay)
 
   const t0 = performance.now();
   for (let steps = 0; acc >= T.sim.dt && steps < T.sim.maxStepsPerFrame; steps++, acc -= T.sim.dt) {
-    const p = sim.fighters[0].torso;
+    const p = view.fighters[0].torso;
     lastInput = readInput(toScreen(p.cx, p.cy));
+    if (room) {
+      toServer.push({ at: now + lagMs, input: lastInput });
+      while (toServer.length && toServer[0].at <= now) room.setInput(0, toServer.shift()!.input);
+      room.setInput(2, flail(sim.frame, 2)); room.setInput(3, flail(sim.frame, 3));
+      const s = room.tick();
+      if (s) toClient.push({ at: now + lagMs, s: JSON.parse(JSON.stringify(s)) }); // through the "wire"
+      continue;
+    }
     const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
     if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
     sim.step(inputs);
     for (const e of sim.events) {
       renderer.onEvent(e);
       if (e.t === 'hit') sfx.hit(e.v, !!e.head);
-      else sfx[e.t]();
+      else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.(); // some events (respawn, new round) have no sound
     }
   }
   if (acc >= T.sim.dt) acc = 0; // too far behind: drop the backlog instead of spiralling
   simMsSum += performance.now() - t0;
 
-  renderer.draw(acc / T.sim.dt, ft / 1000);
-  updateHud(sim);
+  let alpha = acc / T.sim.dt;
+  if (mirror) {
+    while (toClient.length && toClient[0].at <= now) mirror.push(toClient.shift()!.s);
+    const shown = mirror.update(ft / 1000);
+    alpha = shown.alpha;
+    for (const e of shown.events) {
+      renderer.onEvent(e);
+      if (e.t === 'hit') sfx.hit(e.v, !!e.head);
+      else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.();
+    }
+  }
+  renderer.draw(alpha, ft / 1000);
+  updateHud(view);
 
   frames++;
   msSum += ft;
@@ -97,7 +126,7 @@ function frame(now: number) {
       `bodies ${sim.world.bodies.len()}   frame# ${sim.frame}`,
       `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: ${sim.fighters.map((f) => (f.controlled ? 'P' + (f.index + 1) : 'dummy') + ' ' + Math.max(0, f.hp).toFixed(0)).join('  ')}   players ${players}`,
       `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} charge ${sim.fighters[0].charge}/${T.charge.maxFrames} dodge-ready-in ${(sim.fighters[0].dodgeCooldown / 60).toFixed(1)}s`,
-      `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
+      room ? `PRETEND NETWORK: ${lagMs} ms each way, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
     ]);
     frames = 0; msSum = 0; simMsSum = 0; statTime = now;
   }
