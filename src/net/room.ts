@@ -38,17 +38,27 @@ export class Room {
     this.collect();
   }
 
+  /** A player is back or new: they join at the start of the next round. */
+  restorePlayer(slot: number, fresh: boolean): void {
+    this.sim.events.length = 0;
+    this.sim.restorePlayer(slot, fresh);
+    this.collect();
+  }
+
   private collect(): void {
     for (const e of this.sim.events) {
       const copy = { ...e };
       this.pending.push(copy);
-      if (e.t === 'newround') this.log = this.log.filter((x) => x.t === 'gone'); // a new round rebuilds everything: earlier events no longer matter (but who has left still does)
+      if (e.t === 'newround') this.log.length = 0; // a new round rebuilds everything: earlier events no longer matter (catchUp rebuilds who is parked or gone from the sim itself)
       if (STRUCTURAL.has(e.t)) this.log.push(copy);
     }
   }
 
   /** For a client that joins (or rejoins) mid-round: the current poses plus every structural event of this round, to replay first. */
   catchUp(): Snapshot {
-    return takeSnapshot(this.sim, this.ticks, this.log.slice());
+    // A fighter parked at the start of the round (a seat nobody is in) made no event, so say so: every ragdolled fighter first, then the round's events.
+    const parked: SimEvent[] = this.sim.fighters.filter((f) => f.ragdolled).map((f) => ({ t: 'die', x: 0, y: 0, v: 0, owner: f.index, victim: f.index }));
+    const gone: SimEvent[] = this.sim.gone.flatMap((g, i) => (g ? [{ t: 'gone' as const, x: 0, y: 0, v: 0, owner: i, victim: -1 }] : []));
+    return takeSnapshot(this.sim, this.ticks, [...parked, ...gone, ...this.log]);
   }
 }

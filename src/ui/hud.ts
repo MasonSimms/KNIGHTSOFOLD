@@ -13,7 +13,7 @@ export function updateHud(sim: Sim): void {
     if (lastScore !== '') { score.innerHTML = ''; banner.textContent = ''; lastScore = lastBanner = ''; }
     return;
   }
-  const players = sim.fighters.filter((f) => f.controlled);
+  const players = sim.fighters.filter((f) => f.controlled && !sim.gone[f.index]); // (online: empty seats are not shown)
   const html = players.map((f) => `<span style="color:${hex(T.colors.players[f.index])}">${NAMES[f.index]} ${sim.scores[f.index]}</span>`).join(' &nbsp;&middot;&nbsp; ');
   if (html !== lastScore) { score.innerHTML = html; lastScore = html; }
   const text = sim.roundOver ? (sim.roundWinner >= 0 ? `${NAMES[sim.roundWinner]} wins the round!` : 'Draw!') : '';

@@ -24,7 +24,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
 }
 
 /** Events that change which parts exist or who holds what: the only ones a client must replay to keep its parts in step. */
-export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround', 'gone']);
+export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround', 'gone', 'back']);
 
 /** Client side: a copy of the sim that is never stepped. It replays structural events, then has its poses written in from snapshots. */
 export class Mirror {
@@ -39,6 +39,13 @@ export class Mirror {
   push(s: Snapshot): void {
     if (s.frame > (this.snaps.at(-1)?.frame ?? -1)) this.snaps.push(s);
     if (this.snaps.length > 60) this.snaps.shift();
+  }
+
+  /** Start over from a fresh build (a rejoining client): forget everything and replay from the next catch-up snapshot. */
+  reset(): void {
+    this.snaps = []; this.applied = -1; this.started = false;
+    this.sim.gone.fill(false);
+    this.sim.reset();
   }
 
   /** Advance the clock by real seconds and show the world. Returns the blend between the last two poses (for renderer.draw) and the events now due. */

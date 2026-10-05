@@ -124,6 +124,14 @@ export class Sim {
     }
   }
 
+  /** Online: a player is back (or new): they join in at the start of the next round. A new player starts on 0 points. */
+  restorePlayer(i: number, fresh: boolean): void {
+    if (!this.gone[i]) return;
+    this.gone[i] = false;
+    if (fresh) this.scores[i] = 0;
+    this.events.push({ t: 'back', x: 0, y: 0, v: 0, owner: i, victim: -1 });
+  }
+
   /** Online: a player left. They die now (if alive) and are out of every later round. */
   removePlayer(i: number): void {
     const f = this.fighters[i];
@@ -191,6 +199,7 @@ export class Sim {
     if (e.t === 'die' || e.t === 'fall') { if (f && !f.limp) this.kill(f, e.t === 'fall', e.v); }
     else if (e.t === 'pickup') { const g = this.fighters[e.victim]; if (f && g?.stick) { giveStick(this.world, g, f); if (g !== f) this.version++; } }
     else if (e.t === 'respawn') { if (f) this.respawn(f); }
+    else if (e.t === 'back') this.gone[e.owner] = false;
     else if (e.t === 'gone') { this.gone[e.owner] = true; if (f && !f.limp) this.kill(f, true); }
     else if (e.t === 'newround') { this.round++; this.build(); }
   }
@@ -531,6 +540,7 @@ export class Sim {
       }
       return;
     }
+    if (this.fighters.filter((f) => f.controlled && !this.gone[f.index]).length < 2) return; // nobody to fight (the rest left): the round waits, so the one who stayed cannot farm points
     const alive = this.fighters.filter((f) => f.controlled && !f.limp);
     if (alive.length > 1) return;
     this.roundOver = true;

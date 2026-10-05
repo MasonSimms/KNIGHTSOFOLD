@@ -107,6 +107,28 @@ describe('online mirror', () => {
     expect(worst).toBeLessThan(0.01);
   }, 120_000);
 
+  it('a client that joins after players left and came back, many rounds in, still matches the server exactly', async () => {
+    const { room, server } = await pair(12, 4, false);
+    const inputs = fuzzer(41);
+    const lateSim = await Sim.create(12, 4, false);
+    const late = new Mirror(lateSim);
+    let worst = 0, joined = false;
+    for (let i = 0; i < 4200; i++) {
+      if (i === 500) room.removePlayer(1);
+      if (i === 900) room.removePlayer(3);
+      if (i === 1800) room.restorePlayer(1, false); // back: appears next round
+      if (i === 2400) room.restorePlayer(3, true);
+      for (let k = 0; k < 4; k++) room.setInput(k, inputs(4)[k]);
+      const s = room.tick();
+      if (i === 3000) { const c = wire(room.catchUp()); late.reset(); late.push(c); late.show(c.frame); joined = true; }
+      if (!s) continue;
+      if (joined) { late.push(wire(s)); late.show(s.frame); worst = Math.max(worst, gap(server, lateSim)); }
+    }
+    expect(late.desyncs).toBe(0);
+    expect(worst).toBeLessThan(0.01);
+    expect(server.round).toBeGreaterThan(4);
+  }, 120_000);
+
   it('with 100 ms of lag and jitter the client plays smoothly, behind by about the delay, with no desyncs and no stalls', async () => {
     const { room, mirror, server, client } = await pair(6, 4, false);
     const inputs = fuzzer(77);

@@ -10,7 +10,7 @@ import type { Snapshot } from './net/snapshot';
 import { Room } from './net/room';
 import { Sim } from './sim/world';
 import { updateHud } from './ui/hud';
-import { runLobby } from './ui/lobby';
+import { forgetSession, loadSession, notice, runLobby } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 
 const T = tuning;
@@ -29,15 +29,33 @@ let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 
 let net: NetClient | null = null, mySlot = 0;
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
-  const r = await runLobby(serverUrl(onlineParam));
+  const url = serverUrl(onlineParam);
+  const r = await runLobby(url);
   net = r.client; mySlot = r.you;
-  const m = new Mirror(await Sim.create(r.seed, r.count, false));
+  const m = new Mirror(await Sim.create(r.seed, 4, false)); // online is always 4 fighters: empty seats are parked out of sight
   mirror = m;
-  net.onMsg = (msg) => {
-    if (msg.t === 'snap') m.push(msg.s);
-    else if (msg.t === 'over') { alert(`The fight is over: ${msg.why}.`); location.reload(); } // back to the menu (ponytail: a fresh connection; a lobby screen that survives the fight can come later)
+  if (r.queued) notice('You join at the start of the next round');
+  const attach = (c: NetClient) => {
+    c.onMsg = (msg) => {
+      if (msg.t === 'snap') m.push(msg.s);
+      else if (msg.t === 'start') { mySlot = msg.you; m.reset(); notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
+      else if (msg.t === 'over') { forgetSession(); alert(`The fight is over: ${msg.why}.`); location.reload(); } // back to the menu (ponytail: a fresh connection; a lobby that survives the fight can come later)
+      else if (msg.t === 'error') { forgetSession(); alert(`Could not rejoin: ${msg.why}.`); location.reload(); }
+    };
+    c.onClose(() => void reconnect());
   };
-  net.onClose(() => { alert('Lost the connection to the server.'); location.reload(); });
+  // A dropped connection: keep trying for a minute to get back into the same seat (the server holds it for you).
+  const reconnect = async () => {
+    notice('Connection lost. Reconnecting...');
+    for (let i = 0; i < 30; i++) {
+      await new Promise((ok) => setTimeout(ok, 2000));
+      const saved = loadSession();
+      if (!saved) break;
+      try { const c = await NetClient.connect(url); net = c; attach(c); c.send({ t: 'rejoin', ...saved }); return; } catch { /* still down: try again */ }
+    }
+    forgetSession(); alert('Could not get back into the game.'); location.reload();
+  };
+  attach(net);
 }
 const view = mirror ? mirror.sim : sim; // what is drawn
 const toServer: { at: number; input: PlayerInput }[] = [], toClient: { at: number; s: Snapshot }[] = [];
