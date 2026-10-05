@@ -43,6 +43,10 @@ export interface Fighter {
   limp: boolean; // dead: arms go floppy
   ragdolled: boolean; // dead: head and legs have become real physics parts
   grounded: boolean;
+  wall: number; // -1 / 0 / 1: touching a wall on the left / none / the right (in the air only)
+  wallDir: number; // the last wall touched
+  wallCoyote: number; // frames left in which a wall jump still works
+  wallLock: number; // frames of switched-off steering after a wall jump
   dodge: number; // frames left in the background plane (0 = none)
   dodgeCooldown: number; // frames until another dodge is allowed
   inBack: boolean; // currently on the background plane (collisions with fighters and weapons are off)
@@ -157,7 +161,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, crouchApplied: 0, attackLock: 0, punchPower: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, dropCooldown: 0,
@@ -273,14 +277,27 @@ export function wrapAngle(a: number): number {
   return a - Math.PI * 2 * Math.floor((a + Math.PI) / (Math.PI * 2));
 }
 
-function isGrounded(world: World, f: Fighter): boolean {
-  const col = f.torso.body.collider(0);
-  let grounded = false;
-  world.contactPairsWith(col, (other) => {
-    if (grounded || !other.parent()?.isFixed()) return;
-    world.contactPair(col, other, (m) => { if (m.numSolverContacts() > 0) grounded = true; });
-  });
-  return grounded;
+const tmpC = { x: 0, y: 0 };
+
+/** What the body is touching: the ground under it, or a wall beside it (decided from where the contact is, relative to the body). */
+function senseContacts(world: World, f: Fighter): void {
+  const bt = f.torso.body.translation();
+  let ground = false, wall = 0;
+  for (const col of f.torso.colliders) { // the body capsule and the head: a leaning body touches a wall with its head first
+    world.contactPairsWith(col, (other) => {
+      if (!other.parent()?.isFixed()) return;
+      world.contactPair(col, other, (m) => {
+        if (m.numSolverContacts() === 0) return;
+        const p = m.solverContactPoint(0, tmpC);
+        if (!p) return;
+        const dx = p.x - bt.x, dy = p.y - bt.y;
+        if (dy > 0.2 && Math.abs(dx) < 0.25) ground = true; // under the body
+        else if (Math.abs(dx) > 0.12 && Math.abs(dy) < 0.8) wall = dx > 0 ? 1 : -1; // beside it
+      });
+    });
+  }
+  f.grounded = ground;
+  f.wall = ground ? 0 : wall;
 }
 
 const clamp = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
@@ -424,8 +441,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   body.applyTorqueImpulse(torque * dt, true);
 
   // ---- movement and jumping ----
-  const grounded = isGrounded(world, f);
-  f.grounded = grounded;
+  senseContacts(world, f);
+  const grounded = f.grounded;
   const crouchTarget = f.controlled && input.crouch && grounded ? 1 : 0;
   f.crouch += (crouchTarget - f.crouch) * T.crouch.rate;
   if (f.crouch < 0.01) f.crouch = 0;
@@ -436,11 +453,24 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   else if (f.coyote > 0) f.coyote--;
   if (input.jump && !f.prevJump) f.jumpBuffer = M.jumpBufferFrames;
   else if (f.jumpBuffer > 0) f.jumpBuffer--;
+  if (f.controlled) {
+    if (f.wall !== 0) { f.wallDir = f.wall; f.wallCoyote = M.wallCoyoteFrames; }
+    else if (f.wallCoyote > 0) f.wallCoyote--;
+    if (f.wallLock > 0) f.wallLock--;
+    // Wall slide: in the air, pushing toward a wall, you slide down it slowly instead of dropping.
+    if (!grounded && f.wall !== 0 && input.moveX * f.wall > 0.2) {
+      for (const p of f.parts) {
+        if (p.role === 'stick' && !f.grip) continue;
+        const lv = p.body.linvel(tmp);
+        if (lv.y > M.wallSlideSpeed) p.body.setLinvel({ x: lv.x, y: M.wallSlideSpeed }, true);
+      }
+    }
+  }
   if (f.controlled && f.stun === 0) {
     const accel = (grounded ? M.groundAccel : M.airAccel) * dt;
     const winding = charging || punchPhase === 'wind';
     // While lunging the walking controller must not brake, or it cancels the lunge.
-    const dv = f.release > 0 ? 0 : clamp(input.moveX * M.moveSpeed * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
+    const dv = f.release > 0 || f.wallLock > 0 ? 0 : clamp(input.moveX * M.moveSpeed * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
     shove(f, dv * fighterMass(f), 0);
     if (f.jumpBuffer > 0 && f.coyote > 0) { // pressing a touch early, or a touch late after walking off a ledge, still jumps
       for (const p of f.parts) { // the whole body leaves the ground together
@@ -450,6 +480,17 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       }
       f.jumpBuffer = 0;
       f.coyote = 0;
+      const t = body.translation();
+      events.push({ t: 'jump', x: t.x, y: t.y, v: 0, owner: f.index, victim: -1 });
+    } else if (f.jumpBuffer > 0 && !grounded && f.wallCoyote > 0) {
+      // Wall jump: kicked away from the wall, up to the height of a normal jump.
+      for (const p of f.parts) {
+        if (p.role === 'stick' && !f.grip) continue;
+        p.body.setLinvel({ x: -f.wallDir * M.wallJumpX, y: -M.wallJumpY }, true);
+      }
+      f.jumpBuffer = 0;
+      f.wallCoyote = 0;
+      f.wallLock = M.wallLockFrames;
       const t = body.translation();
       events.push({ t: 'jump', x: t.x, y: t.y, v: 0, owner: f.index, victim: -1 });
     } else if (f.prevJump && !input.jump && body.linvel(tmp).y < -M.jumpCutMinSpeed) {

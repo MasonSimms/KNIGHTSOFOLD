@@ -194,3 +194,40 @@ describe('crouch and the dodge recovery', () => {
     expect(f().charge).toBe(4);
   });
 });
+
+describe('walls: slide and jump', () => {
+  async function fallIntoTheGap() {
+    const sim = await settled(0);
+    const f = () => sim.fighters[0];
+    let n = 0;
+    while (f().torso.body.translation().x > 3.9 && n++ < 200) sim.step([idle({ moveX: -1 })]); // walk off the left end
+    return { sim, f };
+  }
+
+  it('sliding down a wall you push toward is slow', async () => {
+    const { sim, f } = await fallIntoTheGap();
+    let touched = 0, fastest = 0;
+    for (let i = 0; i < 60; i++) {
+      sim.step([idle({ moveX: -1 })]);
+      if (f().wall !== 0 && i > 12) { touched++; fastest = Math.max(fastest, f().torso.body.linvel().y); }
+    }
+    expect(touched).toBeGreaterThan(20);
+    expect(fastest).toBeLessThan(2.2); // a free fall would be far faster
+  });
+
+  it('a wall jump kicks away from the wall and gets back onto the platform if you are quick', async () => {
+    const { sim, f } = await fallIntoTheGap();
+    let touching = 0, jumped = false, back = false;
+    for (let i = 0; i < 200 && !back; i++) {
+      if (f().wall !== 0) touching++;
+      const jump = !jumped && touching >= 8;
+      if (jump) jumped = true;
+      sim.step([idle({ moveX: jumped ? 1 : -1, jump })]);
+      if (jump) expect(f().torso.body.linvel().x).toBeGreaterThan(4); // kicked away from the wall
+      if (jumped && f().grounded && f().torso.body.translation().x > 4.3) back = true;
+    }
+    expect(jumped).toBe(true);
+    expect(back).toBe(true);
+    expect(f().limp).toBe(false);
+  });
+});

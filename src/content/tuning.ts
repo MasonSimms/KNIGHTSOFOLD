@@ -18,6 +18,9 @@ export const tuning = {
     friction: 0.8,
     killY: 13, // below this is the void: instant kill
     killXMargin: 4, // metres past either screen edge
+    wallGap: 1.3, // metres between each platform end and its wall: a fighter knocked off the end falls into the gap and can wall-jump out
+    wallThickness: 0.5,
+    wallTop: 3.2, // how high the walls reach (the platform top is at 7.4)
     spawnX: [7, 11.5, 5.5, 13.5], // fighter 0 = you, 1 = dummy, 2 and 3 = extra fighters (stress test)
   },
   fighter: {
@@ -50,6 +53,11 @@ export const tuning = {
     jumpBufferFrames: 6, // a jump pressed this early before landing still happens
     jumpCut: 0.5, // letting go of jump early cuts the jump short by this much (1 = no cut)
     jumpCutMinSpeed: 2, // ...but only while still rising faster than this (m/s)
+    wallSlideSpeed: 1.5, // fall speed while sliding down a wall you are pushing toward (m/s)
+    wallJumpX: 6.5, // speed kicked away from the wall (m/s)
+    wallJumpY: 10, // upward speed of a wall jump (same height as a normal jump)
+    wallCoyoteFrames: 6, // a wall jump still works this long after leaving the wall
+    wallLockFrames: 10, // after a wall jump, steering is switched off for this long so you do not drift back into the wall
   },
   lean: {
     // The body leans into where it is going, then springs back upright. Angles in radians (0.5 is about 30 degrees).
@@ -262,6 +270,7 @@ export const tuning = {
     void: 0x141018,
     sky: 0x3b3550,
     platform: 0x6d5a45,
+    wall: 0x57493a,
     platformEdge: 0x3a2618,
     outline: 0x3a2618,
     stick: 0x8c5a2f,

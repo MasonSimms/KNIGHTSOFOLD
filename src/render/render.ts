@@ -75,10 +75,14 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const platform = new Graphics()
     .rect(A.platformX, A.platformTop, A.platformW, A.platformThickness).fill(T.colors.platform)
     .stroke({ width: 0.04, color: T.colors.platformEdge });
+  const walls = new Graphics();
+  for (const cx of [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2]) {
+    walls.rect(cx - A.wallThickness / 2, A.wallTop, A.wallThickness, A.killY + 2 - A.wallTop).fill(T.colors.wall).stroke({ width: 0.04, color: T.colors.platformEdge });
+  }
   const splatLayer = new Container();
   const backLayer = new Container(); // a dodging fighter is drawn here, behind everyone else
   const fighterLayer = new Container();
-  view.addChild(sky, platform, splatLayer, backLayer, fighterLayer);
+  view.addChild(sky, platform, walls, splatLayer, backLayer, fighterLayer);
 
   const bgTex = await loadBackground();
   if (bgTex) {

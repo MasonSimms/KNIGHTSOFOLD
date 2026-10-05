@@ -64,6 +64,13 @@ export class Sim {
       ground,
     );
 
+    // A tall wall stands outside each platform end, with a gap: a fighter knocked off an end falls into the gap and can wall-jump out.
+    const wallH = (A.killY + 2 - A.wallTop) / 2;
+    for (const cx of [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2]) {
+      const wall = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(cx, A.wallTop + wallH));
+      this.world.createCollider(RAPIER.ColliderDesc.cuboid(A.wallThickness / 2, wallH).setFriction(0.05).setCollisionGroups(worldGroups), wall);
+    }
+
     this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, A.spawnX[i], i !== 1));
     this.version++;
   }
