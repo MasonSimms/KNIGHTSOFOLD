@@ -158,23 +158,34 @@ describe('charge, punch and throw (the newer controls)', () => {
 });
 
 describe('crouch and the dodge recovery', () => {
-  it('crouching really lowers the body and head, and a jump from a crouch goes higher', async () => {
+  it('holding down takes you all the way to lying on the floor, you can crawl, and letting go stands you back up', async () => {
+    const sim = await settled(0);
+    const f = () => sim.fighters[0];
+    const head = () => f().torso.body.translation().y + Math.cos(f().torso.body.rotation()) * -0.55;
+    const headStand = head();
+    for (let i = 0; i < 60; i++) sim.step([idle({ crouch: true })]);
+    expect(Math.abs(f().torso.body.rotation())).toBeGreaterThan(1.2); // lying on the floor, not sitting upright
+    expect(head()).toBeGreaterThan(headStand + 0.5); // the head is far lower: swings at standing height pass over
+    const x0 = f().torso.body.translation().x;
+    for (let i = 0; i < 60; i++) sim.step([idle({ crouch: true, moveX: 1 })]);
+    expect(f().torso.body.translation().x).toBeGreaterThan(x0 + 0.5); // crawling
+    for (let i = 0; i < 40; i++) sim.step([idle()]);
+    expect(Math.abs(f().torso.body.rotation())).toBeLessThan(0.15); // back on your feet
+    expect(f().grounded).toBe(true);
+  });
+
+  it('a jump from a crouch goes higher', async () => {
     const rise = async (crouch: boolean) => {
       const sim = await settled(0);
-      for (let i = 0; i < 40; i++) sim.step([idle({ crouch })]);
+      for (let i = 0; i < 8; i++) sim.step([idle({ crouch })]); // a short crouch, not lying down
       const y0 = sim.fighters[0].torso.body.translation().y;
       let top = 0;
       for (let i = 0; i < 70; i++) {
-        sim.step([idle({ crouch, jump: i < 45 })]);
+        sim.step([idle({ jump: i < 45 })]);
         top = Math.max(top, y0 - sim.fighters[0].torso.body.translation().y);
       }
       return top;
     };
-    const standing = await settled(0), crouched = await settled(0);
-    for (let i = 0; i < 40; i++) crouched.step([idle({ crouch: true })]);
-    expect(crouched.fighters[0].torso.body.collider(0).halfHeight()).toBeLessThan(standing.fighters[0].torso.body.collider(0).halfHeight() - 0.1);
-    const yStand = standing.fighters[0].torso.body.translation().y, yCrouch = crouched.fighters[0].torso.body.translation().y;
-    expect(yCrouch).toBeGreaterThan(yStand + 0.1); // lower on screen (y grows downward)
     expect(await rise(true)).toBeGreaterThan(await rise(false) * 1.05);
   });
 

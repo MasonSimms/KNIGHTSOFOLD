@@ -30,9 +30,9 @@ export const tuning = {
   fighter: {
     hp: 100, // hidden: never shown on screen (F3 overlay only)
     startArmed: true, // false = you start with empty hands, to try the punch
-    torsoHalfHeight: 0.25,
     torsoRadius: 0.18,
     torsoMass: 6,
+    torsoInertia: 0.5, // extra resistance to turning (kg*m^2): higher = the body is harder to twist, by the arm, by hits, by anything
     headRadius: 0.17,
     headY: -0.55,
     headMass: 1,
@@ -74,30 +74,44 @@ export const tuning = {
     punchForward: 0.35, // lean into the punch
   },
   legs: {
-    // Simple stick legs, drawn (not physical) but moved by their own little springy physics, so they swing, lag and flop
-    // instead of following a walk animation. They are pendulums hanging from the hip.
-    torsoVisualHalf: 0.08, // the drawn torso is shorter than the physical capsule
-    torsoVisualY: -0.22,
-    hipY: 0.0, // where the legs attach, measured down from the torso centre
-    length: 0.43, // hip to foot (reaches the ground when the body stands)
-    width: 0.1,
-    spring: 110, // how hard a leg swings toward where it wants to be (higher = snappier)
-    damping: 9, // how quickly the swinging dies down (lower = bouncier, more flop)
-    inertia: 0.05, // how much speeding up or braking throws the legs (feet trail behind when you accelerate)
+    // Real physics legs: a thigh and a shin each, with motors at the hip and knee that try to hold a walking pose.
+    // The body is held up by the stand spring (below), so the legs only have to look right and react to the floor.
+    torsoHalf: 0.08, // the body capsule (the hips are at the body's centre, the chest above it)
+    torsoY: -0.22,
+    thigh: 0.2, // hip to knee (the legs are a touch shorter than the stand height, so they rest on the floor without carrying the body)
+    shin: 0.2, // knee to foot
+    radius: 0.05,
+    mass: 0.4, // each thigh and each shin
+    friction: 0.3, // feet slide a little, so walking is not fighting the floor
+    hipStiffness: 120, hipDamping: 8, hipMaxTorque: 60,
+    kneeStiffness: 90, kneeDamping: 6, kneeMaxTorque: 45,
+    hipLimit: 1.8, // how far a thigh can swing from the body (radians)
+    kneeLimit: 2.5, // how far a knee can fold (it only folds one way: knee toward where you face)
+    stance: 0.12, // feet apart when still (radians from straight down)
+    standKnee: 0.15, // a slight knee bend when still
     swing: 0.65, // how far each leg swings front and back when running (radians)
+    runKnee: 0.9, // how much the knee lifts during the forward swing
     runRate: 7, // how fast the legs cycle for each metre per second of speed
-    stance: 0.12, // how far apart the feet stand when still (radians)
     airSpread: 0.35, // legs spread like this in the air...
-    airSwing: 0.25, // ...and kick about a bit
+    airKnee: 0.6, // ...knees tucked a bit
+  },
+  stand: {
+    // An invisible spring holds the hips this high above whatever is under them (the Stick Fight / active-ragdoll trick).
+    height: 0.42, // metres from the hips to the floor when standing
+    stiffness: 400, // how firmly (1/s^2); with the damping below it settles without bouncing
+    damping: 40,
+    reach: 0.25, // the spring still grabs the floor this far beyond the wanted height (stepping off a ledge lets go)
+    maxAccel: 80, // m/s^2 cap, so a landing does not catapult you
+  },
+  offArm: {
+    // The second arm: pure decoration. It hangs off the shoulder and flops with your motion; it only touches the floor and walls.
+    mass: 0.25, // each part (light, so it barely tugs the body)
+    damping: 0.4, // joint friction: lower = floppier
   },
   ragdoll: {
-    // On death the head comes off onto a floppy neck and two real legs appear on loose hips.
-    legLength: 0.42,
-    legRadius: 0.05,
-    legMass: 0.8,
+    // On death the head comes off onto a floppy neck and the legs go limp.
     legStiffness: 2, // near zero = completely floppy
     legDamping: 0.4,
-    hipLimit: 1.3,
     neckLimit: 0.9,
     neckStiffness: 15,
     neckDamping: 1.5,
@@ -112,13 +126,19 @@ export const tuning = {
   },
   crouch: {
     // Hold S / down. You drop low (swings aimed at your head pass over you), and crouching lets you do more with the next move.
-    rate: 0.6, // how quickly you drop and rise each frame (1 = instant)
-    airGrace: 14, // frames the crouch holds while the body sinks the last bit to the floor (do not set below about 10)
-    speedFactor: 0.5, // walking speed while fully crouched
-    jumpBonus: 0.12, // a jump from a full crouch goes this much higher
-    lungeBonus: 0.3, // a lunge or punch from a full crouch has this much more momentum
-    minHalfHeight: 0.06, // how far the hips sink: the body's middle drops by (0.25 - this). The body and head stay rigid, only the hips go down
-    legSpread: 0.86, // how much further apart the legs splay at full crouch (radians each side): keep it so the feet stay on the floor (bigger = wider, hips sit lower)
+    // Hold down: the stand spring lowers you smoothly toward the floor and the legs go soft and fold however they are bent.
+    // Near the bottom you stop holding yourself upright and tip over the way you lean: you end up lying down. Let go to get up.
+    downRate: 0.06, // how fast you go down each frame (0..1 of the way from standing to lying; 0.06 = about a quarter second)
+    upRate: 0.1, // how fast you come back up
+    lowHeight: 0.08, // hip height at the very bottom (lying down)
+    legSoften: 0.85, // how much the leg motors relax at the bottom (1 = completely limp)
+    kneeFold: 1.2, // extra knee bend the legs reach for as you go down
+    tipStart: 0.6, // below this much crouch you start letting go of balance...
+    tipAt: 0.9, // ...and here you no longer hold yourself upright at all (you tip over)
+    tipTorque: 220, // a gentle push over the way you already lean, so you lie down instead of sitting upright (0 = none)
+    speedFactor: 0.35, // crawling speed at the bottom (1 = walking speed)
+    jumpBonus: 0.12, // a jump from a crouch goes this much higher
+    lungeBonus: 0.3, // a lunge or punch from a crouch has this much more momentum
   },
   indicator: {
     // A ring that flashes where a big hit lands (there is no hit freeze: big moments are shown, not felt as a stutter).

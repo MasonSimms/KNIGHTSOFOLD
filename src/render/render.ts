@@ -46,19 +46,10 @@ async function loadBackground(): Promise<Texture | null> {
   return null;
 }
 
-interface Pt { x: number; y: number }
-
-interface Leg { a: number; w: number } // angle from straight down (+ = foot toward +x) and its angular speed
-
 interface Entry {
   f: Fighter;
   group: Container; // everything of one fighter, so the dodge can shrink them about the torso
   c: Container[]; // one per part
-  legs: Graphics[];
-  phase: number; // run cycle
-  leg: Leg[]; // the two legs' own swing physics
-  prevVx: number;
-  ax: number; // smoothed body acceleration
   vis: number; // 0 = normal plane, 1 = background plane (smoothed)
 }
 
@@ -150,55 +141,21 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     for (const f of sim.fighters) {
       const group = new Container();
       const base = fighterColor(f);
-      const legs = [new Graphics(), new Graphics()];
-      for (const g of legs) { g.scale.set(1 / BIG); group.addChild(g); }
+      group.sortableChildren = true;
       const c: Container[] = [];
       for (const p of f.parts as Part[]) {
         const k = new Container();
+        k.zIndex = p.role === 'off' ? -2 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs
         const color = p.role === 'stick' ? T.colors.stick : base;
-        const shade = p.role === 'upper' || p.role === 'fore' || p.role === 'leg' ? mix(color, 0x000000, 0.18) : color;
+        const shade = p.role === 'off' ? mix(color, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(color, 0x000000, 0.18) : color;
         for (const s of p.shapes) k.addChild(drawShape(s, shade));
         group.addChild(k);
         c.push(k);
       }
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, legs, phase: 0, leg: [{ a: -T.legs.stance, w: 0 }, { a: T.legs.stance, w: 0 }], prevVx: 0, ax: 0, vis: 0 });
+      entries.push({ f, group, c, vis: 0 });
     }
     builtVersion = sim.version;
-  }
-
-  /** Stick legs: two pendulums hanging from the hip with springy physics. They swing as you run, lag when you speed up, and flop in the air. */
-  function drawLegs(e: Entry, torso: Container, vx: number, frameSeconds: number) {
-    const f = e.f, L = T.legs;
-    for (const g of e.legs) g.visible = !f.ragdolled; // the ragdoll has real legs
-    if (f.ragdolled) return;
-    const dt = Math.min(frameSeconds, 1 / 30);
-    const rot = torso.rotation;
-    const crouchAmt = f.crouch;
-    const legLen = L.length;
-    const hip = { x: torso.x - Math.sin(rot) * L.hipY, y: torso.y + Math.cos(rot) * L.hipY };
-    const speed = Math.abs(vx);
-    const dir = speed > 0.3 ? Math.sign(vx) : f.side;
-    e.ax += ((vx - e.prevVx) / Math.max(dt, 1e-4) - e.ax) * 0.25; // smoothed: the sim steps in 1/60 s jumps
-    e.prevVx = vx;
-    e.phase += (f.grounded ? speed * L.runRate : 9) * dt;
-    const dark = mix(fighterColor(f), 0x000000, 0.12);
-    for (let i = 0; i < 2; i++) {
-      const sgn = i === 0 ? -1 : 1, leg = e.leg[i];
-      const cycle = Math.sin(e.phase + i * Math.PI);
-      const target = f.grounded
-        ? sgn * (L.stance + T.crouch.legSpread * crouchAmt) + dir * cycle * L.swing * Math.min(1, speed / 3) // run cycle (just a gentle target: the spring does the rest)
-        : sgn * L.airSpread + L.airSwing * cycle - Math.max(-0.5, Math.min(0.5, vx * 0.05)); // spread, kick, trail behind the motion
-      const kick = -e.ax * L.inertia; // speeding up swings the feet backward, braking swings them forward
-      leg.w += (L.spring * (target - leg.a) - L.damping * leg.w + kick) * dt;
-      leg.a = Math.max(-1.3, Math.min(1.3, leg.a + leg.w * dt));
-      const foot: Pt = { x: hip.x + Math.sin(leg.a) * legLen, y: hip.y + Math.cos(leg.a) * legLen };
-      if (f.grounded) foot.y = Math.min(foot.y, T.arena.platformTop); // never sink into the floor
-      const g = e.legs[i], P = (p: Pt) => [p.x * BIG, p.y * BIG] as const;
-      g.clear();
-      g.moveTo(...P(hip)).lineTo(...P(foot)).stroke({ width: (L.width + 0.04) * BIG, color: T.colors.outline, cap: 'round' });
-      g.moveTo(...P(hip)).lineTo(...P(foot)).stroke({ width: L.width * BIG, color: dark, cap: 'round' });
-    }
   }
 
   return {
@@ -245,9 +202,6 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           k.tint = tint;
         });
         const torso = c[0];
-        const vx = (f.torso.cx - f.torso.px) / T.sim.dt;
-        drawLegs(e, torso, vx, frameSeconds);
-        for (const g of e.legs) g.tint = tint;
         // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.
         e.group.pivot.set(torso.x, torso.y);
         e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis);

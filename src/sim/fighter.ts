@@ -9,9 +9,9 @@ export type Shape =
 
 export interface Part {
   body: RigidBody;
-  shapes: Shape[]; // what the renderer draws (can differ from the collider: the torso collider includes the legs, the drawing does not)
+  shapes: Shape[]; // what the renderer draws (the same as the colliders)
   colliders: Collider[];
-  role: 'torso' | 'upper' | 'fore' | 'stick' | 'head' | 'leg';
+  role: 'torso' | 'upper' | 'fore' | 'stick' | 'head' | 'thigh' | 'shin' | 'off'; // 'off' = the floppy second arm
   owner: number;
   // interpolation poses (previous / current sim step) for the renderer
   px: number; py: number; pa: number; cx: number; cy: number; ca: number;
@@ -41,9 +41,12 @@ export interface Fighter {
   attackers: Attacker[];
   hp: number;
   limp: boolean; // dead: arms go floppy
-  ragdolled: boolean; // dead: head and legs have become real physics parts
+  ragdolled: boolean; // dead: the head has come off onto a floppy neck and the legs are limp
   grounded: boolean;
-  airFrames: number; // frames since the feet last touched the ground
+  groundDist: number; // how far below the hips the floor is (Infinity = nothing in reach)
+  legs: { thigh: Part; shin: Part; hip: RevoluteImpulseJoint; knee: RevoluteImpulseJoint }[];
+  gait: number; // walk cycle phase
+  kneeSide: number; // which way the knees currently fold (follows the facing)
   wall: number; // -1 / 0 / 1: touching a wall on the left / none / the right (in the air only)
   wallDir: number; // the last wall touched
   wallCoyote: number; // frames left in which a wall jump still works
@@ -66,8 +69,7 @@ export interface Fighter {
   throwPower: number; // strength (0..1) of that throw
   poseE: number; // smoothed elbow target (so poses glide)
   poseW: number; // smoothed wrist target
-  crouch: number; // 0 standing .. 1 fully crouched
-  crouchApplied: number; // the crouch the body shape was last built for
+  crouch: number; // 0 standing .. 1 all the way down (lying)
   attackLock: number; // frames left before an attack can start (just after a dodge)
   punchPower: number; // strength (0..1) of the punch being thrown
   jumpBuffer: number; // frames a jump press is remembered (so pressing a touch early still jumps)
@@ -89,15 +91,17 @@ export function ownerGroups(owner: number): number {
 export const worldGroups = ((GROUP_WORLD << 16) | 0xffff) >>> 0;
 /** The background plane: touches the ground only, so it passes through every fighter and weapon. */
 const backGroups = ((0x8000 << 16) | GROUP_WORLD) >>> 0;
+/** The floppy second arm: touches the floor and walls only, never a fighter or a weapon. */
+const offGroups = ((0x4000 << 16) | GROUP_WORLD) >>> 0;
 
 /** Move a whole fighter (body, arm, club) between the normal plane and the background plane. */
 export function setBackPlane(f: Fighter, back: boolean): void {
   f.inBack = back;
   const g = back ? backGroups : ownerGroups(f.index);
-  for (const p of f.parts) for (const c of p.colliders) c.setCollisionGroups(g);
+  for (const p of f.parts) if (p.role !== 'off') for (const c of p.colliders) c.setCollisionGroups(g);
 }
 
-interface ShapeDef { s: Shape; mass: number; attacker?: 'fist' | 'stick'; visual?: Shape }
+interface ShapeDef { s: Shape; mass: number; attacker?: 'fist' | 'stick' }
 
 function addPart(
   world: World, owner: number, role: Part['role'], x: number, y: number, angle: number,
@@ -108,7 +112,7 @@ function addPart(
       .setLinearDamping(damping.lin).setAngularDamping(damping.ang).setCcdEnabled(role !== 'torso'),
   );
   const part: Part = {
-    body, shapes: defs.map((d) => d.visual ?? d.s), colliders: [], role, owner,
+    body, shapes: defs.map((d) => d.s), colliders: [], role, owner,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
   };
   for (const d of defs) {
@@ -135,14 +139,30 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const damp = { lin: F.armLinearDamping, ang: F.armAngularDamping };
   const attackers: Attacker[] = [];
 
-  // The collider is a full-height capsule (it is what touches the ground); the drawing is a shorter torso with animated legs under it.
+  // The body's centre is the hips; the chest capsule sits above them and the head above that. Real legs hang from the hips.
+  const LG = T.legs;
   const torso = addPart(world, index, 'torso', x, y, 0, [
-    {
-      s: { k: 'cap', hl: F.torsoHalfHeight, r: F.torsoRadius, x: 0, y: 0, rot: 0 }, mass: F.torsoMass,
-      visual: { k: 'cap', hl: T.legs.torsoVisualHalf, r: F.torsoRadius, x: 0, y: T.legs.torsoVisualY, rot: 0 },
-    },
+    { s: { k: 'cap', hl: LG.torsoHalf, r: F.torsoRadius, x: 0, y: LG.torsoY, rot: 0 }, mass: F.torsoMass },
     { s: { k: 'ball', r: F.headRadius, x: 0, y: F.headY }, mass: F.headMass },
   ], null);
+  // Extra resistance to turning: without it the arm's own motor twists the light chest around faster than balance can hold it.
+  torso.body.setAdditionalMassProperties(0, { x: 0, y: LG.torsoY }, F.torsoInertia, true);
+  const legs = [-1, 1].map((side) => {
+    const seg = (role: 'thigh' | 'shin', len: number, cy: number) => {
+      const p = addPart(world, index, role, x + side * 0.02, cy, 0, [
+        { s: { k: 'cap', hl: len / 2 - LG.radius, r: LG.radius, x: 0, y: 0, rot: 0 }, mass: LG.mass },
+      ], null, { lin: 0, ang: 0.5 });
+      for (const c of p.colliders) c.setFriction(LG.friction);
+      return p;
+    };
+    const thigh = seg('thigh', LG.thigh, y + LG.thigh / 2);
+    const shin = seg('shin', LG.shin, y + LG.thigh + LG.shin / 2);
+    const hip = revolute(world, torso.body, side * 0.02, 0, thigh.body, 0, -LG.thigh / 2);
+    hip.setLimits(-LG.hipLimit, LG.hipLimit);
+    const knee = revolute(world, thigh.body, 0, LG.thigh / 2, shin.body, 0, -LG.shin / 2);
+    knee.setLimits(0, LG.kneeLimit);
+    return { thigh, shin, hip, knee };
+  });
 
   // One arm per fighter. It starts pointing right (angle 0); the shoulder motor swings it to its pose.
   const sx = x, sy = y + F.shoulderY;
@@ -160,14 +180,25 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     return { upper, fore, shoulder, elbow };
   })();
 
-  const parts = [torso, arm.upper, arm.fore];
+  // The second arm: decoration that flops along with the body (no motors, only joint friction; touches only the floor and walls).
+  const off = [0.5, 1.5].map((k, i) => addPart(world, index, 'off', sx + k * L, sy, 0, [
+    { s: { k: 'cap', hl: armHl, r: F.armRadius, x: 0, y: 0, rot: Math.PI / 2 }, mass: T.offArm.mass },
+    ...(i === 1 ? [{ s: { k: 'ball' as const, r: F.fistRadius, x: L / 2, y: 0 }, mass: 0.05 }] : []),
+  ], null, damp));
+  for (const p of off) for (const c of p.colliders) c.setCollisionGroups(offGroups);
+  const offShoulder = revolute(world, torso.body, 0, F.shoulderY, off[0].body, -L / 2, 0);
+  const offElbow = revolute(world, off[0].body, L / 2, 0, off[1].body, -L / 2, 0);
+  offElbow.setLimits(-T.arm.elbowLimit, T.arm.elbowLimit);
+  for (const j of [offShoulder, offElbow]) j.configureMotorPosition(0, 0, T.offArm.damping);
+
+  const parts = [torso, ...off, ...legs.flatMap((l) => [l.thigh, l.shin]), arm.upper, arm.fore];
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, airFrames: 0, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, crouchApplied: 0, attackLock: 0, punchPower: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -241,8 +272,7 @@ export function placeLoose(world: World, f: Fighter, x: number, y: number, angle
 }
 
 /**
- * Death ragdoll: the head comes off the torso onto a floppy neck and two real legs appear on loose hips,
- * all carrying the torso's speed so the body flies and flops. Returns the new parts.
+ * Death ragdoll: the head comes off the torso onto a floppy neck (carrying the torso's speed) and the legs go limp. Returns the new parts.
  */
 export function ragdoll(world: World, f: Fighter, rng: () => number): Part[] {
   if (f.ragdolled) return [];
@@ -274,20 +304,8 @@ export function ragdoll(world: World, f: Fighter, rng: () => number): Part[] {
     out.push(head);
   }
 
-  // Two legs on loose hips.
-  const len = R.legLength, r = R.legRadius;
-  for (const side of [-1, 1]) {
-    const hx = side * 0.07, hy = T.legs.hipY;
-    const lp = at(hx, hy + len / 2);
-    const leg = addPart(world, f.index, 'leg', lp.x, lp.y, a, [
-      { s: { k: 'cap', hl: len / 2 - r, r, x: 0, y: 0, rot: 0 }, mass: R.legMass },
-    ], null, { lin: 0, ang: 0.1 });
-    const hip = revolute(world, tb, hx, hy, leg.body, 0, -len / 2);
-    hip.setLimits(-R.hipLimit, R.hipLimit);
-    hip.configureMotorPosition(0, R.legStiffness, R.legDamping);
-    launch(leg, hx, hy + len / 2, (rng() - 0.5) * R.spin);
-    out.push(leg);
-  }
+  // The legs are already real: they just go limp.
+  for (const l of f.legs) for (const j of [l.hip, l.knee]) { j.configureMotorPosition(0, R.legStiffness, R.legDamping); j.setMotorMaxForce(1e6); }
   f.parts.push(...out);
   return out;
 }
@@ -314,11 +332,19 @@ export function wrapAngle(a: number): number {
 }
 
 const tmpC = { x: 0, y: 0 };
+const ray = new RAPIER.Ray({ x: 0, y: 0 }, { x: 0, y: 1 });
+const onlyFixed = (c: Collider) => !!c.parent()?.isFixed();
 
-/** What the body is touching: the ground under it, or a wall beside it (decided from where the contact is, relative to the body). */
+/**
+ * What the body is touching. The floor: a ray straight down from the hips (it also feeds the stand spring), or a foot on it.
+ * A wall: the body or head touching something beside it.
+ */
 function senseContacts(world: World, f: Fighter): void {
   const bt = f.torso.body.translation();
-  let ground = false, wall = 0;
+  ray.origin.x = bt.x; ray.origin.y = bt.y;
+  const hit = world.castRay(ray, T.stand.height + T.stand.reach, true, undefined, undefined, undefined, undefined, onlyFixed);
+  f.groundDist = hit ? hit.timeOfImpact : Infinity;
+  let ground = f.groundDist < T.stand.height + 0.12, wall = 0;
   for (const col of f.torso.colliders) { // the body capsule and the head: a leaning body touches a wall with its head first
     world.contactPairsWith(col, (other) => {
       if (!other.parent()?.isFixed()) return;
@@ -327,8 +353,16 @@ function senseContacts(world: World, f: Fighter): void {
         const p = m.solverContactPoint(0, tmpC);
         if (!p) return;
         const dx = p.x - bt.x, dy = p.y - bt.y;
-        if (dy > 0.2 && Math.abs(dx) < 0.25) ground = true; // under the body
-        else if (Math.abs(dx) > 0.12 && Math.abs(dy) < 0.8) wall = dx > 0 ? 1 : -1; // beside it
+        if (Math.abs(dx) > 0.12 && Math.abs(dy) < 0.8) wall = dx > 0 ? 1 : -1; // beside it
+      });
+    });
+  }
+  for (const l of f.legs) { // a foot (or shin) resting on something below the hips
+    world.contactPairsWith(l.shin.colliders[0], (other) => {
+      if (ground || !other.parent()?.isFixed()) return;
+      world.contactPair(l.shin.colliders[0], other, (m) => {
+        const p = m.numSolverContacts() > 0 && m.solverContactPoint(0, tmpC);
+        if (p && p.y - bt.y > 0.15) ground = true;
       });
     });
   }
@@ -338,13 +372,52 @@ function senseContacts(world: World, f: Fighter): void {
 
 const clamp = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const FLIP = 0.25;
+const FLIP = 0.25; // the cursor has to get this far past straight up (or down) before the fighter turns to face the other way
+const smooth = (a: number, b: number, x: number) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-/** Crouching lowers the hips for real: the capsule gets shorter, so the whole body (head included) sinks and swings aimed at the head can miss. */
-function applyCrouch(f: Fighter): void {
-  f.torso.colliders[0].setHalfHeight(lerp(T.fighter.torsoHalfHeight, T.crouch.minHalfHeight, f.crouch));
-  f.crouchApplied = f.crouch;
-} // the cursor has to get this far past straight up (or down) before the fighter turns to face the other way
+/**
+ * The stand spring holds the hips at the wanted height above the floor (lower the more you crouch), and the leg motors reach for a
+ * walking pose. Crouching softens the motors, so the legs fold however they happen to be bent: nothing is a canned animation.
+ */
+function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip: number): void {
+  const S = T.stand, CR = T.crouch, LG = T.legs, dt = T.sim.dt;
+  const want = lerp(S.height, CR.lowHeight, f.crouch);
+  if (f.groundDist < want + S.reach) {
+    const vy = f.torso.body.linvel(tmp).y; // + = falling
+    const up = Math.max(0, Math.min(S.maxAccel, S.stiffness * (want - f.groundDist) + S.damping * vy + T.sim.gravity)); // only ever pushes up
+    shove(f, 0, -up * fighterMass(f) * dt);
+  }
+
+  if (f.kneeSide !== s) { // knees fold toward where you face
+    for (const l of f.legs) l.knee.setLimits(s > 0 ? 0 : -LG.kneeLimit, s > 0 ? LG.kneeLimit : 0);
+    f.kneeSide = s;
+  }
+  const speed = Math.abs(vx), run = Math.min(1, speed / 3), dir = speed > 0.3 ? Math.sign(vx) : s;
+  f.gait += (grounded ? speed * LG.runRate : 9) * dt;
+  const soft = 1 - CR.legSoften * f.crouch;
+  if (tip > 0) { // at the bottom, a gentle push over the way you already lean (or forward, if you are dead upright), so you lie down
+    const r = wrapAngle(f.torso.body.rotation());
+    if (Math.abs(r) < 1.4) f.torso.body.applyTorqueImpulse((Math.abs(r) > 0.05 ? Math.sign(r) : s) * CR.tipTorque * tip * dt, true);
+  }
+  f.legs.forEach((l, i) => {
+    const sgn = i === 0 ? -1 : 1, ph = f.gait + i * Math.PI;
+    // u: where the foot points (radians from straight down, + = toward +x); k: knee bend
+    let u: number, k: number;
+    if (grounded) {
+      u = sgn * LG.stance + dir * Math.sin(ph) * LG.swing * run;
+      k = LG.standKnee + LG.runKnee * run * Math.max(0, Math.cos(ph));
+    } else {
+      u = sgn * LG.airSpread - clamp(vx * 0.05, 0.5);
+      k = LG.airKnee;
+    }
+    k += CR.kneeFold * f.crouch;
+    // Relative to the body (balance keeps the body upright). Aiming at the world's "down" instead makes a planted foot twist the body over.
+    l.hip.configureMotorPosition(-u, LG.hipStiffness * soft, LG.hipDamping);
+    l.hip.setMotorMaxForce(LG.hipMaxTorque);
+    l.knee.configureMotorPosition(s * Math.min(k, LG.kneeLimit), LG.kneeStiffness * soft, LG.kneeDamping);
+    l.knee.setMotorMaxForce(LG.kneeMaxTorque);
+  });
+}
 
 /** Direction of a lunge: along the aim, but only within `max` of horizontal, and always the way the fighter faces (never backward). */
 function lungeAngle(side: number, aim: number, max: number): number {
@@ -467,19 +540,19 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     if (punchPhase === 'wind') lean -= s * LN.punchBack * (0.5 + windFraction);
     else if (punchPhase === 'strike') lean += s * LN.punchForward * f.punchPower;
   }
+  // Near the bottom of a crouch you stop holding yourself upright, so you tip over the way you are leaning and lie down.
+  const tip = smooth(T.crouch.tipStart, T.crouch.tipAt, f.crouch);
   const balance = f.stun > 0 ? B.stunFactor : 1;
-  const torque = clamp(-B.kp * wrapAngle(body.rotation() - lean) - B.kd * body.angvel(), B.maxTorque) * balance;
+  // Lying down lets go of the upright spring but keeps the spin damping, so crawling does not roll you over.
+  const torque = clamp(-B.kp * (1 - tip) * wrapAngle(body.rotation() - lean) - B.kd * body.angvel(), B.maxTorque) * balance;
   body.applyTorqueImpulse(torque * dt, true);
 
   // ---- movement and jumping ----
   senseContacts(world, f);
   const grounded = f.grounded;
-  f.airFrames = grounded ? 0 : f.airFrames + 1;
-  // The body sinks into a crouch a few frames after the capsule shrinks, so ground contact is briefly lost: that is not "in the air" unless you are rising.
-  const crouchTarget = f.controlled && input.crouch && (grounded || (f.airFrames < T.crouch.airGrace && f.torso.vy > -1)) ? 1 : 0;
-  f.crouch += (crouchTarget - f.crouch) * T.crouch.rate;
-  if (f.crouch < 0.01) f.crouch = 0;
-  if (Math.abs(f.crouch - f.crouchApplied) > 0.005) applyCrouch(f);
+  const CR = T.crouch;
+  f.crouch = f.controlled && input.crouch ? Math.min(1, f.crouch + CR.downRate) : Math.max(0, f.crouch - CR.upRate);
+  standAndLegs(f, grounded, vx, s, tip);
   const lungeMul = 1 + T.crouch.lungeBonus * f.crouch; // crouching loads more momentum into a lunge or punch
   const M = T.motion;
   if (grounded) f.coyote = M.coyoteFrames;
@@ -499,6 +572,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       }
     }
   }
+  if (!f.controlled && grounded) shove(f, clamp(-vx, M.groundAccel * dt) * fighterMass(f), 0); // the dummy plants its feet
   if (f.controlled && f.stun === 0) {
     const accel = (grounded ? M.groundAccel : M.airAccel) * dt;
     const winding = charging || punchPhase === 'wind';

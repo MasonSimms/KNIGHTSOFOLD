@@ -13,8 +13,8 @@ import type { PlayerInput, SimEvent } from './types';
 let ready: Promise<void> | null = null;
 const initRapier = () => (ready ??= RAPIER.init());
 
-/** The training dummy never gets real input: it just hangs its arms down. */
-const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI / 2 };
+/** The training dummy never gets real input: it holds its club in a low guard, facing the player (to its left). */
+const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI - 0.4 };
 
 export class Sim {
   frame = 0;
@@ -113,8 +113,7 @@ export class Sim {
   }
 
   private spawn(index: number, x: number, player: boolean): Fighter {
-    const F = T.fighter;
-    const y = T.arena.platformTop - F.torsoHalfHeight - F.torsoRadius - 0.02;
+    const y = T.arena.platformTop - T.stand.height - 0.02; // the hips at standing height
     const f = buildFighter(this.world, index, x, y, player, !player || T.fighter.startArmed); // the dummy always holds a club, so you can practise disarming
     for (const p of f.parts) this.partByBody.set(p.body.handle, p);
     return f;

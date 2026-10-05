@@ -45,9 +45,9 @@ describe('picking up and knocking out weapons', () => {
     const missile = P2().stick!.body;
     const ft = P0().fore.body.translation(), fa = P0().fore.body.rotation();
     const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
-    missile.setTranslation({ x: hx + 1.2, y: hy }, true); // in front of fighter 1, coming at the hand
-    missile.setRotation(0, true);
-    missile.setLinvel({ x: -30, y: 0 }, true);
+    missile.setTranslation({ x: hx, y: hy - 1.0 }, true); // straight above the hand, coming down onto it
+    missile.setRotation(Math.PI / 2, true);
+    missile.setLinvel({ x: 0, y: 30 }, true);
     let disarmed = false;
     for (let i = 0; i < 10; i++) {
       step({}, {});
@@ -65,9 +65,9 @@ describe('picking up and knocking out weapons', () => {
     const missile = P2().stick!.body;
     const ft = dummy().fore.body.translation(), fa = dummy().fore.body.rotation();
     const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
-    missile.setTranslation({ x: hx + 1.2, y: hy }, true);
+    missile.setTranslation({ x: hx - 1.0, y: hy }, true); // in front of the dummy (it faces left), coming at the hand
     missile.setRotation(0, true);
-    missile.setLinvel({ x: -30, y: 0 }, true);
+    missile.setLinvel({ x: 30, y: 0 }, true);
     for (let i = 0; i < 10; i++) step({}, {});
     expect(dummy().grip).toBeNull();
     expect(dummy().stick).not.toBeNull(); // the club lies loose, ready to be picked up
