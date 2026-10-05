@@ -115,7 +115,7 @@ export class Sim {
   private spawn(index: number, x: number, player: boolean): Fighter {
     const F = T.fighter;
     const y = T.arena.platformTop - F.torsoHalfHeight - F.torsoRadius - 0.02;
-    const f = buildFighter(this.world, index, x, y, player, player && T.fighter.startArmed);
+    const f = buildFighter(this.world, index, x, y, player, !player || T.fighter.startArmed); // the dummy always holds a club, so you can practise disarming
     for (const p of f.parts) this.partByBody.set(p.body.handle, p);
     return f;
   }
@@ -214,7 +214,7 @@ export class Sim {
 
   private resolveHits(): void {
     for (const f of this.fighters) {
-      if (f.inBack) continue; // on the background plane you cannot hit anyone
+      if (f.inBack || !f.controlled) continue; // on the background plane you cannot hit anyone, and the dummy's club is only a target
       for (const att of f.attackers) {
         if (this.frame < att.nextHit) continue;
         if (f.limp && att.kind === 'fist') continue; // a dead fighter's floppy fists hurt nobody (a club they threw still does)

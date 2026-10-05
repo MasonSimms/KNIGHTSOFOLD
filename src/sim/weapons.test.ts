@@ -57,6 +57,23 @@ describe('picking up and knocking out weapons', () => {
     expect(P0().grip).toBeNull(); // the club is out of fighter 1's hand
   });
 
+  it('the training dummy holds a club and can be disarmed', async () => {
+    const { sim, step, P0, P2 } = await three();
+    const dummy = () => sim.fighters[1];
+    expect(dummy().grip).not.toBeNull();
+    step({}, { drop: true }); // fighter 2 lets go of its club and flings it at the dummy's hand
+    const missile = P2().stick!.body;
+    const ft = dummy().fore.body.translation(), fa = dummy().fore.body.rotation();
+    const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
+    missile.setTranslation({ x: hx + 1.2, y: hy }, true);
+    missile.setRotation(0, true);
+    missile.setLinvel({ x: -30, y: 0 }, true);
+    for (let i = 0; i < 10; i++) step({}, {});
+    expect(dummy().grip).toBeNull();
+    expect(dummy().stick).not.toBeNull(); // the club lies loose, ready to be picked up
+    expect(P0().hp).toBe(T.fighter.hp); // and the dummy's club never hurt anyone
+  });
+
   it('a gentle tap does not disarm', async () => {
     const { sim, step, P0, P2 } = await three();
     step({}, { drop: true });
