@@ -77,8 +77,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     .rect(A.platformX, A.platformTop, A.platformW, A.platformThickness).fill(T.colors.platform)
     .stroke({ width: 0.04, color: T.colors.platformEdge });
   const splatLayer = new Container();
+  const backLayer = new Container(); // a dodging fighter is drawn here, behind everyone else
   const fighterLayer = new Container();
-  view.addChild(sky, platform, splatLayer, fighterLayer);
+  view.addChild(sky, platform, splatLayer, backLayer, fighterLayer);
 
   const bgTex = await loadBackground();
   if (bgTex) {
@@ -190,13 +191,6 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const boost = e.head ? 1.5 : 1;
         shake = Math.min(T.shake.max * boost, Math.max(shake, e.v * T.shake.perImpact * boost));
         splat(e.x, e.y, Math.min(T.splat.radiusMax, T.splat.radiusMin + e.v * T.splat.radiusPerImpact) * boost, playerColor(e.owner));
-      } else if (e.t === 'die') {
-        // The killing blow: a big screen kick and the victim bursts into paint.
-        shake = T.shake.max + T.highlight.shakeBonus;
-        for (let i = 0; i < T.highlight.burstSplats; i++) {
-          const a = Math.random() * Math.PI * 2, d = Math.random() * 0.9;
-          splat(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, T.splat.radiusMin + Math.random() * (T.splat.radiusMax - T.splat.radiusMin), i % 3 === 0 ? playerColor(e.owner) : playerColor(e.victim));
-        }
       }
     },
     draw(alpha: number, frameSeconds: number) {
@@ -210,7 +204,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       view.position.set((app.screen.width - A.viewW * scale) / 2 + sx, (app.screen.height - A.viewH * scale) / 2 + sy);
       for (const e of entries) {
         const { f, c, aura } = e;
-        const tint = mix(0xffffff, T.colors.damaged, 1 - Math.max(0, f.hp) / T.fighter.hp);
+        e.vis += ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds);
+        let tint = mix(0xffffff, T.colors.damaged, 1 - Math.max(0, f.hp) / T.fighter.hp);
+        if (f.limp) tint = mix(tint, T.colors.dead, 0.7); // dead: greyed out so the ragdoll is obvious
+        tint = mix(tint, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker
+        const layer = f.inBack ? backLayer : fighterLayer;
+        if (e.group.parent !== layer) layer.addChild(e.group);
         f.parts.forEach((p, i) => {
           const k = c[i];
           k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha));
@@ -226,12 +225,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         aura.alpha = charge * T.charge_glow.alpha;
         aura.position.set(lerp(w.px, w.cx, alpha), lerp(w.py, w.cy, alpha));
         aura.scale.set((1 + charge * 0.6) / BIG);
-        // Dodge: shrink and ghost the whole fighter about the torso (a stand-in for the later 2.5D "deeper plane").
-        e.vis += ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds);
+        // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.
         e.group.pivot.set(torso.x, torso.y);
-        e.group.position.set(torso.x, torso.y);
-        e.group.scale.set(lerp(1, T.dodge.visualScale, e.vis));
-        e.group.alpha = lerp(1, T.dodge.visualAlpha, e.vis);
+        e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis);
+        e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis), lerp(1, 0.97, e.vis));
       }
       app.render();
     },

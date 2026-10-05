@@ -14,6 +14,7 @@ function script(frame: number): PlayerInput {
     jump: frame % 250 === 200,
     aim: frame < 38 ? Math.PI / 2 : 0.1,
     attack: frame >= 50 && phase < 30, // hold 30 frames, release, repeat
+    drop: frame % 450 === 420, // and dropping the club
     dodge: frame % 400 === 330,
   };
 }
@@ -61,7 +62,7 @@ describe('combat maths', () => {
 describe('unarmed punch', () => {
   // Same scripted fight, but with empty hands: left-click is now a punch, so this exercises the punch animation path.
   function punchScript(frame: number): PlayerInput {
-    return { moveX: frame < 80 ? 1 : 0, jump: false, aim: Math.sin(frame * 0.05) * 0.4, attack: frame % 40 === 5, dodge: false };
+    return { moveX: frame < 80 ? 1 : 0, jump: false, aim: Math.sin(frame * 0.05) * 0.4, attack: frame % 40 === 5, drop: false, dodge: false };
   }
   async function runUnarmed(frames: number) {
     const was = T.fighter.startArmed;
@@ -92,7 +93,7 @@ describe('dodge', () => {
     const sim = await Sim.create(3);
     const P = () => sim.fighters[0], D = () => sim.fighters[1];
     const px = () => P().torso.body.translation().x, dx = () => D().torso.body.translation().x;
-    const walk = { moveX: 1, jump: false, aim: Math.PI / 2, attack: false, dodge: false };
+    const walk = { moveX: 1, jump: false, aim: Math.PI / 2, attack: false, drop: false, dodge: false };
     while (dx() - px() > 1.6) sim.step([walk]);
     sim.step([{ ...walk, dodge: true }]);
     expect(P().inBack).toBe(true);

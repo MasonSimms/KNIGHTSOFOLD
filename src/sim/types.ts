@@ -4,12 +4,13 @@ export interface PlayerInput {
   jump: boolean;
   aim: number; // world-space angle in radians (0 = right, +pi/2 = down)
   attack: boolean; // left-click. Unarmed: a punch. With a club: hold to charge, release to lunge
+  drop: boolean; // right-click: let go of the weapon (it keeps the speed of your swing, plus a small push)
   dodge: boolean; // press: slip into the background plane for a moment (long cooldown)
 }
 
-export const NEUTRAL: PlayerInput = { moveX: 0, jump: false, aim: 0, attack: false, dodge: false };
+export const NEUTRAL: PlayerInput = { moveX: 0, jump: false, aim: 0, attack: false, drop: false, dodge: false };
 
-export type EventType = 'hit' | 'jump' | 'punch' | 'dodge' | 'die' | 'fall';
+export type EventType = 'hit' | 'jump' | 'punch' | 'dodge' | 'drop' | 'pickup' | 'die' | 'fall';
 
 // Sim -> render/audio messages. Cleared at the start of every sim step.
 export interface SimEvent {

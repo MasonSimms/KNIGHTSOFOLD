@@ -49,6 +49,8 @@ export const sfx = {
   jump() { tone('square', 220, 440, 0.08, 0.15); },
   punch() { burst(0.08, 0.25); tone('triangle', 420, 160, 0.09, 0.15); }, // a quick whoosh
   dodge() { tone('sine', 500, 180, 0.22, 0.2); burst(0.18, 0.12); }, // slipping away
-  die() { tone('sawtooth', 300, 40, 0.8, 0.45); tone('sine', 120, 30, 0.9, 0.5); burst(0.4, 0.5); }, // big boom
+  drop() { tone('triangle', 520, 240, 0.09, 0.2); }, // let go of the club
+  pickup() { tone('triangle', 300, 520, 0.07, 0.2); },
+  die() { tone('sawtooth', 330, 90, 0.35, 0.2); }, // a short comic "wah"
   fall() { tone('sine', 700, 80, 0.6, 0.3); },
 };

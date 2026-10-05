@@ -17,7 +17,7 @@ const sim = await Sim.create(1, stress ? 4 : 2);
 
 function flail(frame: number, who: number): PlayerInput {
   const t = frame * (0.05 + who * 0.013);
-  return { moveX: Math.sin(t * 0.7), jump: frame % (90 + who * 17) === 0, aim: Math.sin(t) * 3, attack: frame % 120 < 30, dodge: frame % 400 === 150 + who * 20 };
+  return { moveX: Math.sin(t * 0.7), jump: frame % (90 + who * 17) === 0, aim: Math.sin(t) * 3, attack: frame % 120 < 30, drop: false, dodge: frame % 400 === 150 + who * 20 };
 }
 const renderer = await createRenderer(sim, document.body);
 
@@ -49,15 +49,12 @@ function toScreen(x: number, y: number) {
 let acc = 0, last = performance.now();
 let frames = 0, msSum = 0, simMsSum = 0, statTime = last;
 let lastInput: PlayerInput = NEUTRAL;
-let slowUntil = 0; // real-time moment (ms) until which the kill slow motion lasts
 
 function frame(now: number) {
   requestAnimationFrame(frame);
   const ft = Math.min(now - last, 100); // clamp so a tab switch doesn't cause a huge catch-up
   last = now;
-  // A kill triggers a burst of slow motion (the game takes fewer steps per real second; the simulation itself is untouched).
-  const speed = now < slowUntil ? T.highlight.slowFactor : 1;
-  acc += (ft / 1000) * slow * speed;
+  acc += (ft / 1000) * slow;
 
   if (wasPressed('F3')) toggleOverlay();
   if (wasPressed('KeyR')) sim.reset();
@@ -71,7 +68,6 @@ function frame(now: number) {
       renderer.onEvent(e);
       if (e.t === 'hit') sfx.hit(e.v, !!e.head);
       else sfx[e.t]();
-      if (e.t === 'die') slowUntil = now + T.highlight.slowSeconds * 1000;
     }
   }
   if (acc >= T.sim.dt) acc = 0; // too far behind: drop the backlog instead of spiralling

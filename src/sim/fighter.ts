@@ -57,6 +57,8 @@ export interface Fighter {
   releaseMul: number; // size of that burst (depends on charge)
   prevJump: boolean;
   prevAttack: boolean;
+  prevDrop: boolean;
+  dropCooldown: number; // frames until a dropped club can be picked up again
   spawnX: number;
   spawnY: number;
 }
@@ -148,7 +150,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, prevAttack: false,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, prevAttack: false, prevDrop: false, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -243,7 +245,7 @@ export function ragdoll(world: World, f: Fighter, rng: () => number): Part[] {
 /** Total mass of every part of a fighter. */
 export function fighterMass(f: Fighter): number {
   let m = 0;
-  for (const p of f.parts) m += p.body.mass();
+  for (const p of f.parts) if (p.role !== 'stick' || f.grip) m += p.body.mass(); // a dropped club is not part of the body
   return m;
 }
 
@@ -251,6 +253,7 @@ export function fighterMass(f: Fighter): number {
 export function shove(f: Fighter, ix: number, iy: number): void {
   const M = fighterMass(f);
   for (const p of f.parts) {
+    if (p.role === 'stick' && !f.grip) continue;
     const k = p.body.mass() / M;
     p.body.applyImpulse({ x: ix * k, y: iy * k }, true);
   }
@@ -271,6 +274,13 @@ function isGrounded(world: World, f: Fighter): boolean {
 }
 
 const clamp = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
+
+/** Direction of a lunge: along the aim, but only within `max` of horizontal, and always the way the fighter faces (never backward). */
+function lungeAngle(side: number, aim: number, max: number): number {
+  const flat = side > 0 ? 0 : Math.PI;
+  const rel = wrapAngle(aim - flat);
+  return flat + (Math.abs(rel) > Math.PI / 2 ? 0 : clamp(rel, max));
+}
 
 /** One frame of control for one fighter: lean and balance, movement, arm pose, attacks. Runs before the physics step. */
 export function controlFighter(world: World, f: Fighter, input: PlayerInput, events: SimEvent[]): void {
@@ -297,11 +307,39 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   f.prevDodge = input.dodge;
 
+  // ---- right-click: with a club in your hand it lets go (the club keeps the speed of your swing plus a small push, so swing first,
+  // then drop it to throw it); with empty hands it picks your club up again if it is within reach ----
+  if (f.dropCooldown > 0) f.dropCooldown--;
+  if (f.controlled && input.drop && !f.prevDrop && f.stick) {
+    const st = f.stick.body.translation();
+    if (f.grip) {
+      world.removeImpulseJoint(f.grip, true);
+      f.grip = null;
+      f.charge = 0;
+      f.release = 0;
+      const sv = f.stick.body.linvel(tmp);
+      f.stick.body.setLinvel({ x: sv.x + Math.cos(input.aim) * T.drop.push, y: sv.y + Math.sin(input.aim) * T.drop.push }, true);
+      f.dropCooldown = T.drop.pickupDelay;
+      events.push({ t: 'drop', x: st.x, y: st.y, v: 0, owner: f.index, victim: -1 });
+    } else if (f.dropCooldown === 0) {
+      const bt = body.translation();
+      if (Math.hypot(st.x - bt.x, st.y - bt.y) < T.drop.pickupRange) {
+        attachStick(world, f);
+        events.push({ t: 'pickup', x: bt.x, y: bt.y, v: 0, owner: f.index, victim: -1 });
+      }
+    }
+  }
+  f.prevDrop = input.drop;
+
   const C = T.charge, K = T.punch, LN = T.lean;
   const armed = !!f.grip;
   const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
-  if (aimX > 0.25) f.side = 1;
-  else if (aimX < -0.25) f.side = -1;
+  // Facing follows the aim, but is locked for a whole attack (a charge and its lunge, or a punch) so the swing cannot turn around.
+  const facingLocked = f.controlled && ((armed && input.attack) || f.charge > 0 || f.release > 0 || f.punch > 0);
+  if (!facingLocked) {
+    if (aimX > 0.25) f.side = 1;
+    else if (aimX < -0.25) f.side = -1;
+  }
   const s = f.side;
 
   // ---- attack state ----
@@ -346,6 +384,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     shove(f, dv * fighterMass(f), 0);
     if (input.jump && !f.prevJump && grounded) {
       for (const p of f.parts) { // the whole body leaves the ground together
+        if (p.role === 'stick' && !f.grip) continue;
         const lv = p.body.linvel(tmp);
         p.body.setLinvel({ x: lv.x, y: -T.motion.jumpSpeed }, true);
       }
@@ -367,8 +406,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     f.release = C.releaseFrames;
     f.releaseMul = 1 + (C.torqueMul - 1) * fire;
     // The lunge follows the aim but stays within lungeMaxAngle of horizontal: it throws you at the opponent, not into the floor or the sky.
-    const flat = aimX >= 0 ? 0 : Math.PI;
-    const la = flat + clamp(wrapAngle(input.aim - flat), C.lungeMaxAngle);
+    const la = lungeAngle(s, input.aim, C.lungeMaxAngle);
     shove(f, Math.cos(la) * C.lungeImpulse * fire, Math.sin(la) * C.lungeImpulse * fire);
   }
   if (f.release > 0) f.release--;
@@ -378,8 +416,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
 
   // ---- punch push: a lunge into the punch and a shove on the fist ----
   if (strikeStart) {
-    const flat = aimX >= 0 ? 0 : Math.PI;
-    const la = flat + clamp(wrapAngle(input.aim - flat), C.lungeMaxAngle);
+    const la = lungeAngle(s, input.aim, C.lungeMaxAngle);
     shove(f, Math.cos(la) * K.lunge, Math.sin(la) * K.lunge);
   }
   if (punchPhase === 'strike') f.fore.body.applyImpulse({ x: aimX * K.strikeImpulse, y: aimY * K.strikeImpulse }, true);
@@ -388,7 +425,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // Everything is worked out as if the fighter faces right, then mirrored: that keeps the arm on the correct side
   // when you aim left. Angles: U = upper arm (world), E = elbow bend, W = wrist bend (both relative); negative = up/counter-clockwise.
   const mirror = (a: number) => (s > 0 ? a : Math.PI - a); // a right-facing world angle -> the real world angle
-  const aimR = mirror(input.aim);
+  const aimR = clamp(wrapAngle(mirror(input.aim)), 1.9); // when the facing is locked the cursor can be behind you: the arm still stays in front
   const P = T.longMelee;
   let U = aimR, E = 0, W = 0; // dummy: a straight arm hanging toward the aim
   let followAim = true;

@@ -179,11 +179,11 @@ export class Sim {
     victim.hp -= dmg;
     victim.stun = T.combat.stunFrames;
     const killing = victim.hp <= 0;
-    const k = knockbackFor(impact) * (killing ? T.combat.killLaunchMul : 1);
+    const k = knockbackFor(impact);
     shove(victim, nx * k, ny * k - impact * T.combat.knockbackUp);
     // A hit tips the victim backward (head swings away from the blow) a little: smooth and funny, not a random flip.
     victim.torso.body.applyTorqueImpulse(-Math.sign(nx || 1) * impact * T.combat.spinScale * (0.8 + 0.4 * this.rng()), true);
-    this.hitStop = killing ? T.combat.killHitStop : hitStopFor(impact);
+    this.hitStop = hitStopFor(impact);
     this.events.push({ t: 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head });
     if (killing) this.kill(victim, false, impact);
   }

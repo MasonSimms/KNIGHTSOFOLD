@@ -87,14 +87,22 @@ export const tuning = {
     neckDamping: 1.5,
     spin: 10, // random extra tumble given to the head and legs (rad/s)
   },
+  drop: {
+    // Right-click with a club in hand: let go of it. It keeps the speed your swing gave it, so swing first and then drop it to throw it.
+    // Right-click with empty hands: pick your club up again.
+    push: 3, // m/s of extra push along your aim
+    pickupDelay: 40, // frames after dropping before you can pick it up again
+    pickupRange: 1.6, // metres: how close the club must be to the middle of your body to pick it up
+  },
   dodge: {
     // Press dodge: you slip into the background plane. Fighters and weapons pass straight through you, you cannot hit
     // anyone, and you cannot be hit. Long cooldown, so it is a real decision. (The look is a placeholder for the later 2.5D depth.)
     frames: 36, // how long you stay back there (0.6 s)
     cooldownFrames: 360, // before you can do it again (6 s)
-    visualScale: 0.78, // how small you look while farther from the camera
-    visualAlpha: 0.5,
-    visualRate: 14, // how fast the look blends in and out
+    visualSquash: 0.55, // how narrow you look while turned toward the screen (1 = not at all)
+    visualShade: 0.45, // how much darker you look while behind everyone
+    visualRaise: 0.06, // metres: you sit a touch higher on the screen, as if farther back
+    visualRate: 12, // how fast you turn toward the screen and back
   },
   balance: {
     kp: 800, // spring pulling the body upright
@@ -182,20 +190,11 @@ export const tuning = {
     knockbackMax: 45,
     spinScale: 0.04, // how much a hit tips the victim backward (it used to be random and huge: that was the flipping)
     headMult: 1.6, // damage multiplier for a hit to the head
-    killLaunchMul: 1.3, // the killing blow launches the body this much harder
-    killHitStop: 10, // frames of freeze on a killing blow
     hitCooldown: 20, // frames before the same weapon can hit again
     stunFrames: 25,
     hitStopMin: 3,
     hitStopMax: 6,
     hitStopFullImpact: 40, // impact that earns the maximum hit-stop
-  },
-  highlight: {
-    // The moment a fighter is killed.
-    slowSeconds: 0.9, // real seconds of slow motion
-    slowFactor: 0.25, // game speed during it (0.25 = quarter speed)
-    burstSplats: 14, // paint splashes
-    shakeBonus: 16, // extra screen shake (pixels)
   },
   respawn: {
     frames: 120,
@@ -236,6 +235,7 @@ export const tuning = {
     stick: 0x8c5a2f,
     players: [0xd94a3a, 0xe9ddc1, 0x2f6fb5, 0xe8b931], // player 1, dummy, then blue and yellow later
     damaged: 0xb04030, // tint blended in as hidden HP drops
+    dead: 0x80808c, // a dead fighter greys out so the ragdoll reads clearly
   },
 };
 
