@@ -27,6 +27,7 @@ export function readInput(fighter: { x: number; y: number }): PlayerInput {
   const tapped = (...codes: string[]) => codes.map((c) => taps.delete(c)).some(Boolean); // a press that was over before this frame still counts
   let jump = keys.has('Space') || keys.has('KeyW') || keys.has('ArrowUp') || tapped('Space', 'KeyW', 'ArrowUp');
   let attack = mouseDown;
+  let crouch = keys.has('KeyS') || keys.has('ArrowDown');
   const drop = dropTap; // a right-click press counts even if it was over before this frame
   dropTap = false;
   let dodge = keys.has('ShiftLeft') || keys.has('ShiftRight') || tapped('ShiftLeft', 'ShiftRight');
@@ -38,8 +39,9 @@ export function readInput(fighter: { x: number; y: number }): PlayerInput {
     if (Math.hypot(ax, ay) > 0.35) { padAim = Math.atan2(ay, ax); usePadAim = true; }
     jump = jump || !!pad.buttons[0]?.pressed;
     attack = attack || !!pad.buttons[7]?.pressed || !!pad.buttons[5]?.pressed; // right trigger / right bumper
+    crouch = crouch || (pad.axes[1] ?? 0) > 0.6 || !!pad.buttons[13]?.pressed; // stick down / d-pad down
     dodge = dodge || !!pad.buttons[1]?.pressed || !!pad.buttons[4]?.pressed; // B / left bumper
   }
   const aim = usePadAim ? padAim : Math.atan2(mouseY - fighter.y, mouseX - fighter.x);
-  return { moveX, jump, aim, attack, drop, dodge };
+  return { moveX, jump, aim, attack, crouch, drop, dodge };
 }

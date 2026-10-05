@@ -1,7 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
-import { damageFor, hitStopFor, impactValue, knockbackFor } from './combat';
+import { damageFor, impactValue, knockbackFor } from './combat';
 import { buildFighter, controlFighter, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { makeRng } from './rng';
@@ -19,7 +19,6 @@ const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI / 2 };
 export class Sim {
   frame = 0;
   version = 0; // bumps whenever bodies are rebuilt, so the renderer knows to rebuild its sprites
-  hitStop = 0;
   lastImpact = 0;
   events: SimEvent[] = [];
   fighters: Fighter[] = [];
@@ -48,7 +47,6 @@ export class Sim {
     this.world?.free();
     this.rng = makeRng(this.seed);
     this.frame = 0;
-    this.hitStop = 0;
     this.lastImpact = 0;
     this.events.length = 0;
     this.partByBody.clear();
@@ -91,11 +89,6 @@ export class Sim {
     this.events.length = 0;
     this.frame++;
 
-    if (this.hitStop > 0) {
-      this.hitStop--; // hit-stop: physics freezes for a few frames
-      return;
-    }
-
     for (const f of this.fighters) {
       controlFighter(this.world, f, f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events);
       for (const p of f.parts) {
@@ -122,7 +115,10 @@ export class Sim {
         return Math.abs(a.x - b.x) < 0.6 && Math.abs(a.y - b.y) < 1.1;
       });
       if (crowded) f.dodge = 1;
-      else setBackPlane(f, false);
+      else {
+        setBackPlane(f, false);
+        f.attackLock = T.dodge.recoveryFrames; // a very short pause before you can attack again
+      }
     }
   }
 
@@ -179,11 +175,10 @@ export class Sim {
     victim.hp -= dmg;
     victim.stun = T.combat.stunFrames;
     const killing = victim.hp <= 0;
-    const k = knockbackFor(impact);
+    const k = knockbackFor(impact) * (att.kind === 'fist' ? T.fist.knockbackMul : 1); // punches shove much less than a club
     shove(victim, nx * k, ny * k - impact * T.combat.knockbackUp);
     // A hit tips the victim backward (head swings away from the blow) a little: smooth and funny, not a random flip.
     victim.torso.body.applyTorqueImpulse(-Math.sign(nx || 1) * impact * T.combat.spinScale * (0.8 + 0.4 * this.rng()), true);
-    this.hitStop = hitStopFor(impact);
     this.events.push({ t: 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head });
     if (killing) this.kill(victim, false, impact);
   }

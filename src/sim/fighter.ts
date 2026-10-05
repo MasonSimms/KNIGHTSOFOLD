@@ -59,6 +59,11 @@ export interface Fighter {
   chargeLocked: boolean; // after a dodge cancels a charge: let go of the button and press again to start a new one
   throwPending: boolean; // a charged throw is under way: the club is let go partway through the swing
   throwPower: number; // strength (0..1) of that throw
+  poseE: number; // smoothed elbow target (so poses glide)
+  poseW: number; // smoothed wrist target
+  crouch: number; // 0 standing .. 1 fully crouched
+  crouchApplied: number; // the crouch the body shape was last built for
+  attackLock: number; // frames left before an attack can start (just after a dodge)
   punchPower: number; // strength (0..1) of the punch being thrown
   jumpBuffer: number; // frames a jump press is remembered (so pressing a touch early still jumps)
   coyote: number; // frames after leaving a ledge during which a jump still works
@@ -155,7 +160,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, punchPower: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, crouchApplied: 0, attackLock: 0, punchPower: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -280,7 +285,15 @@ function isGrounded(world: World, f: Fighter): boolean {
 
 const clamp = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const FLIP = 0.25; // the cursor has to get this far past straight up (or down) before the fighter turns to face the other way
+const FLIP = 0.25;
+
+/** Crouching shortens the body for real: the capsule gets shorter and the head comes down, so swings aimed at the head can miss. */
+function applyCrouch(f: Fighter): void {
+  const F = T.fighter, c = f.crouch;
+  f.torso.colliders[0].setHalfHeight(lerp(F.torsoHalfHeight, T.crouch.minHalfHeight, c));
+  if (f.headCollider) f.headCollider.setTranslationWrtParent({ x: 0, y: lerp(F.headY, F.headY + T.crouch.headLift, c) });
+  f.crouchApplied = c;
+} // the cursor has to get this far past straight up (or down) before the fighter turns to face the other way
 
 /** Direction of a lunge: along the aim, but only within `max` of horizontal, and always the way the fighter faces (never backward). */
 function lungeAngle(side: number, aim: number, max: number): number {
@@ -305,6 +318,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
 
   // ---- dodge: slip into the background plane for a moment; a long cooldown ----
   if (f.dodgeCooldown > 0) f.dodgeCooldown--;
+  if (f.attackLock > 0) f.attackLock--;
   if (f.dodge > 0) f.dodge--; // the world keeps you back there while someone is still standing inside you
   if (f.controlled && input.dodge && !f.prevDodge && f.dodge === 0 && f.dodgeCooldown === 0 && !f.inBack) {
     f.dodge = T.dodge.frames;
@@ -316,7 +330,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   f.prevDodge = input.dodge;
   if (f.chargeLocked && !input.attack) f.chargeLocked = false;
-  const attack = input.attack && !f.chargeLocked;
+  const attack = input.attack && !f.chargeLocked && !f.inBack && f.attackLock === 0; // no attacking from the background plane
 
   // ---- right-click: with a club in your hand it lets go (the club keeps the speed of your swing plus a small push, so swing first,
   // then drop it to throw it); with empty hands it picks your club up again if it is within reach ----
@@ -412,6 +426,11 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // ---- movement and jumping ----
   const grounded = isGrounded(world, f);
   f.grounded = grounded;
+  const crouchTarget = f.controlled && input.crouch && grounded ? 1 : 0;
+  f.crouch += (crouchTarget - f.crouch) * T.crouch.rate;
+  if (f.crouch < 0.01) f.crouch = 0;
+  if (Math.abs(f.crouch - f.crouchApplied) > 0.005) applyCrouch(f);
+  const lungeMul = 1 + T.crouch.lungeBonus * f.crouch; // crouching loads more momentum into a lunge or punch
   const M = T.motion;
   if (grounded) f.coyote = M.coyoteFrames;
   else if (f.coyote > 0) f.coyote--;
@@ -421,13 +440,13 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     const accel = (grounded ? M.groundAccel : M.airAccel) * dt;
     const winding = charging || punchPhase === 'wind';
     // While lunging the walking controller must not brake, or it cancels the lunge.
-    const dv = f.release > 0 ? 0 : clamp(input.moveX * M.moveSpeed * (winding ? C.moveFactor : 1) - vx, accel);
+    const dv = f.release > 0 ? 0 : clamp(input.moveX * M.moveSpeed * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
     shove(f, dv * fighterMass(f), 0);
     if (f.jumpBuffer > 0 && f.coyote > 0) { // pressing a touch early, or a touch late after walking off a ledge, still jumps
       for (const p of f.parts) { // the whole body leaves the ground together
         if (p.role === 'stick' && !f.grip) continue;
         const lv = p.body.linvel(tmp);
-        p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed }, true);
+        p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed * (1 + T.crouch.jumpBonus * f.crouch) }, true); // a jump from a crouch goes a little higher
       }
       f.jumpBuffer = 0;
       f.coyote = 0;
@@ -459,7 +478,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     f.releaseMul = 1 + (C.torqueMul - 1) * fire;
     // The lunge follows the aim but stays within lungeMaxAngle of horizontal: it throws you at the opponent, not into the floor or the sky.
     const la = lungeAngle(s, input.aim, C.lungeMaxAngle);
-    shove(f, Math.cos(la) * C.lungeImpulse * fire, Math.sin(la) * C.lungeImpulse * fire);
+    shove(f, Math.cos(la) * C.lungeImpulse * fire * lungeMul, Math.sin(la) * C.lungeImpulse * fire * lungeMul);
   }
   if (f.release > 0) f.release--;
   if (f.throwPending) {
@@ -485,7 +504,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // ---- punch push: a lunge into the punch and a shove on the fist, both scaled by how long the punch was wound up ----
   if (strikeStart) {
     const la = lungeAngle(s, input.aim, C.lungeMaxAngle);
-    shove(f, Math.cos(la) * K.lunge * f.punchPower, Math.sin(la) * K.lunge * f.punchPower);
+    shove(f, Math.cos(la) * K.lunge * f.punchPower * lungeMul, Math.sin(la) * K.lunge * f.punchPower * lungeMul);
   }
   if (punchPhase === 'strike') f.fore.body.applyImpulse({ x: aimX * K.strikeImpulse * f.punchPower, y: aimY * K.strikeImpulse * f.punchPower }, true);
 
@@ -533,11 +552,15 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const wantRate = clamp(A.shoulderTrack * err, A.shoulderMaxRate * (1 + (gain - 1) * A.burstRateShare)) + aimRate; // desired world turn rate of the arm
   f.shoulder.configureMotorVelocity(wantRate - body.angvel(), A.shoulderForce * gain); // the joint works in torso-relative terms
   f.shoulder.setMotorMaxForce(A.shoulderMaxTorque * gain);
-  // Elbow and wrist are springs with a rest angle. With a club they are soft, so the club head lags and whips when you flick the mouse.
+  // Elbow and wrist are springs with a rest angle. Their targets glide (poseSmooth) so poses blend into each other instead of snapping.
+  // With a club they are soft, so the club head lags and whips when you flick the mouse.
+  const sm = slamming ? A.slamSmooth : A.poseSmooth;
+  f.poseE += (s * E - f.poseE) * sm;
+  f.poseW += (s * W - f.poseW) * sm;
   if (f.grip) {
-    motor(f.elbow, s * E, P.elbowStiffness, P.elbowDamping, P.elbowMaxTorque);
-    motor(f.grip as RevoluteImpulseJoint, s * W, P.wristStiffness, P.wristDamping, P.wristMaxTorque);
+    motor(f.elbow, f.poseE, P.elbowStiffness, P.elbowDamping, P.elbowMaxTorque);
+    motor(f.grip as RevoluteImpulseJoint, f.poseW, P.wristStiffness, P.wristDamping, P.wristMaxTorque);
   } else {
-    motor(f.elbow, s * E, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
+    motor(f.elbow, f.poseE, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
   }
 }

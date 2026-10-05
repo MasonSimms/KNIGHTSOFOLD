@@ -98,6 +98,24 @@ export const tuning = {
     pickupDelay: 40, // frames after dropping before you can pick it up again
     pickupRange: 1.6, // metres: how close the club must be to the middle of your body to pick it up
   },
+  crouch: {
+    // Hold S / down. You drop low (swings aimed at your head pass over you), and crouching lets you do more with the next move.
+    rate: 0.25, // how quickly you drop and rise each frame
+    speedFactor: 0.5, // walking speed while fully crouched
+    jumpBonus: 0.12, // a jump from a full crouch goes this much higher
+    lungeBonus: 0.3, // a lunge or punch from a full crouch has this much more momentum
+    minHalfHeight: 0.11, // how short the body gets (it is 0.25 standing)
+    headLift: 0.16, // how far the head comes down toward the shoulders
+    legShorten: 0.72, // how much shorter the drawn legs get
+    legSpread: 0.28, // how much further apart the drawn legs go
+  },
+  indicator: {
+    // A ring that flashes where a big hit lands (there is no hit freeze: big moments are shown, not felt as a stutter).
+    minImpact: 40, // hits at least this big show a ring
+    seconds: 0.3,
+    radius: 1.1, // metres, how big it grows
+    color: 0xffffff,
+  },
   dodge: {
     // Press dodge: you slip into the background plane. Fighters and weapons pass straight through you, you cannot hit
     // anyone, and you cannot be hit. Long cooldown, so it is a real decision. (The look is a placeholder for the later 2.5D depth.)
@@ -107,6 +125,7 @@ export const tuning = {
     visualShade: 0.45, // how much darker you look while behind everyone
     visualRaise: 0.06, // metres: you sit a touch higher on the screen, as if farther back
     visualRate: 12, // how fast you turn toward the screen and back
+    recoveryFrames: 6, // after coming back from a dodge you cannot start an attack for this long (0.1 s: short enough to punish a swing that missed you)
   },
   balance: {
     kp: 800, // spring pulling the body upright
@@ -128,6 +147,8 @@ export const tuning = {
     elbowMaxTorque: 600,
     elbowLimit: 2.6,
     limpDamping: 0.5,
+    poseSmooth: 0.3, // how quickly the elbow and wrist glide to a new pose each frame (1 = instantly; lower = smoother, a bit lazier)
+    slamSmooth: 0.6, // the same during a club slam, which should stay snappy
   },
   stick: {
     length: 1.1,
@@ -175,16 +196,16 @@ export const tuning = {
     windFrames: 6, // the shortest wind-up: even a tap draws back this long
     maxWindFrames: 30, // hold this long (0.5 s) for the heaviest punch
     quickPower: 0.45, // strength of a tap, compared with a full-hold punch (1)
-    strikeFrames: 8, // throw forward
-    recoverFrames: 10, // before you can punch again
+    strikeFrames: 10, // throw forward
+    recoverFrames: 12, // before you can punch again
     cockUpper: 2.6, // upper arm swings this far behind the aim line
     cockExtra: 0.4, // ...and a little further back the longer you hold
     cockElbow: -2.2, // elbow folded tight
     guardUpper: 1.0, // resting guard: upper arm hanging down in front...
     guardElbow: -2.0, // ...forearm folded up, fist at the chest
-    torqueMul: 3, // arm strength during a full-power throw
-    strikeImpulse: 1.2, // extra shove on the fist each frame of a full-power throw
-    lunge: 70, // push the whole body forward into a full-power punch
+    torqueMul: 2.5, // arm strength during a full-power throw
+    strikeImpulse: 0.8, // extra shove on the fist each frame of a full-power throw
+    lunge: 35, // push the whole body forward into a full-power punch
   },
   throw: {
     // Right-click while holding the charge: the swing starts, then the club is let go partway through it.
@@ -195,7 +216,8 @@ export const tuning = {
     lungeShare: 0.5, // how much of the usual lunge the thrower still gets
   },
   fist: {
-    impactFactor: 2.0, // unarmed damage factor
+    impactFactor: 3.0, // unarmed damage factor
+    knockbackMul: 0.35, // punches shove the victim this much as hard as other hits do (1 = the same)
   },
   combat: {
     impactMin: 10, // below this nothing happens (resting contact never hurts)
@@ -209,9 +231,6 @@ export const tuning = {
     headMult: 1.6, // damage multiplier for a hit to the head
     hitCooldown: 20, // frames before the same weapon can hit again
     stunFrames: 25,
-    hitStopMin: 2, // frames the game freezes on a hit (kept short so four players do not stutter)
-    hitStopMax: 4,
-    hitStopFullImpact: 40, // impact that earns the maximum hit-stop
   },
   respawn: {
     frames: 120,

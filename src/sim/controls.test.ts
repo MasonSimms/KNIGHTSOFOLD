@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PlayerInput } from './types';
 import { Sim } from './world';
 
-const idle = (over: Partial<PlayerInput> = {}): PlayerInput => ({ moveX: 0, jump: false, aim: 0, attack: false, drop: false, dodge: false, ...over });
+const idle = (over: Partial<PlayerInput> = {}): PlayerInput => ({ moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false, ...over });
 
 async function settled(aim = 0) {
   const sim = await Sim.create(5);
@@ -88,7 +88,11 @@ describe('charge, punch and throw (the newer controls)', () => {
     for (let i = 0; i < 10; i++) sim.step([idle({ attack: true })]); // still holding the button
     expect(f().charge).toBe(0);
     sim.step([idle()]); // let go
-    for (let i = 0; i < 5; i++) sim.step([idle({ attack: true })]); // press again
+    for (let i = 0; i < 5; i++) sim.step([idle({ attack: true })]); // pressing again straight away: still in the dodge, no attacking
+    expect(f().charge).toBe(0);
+    sim.step([idle()]);
+    for (let i = 0; i < 60; i++) sim.step([idle()]); // dodge over
+    for (let i = 0; i < 5; i++) sim.step([idle({ attack: true })]); // now a fresh press starts a new charge
     expect(f().charge).toBe(5);
   });
 
@@ -150,5 +154,43 @@ describe('charge, punch and throw (the newer controls)', () => {
     expect(high).toBeGreaterThan(1.4);
     expect(hop).toBeGreaterThan(0.2);
     expect(hop).toBeLessThan(high * 0.7);
+  });
+});
+
+describe('crouch and the dodge recovery', () => {
+  it('crouching really lowers the body and head, and a jump from a crouch goes higher', async () => {
+    const rise = async (crouch: boolean) => {
+      const sim = await settled(0);
+      for (let i = 0; i < 40; i++) sim.step([idle({ crouch })]);
+      const y0 = sim.fighters[0].torso.body.translation().y;
+      let top = 0;
+      for (let i = 0; i < 70; i++) {
+        sim.step([idle({ crouch, jump: i < 45 })]);
+        top = Math.max(top, y0 - sim.fighters[0].torso.body.translation().y);
+      }
+      return top;
+    };
+    const standing = await settled(0), crouched = await settled(0);
+    for (let i = 0; i < 40; i++) crouched.step([idle({ crouch: true })]);
+    expect(crouched.fighters[0].torso.body.collider(0).halfHeight()).toBeLessThan(standing.fighters[0].torso.body.collider(0).halfHeight() - 0.1);
+    const yStand = standing.fighters[0].torso.body.translation().y, yCrouch = crouched.fighters[0].torso.body.translation().y;
+    expect(yCrouch).toBeGreaterThan(yStand + 0.1); // lower on screen (y grows downward)
+    expect(await rise(true)).toBeGreaterThan(await rise(false) * 1.05);
+  });
+
+  it('after a dodge you can attack again almost at once, but not during it', async () => {
+    const sim = await settled(0);
+    const f = () => sim.fighters[0];
+    sim.step([idle({ dodge: true })]);
+    for (let i = 0; i < 20; i++) sim.step([idle()]);
+    // still dodging: the attack button does nothing
+    sim.step([idle()]);
+    for (let i = 0; i < 5; i++) sim.step([idle({ attack: true })]);
+    expect(f().charge).toBe(0);
+    sim.step([idle()]);
+    // wait until the dodge is over and the short recovery has passed
+    for (let i = 0; i < 40; i++) sim.step([idle()]);
+    for (let i = 0; i < 4; i++) sim.step([idle({ attack: true })]);
+    expect(f().charge).toBe(4);
   });
 });

@@ -118,6 +118,21 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     s.alpha = T.splat.alpha;
     s.visible = true;
   };
+  // Big-hit indicator rings (a small pool: nothing is allocated while playing).
+  const rings = Array.from({ length: 8 }, () => {
+    const g = new Graphics().circle(0, 0, 50).stroke({ width: 6, color: T.indicator.color });
+    g.visible = false;
+    splatLayer.addChild(g);
+    return { g, age: 99 };
+  });
+  let nextRing = 0;
+  const ring = (x: number, y: number, color: number) => {
+    const r = rings[nextRing++ % rings.length];
+    r.g.position.set(x, y);
+    r.g.tint = color;
+    r.age = 0;
+    r.g.visible = true;
+  };
   const playerColor = (i: number) => T.colors.players[i % T.colors.players.length];
 
   let scale = 1, shake = 0, builtVersion = -1;
@@ -154,6 +169,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     if (f.ragdolled) return;
     const dt = Math.min(frameSeconds, 1 / 30);
     const rot = torso.rotation;
+    const crouchAmt = f.crouch;
+    const legLen = L.length * lerp(1, T.crouch.legShorten, crouchAmt);
     const hip = { x: torso.x - Math.sin(rot) * L.hipY, y: torso.y + Math.cos(rot) * L.hipY };
     const speed = Math.abs(vx);
     const dir = speed > 0.3 ? Math.sign(vx) : f.side;
@@ -165,12 +182,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const sgn = i === 0 ? -1 : 1, leg = e.leg[i];
       const cycle = Math.sin(e.phase + i * Math.PI);
       const target = f.grounded
-        ? sgn * L.stance + dir * cycle * L.swing * Math.min(1, speed / 3) // run cycle (just a gentle target: the spring does the rest)
+        ? sgn * (L.stance + T.crouch.legSpread * crouchAmt) + dir * cycle * L.swing * Math.min(1, speed / 3) // run cycle (just a gentle target: the spring does the rest)
         : sgn * L.airSpread + L.airSwing * cycle - Math.max(-0.5, Math.min(0.5, vx * 0.05)); // spread, kick, trail behind the motion
       const kick = -e.ax * L.inertia; // speeding up swings the feet backward, braking swings them forward
       leg.w += (L.spring * (target - leg.a) - L.damping * leg.w + kick) * dt;
       leg.a = Math.max(-1.3, Math.min(1.3, leg.a + leg.w * dt));
-      const foot: Pt = { x: hip.x + Math.sin(leg.a) * L.length, y: hip.y + Math.cos(leg.a) * L.length };
+      const foot: Pt = { x: hip.x + Math.sin(leg.a) * legLen, y: hip.y + Math.cos(leg.a) * legLen };
       if (f.grounded) foot.y = Math.min(foot.y, T.arena.platformTop); // never sink into the floor
       const g = e.legs[i], P = (p: Pt) => [p.x * BIG, p.y * BIG] as const;
       g.clear();
@@ -188,6 +205,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const big = e.v * boost - T.shake.minImpact; // only big hits shake the screen
         if (big > 0) shake = Math.min(T.shake.max, Math.max(shake, big * T.shake.perImpact));
         splat(e.x, e.y, Math.min(T.splat.radiusMax, T.splat.radiusMin + e.v * T.splat.radiusPerImpact) * boost, playerColor(e.owner));
+        if (e.v * boost >= T.indicator.minImpact) ring(e.x, e.y, T.indicator.color);
       }
     },
     draw(alpha: number, frameSeconds: number) {
@@ -197,6 +215,13 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       vignette.height = app.screen.height;
       if (builtVersion !== sim.version) rebuild();
       shake *= Math.pow(T.shake.decayPerSecond, frameSeconds);
+      for (const r of rings) {
+        if (!r.g.visible) continue;
+        r.age += frameSeconds / T.indicator.seconds;
+        if (r.age >= 1) { r.g.visible = false; continue; }
+        r.g.scale.set((0.2 + r.age * T.indicator.radius) / 50); // metres: grows from small to full size (the ring is drawn with radius 50)
+        r.g.alpha = 1 - r.age;
+      }
       const sx = (Math.random() - 0.5) * 2 * shake, sy = (Math.random() - 0.5) * 2 * shake;
       view.position.set((app.screen.width - A.viewW * scale) / 2 + sx, (app.screen.height - A.viewH * scale) / 2 + sy);
       for (const e of entries) {
@@ -213,6 +238,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           k.tint = tint;
         });
         const torso = c[0];
+        const cr = f.crouch;
+        const head = torso.children[1];
+        if (head && !f.ragdolled) head.position.y = lerp(T.fighter.headY, T.fighter.headY + T.crouch.headLift, cr);
+        if (torso.children[0] && !f.ragdolled) torso.children[0].scale.y = lerp(1, 0.6, cr) / BIG;
         const vx = (f.torso.cx - f.torso.px) / T.sim.dt;
         drawLegs(e, torso, vx, frameSeconds);
         for (const g of e.legs) g.tint = tint;

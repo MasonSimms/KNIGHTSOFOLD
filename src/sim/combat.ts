@@ -14,8 +14,3 @@ export function damageFor(impact: number, multiplier = 1): number {
 export function knockbackFor(impact: number): number {
   return Math.min(impact * T.combat.knockbackScale, T.combat.knockbackMax);
 }
-
-export function hitStopFor(impact: number): number {
-  const { hitStopMin, hitStopMax, hitStopFullImpact } = T.combat;
-  return Math.round(hitStopMin + (hitStopMax - hitStopMin) * Math.min(impact / hitStopFullImpact, 1));
-}
