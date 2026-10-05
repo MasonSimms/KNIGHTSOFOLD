@@ -93,6 +93,7 @@ export interface Fighter {
   coyote: number; // frames after leaving a ledge during which a jump still works
   prevDrop: boolean;
   pickupRequest: boolean; // right-click with empty hands: the world looks for a loose weapon in reach
+  pickupAim: number; // where the cursor pointed when they asked: the thing they aim at is the thing they pick up
   lostFrames: number; // how long this fighter's club has been lost in the void
   dropCooldown: number; // frames until a dropped club can be picked up again
   spawnX: number;
@@ -215,7 +216,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, lostFrames: 0, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -602,7 +603,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       f.dropCooldown = T.drop.pickupDelay;
       events.push({ t: 'drop', x: st.x, y: st.y, v: 0, owner: f.index, victim: -1 });
     } else if (!f.grip) {
-      f.pickupRequest = !f.armLost; // right-click with empty hands: the world picks up the nearest loose weapon in reach (needs an arm)
+      f.pickupRequest = !f.armLost; // right-click with empty hands: the world picks up what you are aiming at, within reach (needs an arm)
+      f.pickupAim = input.aim;
     }
   }
   f.prevDrop = input.drop;

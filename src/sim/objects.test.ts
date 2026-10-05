@@ -84,9 +84,10 @@ describe('the world is physics: a breakable bridge', () => {
     // free the plank and put it right beside fighter 0
     (sim as unknown as { ripFree(p: Part): void }).ripFree(plank);
     const t = f.torso.body.translation();
-    plank.body.setTranslation({ x: t.x + 0.5, y: t.y }, true); plank.body.setLinvel({ x: 0, y: 0 }, true);
+    plank.body.setTranslation({ x: t.x + 1.0, y: t.y }, true); plank.body.setLinvel({ x: 0, y: 0 }, true);
     step(1, [{ drop: true }]); // let go of the club first...
-    step(50); // ...wait out the pick-up delay on it (so the plank is the nearest loose thing)
+    f.stick!.body.setTranslation({ x: t.x - 1.3, y: t.y }, true); f.stick!.body.setLinvel({ x: 0, y: 0 }, true); // (it lands behind: we aim at the plank)
+    step(50); // ...wait out the pick-up delay
     const before = sim.props.length;
     step(1, [{ drop: true }]); // right-click with empty hands
     expect(f.stick).toBe(plank);
@@ -104,6 +105,34 @@ describe('the world is physics: a breakable bridge', () => {
     expect(sim.round === round ? sim.fighters[1].hp < hp0 : true).toBe(true); // the plank hurt them (or the round ended trying)
   }, 30000);
 
+  it('you pick up the one you aim at, and an outstretched hand takes what it touches', async () => {
+    for (const aim of [0, Math.PI]) {
+      const { sim, step } = await onBridge();
+      const f = sim.fighters[0];
+      const free = planks(sim).slice(1, 3);
+      for (const p of free) (sim as unknown as { ripFree(p: Part): void }).ripFree(p);
+      step(1, [{ drop: true }]); step(60);
+      const t = f.torso.body.translation();
+      free[0].body.setTranslation({ x: t.x + 1.0, y: t.y }, true); free[0].body.setLinvel({ x: 0, y: 0 }, true); // one on the right...
+      free[1].body.setTranslation({ x: t.x - 1.0, y: t.y }, true); free[1].body.setLinvel({ x: 0, y: 0 }, true); // ...and one on the left
+      f.stick!.body.setTranslation({ x: t.x, y: t.y + 5 }, true); // (the dropped club is out of reach)
+      step(1, [{ drop: true, aim }]);
+      expect(f.stick).toBe(aim === 0 ? free[0] : free[1]); // the one on the side you aim at
+    }
+    // the hand: reach out (hold the unarmed button) toward a plank and it is taken
+    const { sim, step } = await onBridge();
+    const f = sim.fighters[0];
+    step(1, [{ drop: true }]); step(60);
+    const plank = planks(sim)[0];
+    (sim as unknown as { ripFree(p: Part): void }).ripFree(plank);
+    const t = f.torso.body.translation();
+    f.stick!.body.setTranslation({ x: t.x, y: t.y + 6 }, true);
+    plank.body.setTranslation({ x: t.x + 0.7, y: t.y - 0.25 }, true); plank.body.setLinvel({ x: 0, y: 0 }, true);
+    for (let i = 0; i < 40 && f.stick !== plank; i++) step(1, [{ attack: true, aim: 0 }]);
+    expect(f.stick).toBe(plank);
+    expect(f.grip).not.toBeNull();
+  });
+
   it('a lost leg can be picked up and used as a club', async () => {
     const { sim, step } = await onBridge();
     const f = sim.fighters[0];
@@ -111,9 +140,12 @@ describe('the world is physics: a breakable bridge', () => {
     const limb = f.legs[0].thigh;
     step(40);
     const t = f.torso.body.translation();
-    limb.body.setTranslation({ x: t.x + 0.4, y: t.y + 0.2 }, true); limb.body.setLinvel({ x: 0, y: 0 }, true);
+    limb.body.setTranslation({ x: t.x + 1.0, y: t.y + 0.2 }, true); limb.body.setLinvel({ x: 0, y: 0 }, true);
     step(1, [{ drop: true }]);
+    f.stick!.body.setTranslation({ x: t.x - 1.3, y: t.y }, true); f.stick!.body.setLinvel({ x: 0, y: 0 }, true);
     step(50);
+    const t3 = f.torso.body.translation();
+    limb.body.setTranslation({ x: t3.x + 1.0, y: t3.y }, true); limb.body.setLinvel({ x: 0, y: 0 }, true); // (it has drifted: put it back where we aim)
     step(1, [{ drop: true }]);
     expect(f.stick).toBe(limb);
     expect(limb.role).toBe('stick');

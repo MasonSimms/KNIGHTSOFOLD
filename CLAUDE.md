@@ -23,6 +23,9 @@ Skip it for tuning-number tweaks and bug fixes, where you should pick the obviou
 - Before coding a feature, state the plan in a few lines; after coding, run it and report what you saw (FPS, console errors, behavior).
 - Prefer small files and clear module boundaries.
 
+## Art direction (owner; the art itself is made in a separate window and arrives as a handoff)
+The whole game looks like an OIL PAINTING: every frame you look at should feel like a painting. The characters should feel PAINTED ONTO the background (not pasted on top of it). Eliminations by falling off the stage show an animation that bloodies the background art: cartoon red paint, not gore (a placeholder paint splash exists). Keep that in mind in every rendering decision; do not invent a different style.
+
 ## Design rule: the world is physics (owner)
 Maps are thematic to their era and have fun physics attached (the samurai era has a bridge). The general rule for every map and object: **anything in the world is a physics body players can interact with: grab it, pick it up and use it as a weapon, break it, cut it.** Lost limbs stay on the map and are interactable too (a leg is a club). When designing a map or an object, ask what players can do to it with their hands, weapons and bodies, and make that work through the physics rather than through scripted special cases.
 

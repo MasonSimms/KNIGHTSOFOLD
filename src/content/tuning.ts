@@ -132,6 +132,7 @@ export const tuning = {
     push: 3, // m/s of extra push along your aim
     pickupDelay: 40, // frames after dropping before you can pick it up again
     pickupRange: 1.6, // metres: how close the club must be to the middle of your body to pick it up
+    aimReach: 0.7, // you pick up the thing nearest the point where you aim, this far (as a share of the range) from your body: aim at the one you want
   },
   crouch: {
     // Hold S / down. You drop low (swings aimed at your head pass over you), and crouching lets you do more with the next move.
@@ -314,6 +315,7 @@ export const tuning = {
     explodeSpin: 14, // tumble (rad/s)
     crushImpact: 25, // a stomp or a crash at least this big flattens the victim (the picture squashes; physics is a normal fall)
     shake: 0.05, // screen shake on an explosion or a crush
+    fallPaint: 0xb3232b, // the red paint that splatters the picture when someone falls off the stage (cartoon, not gore)
     squashSeconds: 0.12, // how fast a crushed fighter goes flat
     squashFlat: 0.65, // how much of their height is squashed away
     squashWide: 0.6, // how much wider they get

@@ -135,10 +135,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     splats.push(s);
   }
   let nextSplat = 0;
-  const splat = (x: number, y: number, radiusPx: number, color: number) => {
+  const growing: { s: Sprite; to: number; t: number; dur: number }[] = []; // splats that spread out over a moment
+  const splat = (x: number, y: number, radiusPx: number, color: number, grow = 0) => {
     const s = splats[nextSplat++ % splats.length];
     s.position.set(x, y);
     s.scale.set((radiusPx / 100 * 2) / 64); // px at 1080p -> metres
+    if (grow > 0) { growing.push({ s, to: s.scale.x, t: 0, dur: grow }); s.scale.set(0); }
     s.tint = color;
     s.alpha = T.splat.alpha;
     s.visible = true;
@@ -221,6 +223,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         ring(e.x, e.y, 0xffffff); ring(e.x, e.y, 0xffd24a);
         shake = Math.max(shake, T.death.shake);
         for (let i = 0; i < 8; i++) splat(e.x + Math.cos(i * 0.785) * 0.4, e.y + Math.sin(i * 0.785) * 0.4, T.splat.radiusMax, playerColor(e.victim));
+      } else if (e.t === 'fall') { // someone fell off the stage: red paint splashes up the edge of the picture where they went
+        const x = Math.max(0.6, Math.min(A.viewW - 0.6, e.x)), y = e.y > A.viewH ? A.viewH - 0.15 : Math.max(0.6, Math.min(A.viewH - 0.6, e.y));
+        for (let i = 0; i < 9; i++) splat(x + (Math.random() - 0.5) * 1.8, y - Math.random() * 1.0, 30 + Math.random() * 55, T.death.fallPaint, 0.18 + Math.random() * 0.2);
+        shake = Math.max(shake, T.death.shake);
       } else if (e.t === 'cut') {
         ring(e.x, e.y, 0xc9a26a); // a snapped rope or plank
         shake = Math.max(shake, T.bridge.shake);
@@ -243,6 +249,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       view.scale.set(scale);
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
+      for (let i = growing.length - 1; i >= 0; i--) { const g = growing[i]; g.t += frameSeconds; const k = Math.min(1, g.t / g.dur); g.s.scale.set(g.to * k * (2 - k)); if (k >= 1) growing.splice(i, 1); }
       if (paintedEra !== sim.era) paintArena(sim.era); // a new round in a new era
       if (builtVersion !== sim.version) rebuild();
       for (const { p, k } of propEntries) { k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha)); k.rotation = p.pa + wrap(p.ca - p.pa) * alpha; }

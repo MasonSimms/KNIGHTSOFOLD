@@ -346,9 +346,12 @@ export class Sim {
       f.pickupRequest = false;
       if (f.limp || f.grip || f.armLost) continue;
       const bt = f.torso.body.translation();
-      let best: { item: Item; part: Part } | null = null, bestD = T.drop.pickupRange;
-      const consider = (item: Item, part: Part) => {
-        const t = part.body.translation(), d = Math.hypot(t.x - bt.x, t.y - bt.y);
+      let best: { item: Item; part: Part } | null = null, bestD = Infinity;
+      const R = T.drop.pickupRange, ax = bt.x + Math.cos(f.pickupAim) * R * T.drop.aimReach, ay = bt.y + Math.sin(f.pickupAim) * R * T.drop.aimReach;
+      const consider = (item: Item, part: Part) => { // within reach, and the one nearest where you are aiming
+        const t = part.body.translation();
+        if (Math.hypot(t.x - bt.x, t.y - bt.y) > R) return;
+        const d = Math.hypot(t.x - ax, t.y - ay);
         if (d < bestD) { bestD = d; best = { item, part }; }
       };
       for (const g of this.fighters) {
@@ -393,15 +396,30 @@ export class Sim {
   }
 
   /** An outstretched empty hand locks onto the first part of another fighter it touches (not a club, not the floppy second arm). */
+  /** What an object is, if a hand can take it: a prop, a club nobody is holding, or a limb that has come off. */
+  private itemOf(part: Part): Item | null {
+    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 ? { kind: 'prop', index: i } : null; }
+    const g = this.fighters[part.owner];
+    if (!g) return null;
+    if (part.role === 'stick') return g.stick === part && !g.grip && g.dropCooldown <= 0 ? { kind: 'stick', from: g.index } : null;
+    if (part.role === 'upper') return g.armLost ? { kind: 'limb', from: g.index, k: 0 } : null;
+    if (part.role === 'thigh') { const i = g.legs.findIndex((l) => l.thigh === part); return i >= 0 && g.legLost[i] ? { kind: 'limb', from: g.index, k: 1 + i } : null; }
+    return null;
+  }
+
   private resolveGrabs(): void {
+    const take: [Fighter, Item, { x: number; y: number }][] = []; // objects to take in hand once the contact scan is over (the world must not change during it)
     for (const f of this.fighters) {
       if (!f.reaching || f.hold || f.limp) continue;
       const fist = f.fore.colliders[1];
       this.world.contactPairsWith(fist, (other) => {
-        if (f.hold) return;
+        if (f.hold || take.some((t) => t[0] === f)) return;
         const vb = other.parent();
         const part = vb && this.partByBody.get(vb.handle);
-        if (!part || part.owner === f.index || part.role === 'stick' || part.role === 'off') return;
+        if (!part || part.role === 'off') return;
+        const item = this.itemOf(part);
+        if (item) { take.push([f, item, other.parent()!.translation()]); return; } // an outstretched hand takes the object it touches: aim at the one you want
+        if (part.owner === f.index || part.role === 'stick' || part.owner < 0) return;
         const victim = this.fighters[part.owner];
         if (!victim || victim.inBack || victim.limp || victim.held === f) return; // no grabbing the dead (a limp ragdoll under the strong grabbing arm blows up)
         this.world.contactPair(fist, other, (m) => {
@@ -413,6 +431,12 @@ export class Sim {
           this.events.push({ t: 'grab', x: p.x, y: p.y, v: 0, owner: f.index, victim: victim.index });
         });
       });
+    }
+    for (const [f, item, pt] of take) {
+      if (f.stick && f.grip) continue;
+      this.acquire(f, item);
+      f.chargeLocked = true; // let go of the button and press again to swing what you have taken
+      this.events.push({ t: 'pickup', x: pt.x, y: pt.y, v: itemCode(item), owner: f.index, victim: item.kind === 'prop' ? -1 : item.from });
     }
   }
 
