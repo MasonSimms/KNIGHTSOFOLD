@@ -165,6 +165,7 @@ export const tuning = {
     visualSquash: 0.55, // how narrow you look while turned toward the screen (1 = not at all)
     visualShade: 0.45, // how much darker you look while behind everyone
     visualRaise: 0.06, // metres: you sit a touch higher on the screen, as if farther back
+    visualBlur: 2.5, // how soft you get as you slip back into the background (pixels at 1080p)
     visualRate: 12, // how fast you turn toward the screen and back
     recoveryFrames: 6, // after coming back from a dodge you cannot start an attack for this long (0.1 s: short enough to punish a swing that missed you)
   },
@@ -427,6 +428,14 @@ export const tuning = {
   },
   finish: {
     vignetteAlpha: 0.35,
+    paintBlur: 2, // softness of the paint on the picture (pixels at 1080p)
+    // The painting style. Every era can override any of these in its `style` row (content/eras.ts).
+    style: {
+      blur: 7, // how out of focus the background is (pixels at 1080p; fighters and the ground stay sharp)
+      grain: 0.07, // how strong the canvas weave is (0 = none)
+      tint: 0xffe2b0, // a colour wash over the whole picture, like old varnish
+      tintAlpha: 0.08,
+    },
   },
   colors: {
     void: 0x141018,

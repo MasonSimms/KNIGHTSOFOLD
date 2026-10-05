@@ -1,4 +1,4 @@
-import { Application, Assets, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { eraById } from '../content/eras';
 import { COLORS } from '../content/looks';
 import type { Hat } from '../content/looks';
@@ -70,6 +70,7 @@ interface Entry {
   group: Container; // everything of one fighter, so the dodge can shrink them about the torso
   c: Container[]; // one per part
   vis: number; // 0 = normal plane, 1 = background plane (smoothed)
+  blur: BlurFilter; // softens the fighter as they slip back into the background plane (dodge)
   crushed: boolean; // flattened by a stomp or a crash
   sq: number; // how flat (0..1, eases toward 1 once crushed)
 }
@@ -84,12 +85,26 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   app.stage.addChild(view);
   const A = sim.arena; // (only the view size is read from this one: it never changes)
   const sky = new Graphics(), platform = new Graphics(), walls = new Graphics();
+  // Depth of field: the painted backdrop (sky + background art) is blurred so the fighters and the ground they stand on stay in focus.
+  const backdrop = new Container(), backdropBlur = new BlurFilter({ strength: T.finish.style.blur, quality: 3 });
+  backdrop.filters = [backdropBlur];
+  backdrop.addChild(sky);
+  const grain = new TilingSprite({ texture: canvasTexture(128, (ctx) => { // canvas weave: fine noise over the whole picture (screen space)
+    const d = ctx.createImageData(128, 128);
+    for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
+    ctx.putImageData(d, 0, 0);
+  }), width: 1, height: 1 });
+  const tintWash = new Graphics(); // an era colour wash over everything (screen space; sized in draw())
   /** (Re)paint the arena in an era's colours. */
   let paintedEra = '';
   const paintArena = (id: string) => {
     const era = eraById(id), A = sim.arena;
     paintedEra = id;
-    sky.clear().rect(0, 0, A.viewW, A.viewH).fill(era.sky);
+    sky.clear().rect(-2, -2, A.viewW + 4, A.viewH + 4).fill(era.sky); // a little oversize: the blur eats the edges
+    const st = { ...T.finish.style, ...era.style }; // this era's painting style
+    grain.alpha = st.grain;
+    tintWash.clear().rect(0, 0, 1, 1).fill(st.tint);
+    tintWash.alpha = st.tintAlpha;
     platform.clear();
     for (const g of A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]) platform.rect(g.x, A.platformTop, g.w, A.platformThickness).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
     for (const l of A.ledges) platform.rect(l.x, A.platformTop - l.up, l.w, 0.3).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
@@ -99,18 +114,21 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     }
   };
   paintArena(sim.era);
-  const splatLayer = new Container();
+  const paintLayer = new Container(), paintBlur = new BlurFilter({ strength: T.finish.paintBlur, quality: 2 }); // the paint is soaked into the picture: slightly soft
+  paintLayer.filters = [paintBlur];
+  const splatLayer = new Container(); // sharp effects (rings)
   const backLayer = new Container(); // a dodging fighter is drawn here, behind everyone else
   const fighterLayer = new Container();
   const propLayer = new Container(); // planks, logs and other loose objects
-  view.addChild(sky, platform, walls, splatLayer, propLayer, backLayer, fighterLayer);
+  view.addChild(backdrop, platform, walls, paintLayer, splatLayer, propLayer, backLayer, fighterLayer);
 
   const bgTex = await loadBackground();
   if (bgTex) {
     const bg = new Sprite(bgTex);
     bg.width = A.viewW;
     bg.height = A.viewH;
-    view.addChildAt(bg, 1); // above the flat sky, below the platform
+    bg.position.set(-0.3, -0.3); bg.width = A.viewW + 0.6; bg.height = A.viewH + 0.6; // oversize like the sky
+    backdrop.addChild(bg);
   }
 
   // Cheap global finish on top of everything (screen space).
@@ -122,7 +140,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     ctx.fillRect(0, 0, 256, 256);
   }));
   vignette.alpha = T.finish.vignetteAlpha;
-  app.stage.addChild(vignette);
+  app.stage.addChild(grain, tintWash, vignette);
 
   // Splat decal pool (ring buffer: no allocation after start-up).
   const splatTex: Texture = app.renderer.generateTexture(new Graphics().circle(32, 32, 32).fill(0xffffff));
@@ -131,7 +149,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     const s = new Sprite(splatTex);
     s.anchor.set(0.5);
     s.visible = false;
-    splatLayer.addChild(s);
+    paintLayer.addChild(s);
     splats.push(s);
   }
   let nextSplat = 0, shownRound = sim.round;
@@ -202,7 +220,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         c.push(k);
       }
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, vis: 0, crushed: false, sq: 0 });
+      entries.push({ f, group, c, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
     }
     builtVersion = sim.version;
   }
@@ -252,6 +270,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       view.scale.set(scale);
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
+      const px = app.screen.height / 1080;
+      grain.width = tintWash.width = app.screen.width;
+      grain.height = tintWash.height = app.screen.height;
+      backdropBlur.strength = ({ ...T.finish.style, ...eraById(paintedEra).style }).blur * px; // blur is in screen pixels: tuned at 1080p, so scale with the window
+      paintBlur.strength = T.finish.paintBlur * px;
       if (sim.round !== shownRound) { // a new round: the picture is clean again (the paint lasts the whole round)
         shownRound = sim.round;
         for (const s of splats) s.visible = false;
@@ -277,6 +300,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (e.crushed) e.sq = Math.min(1, e.sq + frameSeconds / T.death.squashSeconds);
         let tint = mix(0xffffff, T.colors.damaged, 1 - Math.max(0, f.hp) / T.fighter.hp);
         tint = mix(tint, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker
+        e.blur.strength = e.vis * T.dodge.visualBlur * px;
+        e.group.filters = e.vis > 0.02 ? [e.blur] : null; // no filter cost unless they are dodging
         const layer = f.inBack ? backLayer : fighterLayer;
         if (e.group.parent !== layer) layer.addChild(e.group);
         f.parts.forEach((p, i) => {
