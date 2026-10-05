@@ -23,6 +23,9 @@ Skip it for tuning-number tweaks and bug fixes, where you should pick the obviou
 - Before coding a feature, state the plan in a few lines; after coding, run it and report what you saw (FPS, console errors, behavior).
 - Prefer small files and clear module boundaries.
 
+## Design rule: the world is physics (owner)
+Maps are thematic to their era and have fun physics attached (the samurai era has a bridge). The general rule for every map and object: **anything in the world is a physics body players can interact with: grab it, pick it up and use it as a weapon, break it, cut it.** Lost limbs stay on the map and are interactable too (a leg is a club). When designing a map or an object, ask what players can do to it with their hands, weapons and bodies, and make that work through the physics rather than through scripted special cases.
+
 ## Hard rules for `src/sim/`
 - No DOM, Pixi, `Math.random`, `Date.now`, or `performance.now` inside the simulation. Use the seeded PRNG (`sim/rng.ts`) and the frame counter.
 - Player input enters only as a `PlayerInput` struct (`sim/types.ts`).

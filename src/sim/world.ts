@@ -2,12 +2,13 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
-import { buildFighter, controlFighter, cutJoint, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
+import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { eraById } from '../content/eras';
+import { PROPS } from '../content/props';
 import { weaponById } from '../content/weapons';
 import type { Weapon } from '../content/weapons';
-import { eraFor, outfitsFor } from './era';
+import { eraFor, mapFor, outfitsFor } from './era';
 import { makeRng } from './rng';
 import type { Look } from '../content/looks';
 import { NEUTRAL } from './types';
@@ -22,6 +23,11 @@ const initRapier = () => (ready ??= RAPIER.init());
 const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI - 0.4 };
 
 export type Arena = typeof T.arena;
+
+/** Something a fighter can pick up. */
+type Item = { kind: 'stick'; from: number } | { kind: 'prop'; index: number } | { kind: 'limb'; from: number; k: number };
+const itemCode = (i: Item): number => (i.kind === 'stick' ? -1 : i.kind === 'prop' ? 100 + i.index : 1000 + i.from * 10 + i.k); // how a 'pickup' event says what was taken
+const decodeItem = (e: { v: number; victim: number }): Item => (e.v < 0 ? { kind: 'stick', from: e.victim } : e.v < 1000 ? { kind: 'prop', index: e.v - 100 } : { kind: 'limb', from: Math.floor((e.v - 1000) / 10), k: (e.v - 1000) % 10 });
 
 /** What killed a fighter, so the death can be staged to fit (crushed, blown apart, a limb lost). */
 export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam'; part?: Part; head?: boolean; nx: number; ny: number }
@@ -44,6 +50,11 @@ export class Sim {
   era = 'caveman'; // the era of this round (picks the arena look and the outfits)
   outfits = [0, 1, 2, 3]; // which of the era's 4 outfits each fighter wears this round
   forceEra: string | null = null; // testing: ?era=samurai keeps every round in one era
+  forceMap: number | null = null; // testing: ?map=1 keeps every round on the era's second map
+  map = 0; // which of the era's maps this round is on
+  props: Part[] = []; // loose objects in the world (planks, logs...): anyone can pick them up
+  private bridge: Part[] = []; // the planks of this round's bridge, in order
+  private cutLinks = new Set<unknown>(); // bridge joints already removed
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
   weapon: Weapon = { id: 'club', name: 'Club', ...T.stick }; // what everyone fights with this round (the era's weapon)
   private arenaCache: { key: string; arena: Arena } | null = null;
@@ -78,10 +89,11 @@ export class Sim {
 
   /** The arena of the current round: the standard one, or the era's own layout (a pure function of the era, so a client can ask without building anything). */
   get arena(): Arena {
-    const key = `${this.era}|${T.eras.changeGameplay}`;
+    const key = `${this.era}|${this.map}|${T.eras.changeGameplay}`;
     if (this.arenaCache?.key !== key) {
-      const over = T.eras.changeGameplay ? eraById(this.era).arena : {};
-      this.arenaCache = { key, arena: { ...T.arena, ...over, ledges: (over as { ledges?: Arena['ledges'] }).ledges ?? [] } as Arena };
+      const era = eraById(this.era);
+      const over: Partial<Arena> = T.eras.changeGameplay ? (this.map > 0 && era.alt ? era.alt[this.map - 1] : era.arena) as Partial<Arena> : {};
+      this.arenaCache = { key, arena: { ...T.arena, ...over } as Arena };
     }
     return this.arenaCache.arena;
   }
@@ -109,6 +121,10 @@ export class Sim {
   private build(): void {
     this.world?.free();
     this.era = this.eraOverride ?? this.forceEra ?? eraFor(this.seed, this.round).id;
+    this.map = this.forceMap ?? mapFor(this.seed, this.round, this.era);
+    this.props = [];
+    this.bridge = [];
+    this.cutLinks.clear();
     this.weapon = T.eras.changeGameplay ? weaponById(eraById(this.era).weapon) : { id: 'club', name: 'Club', ...T.stick };
     this.outfits = outfitsFor(this.seed, this.round);
     this.rng = makeRng(this.seed);
@@ -122,13 +138,13 @@ export class Sim {
     this.world.timestep = T.sim.dt;
     this.world.numSolverIterations = T.sim.solverIterations;
     this.world.numInternalPgsIterations = T.sim.pgsIterations;
-    const ground = this.world.createRigidBody(
-      RAPIER.RigidBodyDesc.fixed().setTranslation(A.platformX + A.platformW / 2, A.platformTop + A.platformThickness / 2),
-    );
-    this.world.createCollider(
-      RAPIER.ColliderDesc.cuboid(A.platformW / 2, A.platformThickness / 2).setFriction(A.friction).setCollisionGroups(worldGroups),
-      ground,
-    );
+    const slabs = A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }];
+    const grounds = slabs.map((g) => {
+      const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop + A.platformThickness / 2));
+      this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, A.platformThickness / 2).setFriction(A.friction).setCollisionGroups(worldGroups), body);
+      return { ...g, body };
+    });
+    if (A.bridge) this.buildBridge(A.bridge, grounds, A);
 
     // A tall wall stands outside each platform end, with a gap: a fighter knocked off an end falls into the gap and can wall-jump out.
     const wallH = (A.killY + 2 - A.wallTop) / 2;
@@ -144,6 +160,12 @@ export class Sim {
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(l.w / 2, 0.15).setFriction(A.friction).setCollisionGroups(worldGroups), body);
     }
     const xs = (this.dummy ? A.spawnX : A.fightSpawnX).map(along);
+    for (const pr of A.props) { // loose objects lying on the arena
+      const spec = PROPS[pr.kind] ?? PROPS.plank;
+      const p = createProp(this.world, pr.x, A.platformTop - pr.up - spec.thick / 2 - 0.01, 0, { kind: pr.kind, ...spec });
+      this.props.push(p);
+      this.partByBody.set(p.body.handle, p);
+    }
     this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, xs[i], !(this.dummy && i === 1)));
     this.fighters.forEach((f) => { if (this.gone[f.index]) this.park(f); });
     // Arena weapon rule: with 'spots' or 'sky' nobody starts armed; the clubs lie at fixed spots or fall from above.
@@ -156,6 +178,72 @@ export class Sim {
       });
     }
     this.version++;
+  }
+
+  /** A chain of planks across a gap, each joined to the next and the end ones to the ground. */
+  private buildBridge(b: { x0: number; x1: number; planks: number }, grounds: { x: number; w: number; body: RAPIER.RigidBody }[], A: Arena): void {
+    const B = T.bridge, n = b.planks, len = (b.x1 - b.x0) / n, r = B.plankThick / 2;
+    const y = A.platformTop + r;
+    const joint = (a: RAPIER.RigidBody, ax: number, ay: number, c: RAPIER.RigidBody, cx: number, cy: number) => {
+      const j = this.world.createImpulseJoint(RAPIER.JointData.revolute({ x: ax, y: ay }, { x: cx, y: cy }), a, c, true) as RAPIER.RevoluteImpulseJoint;
+      j.setLimits(-B.linkLimit, B.linkLimit);
+      return j;
+    };
+    const links: RAPIER.ImpulseJoint[][] = Array.from({ length: n }, () => []);
+    for (let i = 0; i < n; i++) {
+      const p = createProp(this.world, b.x0 + (i + 0.5) * len, y, 0, { kind: 'plank', len, thick: B.plankThick, mass: B.plankMass });
+      p.body.setAngularDamping(2);
+      p.links = links[i];
+      this.props.push(p);
+      this.bridge.push(p);
+      this.partByBody.set(p.body.handle, p);
+    }
+    for (let i = 0; i + 1 < n; i++) {
+      const j = joint(this.bridge[i].body, len / 2, 0, this.bridge[i + 1].body, -len / 2, 0);
+      links[i].push(j); links[i + 1].push(j);
+    }
+    const left = grounds.find((g) => Math.abs(g.x + g.w - b.x0) < 1e-6), right = grounds.find((g) => Math.abs(g.x - b.x1) < 1e-6);
+    const slabY = A.platformTop + A.platformThickness / 2; // ground bodies are centred here
+    if (left) links[0].push(joint(left.body, b.x0 - (left.x + left.w / 2), y - slabY, this.bridge[0].body, -len / 2, 0));
+    if (right) links[n - 1].push(joint(right.body, b.x1 - (right.x + right.w / 2), y - slabY, this.bridge[n - 1].body, len / 2, 0));
+  }
+
+  /** Free a bridge plank: every joint holding it is removed (once). */
+  private ripFree(p: Part): void {
+    for (const j of p.links ?? []) if (!this.cutLinks.has(j)) { this.world.removeImpulseJoint(j as never, true); this.cutLinks.add(j); }
+    p.links = [];
+  }
+
+  /** A club that hits a plank hard enough cuts it loose. */
+  private hitProp(att: Attacker, plank: Part, pt: { x: number; y: number }, n: { x: number; y: number }): void {
+    if (att.kind !== 'stick' || !plank.links?.length) return;
+    const c = this.contact(att.part, plank, pt, n);
+    const impact = impactValue(c.closing, (att.part.weapon ?? T.stick).impactFactor);
+    if (impact < T.bridge.cutImpact) return;
+    this.ripFree(plank);
+    this.events.push({ t: 'cut', x: pt.x, y: pt.y, v: impact, owner: att.part.owner, victim: -1 });
+  }
+
+  /** Someone slamming into the bridge hard enough breaks it there (the planks around the impact come free). */
+  private resolveBridge(): void {
+    const B = T.bridge;
+    this.bridge.forEach((plank, i) => {
+      if (!plank.links?.length) return;
+      this.world.contactPairsWith(plank.colliders[0], (other) => {
+        if (!plank.links?.length) return;
+        const vb = other.parent();
+        const part = vb && this.partByBody.get(vb.handle);
+        if (!part || part.owner < 0 || part.role === 'off') return;
+        this.world.contactPair(plank.colliders[0], other, (m) => {
+          if (!plank.links?.length || m.numSolverContacts() === 0) return;
+          const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP;
+          const c = this.contact(part, plank, pt, m.normal(this.tmpN));
+          if (c.closing < B.slamSpeed) return;
+          for (let k = Math.max(0, i - B.breakSpan); k <= Math.min(this.bridge.length - 1, i + B.breakSpan); k++) this.ripFree(this.bridge[k]);
+          this.events.push({ t: 'cut', x: pt.x, y: pt.y, v: c.closing, owner: part.owner, victim: -1 });
+        });
+      });
+    });
   }
 
   /** A player who has left: kill their fighter and drop the whole body far below the stage, so it never appears again and never counts as alive. */
@@ -222,6 +310,7 @@ export class Sim {
       }
     }
 
+    for (const p of this.props) { const v = p.body.linvel(this.tmpV); p.vx = v.x; p.vy = v.y; p.w = p.body.angvel(); }
     this.resolvePickups();
     this.keepWeaponsInPlay();
     this.world.step();
@@ -229,6 +318,7 @@ export class Sim {
     this.resolveGrabs();
     this.resolveHits();
     this.resolveBodyHits();
+    this.resolveBridge();
     this.resolveSlams();
     this.checkDeaths();
     this.snapshot();
@@ -241,7 +331,8 @@ export class Sim {
   mirrorEvent(e: SimEvent): void {
     const f = this.fighters[e.owner];
     if (e.t === 'die' || e.t === 'fall') { if (f && !f.limp) this.kill(f, e.t === 'fall', e.v); }
-    else if (e.t === 'pickup') { const g = this.fighters[e.victim]; if (f && g?.stick) { giveStick(this.world, g, f); if (g !== f) this.version++; } }
+    else if (e.t === 'pickup') { if (f) this.acquire(f, decodeItem(e)); }
+    else if (e.t === 'cut') { /* only an effect: the bridge's own joints are the server's business */ }
     else if (e.t === 'respawn') { if (f) this.respawn(f); }
     else if (e.t === 'back') this.gone[e.owner] = false;
     else if (e.t === 'gone') { this.gone[e.owner] = true; if (f && !f.limp) this.kill(f, true); }
@@ -255,18 +346,50 @@ export class Sim {
       f.pickupRequest = false;
       if (f.limp || f.grip || f.armLost) continue;
       const bt = f.torso.body.translation();
-      let best: Fighter | null = null, bestD = T.drop.pickupRange;
+      let best: { item: Item; part: Part } | null = null, bestD = T.drop.pickupRange;
+      const consider = (item: Item, part: Part) => {
+        const t = part.body.translation(), d = Math.hypot(t.x - bt.x, t.y - bt.y);
+        if (d < bestD) { bestD = d; best = { item, part }; }
+      };
       for (const g of this.fighters) {
-        if (!g.stick || g.grip || g.dropCooldown > 0) continue; // loose, and not just dropped
-        const st = g.stick.body.translation();
-        const d = Math.hypot(st.x - bt.x, st.y - bt.y);
-        if (d < bestD) { bestD = d; best = g; }
+        if (g.stick && !g.grip && g.dropCooldown <= 0) consider({ kind: 'stick', from: g.index }, g.stick); // a loose club, and not just dropped
+        if (g.armLost && g.upper.role === 'upper') consider({ kind: 'limb', from: g.index, k: 0 }, g.upper); // a lost arm (not one somebody already took)
+        g.legs.forEach((l, i) => { if (g.legLost[i] && l.thigh.role === 'thigh') consider({ kind: 'limb', from: g.index, k: 1 + i }, l.thigh); }); // a lost leg
       }
+      this.props.forEach((p, i) => consider({ kind: 'prop', index: i }, p));
       if (!best) continue;
-      giveStick(this.world, best, f);
-      if (best !== f) this.version++; // the club changed hands, so the renderer must rebuild
-      this.events.push({ t: 'pickup', x: bt.x, y: bt.y, v: 0, owner: f.index, victim: best.index }); // victim = who the club came from
+      this.acquire(f, (best as { item: Item }).item);
+      this.events.push({ t: 'pickup', x: bt.x, y: bt.y, v: itemCode((best as { item: Item }).item), owner: f.index, victim: (best as { item: Item }).item.kind === 'prop' ? -1 : ((best as { item: Item }).item as { from: number }).from });
     }
+  }
+
+  /** Put something into a fighter's hand: a loose club, a prop lying around, or a limb that has come off. (Clients replay this from the 'pickup' event.) */
+  private acquire(f: Fighter, item: Item): void {
+    if (item.kind === 'stick') {
+      const g = this.fighters[item.from];
+      giveStick(this.world, g, f);
+      if (g !== f) this.version++;
+      return;
+    }
+    let part: Part;
+    if (item.kind === 'prop') {
+      part = this.props.splice(item.index, 1)[0];
+      this.ripFree(part);
+    } else {
+      const g = this.fighters[item.from];
+      part = item.k === 0 ? g.upper : g.legs[item.k - 1].thigh;
+      g.parts.splice(g.parts.indexOf(part), 1);
+      cutJoint(this.world, g, item.k === 0 ? g.elbow : g.legs[item.k - 1].knee); // the rest of the limb stays behind: only the thigh (or upper arm) is taken
+      this.dropCut(g, item.k);
+    }
+    if (f.stick) this.props.push(dropToWorld(f)); // your own club, lying loose, is left behind for anyone
+    takeIn(this.world, f, part);
+    this.version++;
+  }
+
+  /** The lost limb that was just picked up must not be offered (or counted as a body part) again. */
+  private dropCut(g: Fighter, k: number): void {
+    if (k === 0) g.armLost = true; else g.legLost[k - 1] = true;
   }
 
   /** An outstretched empty hand locks onto the first part of another fighter it touches (not a club, not the floppy second arm). */
@@ -421,6 +544,7 @@ export class Sim {
   }
 
   private snapshot(): void {
+    for (const p of this.props) { const t = p.body.translation(); p.px = p.cx; p.py = p.cy; p.pa = p.ca; p.cx = t.x; p.cy = t.y; p.ca = p.body.rotation(); }
     for (const f of this.fighters) {
       for (const p of f.parts) {
         const t = p.body.translation();
@@ -445,7 +569,8 @@ export class Sim {
             if (!victimPart || victimPart.owner === f.index || (victimPart.role === 'stick') !== clubsOnly) return;
             this.world.contactPair(att.collider, other, (m) => {
               if (m.numSolverContacts() === 0 || this.frame < att.nextHit) return; // (a hit earlier in this very frame already used up the swing)
-              if (victimPart.role === 'stick') { // a club hit by a club or fist: no damage, but a great clash can knock it out of a hand
+              if (victimPart.role === 'prop') { this.hitProp(att, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN)); return; } // a plank or a log
+            if (victimPart.role === 'stick') { // a club hit by a club or fist: no damage, but a great clash can knock it out of a hand
                 const holder = this.fighters[victimPart.owner];
                 if (holder && holder.stick === victimPart && holder.grip) this.clash(f, att, holder, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN));
                 return;

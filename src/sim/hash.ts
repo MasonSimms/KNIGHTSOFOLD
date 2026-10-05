@@ -11,6 +11,7 @@ export function hashSim(sim: Sim): string {
     for (const w of u32) h = Math.imul(h ^ w, 0x01000193) >>> 0;
   };
   mix(sim.frame);
+  for (const p of sim.props) { const t = p.body.translation(); mix(t.x); mix(t.y); mix(p.body.rotation()); }
   for (const f of sim.fighters) {
     mix(f.hp);
     for (const p of f.parts) {

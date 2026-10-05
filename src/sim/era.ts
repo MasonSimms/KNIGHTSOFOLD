@@ -1,4 +1,4 @@
-import { eras } from '../content/eras';
+import { eraById, eras } from '../content/eras';
 import type { Era } from '../content/eras';
 import { tuning as T } from '../content/tuning';
 import { makeRng } from './rng';
@@ -17,6 +17,13 @@ export function eraFor(seed: number, round: number): Era {
     prev = cur.id;
   }
   return cur;
+}
+
+/** Which map of the era this round uses: 0 = its usual arena, 1.. = its other maps (a pure function of the seed and round, like the era). */
+export function mapFor(seed: number, round: number, eraId: string): number {
+  const alts = eraById(eraId).alt?.length ?? 0;
+  if (!alts) return 0;
+  return Math.floor(makeRng(((seed * 131 + round) ^ 0xc2b2ae35) >>> 0)() * (alts + 1));
 }
 
 /** Which of the era's 4 outfits each fighter wears this round: a shuffle, so everyone differs (a pure function of seed and round). */

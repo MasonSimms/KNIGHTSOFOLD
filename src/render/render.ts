@@ -90,7 +90,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     const era = eraById(id), A = sim.arena;
     paintedEra = id;
     sky.clear().rect(0, 0, A.viewW, A.viewH).fill(era.sky);
-    platform.clear().rect(A.platformX, A.platformTop, A.platformW, A.platformThickness).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
+    platform.clear();
+    for (const g of A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]) platform.rect(g.x, A.platformTop, g.w, A.platformThickness).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
     for (const l of A.ledges) platform.rect(l.x, A.platformTop - l.up, l.w, 0.3).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
     walls.clear();
     for (const cx of [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2]) {
@@ -101,7 +102,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const splatLayer = new Container();
   const backLayer = new Container(); // a dodging fighter is drawn here, behind everyone else
   const fighterLayer = new Container();
-  view.addChild(sky, platform, walls, splatLayer, backLayer, fighterLayer);
+  const propLayer = new Container(); // planks, logs and other loose objects
+  view.addChild(sky, platform, walls, splatLayer, propLayer, backLayer, fighterLayer);
 
   const bgTex = await loadBackground();
   if (bgTex) {
@@ -162,7 +164,17 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   let scale = 1, shake = 0, builtVersion = -1;
   const entries: Entry[] = [];
 
+  const propEntries: { p: Part; k: Container }[] = [];
+
   function rebuild() {
+    for (const e of propEntries) e.k.destroy({ children: true });
+    propEntries.length = 0;
+    for (const p of sim.props) {
+      const k = new Container();
+      for (const s of p.shapes) k.addChild(drawShape(s, T.colors.stick));
+      propLayer.addChild(k);
+      propEntries.push({ p, k });
+    }
     for (const e of entries) e.group.destroy({ children: true });
     fighterLayer.removeChildren();
     entries.length = 0;
@@ -209,6 +221,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         ring(e.x, e.y, 0xffffff); ring(e.x, e.y, 0xffd24a);
         shake = Math.max(shake, T.death.shake);
         for (let i = 0; i < 8; i++) splat(e.x + Math.cos(i * 0.785) * 0.4, e.y + Math.sin(i * 0.785) * 0.4, T.splat.radiusMax, playerColor(e.victim));
+      } else if (e.t === 'cut') {
+        ring(e.x, e.y, 0xc9a26a); // a snapped rope or plank
+        shake = Math.max(shake, T.bridge.shake);
       } else if (e.t === 'dismember') {
         ring(e.x, e.y, 0xffffff);
         splat(e.x, e.y, T.splat.radiusMax * 0.8, playerColor(e.victim));
@@ -230,6 +245,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       vignette.height = app.screen.height;
       if (paintedEra !== sim.era) paintArena(sim.era); // a new round in a new era
       if (builtVersion !== sim.version) rebuild();
+      for (const { p, k } of propEntries) { k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha)); k.rotation = p.pa + wrap(p.ca - p.pa) * alpha; }
       shake *= Math.pow(T.shake.decayPerSecond, frameSeconds);
       for (const r of rings) {
         if (!r.g.visible) continue;

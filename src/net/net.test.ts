@@ -17,6 +17,7 @@ async function pair(seed: number, players: number, dummy: boolean) {
 /** Largest gap between a server body part and the client's copy of it (and a note if the part lists differ). */
 function gap(server: Sim, client: Sim, tolerateLag = false): number {
   let worst = 0;
+  if (tolerateLag && server.round !== client.round) return 0; // the client is a round behind: the two worlds legitimately differ
   server.fighters.forEach((f, i) => {
     const g = client.fighters[i];
     if (g.parts.length !== f.parts.length) { if (!tolerateLag) worst = Infinity; return; } // lagging clients legitimately have the old part list for a moment

@@ -28,6 +28,9 @@ export const tuning = {
     spawnX: [7, 11.5, 5.5, 13.5], // playing alone: fighter 0 = you, 1 = the training dummy, 2 and 3 = extra fighters (stress test)
     fightSpawnX: [6.2, 13.0, 8.6, 10.6], // a real fight of 2-4 players: where each one starts
     ledges: [] as { x: number; up: number; w: number }[], // floating platforms (an era's arena can add them)
+    ground: [] as { x: number; w: number }[], // separate ground slabs instead of one platform (empty = the one platform)
+    bridge: null as null | { x0: number; x1: number; planks: number }, // a plank bridge across a gap in the ground
+    props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
   },
   fighter: {
     hp: 100, // hidden: never shown on screen (F3 overlay only)
@@ -315,6 +318,21 @@ export const tuning = {
     squashFlat: 0.65, // how much of their height is squashed away
     squashWide: 0.6, // how much wider they get
     squashDrop: 0.2, // metres they sink so the pancake rests on the floor
+  },
+  props: {
+    // Loose objects in the world (planks, logs, bones) and lost limbs: all of them can be picked up (right-click, empty hands) and used as a club.
+    factor: 2.0, // damage factor of a held prop
+    limbFactor: 1.6, // ...of a held limb (a leg, say)
+  },
+  bridge: {
+    // A bridge is a chain of planks: it can be cut, it snaps if someone slams into it, and every plank that comes free is a club.
+    plankMass: 3,
+    plankThick: 0.24,
+    linkLimit: 0.6, // how far each plank can swing from the next (radians): it sags a little
+    cutImpact: 20, // a club hit at least this big cuts the plank it lands on free
+    slamSpeed: 8, // a body hitting a plank at least this fast (m/s) breaks the bridge there (the stand spring soaks up an ordinary jump's landing, so only a hard fall or a flung body gets this fast)
+    breakSpan: 1, // ...and this many planks either side of it
+    shake: 0.03, // screen shake when a plank snaps
   },
   parry: {
     // Block a swing with your own club: hold it still (or nearly) in the path of a fast swing. The swinger's club flies back the way it came,

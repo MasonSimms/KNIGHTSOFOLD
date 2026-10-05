@@ -12,6 +12,8 @@ export interface Snapshot {
   scores: number[];
   f: { hp: number; back: boolean; p: number[] }[]; // per fighter: hp, on the background plane, and x, y, angle for each part
   era: string;
+  map: number;
+  props: number[]; // x, y, angle of every loose prop (planks, logs...)
   outfits: number[];
   looks: Look[]; // everyone's colour and hat (so a player who joins late or rejoins sees the right ones)
   ev: SimEvent[];
@@ -23,7 +25,8 @@ const r3 = (n: number) => Math.round(n * 1000) / 1000;
 export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot {
   return {
     frame, round: sim.round, roundOver: sim.roundOver, roundWinner: sim.roundWinner, scores: sim.scores.slice(), ev,
-    era: sim.era, outfits: sim.outfits.slice(), looks: sim.looks.map((l) => ({ ...l })),
+    era: sim.era, map: sim.map, outfits: sim.outfits.slice(),
+    props: sim.props.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }), looks: sim.looks.map((l) => ({ ...l })),
     f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
   };
 }
@@ -88,8 +91,18 @@ export class Mirror {
     const sim = this.sim;
     const looksNow = JSON.stringify(a.looks);
     if (looksNow !== this.lastLooks) { this.lastLooks = looksNow; sim.version++; } // someone picked a new hat or colour: the renderer must redraw the fighters
-    sim.era = a.era; sim.outfits = a.outfits; sim.looks = a.looks;
+    sim.era = a.era; sim.map = a.map; sim.outfits = a.outfits; sim.looks = a.looks;
     sim.scores = a.scores.slice(); sim.round = a.round; sim.roundOver = a.roundOver; sim.roundWinner = a.roundWinner;
+    if (a.props.length !== sim.props.length * 3) this.desyncs++;
+    else {
+      const pb = b.props.length === a.props.length ? b.props : a.props;
+      sim.props.forEach((p, j) => {
+        const tele = Math.hypot(pb[j * 3] - a.props[j * 3], pb[j * 3 + 1] - a.props[j * 3 + 1]) > TELEPORT;
+        const from = tele ? pb : a.props;
+        p.px = from[j * 3]; p.py = from[j * 3 + 1]; p.pa = from[j * 3 + 2];
+        p.cx = pb[j * 3]; p.cy = pb[j * 3 + 1]; p.ca = pb[j * 3 + 2];
+      });
+    }
     sim.fighters.forEach((f, i) => {
       const pa = a.f[i]?.p, pb = b.f[i]?.p;
       if (!pa || pa.length !== f.parts.length * 3) { this.desyncs++; return; }

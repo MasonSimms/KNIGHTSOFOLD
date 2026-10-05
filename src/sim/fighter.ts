@@ -12,7 +12,8 @@ export interface Part {
   body: RigidBody;
   shapes: Shape[]; // what the renderer draws (the same as the colliders)
   colliders: Collider[];
-  role: 'torso' | 'upper' | 'fore' | 'stick' | 'head' | 'thigh' | 'shin' | 'off'; // 'off' = the floppy second arm
+  role: 'torso' | 'upper' | 'fore' | 'stick' | 'head' | 'thigh' | 'shin' | 'off' | 'prop'; // 'off' = the floppy second arm; 'prop' = a loose object in the world (a plank, a log...)
+  links?: ImpulseJoint[]; // a prop that is part of a structure (a bridge plank): the joints holding it
   weapon?: Weapon; // a club's own stats (so it keeps them when someone else picks it up)
   owner: number;
   // interpolation poses (previous / current sim step) for the renderer
@@ -265,6 +266,51 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
   f.legs.forEach((l, i) => { if (j === l.hip || j === l.knee) f.legLost[i] = true; });
 }
 
+/** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number }): Part {
+  const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
+  const collider = world.createCollider(
+    RAPIER.ColliderDesc.capsule(hl, r).setRotation(Math.PI / 2).setMass(spec.mass).setFriction(0.8).setRestitution(0.05).setCollisionGroups(worldGroups), body);
+  return {
+    body, shapes: [{ k: 'cap', hl, r, x: 0, y: 0, rot: Math.PI / 2 }], colliders: [collider], role: 'prop', owner: -1,
+    px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
+    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: Math.min(0.2, spec.len * 0.25), impactFactor: T.props.factor },
+  };
+}
+
+/**
+ * Put an object (a loose prop, or a limb that has come off) into a fighter's hand as their club. The caller has already taken it out of
+ * wherever it was. A vertical capsule (a leg) is turned on its side so it is held like a club.
+ */
+export function takeIn(world: World, f: Fighter, part: Part): void {
+  const sh = part.shapes[0];
+  if (sh.k === 'cap' && sh.rot === 0) { part.colliders[0].setRotationWrtParent(Math.PI / 2); part.shapes[0] = { ...sh, rot: Math.PI / 2 }; }
+  if (!part.weapon && sh.k === 'cap') {
+    part.weapon = { id: 'limb', name: 'limb', length: 2 * (sh.hl + sh.r), thickness: 2 * sh.r, mass: part.body.mass(), gripFromEnd: 0.06, impactFactor: T.props.limbFactor };
+  }
+  part.role = 'stick';
+  part.owner = f.index;
+  for (const c of part.colliders) c.setCollisionGroups(f.inBack ? backGroups : ownerGroups(f.index));
+  f.attackers.push({ collider: part.colliders[0], part, kind: 'stick', nextHit: 0 });
+  f.parts.push(part);
+  f.stick = part;
+  attachStick(world, f);
+}
+
+/** A fighter's loose club (lying where they dropped it) becomes a plain object in the world that anyone can pick up. */
+export function dropToWorld(f: Fighter): Part {
+  const part = f.stick!;
+  f.parts.splice(f.parts.indexOf(part), 1);
+  const i = f.attackers.findIndex((a) => a.part === part);
+  if (i >= 0) f.attackers.splice(i, 1);
+  part.role = 'prop';
+  part.owner = -1;
+  for (const c of part.colliders) c.setCollisionGroups(worldGroups);
+  f.stick = null;
+  return part;
+}
+
 /** Make `part` (a club) belong to `to`: its owner, its parts list, its damage credit and its collision group. */
 function reassign(part: Part, from: Fighter, to: Fighter): void {
   from.parts.splice(from.parts.indexOf(part), 1);
@@ -399,7 +445,8 @@ export function wrapAngle(a: number): number {
 
 const tmpC = { x: 0, y: 0 };
 const ray = new RAPIER.Ray({ x: 0, y: 0 }, { x: 0, y: 1 });
-const onlyFixed = (c: Collider) => !!c.parent()?.isFixed();
+/** Part of the world (the ground, a wall, a bridge plank, a loose log): what you can stand on or slide down. Fighters and the clubs they hold are not. */
+const isWorld = (c: Collider) => ((c.collisionGroups() >>> 16) & GROUP_WORLD) !== 0;
 
 /**
  * What the body is touching. The floor: a ray straight down from the hips (it also feeds the stand spring), or a foot on it.
@@ -408,12 +455,12 @@ const onlyFixed = (c: Collider) => !!c.parent()?.isFixed();
 function senseContacts(world: World, f: Fighter): void {
   const bt = f.torso.body.translation();
   ray.origin.x = bt.x; ray.origin.y = bt.y;
-  const hit = world.castRay(ray, T.stand.height + T.stand.reach, true, undefined, undefined, undefined, undefined, onlyFixed);
+  const hit = world.castRay(ray, T.stand.height + T.stand.reach, true, undefined, undefined, undefined, undefined, isWorld);
   f.groundDist = hit ? hit.timeOfImpact : Infinity;
   let ground = f.groundDist < T.stand.height + 0.12, wall = 0;
   for (const col of f.torso.colliders) { // the body capsule and the head: a leaning body touches a wall with its head first
     world.contactPairsWith(col, (other) => {
-      if (!other.parent()?.isFixed()) return;
+      if (!isWorld(other)) return;
       world.contactPair(col, other, (m) => {
         if (m.numSolverContacts() === 0) return;
         const p = m.solverContactPoint(0, tmpC);
@@ -426,7 +473,7 @@ function senseContacts(world: World, f: Fighter): void {
   f.legs.forEach((l, i) => { // a foot (or shin) resting on something below the hips
     if (f.legLost[i]) return;
     world.contactPairsWith(l.shin.colliders[0], (other) => {
-      if (ground || !other.parent()?.isFixed()) return;
+      if (ground || !isWorld(other)) return;
       world.contactPair(l.shin.colliders[0], other, (m) => {
         const p = m.numSolverContacts() > 0 && m.solverContactPoint(0, tmpC);
         if (p && p.y - bt.y > 0.15) ground = true;
@@ -456,7 +503,7 @@ function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip:
   }
 
   if (f.kneeSide !== s) { // knees fold toward where you face
-    for (const l of f.legs) l.knee.setLimits(s > 0 ? 0 : -LG.kneeLimit, s > 0 ? LG.kneeLimit : 0);
+    for (const l of f.legs) if (!f.cutJoints.has(l.knee)) l.knee.setLimits(s > 0 ? 0 : -LG.kneeLimit, s > 0 ? LG.kneeLimit : 0);
     f.kneeSide = s;
   }
   const speed = Math.abs(vx), run = Math.min(1, speed / 3), dir = speed > 0.3 ? Math.sign(vx) : s;

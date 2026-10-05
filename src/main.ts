@@ -23,7 +23,8 @@ const slow = Math.min(1, Number(query.get('slow')) || 1);
 const sim = await Sim.create(1, stress ? 4 : 2);
 // Look testing without a server: ?era=samurai keeps every round in that era; ?hats=cap,crown,horns,tophat and ?colors=4,5,6,7 dress the fighters.
 const eraParam = query.get('era');
-if (eraParam) { sim.forceEra = eraParam; sim.reset(); }
+const mapParam = query.get('map');
+if (eraParam || mapParam) { sim.forceEra = eraParam; sim.forceMap = mapParam === null ? null : Number(mapParam); sim.reset(); } // ?era=samurai&map=1 is the samurai bridge
 query.get('hats')?.split(',').forEach((h, i) => { if (sim.looks[i]) sim.looks[i].hat = h as typeof sim.looks[0]['hat']; });
 query.get('colors')?.split(',').forEach((c, i) => { if (sim.looks[i]) sim.looks[i].color = Number(c) || 0; });
 // Open http://localhost:5173/?lag=100 to play through a pretend network: the real sim runs as a "server" in this page, your inputs and its
