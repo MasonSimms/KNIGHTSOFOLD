@@ -2,10 +2,13 @@
 
 Planning only, nothing here is built yet (except where marked BUILT). Everything is a first draft for the owner to cut and change.
 
-## The shape of a full game
-- 12 eras in chronological order. Each era is a 5-round chapter, one round per arena, about a minute each: 5 minutes per era, 60 minutes in all.
-- Every era has: one SIGNATURE WEAPON that everyone starts with, 2 PICKUP weapons found lying in its arenas, and 5 ARENAS each with one physics idea (the world-is-physics rule: grab it, break it, cut it).
-- Specials (fantasy archers, mobsters, ...) are the intermittent random eras from the locked decisions. Each would need its own 5 arenas to replace a whole chapter at 15% odds (see "Specials" below).
+## The shape of a full game (owner's answers, 2026-10-05)
+- The GAME is built from a pool of about 60 arenas: 12 eras x 5 arenas each. Every match picks 12 arenas at random from the pool, one era after another in chronological order, and plays them in that order.
+- SPECIALS (fantasy archers, mobsters, ...) turn up now and then at random, in the middle of that order. A special replaces a whole era's slot (the owner: "it replaces a chapter", for replayability), and its arena is picked from the special's own pool of 5.
+- Rounds end by nature (a knockoff win, as now). There is no timer. Pacing comes from the weapons instead: more and better weapons spawn more rapidly as a round goes on, so fights escalate and finish themselves.
+- Every era has: one SIGNATURE WEAPON that everyone starts with, 2 PICKUP weapons that spawn in during the round (these are the "better weapons" the spawner hands out later), and 5 ARENAS each with one physics idea.
+- All of the proposed eras (Egypt, Roman, Viking, Medieval) are kept.
+- ASSUMPTION TO CONFIRM: with 12 rounds per match, a match is about 12 rounds long (roughly 12 to 15 minutes), and the 60-arena pool is what gives replay value, not a one-hour sitting. If the owner meant a 60-round hour, an era would be a 5-round chapter instead.
 
 ## Chronological order
 | # | Era | Rough date | Signature weapon | Status |
@@ -129,17 +132,15 @@ Pickups: **Plasma Blade** (short, huge impact), **Gravity Hammer** (a hit pulls 
 Already chosen: **Fantasy Archers** (longbow-as-staff) and **Mobsters** (bat). Each needs 5 arenas to stand in for a whole chapter. Ideas to fill the list: Zombie Apocalypse, Ancient Greece (hoplites with spear and shield), Wizards, Dinosaur Age (cavemen with raptors), Robots.
 
 ## What the engine needs (in build order, cheapest first)
-1. **Era order and chapters**: a 60-round schedule: 12 eras in order, 5 rounds each, instead of today's random era every round. (small, in sim/era.ts; needs a decision on how specials swap in)
-2. **More arenas per era**: today an era has one usual arena plus `alt` maps picked at random. Five fixed arenas per era in a fixed order is a data change in eras.ts.
+1. **Match schedule**: a pure function of the match seed (like eraFor now): 12 slots in chronological era order, each slot picks one arena at random from its era's 5 (a special occasionally swaps in at a slot). Replaces today's random era every round. (small, sim/era.ts and eras.ts; 5 fixed arenas per era, no more `alt` maps)
+2. **Weapon spawner with escalation**: weapons drop into the arena during a round, the rate rising over time, with each era's pickups (better ones) appearing later. A data table per era (spawn times, weights, rates in tuning). Replaces the round timer.
 3. **Cuttable ropes and chains**: BUILT for the bridge. Generalise it for the drawbridge, vines, chandeliers, cages, crane and rope bridges. Unlocks about 15 arenas.
 4. **Water and buoyancy**: the pirate slice, deterministic (waves from the frame counter). Unlocks Egypt barge, longship, ice floes, pirate arenas, paddy, river boat, waterfall.
 5. **Moving platforms**: train, tank, barge, plane wing, chariot, helicopter.
-6. **Hazard zones**: lava, tar, wind, barbed wire, ice (low friction), low gravity. These are data-driven zones with one effect each.
+6. **Hazard zones**: lava, tar, wind, barbed wire, ice (low friction), low gravity. Data-driven zones with one effect each.
 7. **New weapon behaviours**: shield (parry), thrown objects, grab at range (lasso, grapple), entangle (net). Each is a one-time engine feature, then data rows.
-8. **Round timer**: a one-minute round target needs a clock, with sudden death if nobody has won (an open design question).
 
 ## Open questions for the owner
-1. Does a round end when someone is knocked off (as now), with the 1-minute average coming from the fights themselves, or do we add a timer?
-2. When a special era turns up, does it replace a whole 5-round chapter or just one round?
-3. Roman, Viking, Egypt and Medieval are my additions to get to 12 eras. Which would you swap?
-4. Is 60 arenas the target, or should some be reused across eras?
+1. Confirm the assumption above: a match is 12 rounds (one arena per era), with the 60-arena pool for replay variety.
+2. Weapon spawns: should they appear anywhere on the map or only at fixed spots per arena (data)? Recommended: fixed spots plus a few random airdrops.
+3. Do specials stay about 15% per slot?
