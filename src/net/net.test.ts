@@ -67,6 +67,27 @@ describe('online mirror', () => {
     expect(respawns).toBeGreaterThan(0);
   }, 120_000);
 
+  it('a player who leaves dies that round and stays out of every later round, on the server and the client', async () => {
+    const { room, mirror, server, client } = await pair(8, 4, false);
+    const inputs = fuzzer(21);
+    let worst = 0, roundAtLeave = 0, scoreAtLeave = 0;
+    for (let i = 0; i < 3000; i++) {
+      if (i === 400) { room.removePlayer(2); roundAtLeave = server.round; scoreAtLeave = server.scores[2]; }
+      for (let k = 0; k < 4; k++) room.setInput(k, inputs(4)[k]);
+      const s = room.tick();
+      if (!s) continue;
+      mirror.push(wire(s));
+      mirror.show(s.frame);
+      worst = Math.max(worst, gap(server, client));
+      if (i > 400) { expect(server.fighters[2].limp).toBe(true); expect(client.fighters[2].limp).toBe(true); }
+    }
+    expect(server.round).toBeGreaterThan(roundAtLeave + 1); // several later rounds happened
+    expect(server.fighters[2].torso.body.translation().y).toBeGreaterThan(30); // parked far below the stage
+    expect(mirror.desyncs).toBe(0);
+    expect(worst).toBeLessThan(0.01);
+    expect(server.scores[2]).toBe(scoreAtLeave); // the leaver never scores again
+  }, 120_000);
+
   it('a client that joins mid-round catches up from the room', async () => {
     const { room, server } = await pair(5, 4, false);
     const inputs = fuzzer(11);

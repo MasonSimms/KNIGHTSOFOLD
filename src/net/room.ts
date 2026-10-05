@@ -24,16 +24,27 @@ export class Room {
   tick(): Snapshot | null {
     this.sim.step(this.inputs);
     this.ticks++;
-    for (const e of this.sim.events) {
-      const copy = { ...e };
-      this.pending.push(copy);
-      if (e.t === 'newround') this.log.length = 0; // a new round rebuilds everything: earlier events no longer matter
-      if (STRUCTURAL.has(e.t)) this.log.push(copy);
-    }
+    this.collect();
     if (this.ticks % this.snapEvery !== 0) return null;
     const s = takeSnapshot(this.sim, this.ticks, this.pending);
     this.pending = [];
     return s;
+  }
+
+  /** A player left: their fighter dies now and they are out of every later round. */
+  removePlayer(slot: number): void {
+    this.sim.events.length = 0; // (events normally belong to a tick; collect the ones this makes)
+    this.sim.removePlayer(slot);
+    this.collect();
+  }
+
+  private collect(): void {
+    for (const e of this.sim.events) {
+      const copy = { ...e };
+      this.pending.push(copy);
+      if (e.t === 'newround') this.log = this.log.filter((x) => x.t === 'gone'); // a new round rebuilds everything: earlier events no longer matter (but who has left still does)
+      if (STRUCTURAL.has(e.t)) this.log.push(copy);
+    }
   }
 
   /** For a client that joins (or rejoins) mid-round: the current poses plus every structural event of this round, to replay first. */

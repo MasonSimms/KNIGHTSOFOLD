@@ -67,6 +67,8 @@ Phases 0, 1 and 2 are built (see the git log and DECISIONS.md for what and why; 
 
 Since then, owner-requested Phase 2 additions are built (see DECISIONS.md): real physics legs with Stick Fight style crouch down to lying and crawling, a decorative second arm, tap-to-punch and hold-to-grab-and-fling unarmed combat (grabs time out and break on a hard hit), body-collision and stomp damage, hold-W flips, and club parrying. Their tuning numbers are first guesses and all need the owner's playtest. DESIGN.pdf has not been updated for these yet.
 
+Online (Phase 3) groundwork is built ahead of the gate at the owner's request, who cannot playtest right now (remote control): a room server over WebSockets, lobby, client mirror and 100 ms-lag tests; see DECISIONS.md and DEPLOY.md. Not done: deployment (needs the owner's accounts), prediction of your own fighter, and real-connection playtests with friends. Commands: npm run server, then open /?online in two tabs.
+
 Still open from earlier phases (all need the owner, none are code): the public URL deploy (Cloudflare Pages account), a GitHub backup (the `gh` tool is not installed; the owner creates a private repo and pushes), Firefox and Safari checks, and the painted background for the style test (see ASSETS.md).
 
 Do not start Phase 3 (online) until the owner confirms the Phase 2 gate; then grill them on Phase 3's open decisions first. Speak to the owner in plain English: they are not a developer, so describe tweakable factors by what they do (and give the setting name in brackets).

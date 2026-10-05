@@ -4,11 +4,13 @@ import { connectedPads, readInput, readPadInput, wasPressed } from './input/inpu
 import { createRenderer } from './render/render';
 import { NEUTRAL } from './sim/types';
 import type { PlayerInput } from './sim/types';
+import { NetClient, serverUrl } from './net/client';
 import { Mirror } from './net/snapshot';
 import type { Snapshot } from './net/snapshot';
 import { Room } from './net/room';
 import { Sim } from './sim/world';
 import { updateHud } from './ui/hud';
+import { runLobby } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 
 const T = tuning;
@@ -22,7 +24,21 @@ const sim = await Sim.create(1, stress ? 4 : 2);
 // snapshots each take 100 ms to arrive, and what you see is a client copy built only from those snapshots (solo vs the dummy; R is off).
 const lagMs = Number(query.get('lag')) || 0;
 const room = lagMs ? new Room(sim) : null;
-const mirror = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 2)) : null;
+let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 2)) : null;
+// Open http://localhost:5173/?online to play for real: make or join a room, the host starts. (Needs the room server: npm run server.)
+let net: NetClient | null = null, mySlot = 0;
+const onlineParam = query.get('online');
+if (onlineParam !== null) {
+  const r = await runLobby(serverUrl(onlineParam));
+  net = r.client; mySlot = r.you;
+  const m = new Mirror(await Sim.create(r.seed, r.count, false));
+  mirror = m;
+  net.onMsg = (msg) => {
+    if (msg.t === 'snap') m.push(msg.s);
+    else if (msg.t === 'over') { alert(`The fight is over: ${msg.why}.`); location.reload(); } // back to the menu (ponytail: a fresh connection; a lobby screen that survives the fight can come later)
+  };
+  net.onClose(() => { alert('Lost the connection to the server.'); location.reload(); });
+}
 const view = mirror ? mirror.sim : sim; // what is drawn
 const toServer: { at: number; input: PlayerInput }[] = [], toClient: { at: number; s: Snapshot }[] = [];
 
@@ -70,7 +86,7 @@ function frame(now: number) {
 
   // Plugging in or unplugging a gamepad changes the number of players (2-4 starts a real fight; alone you get the training dummy).
   const pads = connectedPads();
-  const wanted = stress ? 1 : Math.max(1, Math.min(4, pads.length));
+  const wanted = stress || mirror ? 1 : Math.max(1, Math.min(4, pads.length));
   if (wanted !== players) {
     players = wanted;
     sim.setPlayers(players);
@@ -81,7 +97,7 @@ function frame(now: number) {
 
   const t0 = performance.now();
   for (let steps = 0; acc >= T.sim.dt && steps < T.sim.maxStepsPerFrame; steps++, acc -= T.sim.dt) {
-    const p = view.fighters[0].torso;
+    const p = view.fighters[mySlot].torso;
     lastInput = readInput(toScreen(p.cx, p.cy));
     if (room) {
       toServer.push({ at: now + lagMs, input: lastInput });
@@ -91,6 +107,7 @@ function frame(now: number) {
       if (s) toClient.push({ at: now + lagMs, s: JSON.parse(JSON.stringify(s)) }); // through the "wire"
       continue;
     }
+    if (net) { net.send({ t: 'in', i: lastInput }); continue; } // online: the server runs the fight, we only send our controls
     const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
     if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
     sim.step(inputs);
@@ -123,10 +140,10 @@ function frame(now: number) {
     const fps = (frames * 1000) / (now - statTime);
     updateOverlay([
       `FPS ${fps.toFixed(0)}   frame ${(msSum / frames).toFixed(1)} ms   sim ${(simMsSum / frames).toFixed(2)} ms`,
-      `bodies ${sim.world.bodies.len()}   frame# ${sim.frame}`,
-      `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: ${sim.fighters.map((f) => (f.controlled ? 'P' + (f.index + 1) : 'dummy') + ' ' + Math.max(0, f.hp).toFixed(0)).join('  ')}   players ${players}`,
-      `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} charge ${sim.fighters[0].charge}/${T.charge.maxFrames} dodge-ready-in ${(sim.fighters[0].dodgeCooldown / 60).toFixed(1)}s`,
-      room ? `PRETEND NETWORK: ${lagMs} ms each way, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
+      `bodies ${view.world.bodies.len()}   frame# ${view.frame}`,
+      `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: ${view.fighters.map((f) => (f.controlled ? 'P' + (f.index + 1) : 'dummy') + ' ' + Math.max(0, f.hp).toFixed(0)).join('  ')}   players ${players}`,
+      `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} charge ${view.fighters[mySlot].charge}/${T.charge.maxFrames} dodge-ready-in ${(view.fighters[mySlot].dodgeCooldown / 60).toFixed(1)}s`,
+      net ? `ONLINE: you are fighter ${mySlot + 1}, ${mirror!.desyncs} desyncs` : room ? `PRETEND NETWORK: ${lagMs} ms each way, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
     ]);
     frames = 0; msSum = 0; simMsSum = 0; statTime = now;
   }

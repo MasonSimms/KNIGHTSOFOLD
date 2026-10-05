@@ -31,6 +31,7 @@ export class Sim {
   private tmpP = { x: 0, y: 0 };
 
   scores = [0, 0, 0, 0]; // points per player this match
+  gone = [false, false, false, false]; // players who left (online): dead this round, and parked out of sight in later rounds
   round = 1;
   roundOver = false;
   roundWinner = -1; // index of the winner of the round just finished, or -1 for a draw
@@ -100,6 +101,7 @@ export class Sim {
 
     const xs = this.dummy ? A.spawnX : A.fightSpawnX;
     this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, xs[i], !(this.dummy && i === 1)));
+    this.fighters.forEach((f) => { if (this.gone[f.index]) this.park(f); });
     // Arena weapon rule: with 'spots' or 'sky' nobody starts armed; the clubs lie at fixed spots or fall from above.
     if (A.weaponRule !== 'start') {
       this.fighters.forEach((f, i) => {
@@ -110,6 +112,25 @@ export class Sim {
       });
     }
     this.version++;
+  }
+
+  /** A player who has left: kill their fighter and drop the whole body far below the stage, so it never appears again and never counts as alive. */
+  private park(f: Fighter): void {
+    if (!f.limp) this.kill(f, true);
+    for (const p of f.parts) {
+      const t = p.body.translation();
+      p.body.setTranslation({ x: t.x, y: t.y + 60 }, true);
+      p.px = p.cx = t.x; p.py = p.cy = t.y + 60;
+    }
+  }
+
+  /** Online: a player left. They die now (if alive) and are out of every later round. */
+  removePlayer(i: number): void {
+    const f = this.fighters[i];
+    if (!f || this.gone[i]) return;
+    this.gone[i] = true;
+    if (!f.limp) this.kill(f, true);
+    this.events.push({ t: 'gone', x: 0, y: 0, v: 0, owner: i, victim: -1 });
   }
 
   private spawn(index: number, x: number, player: boolean): Fighter {
@@ -170,6 +191,7 @@ export class Sim {
     if (e.t === 'die' || e.t === 'fall') { if (f && !f.limp) this.kill(f, e.t === 'fall', e.v); }
     else if (e.t === 'pickup') { const g = this.fighters[e.victim]; if (f && g?.stick) { giveStick(this.world, g, f); if (g !== f) this.version++; } }
     else if (e.t === 'respawn') { if (f) this.respawn(f); }
+    else if (e.t === 'gone') { this.gone[e.owner] = true; if (f && !f.limp) this.kill(f, true); }
     else if (e.t === 'newround') { this.round++; this.build(); }
   }
 

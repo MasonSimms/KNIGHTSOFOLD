@@ -7,13 +7,17 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:server": "rolldown server/index.ts --platform node --format esm --file dist-server/index.js --external ws",
+    "server": "npm run build:server && node dist-server/index.js"
   },
   "dependencies": {
     "@dimforge/rapier2d-deterministic-compat": "^0.21.0",
-    "pixi.js": "^8.22.0"
+    "pixi.js": "^8.22.0",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
+    "@types/ws": "^8.18.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
     "vitest": "^5.0.3"
