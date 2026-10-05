@@ -6,9 +6,9 @@ export function impactValue(closingSpeed: number, weaponFactor: number): number 
 }
 
 /** Hidden-HP damage; zero below the impact threshold. */
-export function damageFor(impact: number): number {
+export function damageFor(impact: number, multiplier = 1): number {
   if (impact <= T.combat.impactMin) return 0;
-  return Math.min(Math.pow(impact - T.combat.impactMin, T.combat.damageExp) * T.combat.damageScale, T.combat.damageMax);
+  return Math.min(Math.pow(impact - T.combat.impactMin, T.combat.damageExp) * T.combat.damageScale * multiplier, T.combat.damageMax);
 }
 
 export function knockbackFor(impact: number): number {

@@ -22,6 +22,7 @@ export const tuning = {
   },
   fighter: {
     hp: 100, // hidden: never shown on screen (F3 overlay only)
+    startArmed: true, // false = you start with empty hands, to try the punch
     torsoHalfHeight: 0.25,
     torsoRadius: 0.18,
     torsoMass: 6,
@@ -41,15 +42,64 @@ export const tuning = {
     restitution: 0.05,
   },
   motion: {
-    moveSpeed: 5,
-    groundAccel: 40,
-    airAccel: 12,
-    jumpSpeed: 9,
+    moveSpeed: 5.5,
+    groundAccel: 26, // lower = more slide and momentum, higher = snappier
+    airAccel: 14,
+    jumpSpeed: 8.5, // about 1.6 m high: clears a standing fighter with room to spare
+  },
+  lean: {
+    // The body leans into where it is going, then springs back upright. Angles in radians (0.5 is about 30 degrees).
+    perSpeed: 0.06, // lean per m/s of walking speed
+    perAccel: 0.1, // lean while speeding up (forward) or braking (backward): the difference between wanted and actual speed
+    max: 0.7, // never lean further than this from walking
+    chargeBack: 0.35, // lean back while charging a club (anticipation)
+    slamForward: 0.5, // throw the body forward during a lunge/slam
+    punchBack: 0.2, // lean back while winding up a punch
+    punchForward: 0.35, // lean into the punch
+  },
+  legs: {
+    // Simple stick legs, drawn (not physical) but moved by their own little springy physics, so they swing, lag and flop
+    // instead of following a walk animation. They are pendulums hanging from the hip.
+    torsoVisualHalf: 0.08, // the drawn torso is shorter than the physical capsule
+    torsoVisualY: -0.22,
+    hipY: 0.0, // where the legs attach, measured down from the torso centre
+    length: 0.43, // hip to foot (reaches the ground when the body stands)
+    width: 0.1,
+    spring: 110, // how hard a leg swings toward where it wants to be (higher = snappier)
+    damping: 9, // how quickly the swinging dies down (lower = bouncier, more flop)
+    inertia: 0.05, // how much speeding up or braking throws the legs (feet trail behind when you accelerate)
+    swing: 0.65, // how far each leg swings front and back when running (radians)
+    runRate: 7, // how fast the legs cycle for each metre per second of speed
+    stance: 0.12, // how far apart the feet stand when still (radians)
+    airSpread: 0.35, // legs spread like this in the air...
+    airSwing: 0.25, // ...and kick about a bit
+  },
+  ragdoll: {
+    // On death the head comes off onto a floppy neck and two real legs appear on loose hips.
+    legLength: 0.42,
+    legRadius: 0.05,
+    legMass: 0.8,
+    legStiffness: 2, // near zero = completely floppy
+    legDamping: 0.4,
+    hipLimit: 1.3,
+    neckLimit: 0.9,
+    neckStiffness: 15,
+    neckDamping: 1.5,
+    spin: 10, // random extra tumble given to the head and legs (rad/s)
+  },
+  dodge: {
+    // Press dodge: you slip into the background plane. Fighters and weapons pass straight through you, you cannot hit
+    // anyone, and you cannot be hit. Long cooldown, so it is a real decision. (The look is a placeholder for the later 2.5D depth.)
+    frames: 36, // how long you stay back there (0.6 s)
+    cooldownFrames: 360, // before you can do it again (6 s)
+    visualScale: 0.78, // how small you look while farther from the camera
+    visualAlpha: 0.5,
+    visualRate: 14, // how fast the look blends in and out
   },
   balance: {
     kp: 800, // spring pulling the body upright
     kd: 60, // damping on spin
-    maxTorque: 600,
+    maxTorque: 900,
     stunFactor: 0.25, // balance strength while stunned
   },
   arm: {
@@ -73,7 +123,6 @@ export const tuning = {
     mass: 1.2,
     gripFromEnd: 0.25,
     impactFactor: 2.2, // this weapon's damage factor: impact = hit speed (m/s) x this
-    grabRange: 0.8,
   },
   longMelee: {
     // How a club-type weapon is held. Angles are for a fighter facing right (mirrored when facing left):
@@ -106,30 +155,47 @@ export const tuning = {
     releaseFrames: 18, // how long the burst lasts
     moveFactor: 0.5, // walking speed while charging
   },
-  throw: {
-    // Right-click: the arm cocks back automatically, then the weapon flies along the aim.
-    windupFrames: 8,
-    torqueMul: 1.5, // arm strength during the wind-up, so it gets there in time
-    speed: 16, // m/s
-    spin: 18, // rad/s of tumble
+  punch: {
+    // Unarmed left-click: the fist is drawn back with the elbow folded, then the arm whips straight out along the aim.
+    // Angles are relative to your aim line, for a fighter facing right (mirrored when facing left).
+    windFrames: 6, // draw back
+    strikeFrames: 8, // throw forward
+    recoverFrames: 10, // before you can punch again
+    cockUpper: 2.6, // upper arm swings this far behind the aim line
+    cockElbow: -2.2, // elbow folded tight
+    guardUpper: 1.0, // resting guard: upper arm hanging down in front...
+    guardElbow: -2.0, // ...forearm folded up, fist at the chest
+    torqueMul: 2, // arm strength during the throw
+    strikeImpulse: 0.9, // extra shove on the fist each frame of the throw
+    lunge: 40, // push the whole body forward into the punch
   },
   fist: {
-    impactFactor: 1.6, // unarmed damage factor
+    impactFactor: 2.0, // unarmed damage factor
   },
   combat: {
     impactMin: 10, // below this nothing happens (resting contact never hurts)
     damageScale: 0.3,
     damageExp: 1.5, // 1 = damage grows in a straight line with impact; above 1, big committed swings are worth disproportionately more
     damageMax: 100,
-    knockbackScale: 1.5,
-    knockbackUp: 0.3, // extra upward launch per impact
-    knockbackMax: 90,
-    spinScale: 0.3,
+    knockbackScale: 0.9, // how hard a hit shoves the victim
+    knockbackUp: 0.2, // extra upward launch per impact
+    knockbackMax: 45,
+    spinScale: 0.04, // how much a hit tips the victim backward (it used to be random and huge: that was the flipping)
+    headMult: 1.6, // damage multiplier for a hit to the head
+    killLaunchMul: 1.3, // the killing blow launches the body this much harder
+    killHitStop: 10, // frames of freeze on a killing blow
     hitCooldown: 20, // frames before the same weapon can hit again
     stunFrames: 25,
     hitStopMin: 3,
     hitStopMax: 6,
     hitStopFullImpact: 40, // impact that earns the maximum hit-stop
+  },
+  highlight: {
+    // The moment a fighter is killed.
+    slowSeconds: 0.9, // real seconds of slow motion
+    slowFactor: 0.25, // game speed during it (0.25 = quarter speed)
+    burstSplats: 14, // paint splashes
+    shakeBonus: 16, // extra screen shake (pixels)
   },
   respawn: {
     frames: 120,

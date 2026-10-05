@@ -9,8 +9,9 @@ export type Shape =
 
 export interface Part {
   body: RigidBody;
-  shapes: Shape[];
-  role: 'torso' | 'upper' | 'fore' | 'stick';
+  shapes: Shape[]; // what the renderer draws (can differ from the collider: the torso collider includes the legs, the drawing does not)
+  colliders: Collider[];
+  role: 'torso' | 'upper' | 'fore' | 'stick' | 'head' | 'leg';
   owner: number;
   // interpolation poses (previous / current sim step) for the renderer
   px: number; py: number; pa: number; cx: number; cy: number; ca: number;
@@ -35,21 +36,27 @@ export interface Fighter {
   stick: Part | null;
   shoulder: RevoluteImpulseJoint;
   elbow: RevoluteImpulseJoint;
-  grip: ImpulseJoint | null;
+  grip: ImpulseJoint | null; // the hand-to-club joint; null = unarmed
+  headCollider: Collider | null; // hits on this one count as head shots (null once the head has come off in the ragdoll)
   attackers: Attacker[];
   hp: number;
-  limp: boolean;
+  limp: boolean; // dead: arms go floppy
+  ragdolled: boolean; // dead: head and legs have become real physics parts
+  grounded: boolean;
+  dodge: number; // frames left in the background plane (0 = none)
+  dodgeCooldown: number; // frames until another dodge is allowed
+  inBack: boolean; // currently on the background plane (collisions with fighters and weapons are off)
+  prevDodge: boolean;
   stun: number;
   deadAt: number;
-  charge: number; // frames the charge button has been held
+  charge: number; // frames the attack button has been held (armed)
+  punch: number; // 0 = not punching, otherwise frames since the punch started (unarmed)
   side: number; // 1 = facing right, -1 = facing left (from the aim, with hysteresis)
   prevAim: number; // last frame's aim angle, to know how fast the mouse is turning
-  throwWind: number; // frames left of the automatic cock-back before a throw
-  release: number; // frames left of the post-release torque burst
+  release: number; // frames left of the post-release burst
   releaseMul: number; // size of that burst (depends on charge)
   prevJump: boolean;
-  prevThrow: boolean;
-  prevGrab: boolean;
+  prevAttack: boolean;
   spawnX: number;
   spawnY: number;
 }
@@ -61,8 +68,17 @@ export function ownerGroups(owner: number): number {
   return ((mem << 16) | (0xffff & ~mem)) >>> 0;
 }
 export const worldGroups = ((GROUP_WORLD << 16) | 0xffff) >>> 0;
+/** The background plane: touches the ground only, so it passes through every fighter and weapon. */
+const backGroups = ((0x8000 << 16) | GROUP_WORLD) >>> 0;
 
-interface ShapeDef { s: Shape; mass: number; attacker?: 'fist' | 'stick' }
+/** Move a whole fighter (body, arm, club) between the normal plane and the background plane. */
+export function setBackPlane(f: Fighter, back: boolean): void {
+  f.inBack = back;
+  const g = back ? backGroups : ownerGroups(f.index);
+  for (const p of f.parts) for (const c of p.colliders) c.setCollisionGroups(g);
+}
+
+interface ShapeDef { s: Shape; mass: number; attacker?: 'fist' | 'stick'; visual?: Shape }
 
 function addPart(
   world: World, owner: number, role: Part['role'], x: number, y: number, angle: number,
@@ -73,7 +89,7 @@ function addPart(
       .setLinearDamping(damping.lin).setAngularDamping(damping.ang).setCcdEnabled(role !== 'torso'),
   );
   const part: Part = {
-    body, shapes: defs.map((d) => d.s), role, owner,
+    body, shapes: defs.map((d) => d.visual ?? d.s), colliders: [], role, owner,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
   };
   for (const d of defs) {
@@ -81,6 +97,7 @@ function addPart(
     desc.setTranslation(d.s.x, d.s.y).setMass(d.mass).setFriction(T.fighter.friction)
       .setRestitution(T.fighter.restitution).setCollisionGroups(ownerGroups(owner));
     const collider = world.createCollider(desc, body);
+    part.colliders.push(collider);
     if (d.attacker && attackers) attackers.push({ collider, part, kind: d.attacker, nextHit: 0 });
   }
   return part;
@@ -99,12 +116,16 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const damp = { lin: F.armLinearDamping, ang: F.armAngularDamping };
   const attackers: Attacker[] = [];
 
+  // The collider is a full-height capsule (it is what touches the ground); the drawing is a shorter torso with animated legs under it.
   const torso = addPart(world, index, 'torso', x, y, 0, [
-    { s: { k: 'cap', hl: F.torsoHalfHeight, r: F.torsoRadius, x: 0, y: 0, rot: 0 }, mass: F.torsoMass },
+    {
+      s: { k: 'cap', hl: F.torsoHalfHeight, r: F.torsoRadius, x: 0, y: 0, rot: 0 }, mass: F.torsoMass,
+      visual: { k: 'cap', hl: T.legs.torsoVisualHalf, r: F.torsoRadius, x: 0, y: T.legs.torsoVisualY, rot: 0 },
+    },
     { s: { k: 'ball', r: F.headRadius, x: 0, y: F.headY }, mass: F.headMass },
   ], null);
 
-  // One arm per fighter. It starts pointing right (angle 0); the shoulder motor swings it to the aim angle.
+  // One arm per fighter. It starts pointing right (angle 0); the shoulder motor swings it to its pose.
   const sx = x, sy = y + F.shoulderY;
   const arm = (() => {
     const upper = addPart(world, index, 'upper', sx + L / 2, sy, 0, [
@@ -124,8 +145,10 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, attackers, hp: F.hp, limp: false, stun: 0, deadAt: 0,
-    charge: 0, side: 1, prevAim: 0, throwWind: 0, release: 0, releaseMul: 1, prevJump: false, prevThrow: false, prevGrab: false,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false,
+    dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
+    stun: 0, deadAt: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, prevAttack: false,
     spawnX: x, spawnY: y,
   };
 
@@ -144,6 +167,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
 
 const tmp = { x: 0, y: 0 };
 
+/** Put the club into the hand (used once, when the fighter is built). */
 function attachStick(world: World, f: Fighter): void {
   const stick = f.stick!;
   const L = T.fighter.armLength;
@@ -164,6 +188,74 @@ function attachStick(world: World, f: Fighter): void {
   pose(stick);
 }
 
+/**
+ * Death ragdoll: the head comes off the torso onto a floppy neck and two real legs appear on loose hips,
+ * all carrying the torso's speed so the body flies and flops. Returns the new parts.
+ */
+export function ragdoll(world: World, f: Fighter, rng: () => number): Part[] {
+  if (f.ragdolled) return [];
+  const F = T.fighter, R = T.ragdoll;
+  f.ragdolled = true;
+  const tb = f.torso.body;
+  const t = tb.translation(), a = tb.rotation(), v = tb.linvel(), w = tb.angvel();
+  const c = Math.cos(a), s = Math.sin(a);
+  const at = (lx: number, ly: number) => ({ x: t.x + lx * c - ly * s, y: t.y + lx * s + ly * c });
+  const launch = (p: Part, lx: number, ly: number, spin: number) => { // give a new part the speed of the spot it came from
+    const rx = lx * c - ly * s, ry = lx * s + ly * c;
+    p.body.setLinvel({ x: v.x - w * ry, y: v.y + w * rx }, true);
+    p.body.setAngvel(w + spin, true);
+  };
+  const out: Part[] = [];
+
+  // Head onto a floppy neck.
+  if (f.headCollider) {
+    world.removeCollider(f.headCollider, true);
+    f.headCollider = null;
+    f.torso.colliders.splice(1, 1);
+    f.torso.shapes = f.torso.shapes.filter((sh) => sh.k !== 'ball');
+    const hp = at(0, F.headY);
+    const head = addPart(world, f.index, 'head', hp.x, hp.y, a, [{ s: { k: 'ball', r: F.headRadius, x: 0, y: 0 }, mass: F.headMass }], null, { lin: 0, ang: 0.1 });
+    const neck = revolute(world, tb, 0, F.headY + F.headRadius, head.body, 0, F.headRadius);
+    neck.setLimits(-R.neckLimit, R.neckLimit);
+    neck.configureMotorPosition(0, R.neckStiffness, R.neckDamping);
+    launch(head, 0, F.headY, (rng() - 0.5) * R.spin);
+    out.push(head);
+  }
+
+  // Two legs on loose hips.
+  const len = R.legLength, r = R.legRadius;
+  for (const side of [-1, 1]) {
+    const hx = side * 0.07, hy = T.legs.hipY;
+    const lp = at(hx, hy + len / 2);
+    const leg = addPart(world, f.index, 'leg', lp.x, lp.y, a, [
+      { s: { k: 'cap', hl: len / 2 - r, r, x: 0, y: 0, rot: 0 }, mass: R.legMass },
+    ], null, { lin: 0, ang: 0.1 });
+    const hip = revolute(world, tb, hx, hy, leg.body, 0, -len / 2);
+    hip.setLimits(-R.hipLimit, R.hipLimit);
+    hip.configureMotorPosition(0, R.legStiffness, R.legDamping);
+    launch(leg, hx, hy + len / 2, (rng() - 0.5) * R.spin);
+    out.push(leg);
+  }
+  f.parts.push(...out);
+  return out;
+}
+
+/** Total mass of every part of a fighter. */
+export function fighterMass(f: Fighter): number {
+  let m = 0;
+  for (const p of f.parts) m += p.body.mass();
+  return m;
+}
+
+/** Push a whole fighter: every part gets the same change of speed, so the arm and club are not left behind and the body does not stretch. */
+export function shove(f: Fighter, ix: number, iy: number): void {
+  const M = fighterMass(f);
+  for (const p of f.parts) {
+    const k = p.body.mass() / M;
+    p.body.applyImpulse({ x: ix * k, y: iy * k }, true);
+  }
+}
+
 export function wrapAngle(a: number): number {
   return a - Math.PI * 2 * Math.floor((a + Math.PI) / (Math.PI * 2));
 }
@@ -178,7 +270,9 @@ function isGrounded(world: World, f: Fighter): boolean {
   return grounded;
 }
 
-/** One frame of control for one fighter: balance, movement, arm aiming, attacks. Runs before the physics step. */
+const clamp = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
+
+/** One frame of control for one fighter: lean and balance, movement, arm pose, attacks. Runs before the physics step. */
 export function controlFighter(world: World, f: Fighter, input: PlayerInput, events: SimEvent[]): void {
   const dt = T.sim.dt;
   const A = T.arm;
@@ -186,40 +280,82 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
 
   if (f.stun > 0) f.stun--;
 
-  // Limp (dead): everything goes floppy.
+  // Dead: arms go floppy (the head and legs of the ragdoll have their own loose joints).
   if (f.limp) {
     for (const j of [f.shoulder, f.elbow]) j.configureMotorPosition(0, 0, A.limpDamping);
     return;
   }
 
-  // Balance: spring + damper torque keeps the body mostly upright; heavy hits overpower it.
+  // ---- dodge: slip into the background plane for a moment; a long cooldown ----
+  if (f.dodgeCooldown > 0) f.dodgeCooldown--;
+  if (f.dodge > 0) f.dodge--; // the world keeps you back there while someone is still standing inside you
+  if (f.controlled && input.dodge && !f.prevDodge && f.dodge === 0 && f.dodgeCooldown === 0 && !f.inBack) {
+    f.dodge = T.dodge.frames;
+    f.dodgeCooldown = T.dodge.cooldownFrames;
+    setBackPlane(f, true);
+    events.push({ t: 'dodge', x: body.translation().x, y: body.translation().y, v: 0, owner: f.index, victim: -1 });
+  }
+  f.prevDodge = input.dodge;
+
+  const C = T.charge, K = T.punch, LN = T.lean;
+  const armed = !!f.grip;
+  const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
+  if (aimX > 0.25) f.side = 1;
+  else if (aimX < -0.25) f.side = -1;
+  const s = f.side;
+
+  // ---- attack state ----
+  const charging = f.controlled && armed && input.attack; // hold to charge a club
+  let punchPhase: 'none' | 'wind' | 'strike' | 'recover' = 'none'; // unarmed: a click throws one punch
+  let strikeStart = false;
+  if (f.controlled && !armed && input.attack && !f.prevAttack && f.punch === 0) {
+    f.punch = 1;
+    events.push({ t: 'punch', x: body.translation().x, y: body.translation().y, v: 0, owner: f.index, victim: -1 });
+  }
+  f.prevAttack = input.attack;
+  if (f.punch > 0) {
+    const t = f.punch;
+    punchPhase = t <= K.windFrames ? 'wind' : t <= K.windFrames + K.strikeFrames ? 'strike' : 'recover';
+    strikeStart = t === K.windFrames + 1;
+    f.punch = t >= K.windFrames + K.strikeFrames + K.recoverFrames ? 0 : t + 1;
+  }
+
+  // ---- lean and balance: the body leans into where it is going (and winds back before a lunge or punch), then springs upright ----
   const B = T.balance;
+  const vx = body.linvel(tmp).x;
+  let lean = 0;
+  if (f.controlled) {
+    const want = input.moveX * T.motion.moveSpeed;
+    lean = clamp(vx * LN.perSpeed + (want - vx) * LN.perAccel, LN.max); // positive = leaning toward +x
+    if (charging) lean -= s * LN.chargeBack * (f.charge / C.maxFrames);
+    if (f.release > 0) lean += s * LN.slamForward;
+    if (punchPhase === 'wind') lean -= s * LN.punchBack;
+    else if (punchPhase === 'strike') lean += s * LN.punchForward;
+  }
   const balance = f.stun > 0 ? B.stunFactor : 1;
-  const torque = Math.max(-B.maxTorque, Math.min(B.maxTorque, -B.kp * wrapAngle(body.rotation()) - B.kd * body.angvel())) * balance;
+  const torque = clamp(-B.kp * wrapAngle(body.rotation() - lean) - B.kd * body.angvel(), B.maxTorque) * balance;
   body.applyTorqueImpulse(torque * dt, true);
 
-  const C = T.charge;
-  const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
-  if (f.controlled && input.throw && !f.prevThrow && f.grip && f.throwWind === 0) f.throwWind = T.throw.windupFrames;
-  f.prevThrow = input.throw;
-  const throwing = f.throwWind > 0;
-  const charging = f.controlled && input.attack && !throwing;
+  // ---- movement ----
   const grounded = isGrounded(world, f);
+  f.grounded = grounded;
   if (f.controlled && f.stun === 0) {
-    const v = body.linvel(tmp);
     const accel = (grounded ? T.motion.groundAccel : T.motion.airAccel) * dt;
-    // While lunging (the burst after a charge release) the walking controller must not brake, or it cancels the lunge.
-    const dv = f.release > 0 ? 0 : Math.max(-accel, Math.min(accel, input.moveX * T.motion.moveSpeed * (charging ? C.moveFactor : 1) - v.x));
-    body.applyImpulse({ x: dv * body.mass(), y: 0 }, true);
+    // While lunging the walking controller must not brake, or it cancels the lunge.
+    const dv = f.release > 0 ? 0 : clamp(input.moveX * T.motion.moveSpeed * (charging ? C.moveFactor : 1) - vx, accel);
+    shove(f, dv * fighterMass(f), 0);
     if (input.jump && !f.prevJump && grounded) {
-      body.setLinvel({ x: v.x + dv, y: -T.motion.jumpSpeed }, true);
+      for (const p of f.parts) { // the whole body leaves the ground together
+        const lv = p.body.linvel(tmp);
+        p.body.setLinvel({ x: lv.x, y: -T.motion.jumpSpeed }, true);
+      }
       const t = body.translation();
       events.push({ t: 'jump', x: t.x, y: t.y, v: 0, owner: f.index, victim: -1 });
     }
   }
   f.prevJump = input.jump;
 
-  // Charge: hold `attack` to load momentum into the weapon (it stays on your aim). Releasing launches the fighter along the aim.
+  // ---- club charge: hold to load momentum; releasing launches the fighter along the aim ----
   let fire = 0; // 0..1: how much of a full charge to release this frame
   if (charging) {
     f.charge = Math.min(f.charge + 1, C.maxFrames);
@@ -232,50 +368,47 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     f.releaseMul = 1 + (C.torqueMul - 1) * fire;
     // The lunge follows the aim but stays within lungeMaxAngle of horizontal: it throws you at the opponent, not into the floor or the sky.
     const flat = aimX >= 0 ? 0 : Math.PI;
-    const la = flat + Math.max(-C.lungeMaxAngle, Math.min(C.lungeMaxAngle, wrapAngle(input.aim - flat)));
-    body.applyImpulse({ x: Math.cos(la) * C.lungeImpulse * fire, y: Math.sin(la) * C.lungeImpulse * fire }, true);
+    const la = flat + clamp(wrapAngle(input.aim - flat), C.lungeMaxAngle);
+    shove(f, Math.cos(la) * C.lungeImpulse * fire, Math.sin(la) * C.lungeImpulse * fire);
   }
   if (f.release > 0) f.release--;
   // After release the club stays raised while the fighter flies forward; slamDelay frames later it comes down (the burst).
-  const slamming = f.release > 0 && C.releaseFrames - f.release > C.slamDelay;
-  const holdingUp = f.release > 0 && !slamming;
-  let gain = slamming ? f.releaseMul : 1; // burst: stiffer, stronger arm for the slam
+  const slamming = armed && f.release > 0 && C.releaseFrames - f.release > C.slamDelay;
+  const holdingUp = armed && f.release > 0 && !slamming;
 
-  // Throw: the arm goes to the raised charge pose on its own, then lets go and the weapon flies along the aim.
-  if (throwing) {
-    gain = T.throw.torqueMul;
-    if (--f.throwWind === 0 && f.grip && f.stick) {
-      world.removeImpulseJoint(f.grip, true);
-      f.grip = null;
-      const v = body.linvel(tmp);
-      f.stick.body.setLinvel({ x: v.x + aimX * T.throw.speed, y: v.y + aimY * T.throw.speed }, true);
-      f.stick.body.setAngvel((aimX >= 0 ? 1 : -1) * T.throw.spin, true);
-      const t = f.stick.body.translation();
-      events.push({ t: 'throw', x: t.x, y: t.y, v: 0, owner: f.index, victim: -1 });
-    }
+  // ---- punch push: a lunge into the punch and a shove on the fist ----
+  if (strikeStart) {
+    const flat = aimX >= 0 ? 0 : Math.PI;
+    const la = flat + clamp(wrapAngle(input.aim - flat), C.lungeMaxAngle);
+    shove(f, Math.cos(la) * K.lunge, Math.sin(la) * K.lunge);
   }
+  if (punchPhase === 'strike') f.fore.body.applyImpulse({ x: aimX * K.strikeImpulse, y: aimY * K.strikeImpulse }, true);
 
-  // Pose. Everything is worked out as if the fighter faces right, then mirrored: that keeps the club on the correct side
+  // ---- arm pose ----
+  // Everything is worked out as if the fighter faces right, then mirrored: that keeps the arm on the correct side
   // when you aim left. Angles: U = upper arm (world), E = elbow bend, W = wrist bend (both relative); negative = up/counter-clockwise.
-  if (aimX > 0.25) f.side = 1;
-  else if (aimX < -0.25) f.side = -1;
-  const s = f.side;
   const mirror = (a: number) => (s > 0 ? a : Math.PI - a); // a right-facing world angle -> the real world angle
   const aimR = mirror(input.aim);
   const P = T.longMelee;
-  let U = aimR, E = 0, W = 0; // unarmed: a straight arm pointing at the aim
+  let U = aimR, E = 0, W = 0; // dummy: a straight arm hanging toward the aim
   let followAim = true;
-  if (f.grip) {
-    if (throwing || charging || holdingUp) {
+  let gain = 1; // burst: stronger arm for a moment
+  if (armed) {
+    if (charging || holdingUp) {
       // Charge: club raised above the head, leaning slightly back; leans further back the longer you hold.
       const c = holdingUp ? (f.releaseMul - 1) / (C.torqueMul - 1) : f.charge / C.maxFrames;
       U = P.chargeUpper; E = P.chargeElbow + P.chargeCock * c; W = P.chargeWrist;
       followAim = false;
     } else if (slamming) {
       E = P.slamElbow; W = P.slamWrist; // slam: arm swings down through the aim and straightens
+      gain = f.releaseMul;
     } else {
       E = P.guardElbow; W = P.guardWrist; // guard: elbow bent, club held upright in front
     }
+  } else if (f.controlled) {
+    if (punchPhase === 'wind') { U = aimR + K.cockUpper; E = K.cockElbow; followAim = false; } // fist drawn back, elbow folded
+    else if (punchPhase === 'strike') { E = 0; gain = K.torqueMul; } // arm whips straight out along the aim
+    else { U = aimR + K.guardUpper; E = K.guardElbow; } // guard: fist up in front
   }
 
   const tr = body.rotation();
@@ -285,38 +418,17 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   };
   // Shoulder: a velocity follower. It turns the arm toward its target at a speed proportional to the error (no overshoot),
   // plus the mouse's own turn rate as feed-forward so a steady sweep has almost no trailing error.
-  const clamp = (x: number, lim: number) => Math.max(-lim, Math.min(lim, x));
   const aimRate = followAim ? clamp(wrapAngle(input.aim - f.prevAim) / dt, A.maxAimRate) * A.aimFeedForward : 0;
   f.prevAim = input.aim;
   const err = wrapAngle(mirror(U) - f.upper.body.rotation());
   const wantRate = clamp(A.shoulderTrack * err, A.shoulderMaxRate * (1 + (gain - 1) * A.burstRateShare)) + aimRate; // desired world turn rate of the arm
   f.shoulder.configureMotorVelocity(wantRate - body.angvel(), A.shoulderForce * gain); // the joint works in torso-relative terms
   f.shoulder.setMotorMaxForce(A.shoulderMaxTorque * gain);
-  // Elbow and wrist are springs with a rest angle: soft enough that the club head lags and whips when you flick the mouse.
+  // Elbow and wrist are springs with a rest angle. With a club they are soft, so the club head lags and whips when you flick the mouse.
   if (f.grip) {
     motor(f.elbow, s * E, P.elbowStiffness, P.elbowDamping, P.elbowMaxTorque);
     motor(f.grip as RevoluteImpulseJoint, s * W, P.wristStiffness, P.wristDamping, P.wristMaxTorque);
   } else {
-    motor(f.elbow, 0, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
+    motor(f.elbow, s * E, A.elbowStiffness, A.elbowDamping, A.elbowMaxTorque);
   }
-
-  // Grab / drop the stick.
-  if (input.grab && !f.prevGrab && f.stick) {
-    const st = f.stick.body.translation();
-    if (f.grip) {
-      world.removeImpulseJoint(f.grip, true);
-      f.grip = null;
-      events.push({ t: 'drop', x: st.x, y: st.y, v: 0, owner: f.index, victim: -1 });
-    } else {
-      const ft = f.fore.body.translation();
-      const near = Math.hypot(st.x - ft.x, st.y - ft.y) < T.stick.grabRange;
-      if (near || st.y > T.arena.killY) {
-        attachStick(world, f);
-        events.push({ t: 'grab', x: ft.x, y: ft.y, v: 0, owner: f.index, victim: -1 });
-      }
-    }
-  }
-  f.prevGrab = input.grab;
-  // A stick lost to the void comes back to the hand so nobody is stuck unarmed by accident.
-  if (f.stick && !f.grip && f.stick.body.translation().y > T.arena.killY + 2) attachStick(world, f);
 }

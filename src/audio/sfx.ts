@@ -40,15 +40,15 @@ function burst(len: number, vol: number): void {
 }
 
 export const sfx = {
-  hit(impact: number) {
+  hit(impact: number, head = false) {
     const k = Math.min(impact / T.audio.hitFullImpact, 1);
     tone('sine', T.audio.hitFreqHigh, T.audio.hitFreqLow, T.audio.hitLength, 0.5 + 0.5 * k);
     burst(0.06 + 0.06 * k, 0.3 + 0.5 * k);
+    if (head) tone('square', 700, 350, 0.12, 0.35); // a "bonk" on top for a head shot
   },
   jump() { tone('square', 220, 440, 0.08, 0.15); },
-  grab() { tone('triangle', 300, 500, 0.06, 0.25); },
-  drop() { tone('triangle', 500, 250, 0.08, 0.25); },
-  throw() { tone('sawtooth', 200, 700, 0.12, 0.2); },
-  die() { tone('sawtooth', 300, 60, 0.35, 0.3); },
+  punch() { burst(0.08, 0.25); tone('triangle', 420, 160, 0.09, 0.15); }, // a quick whoosh
+  dodge() { tone('sine', 500, 180, 0.22, 0.2); burst(0.18, 0.12); }, // slipping away
+  die() { tone('sawtooth', 300, 40, 0.8, 0.45); tone('sine', 120, 30, 0.9, 0.5); burst(0.4, 0.5); }, // big boom
   fall() { tone('sine', 700, 80, 0.6, 0.3); },
 };

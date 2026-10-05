@@ -5,15 +5,16 @@ import { hashSim } from './hash';
 import type { PlayerInput } from './types';
 import { Sim } from './world';
 
-// Scripted player: walk toward the dummy, then sweep the aim around while swinging. Pure function of the frame number.
+// Scripted player: walk to about 3 m from the dummy, then keep charging a lunge at it and releasing, with a jump and a dodge
+// thrown in. Pure function of the frame number.
 function script(frame: number): PlayerInput {
+  const phase = frame % 110;
   return {
-    moveX: frame < 90 ? 1 : 0,
-    jump: frame % 150 === 100,
-    aim: Math.sin(frame * 0.12) * 1.8,
-    attack: frame % 100 > 60, // exercise the charge and release path
-    throw: frame % 230 === 200, // and the throw
-    grab: false,
+    moveX: frame < 38 ? 1 : 0,
+    jump: frame % 250 === 200,
+    aim: frame < 38 ? Math.PI / 2 : 0.1,
+    attack: frame >= 50 && phase < 30, // hold 30 frames, release, repeat
+    dodge: frame % 400 === 330,
   };
 }
 
@@ -54,5 +55,56 @@ describe('combat maths', () => {
     const fast = damageFor(impactValue(9, 2.2));
     expect(fast).toBeGreaterThan(slow);
     expect(damageFor(impactValue(1000, 2.2))).toBeLessThanOrEqual(T.combat.damageMax);
+  });
+});
+
+describe('unarmed punch', () => {
+  // Same scripted fight, but with empty hands: left-click is now a punch, so this exercises the punch animation path.
+  function punchScript(frame: number): PlayerInput {
+    return { moveX: frame < 80 ? 1 : 0, jump: false, aim: Math.sin(frame * 0.05) * 0.4, attack: frame % 40 === 5, dodge: false };
+  }
+  async function runUnarmed(frames: number) {
+    const was = T.fighter.startArmed;
+    T.fighter.startArmed = false;
+    try {
+      const sim = await Sim.create(7);
+      let hits = 0;
+      for (let i = 0; i < frames; i++) {
+        sim.step([punchScript(i)]);
+        hits += sim.events.filter((e) => e.t === 'hit').length;
+      }
+      return { hash: hashSim(sim), hits, armed: !!sim.fighters[0].grip };
+    } finally {
+      T.fighter.startArmed = was;
+    }
+  }
+  it('is deterministic, starts unarmed, and punches can land', async () => {
+    const a = await runUnarmed(900);
+    const b = await runUnarmed(900);
+    expect(a.armed).toBe(false);
+    expect(a.hash).toBe(b.hash);
+    expect(a.hits).toBeGreaterThan(0);
+  });
+});
+
+describe('dodge', () => {
+  it('lets a fighter pass through another one, then comes back to the normal plane', async () => {
+    const sim = await Sim.create(3);
+    const P = () => sim.fighters[0], D = () => sim.fighters[1];
+    const px = () => P().torso.body.translation().x, dx = () => D().torso.body.translation().x;
+    const walk = { moveX: 1, jump: false, aim: Math.PI / 2, attack: false, dodge: false };
+    while (dx() - px() > 1.6) sim.step([walk]);
+    sim.step([{ ...walk, dodge: true }]);
+    expect(P().inBack).toBe(true);
+    let minGap = 99;
+    for (let i = 0; i < 30; i++) {
+      sim.step([walk]);
+      minGap = Math.min(minGap, Math.abs(dx() - px()));
+    }
+    expect(minGap).toBeLessThan(0.3); // they overlapped: nothing stopped the walk
+    expect(px()).toBeGreaterThan(dx()); // and the player came out the other side
+    expect(D().hp).toBe(100); // nobody got hurt
+    for (let i = 0; i < 120; i++) sim.step([{ ...walk, moveX: 0 }]);
+    expect(P().inBack).toBe(false);
   });
 });
