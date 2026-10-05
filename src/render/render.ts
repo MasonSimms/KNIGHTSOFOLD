@@ -54,7 +54,6 @@ interface Entry {
   f: Fighter;
   group: Container; // everything of one fighter, so the dodge can shrink them about the torso
   c: Container[]; // one per part
-  aura: Graphics;
   legs: Graphics[];
   phase: number; // run cycle
   leg: Leg[]; // the two legs' own swing physics
@@ -133,9 +132,6 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const base = playerColor(f.index);
       const legs = [new Graphics(), new Graphics()];
       for (const g of legs) { g.scale.set(1 / BIG); group.addChild(g); }
-      const aura = new Graphics().circle(0, 0, T.charge_glow.radius * BIG).fill(T.charge_glow.color); // glows behind the weapon while charging
-      aura.alpha = 0;
-      group.addChild(aura);
       const c: Container[] = [];
       for (const p of f.parts as Part[]) {
         const k = new Container();
@@ -146,7 +142,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         c.push(k);
       }
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, aura, legs, phase: 0, leg: [{ a: -T.legs.stance, w: 0 }, { a: T.legs.stance, w: 0 }], prevVx: 0, ax: 0, vis: 0 });
+      entries.push({ f, group, c, legs, phase: 0, leg: [{ a: -T.legs.stance, w: 0 }, { a: T.legs.stance, w: 0 }], prevVx: 0, ax: 0, vis: 0 });
     }
     builtVersion = sim.version;
   }
@@ -189,7 +185,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     onEvent(e: SimEvent) {
       if (e.t === 'hit') {
         const boost = e.head ? 1.5 : 1;
-        shake = Math.min(T.shake.max * boost, Math.max(shake, e.v * T.shake.perImpact * boost));
+        const big = e.v * boost - T.shake.minImpact; // only big hits shake the screen
+        if (big > 0) shake = Math.min(T.shake.max, Math.max(shake, big * T.shake.perImpact));
         splat(e.x, e.y, Math.min(T.splat.radiusMax, T.splat.radiusMin + e.v * T.splat.radiusPerImpact) * boost, playerColor(e.owner));
       }
     },
@@ -203,10 +200,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const sx = (Math.random() - 0.5) * 2 * shake, sy = (Math.random() - 0.5) * 2 * shake;
       view.position.set((app.screen.width - A.viewW * scale) / 2 + sx, (app.screen.height - A.viewH * scale) / 2 + sy);
       for (const e of entries) {
-        const { f, c, aura } = e;
+        const { f, c } = e;
         e.vis += ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds);
         let tint = mix(0xffffff, T.colors.damaged, 1 - Math.max(0, f.hp) / T.fighter.hp);
-        if (f.limp) tint = mix(tint, T.colors.dead, 0.7); // dead: greyed out so the ragdoll is obvious
         tint = mix(tint, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker
         const layer = f.inBack ? backLayer : fighterLayer;
         if (e.group.parent !== layer) layer.addChild(e.group);
@@ -220,11 +216,6 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const vx = (f.torso.cx - f.torso.px) / T.sim.dt;
         drawLegs(e, torso, vx, frameSeconds);
         for (const g of e.legs) g.tint = tint;
-        const w = f.stick && f.grip ? f.stick : f.fore; // the weapon, or the fist when unarmed
-        const charge = f.charge / T.charge.maxFrames;
-        aura.alpha = charge * T.charge_glow.alpha;
-        aura.position.set(lerp(w.px, w.cx, alpha), lerp(w.py, w.cy, alpha));
-        aura.scale.set((1 + charge * 0.6) / BIG);
         // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.
         e.group.pivot.set(torso.x, torso.y);
         e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis);

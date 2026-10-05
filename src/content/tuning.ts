@@ -46,6 +46,10 @@ export const tuning = {
     groundAccel: 26, // lower = more slide and momentum, higher = snappier
     airAccel: 14,
     jumpSpeed: 8.5, // about 1.6 m high: clears a standing fighter with room to spare
+    coyoteFrames: 6, // you can still jump this long after walking off a ledge
+    jumpBufferFrames: 6, // a jump pressed this early before landing still happens
+    jumpCut: 0.5, // letting go of jump early cuts the jump short by this much (1 = no cut)
+    jumpCutMinSpeed: 2, // ...but only while still rising faster than this (m/s)
   },
   lean: {
     // The body leans into where it is going, then springs back upright. Angles in radians (0.5 is about 30 degrees).
@@ -135,19 +139,20 @@ export const tuning = {
   longMelee: {
     // How a club-type weapon is held. Angles are for a fighter facing right (mirrored when facing left):
     // negative = counter-clockwise = up. U is the upper arm, E the elbow bend, W the wrist bend (both relative to the part before).
-    guardElbow: -1.3, // elbow bent so the forearm points up and the club stands upright in front
-    guardWrist: 0.2,
+    guardElbow: -1.0, // elbow bent so the club is held up in front
+    guardWrist: 0.3,
+    bendFade: 0.35, // the bend fades out over this much of aim as the cursor gets near straight up or down, so the arm can sweep over the top
     chargeUpper: -1.2, // charge: arm raised above the head...
     chargeElbow: -0.5, // ...elbow folded back a little
     chargeWrist: -0.1, // ...so the club leans slightly behind the head
     chargeCock: -0.2, // extra backward lean added at full charge
     slamElbow: 0, // slam: the arm straightens...
     slamWrist: 0.3, // ...and the club is pointing a little downward at the end
-    elbowStiffness: 500, // springs with a rest angle: softer = the club head lags and whips more
-    elbowDamping: 40,
+    elbowStiffness: 300, // springs with a rest angle: softer = the club head lags and whips more
+    elbowDamping: 28,
     elbowMaxTorque: 400,
-    wristStiffness: 150,
-    wristDamping: 12,
+    wristStiffness: 80,
+    wristDamping: 8,
     wristMaxTorque: 150,
     wristLimit: 2.4, // how far the club can flop relative to the forearm
   },
@@ -161,21 +166,33 @@ export const tuning = {
     torqueMul: 2, // shoulder strength multiplier at full charge during the burst (1 = none)
     slamDelay: 7, // frames after release before the club comes down: you fly forward with it raised, then slam
     releaseFrames: 18, // how long the burst lasts
-    moveFactor: 0.5, // walking speed while charging
+    moveFactor: 0.65, // walking speed while charging or winding up
   },
   punch: {
-    // Unarmed left-click: the fist is drawn back with the elbow folded, then the arm whips straight out along the aim.
+    // Unarmed left-click. Hold: the fist is drawn back with the elbow folded, and the longer you hold the harder the punch.
+    // Let go: the arm whips straight out along the aim and the body lunges in. A quick tap is a quick, light punch.
     // Angles are relative to your aim line, for a fighter facing right (mirrored when facing left).
-    windFrames: 6, // draw back
+    windFrames: 6, // the shortest wind-up: even a tap draws back this long
+    maxWindFrames: 30, // hold this long (0.5 s) for the heaviest punch
+    quickPower: 0.45, // strength of a tap, compared with a full-hold punch (1)
     strikeFrames: 8, // throw forward
     recoverFrames: 10, // before you can punch again
     cockUpper: 2.6, // upper arm swings this far behind the aim line
+    cockExtra: 0.4, // ...and a little further back the longer you hold
     cockElbow: -2.2, // elbow folded tight
     guardUpper: 1.0, // resting guard: upper arm hanging down in front...
     guardElbow: -2.0, // ...forearm folded up, fist at the chest
-    torqueMul: 2, // arm strength during the throw
-    strikeImpulse: 0.9, // extra shove on the fist each frame of the throw
-    lunge: 40, // push the whole body forward into the punch
+    torqueMul: 3, // arm strength during a full-power throw
+    strikeImpulse: 1.2, // extra shove on the fist each frame of a full-power throw
+    lunge: 70, // push the whole body forward into a full-power punch
+  },
+  throw: {
+    // Right-click while holding the charge: the swing starts, then the club is let go partway through it.
+    // (Right-click with no charge just drops the club with whatever speed your own swing and movement gave it.)
+    minPower: 0.3, // even a very short charge throws at least this hard
+    afterSlamFrames: 3, // how far into the downswing the club is let go
+    boost: 11, // extra speed (m/s) along your aim at full charge, on top of the speed of the swing
+    lungeShare: 0.5, // how much of the usual lunge the thrower still gets
   },
   fist: {
     impactFactor: 2.0, // unarmed damage factor
@@ -192,16 +209,17 @@ export const tuning = {
     headMult: 1.6, // damage multiplier for a hit to the head
     hitCooldown: 20, // frames before the same weapon can hit again
     stunFrames: 25,
-    hitStopMin: 3,
-    hitStopMax: 6,
+    hitStopMin: 2, // frames the game freezes on a hit (kept short so four players do not stutter)
+    hitStopMax: 4,
     hitStopFullImpact: 40, // impact that earns the maximum hit-stop
   },
   respawn: {
     frames: 120,
   },
   shake: {
-    perImpact: 0.6, // pixels per impact point
-    max: 24,
+    minImpact: 45, // hits weaker than this do not shake the screen at all
+    perImpact: 0.8, // pixels of shake per point of impact above that
+    max: 16,
     decayPerSecond: 0.0004, // fraction left after one second (smaller = settles faster)
   },
   splat: {
@@ -221,11 +239,6 @@ export const tuning = {
   finish: {
     vignetteAlpha: 0.35,
   },
-  charge_glow: {
-    radius: 0.3, // metres
-    color: 0xffe36e,
-    alpha: 0.55, // at full charge
-  },
   colors: {
     void: 0x141018,
     sky: 0x3b3550,
@@ -235,7 +248,6 @@ export const tuning = {
     stick: 0x8c5a2f,
     players: [0xd94a3a, 0xe9ddc1, 0x2f6fb5, 0xe8b931], // player 1, dummy, then blue and yellow later
     damaged: 0xb04030, // tint blended in as hidden HP drops
-    dead: 0x80808c, // a dead fighter greys out so the ragdoll reads clearly
   },
 };
 

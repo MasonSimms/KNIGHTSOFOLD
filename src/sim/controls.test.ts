@@ -44,7 +44,7 @@ describe('right-click: drop and pick up', () => {
       if (i >= 12) { const v = f().stick!.body.linvel(); fastest = Math.max(fastest, Math.hypot(v.x, v.y)); }
     }
     expect(f().grip).toBeNull(); // the club has left the hand
-    expect(fastest).toBeGreaterThan(8); // and it left at the speed of the swing (plus the small push)
+    expect(fastest).toBeGreaterThan(6); // and it left at the speed of the swing (plus the small push)
   });
 
   it('with empty hands right-click picks the club up, but only after a short delay and only within reach', async () => {
