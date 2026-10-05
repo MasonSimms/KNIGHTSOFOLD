@@ -45,7 +45,9 @@ export interface Fighter {
   grounded: boolean;
   groundDist: number; // how far below the hips the floor is (Infinity = nothing in reach)
   legs: { thigh: Part; shin: Part; hip: RevoluteImpulseJoint; knee: RevoluteImpulseJoint }[];
-  severed: boolean; // a shoulder or elbow joint was cut (a lost arm, or blown apart): never touch those joints again
+  cutJoints: Set<unknown>; // joints that have been removed (a lost limb, a blown-apart body): never touch them again
+  armLost: boolean; // the fighting arm is gone: no attacking, grabbing or holding a weapon this round
+  legLost: [boolean, boolean]; // a leg is gone (slower, lower jump; both gone = crawling)
   neck: RevoluteImpulseJoint | null; // once the head has come off onto a floppy neck (death)
   offShoulder: RevoluteImpulseJoint; // the second arm: only for show
   offElbow: RevoluteImpulseJoint;
@@ -207,7 +209,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, severed: false, neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
@@ -248,6 +250,15 @@ function attachStick(world: World, f: Fighter): void {
   f.grip = j;
   const pose = (p: Part) => { const t = p.body.translation(); p.px = p.cx = t.x; p.py = p.cy = t.y; p.pa = p.ca = p.body.rotation(); };
   pose(stick);
+}
+
+/** Remove a joint (a limb comes off), once. Everything that works the joints must skip the ones in `cutJoints`, or the physics engine panics. */
+export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void {
+  if (!j || f.cutJoints.has(j)) return;
+  world.removeImpulseJoint(j, true);
+  f.cutJoints.add(j);
+  if (j === f.shoulder || j === f.elbow) f.armLost = true;
+  f.legs.forEach((l, i) => { if (j === l.hip || j === l.knee) f.legLost[i] = true; });
 }
 
 /** Make `part` (a club) belong to `to`: its owner, its parts list, its damage credit and its collision group. */
@@ -356,7 +367,7 @@ export function ragdoll(world: World, f: Fighter, rng: () => number): Part[] {
   }
 
   // The legs are already real: they just go limp.
-  for (const l of f.legs) for (const j of [l.hip, l.knee]) { j.configureMotorPosition(0, R.legStiffness, R.legDamping); j.setMotorMaxForce(1e6); }
+  for (const l of f.legs) for (const j of [l.hip, l.knee]) { if (f.cutJoints.has(j)) continue; j.configureMotorPosition(0, R.legStiffness, R.legDamping); j.setMotorMaxForce(1e6); }
   f.parts.push(...out);
   return out;
 }
@@ -408,7 +419,8 @@ function senseContacts(world: World, f: Fighter): void {
       });
     });
   }
-  for (const l of f.legs) { // a foot (or shin) resting on something below the hips
+  f.legs.forEach((l, i) => { // a foot (or shin) resting on something below the hips
+    if (f.legLost[i]) return;
     world.contactPairsWith(l.shin.colliders[0], (other) => {
       if (ground || !other.parent()?.isFixed()) return;
       world.contactPair(l.shin.colliders[0], other, (m) => {
@@ -416,7 +428,7 @@ function senseContacts(world: World, f: Fighter): void {
         if (p && p.y - bt.y > 0.15) ground = true;
       });
     });
-  }
+  });
   f.grounded = ground;
   f.wall = ground ? 0 : wall;
 }
@@ -451,6 +463,7 @@ function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip:
     if (Math.abs(r) < 1.4) f.torso.body.applyTorqueImpulse((Math.abs(r) > 0.05 ? Math.sign(r) : s) * CR.tipTorque * tip * dt, true);
   }
   f.legs.forEach((l, i) => {
+    if (f.legLost[i]) return; // that leg is gone
     const sgn = i === 0 ? -1 : 1, ph = f.gait + i * Math.PI;
     // u: where the foot points (radians from straight down, + = toward +x); k: knee bend
     let u: number, k: number;
@@ -488,7 +501,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // Dead: arms go floppy (the head and legs of the ragdoll have their own loose joints).
   if (f.limp) {
     letGo(world, f, false, events);
-    if (!f.severed) for (const j of [f.shoulder, f.elbow]) j.configureMotorPosition(0, 0, A.limpDamping);
+    for (const j of [f.shoulder, f.elbow]) if (!f.cutJoints.has(j)) j.configureMotorPosition(0, 0, A.limpDamping);
     return;
   }
 
@@ -507,7 +520,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   f.prevDodge = input.dodge;
   if (f.chargeLocked && !input.attack) f.chargeLocked = false;
-  const attack = input.attack && !f.chargeLocked && !f.inBack && f.attackLock === 0; // no attacking from the background plane
+  const attack = input.attack && !f.chargeLocked && !f.inBack && f.attackLock === 0 && !f.armLost; // no attacking from the background plane, or without an arm
 
   // ---- right-click: with a club in your hand it lets go (the club keeps the speed of your swing plus a small push, so swing first,
   // then drop it to throw it); with empty hands it picks your club up again if it is within reach ----
@@ -538,7 +551,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       f.dropCooldown = T.drop.pickupDelay;
       events.push({ t: 'drop', x: st.x, y: st.y, v: 0, owner: f.index, victim: -1 });
     } else if (!f.grip) {
-      f.pickupRequest = true; // right-click with empty hands: the world picks up the nearest loose weapon in reach
+      f.pickupRequest = !f.armLost; // right-click with empty hands: the world picks up the nearest loose weapon in reach (needs an arm)
     }
   }
   f.prevDrop = input.drop;
@@ -623,7 +636,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   senseContacts(world, f);
   const grounded = f.grounded;
   const CR = T.crouch;
-  f.crouch = f.controlled && input.crouch ? Math.min(1, f.crouch + CR.downRate) : Math.max(0, f.crouch - CR.upRate);
+  const lostLegs = +f.legLost[0] + +f.legLost[1];
+  f.crouch = f.controlled && (input.crouch || lostLegs === 2) ? Math.min(1, f.crouch + CR.downRate) : Math.max(0, f.crouch - CR.upRate);
   standAndLegs(f, grounded, vx, s, tip);
   const lungeMul = 1 + T.crouch.lungeBonus * f.crouch; // crouching loads more momentum into a lunge or punch
   const M = T.motion;
@@ -649,13 +663,14 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     const accel = (grounded ? M.groundAccel : M.airAccel) * dt;
     const winding = charging || !!f.hold; // slower while charging a club or holding someone
     // While lunging the walking controller must not brake, or it cancels the lunge.
-    const dv = f.release > 0 || f.wallLock > 0 ? 0 : clamp(input.moveX * M.moveSpeed * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
+    const legMul = [1, T.maim.oneLegSpeed, T.maim.noLegSpeed][lostLegs]; // missing legs: hobbling, then crawling
+    const dv = f.release > 0 || f.wallLock > 0 ? 0 : clamp(input.moveX * M.moveSpeed * legMul * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
     shove(f, dv * fighterMass(f), 0);
     if (f.jumpBuffer > 0 && f.coyote > 0) { // pressing a touch early, or a touch late after walking off a ledge, still jumps
       for (const p of f.parts) { // the whole body leaves the ground together
         if (p.role === 'stick' && !f.grip) continue;
         const lv = p.body.linvel(tmp);
-        p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed * (1 + T.crouch.jumpBonus * f.crouch) }, true); // a jump from a crouch goes a little higher
+        p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed * [1, T.maim.oneLegJump, 0][lostLegs] * (1 + T.crouch.jumpBonus * f.crouch) }, true); // a jump from a crouch goes a little higher; missing legs jump lower
       }
       f.jumpBuffer = 0;
       f.coyote = 0;
@@ -764,6 +779,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     j.configureMotorPosition(target, stiff, damp);
     j.setMotorMaxForce(maxTorque);
   };
+  if (!f.armLost) {
   // Shoulder: a velocity follower. It turns the arm toward its target at a speed proportional to the error (no overshoot),
   // plus the mouse's own turn rate as feed-forward so a steady sweep has almost no trailing error.
   const aimRate = followAim ? clamp(wrapAngle(input.aim - f.prevAim) / dt, A.maxAimRate) * A.aimFeedForward : 0;
@@ -783,6 +799,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   } else {
     const eg = grabbing ? gain : 1; // holding a body needs a strong elbow too
     motor(f.elbow, f.poseE, A.elbowStiffness * eg, A.elbowDamping * eg, A.elbowMaxTorque * eg);
+  }
   }
 
   // The second arm joins punches and grabs (for show: it only ever touches the floor and walls); otherwise it just flops.

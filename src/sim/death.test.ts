@@ -28,20 +28,9 @@ describe('death styles', () => {
     expect(f.limp).toBe(true);
   });
 
-  it('a hard club hit takes off the limb it hit and nothing else', async () => {
-    const sim = await setup();
-    const f = sim.fighters[1];
-    kill(sim, 1, 60, { how: 'club', part: f.fore, nx: -1, ny: 0 });
-    expect(sim.events.map((e) => e.t)).toContain('dismember');
-    for (let i = 0; i < 25; i++) sim.step([idle(), idle()]);
-    expect(away(sim, 1, 'fore')).toBeGreaterThan(1.0); // the forearm flew off
-    expect(away(sim, 1, 'head')).toBeLessThan(0.9); // the head and the rest stayed on
-    expect(away(sim, 1, 'thigh')).toBeLessThan(0.9);
-  });
-
   it('a hard hit to the head takes the head off', async () => {
     const sim = await setup();
-    kill(sim, 1, 60, { how: 'club', head: true, part: sim.fighters[1].torso, nx: 1, ny: 0 });
+    kill(sim, 1, 70, { how: 'club', head: true, part: sim.fighters[1].torso, nx: 1, ny: 0 });
     for (let i = 0; i < 25; i++) sim.step([idle(), idle()]);
     expect(away(sim, 1, 'head')).toBeGreaterThan(1.0);
   });

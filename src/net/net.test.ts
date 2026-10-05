@@ -50,6 +50,26 @@ describe('online mirror', () => {
     expect(seen.has('pickup')).toBe(true);
   }, 120_000);
 
+  it('the client copy stays in step when limbs come off (the parts stay, only the joints and the poses change)', async () => {
+    const { room, mirror, server, client } = await pair(14, 4, false);
+    const inputs = fuzzer(61);
+    let worst = 0;
+    for (let i = 0; i < 1800; i++) {
+      if (i % 150 === 75) {
+        const f = server.fighters.find((x) => !x.limp);
+        if (f) (server as unknown as { maim(f: unknown, p: unknown, nx: number, ny: number): void }).maim(f, i % 300 === 75 ? f.fore : f.legs[0].thigh, -1, 0);
+      }
+      for (let k = 0; k < 4; k++) room.setInput(k, inputs(4)[k]);
+      const s = room.tick();
+      if (!s) continue;
+      mirror.push(wire(s));
+      mirror.show(s.frame);
+      worst = Math.max(worst, gap(server, client));
+    }
+    expect(mirror.desyncs).toBe(0);
+    expect(worst).toBeLessThan(0.01);
+  }, 120_000);
+
   it('training mode (a dummy that dies and respawns) stays in step too', async () => {
     const { room, mirror, server, client } = await pair(4, 2, true);
     const inputs = fuzzer(31);

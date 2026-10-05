@@ -170,8 +170,9 @@ describe('charge, punch and throw (the newer controls)', () => {
       const P = () => sim.fighters[0], D = () => sim.fighters[1], X = () => sim.fighters[2];
       const step = (a: Partial<PlayerInput> = {}) => sim.step([idle(a), idle(), idle()]);
       for (let i = 0; i < 40; i++) step();
-      while (D().torso.body.translation().x - P().torso.body.translation().x > 1.3) step({ moveX: 1, aim: Math.PI / 2 });
-      for (let i = 0; i < 40; i++) step();
+      const gap = D().torso.body.translation().x - P().torso.body.translation().x - 0.8; // stand the grabber right at arm's length from the dummy
+      for (const p of P().parts) { const t = p.body.translation(); p.body.setTranslation({ x: t.x + gap, y: t.y }, true); }
+      for (let i = 0; i < 30; i++) step();
       let held = false;
       for (let i = 0; i < 120 && !held; i++) { step({ attack: true, moveX: 0.5 }); held = !!P().hold; }
       expect(held).toBe(true);

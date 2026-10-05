@@ -286,6 +286,20 @@ export const tuning = {
   eras: {
     specialChance: 0.15, // each round has this chance of being one of the special eras (fantasy archers, mobsters...) instead of the normal rotation
   },
+  maim: {
+    // A HUGE club blow (rare: a thrown club or a full-speed charge) to a limb takes the limb off. You play on with the consequence until the
+    // round ends (the next round everyone has a fresh body). A huge killing blow to the head takes the head off instead.
+    impact: 60,
+    leaveHp: 15, // the blow that takes a limb leaves the victim at least this much hidden HP (so it maims instead of killing)
+    kick: 8, // m/s the lost limb flies away from the blow
+    lift: 4,
+    spin: 16,
+    stunFrames: 25,
+    swingCooldown: 40, // frames the club that took a limb cannot hit again (0.7 s: it does not kill them on the way through)
+    oneLegSpeed: 0.55, // with one leg: walking speed...
+    oneLegJump: 0.6, // ...and jump height
+    noLegSpeed: 0.3, // with no legs you crawl (and cannot jump)
+  },
   death: {
     // How a death is staged (cartoon, never gory). What killed you decides: a huge blow blows the body apart, a stomp or a hard crash flattens
     // it, a hard club hit takes off whatever it hit. (Impact = the same number the damage curve uses.)
@@ -294,10 +308,6 @@ export const tuning = {
     explodeLift: 3, // ...and upward
     explodeSpin: 14, // tumble (rad/s)
     crushImpact: 25, // a stomp or a crash at least this big flattens the victim (the picture squashes; physics is a normal fall)
-    dismemberImpact: 42, // a killing club hit at least this big takes off the limb it hit (or the head)
-    limbKick: 8, // m/s the lost limb flies away from the blow
-    limbLift: 4,
-    limbSpin: 16,
     shake: 0.05, // screen shake on an explosion or a crush
     squashSeconds: 0.12, // how fast a crushed fighter goes flat
     squashFlat: 0.65, // how much of their height is squashed away
