@@ -4,19 +4,15 @@ import { tuning as T } from '../content/tuning';
 import { makeRng } from './rng';
 
 /**
- * The era of a round: a pure function of the match seed and the round number (so the server and every client agree without being told).
- * Usually the normal eras in a random order that never repeats the same era twice running; now and then (T.eras.specialChance) a special one.
+ * The era of a round, a pure function of the match seed and the round number (so the server and every client agree without being told).
+ * A match is one pass through the normal eras in chronological order (the order of the eras list), one round each; after the last the
+ * pass starts again. Now and then (T.eras.specialChance) a special era takes a slot's place.
  */
 export function eraFor(seed: number, round: number): Era {
-  const rng = makeRng((seed ^ 0x9e3779b9) >>> 0);
   const normal = eras.filter((e) => !e.special), special = eras.filter((e) => e.special);
-  let prev = '', cur = normal[0];
-  for (let r = 1; r <= round; r++) {
-    const pool = (rng() < T.eras.specialChance ? special : normal).filter((e) => e.id !== prev);
-    cur = pool[Math.floor(rng() * pool.length)];
-    prev = cur.id;
-  }
-  return cur;
+  const n = normal.length, i = round - 1, slot = ((i % n) + n) % n, pass = Math.floor(i / n);
+  const rng = makeRng((seed ^ 0x9e3779b9 ^ Math.imul(pass * 64 + slot + 1, 0x85ebca6b)) >>> 0);
+  return special.length && rng() < T.eras.specialChance ? special[Math.floor(rng() * special.length)] : normal[slot];
 }
 
 /** Which map of the era this round uses: 0 = its usual arena, 1.. = its other maps (a pure function of the seed and round, like the era). */

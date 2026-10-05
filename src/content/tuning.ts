@@ -291,7 +291,7 @@ export const tuning = {
   },
   eras: {
     changeGameplay: true, // an era changes the arena layout and the weapon (false = every round uses the standard arena and club: the tests do this)
-    specialChance: 0.15, // each round has this chance of being one of the special eras (fantasy archers, mobsters...) instead of the normal rotation
+    specialChance: 0.15, // each slot of a match has this chance of being one of the special eras (fantasy archers, mobsters...) instead of its normal era
   },
   maim: {
     // A HUGE club blow (rare: a thrown club or a full-speed charge) to a limb takes the limb off. You play on with the consequence until the

@@ -5,26 +5,24 @@ import { eraFor, outfitsFor } from './era';
 describe('eras', () => {
   it('every era has 4 outfits and the data has the eras the owner named', () => {
     expect(eras.every((e) => e.outfits.length === 4 && new Set(e.outfits).size === 4)).toBe(true);
-    for (const id of ['caveman', 'samurai', 'westerns', 'ww1', 'vietnam', 'modern', 'scifi', 'fantasy', 'mobsters']) expect(eras.some((e) => e.id === id), id).toBe(true);
-    expect(eras.filter((e) => !e.special).length).toBeGreaterThanOrEqual(7);
+    for (const id of ['caveman', 'egypt', 'gladiators', 'vikings', 'medieval', 'samurai', 'pirates', 'westerns', 'ww1', 'vietnam', 'modern', 'scifi', 'fantasy', 'mobsters']) expect(eras.some((e) => e.id === id), id).toBe(true);
+    expect(eras.filter((e) => !e.special).length).toBe(12);
   });
 
-  it('the era of a round depends only on seed and round, never repeats back to back, uses every normal era, and specials are occasional', () => {
+  it('a match plays the normal eras in the list order (chronological), one per round, with specials swapping in occasionally', () => {
     expect(eraFor(77, 5).id).toBe(eraFor(77, 5).id);
-    const seen = new Map<string, number>();
-    let prev = '';
-    const N = 1000;
+    const normal = eras.filter((e) => !e.special).map((e) => e.id);
+    expect(normal.length).toBe(12);
+    let specials = 0;
+    const N = 1200;
     for (let r = 1; r <= N; r++) {
       const e = eraFor(5, r);
-      expect(e.id).not.toBe(prev);
-      prev = e.id;
-      seen.set(e.id, (seen.get(e.id) ?? 0) + 1);
+      if (e.special) specials++; else expect(e.id).toBe(normal[(r - 1) % normal.length]);
     }
-    for (const e of eras.filter((x) => !x.special)) expect(seen.get(e.id) ?? 0, e.id).toBeGreaterThan(40);
-    const specials = eras.filter((e) => e.special).reduce((n, e) => n + (seen.get(e.id) ?? 0), 0);
-    expect(specials).toBeGreaterThan(N * 0.05);
-    expect(specials).toBeLessThan(N * 0.3);
-    expect(eraFor(5, 1).id !== eraFor(6, 1).id || eraFor(5, 2).id !== eraFor(6, 2).id || eraFor(5, 3).id !== eraFor(6, 3).id).toBe(true); // different matches differ
+    expect(specials).toBeGreaterThan(N * 0.08);
+    expect(specials).toBeLessThan(N * 0.25);
+    const run = (seed: number) => Array.from({ length: 12 }, (_, i) => eraFor(seed, i + 1).special).join();
+    expect(new Set([1, 2, 3, 4, 5, 6, 7, 8].map(run)).size).toBeGreaterThan(1); // special slots differ between matches
   });
 
   it('outfits are a shuffle of the era\'s 4, so no two players match, and they change from round to round', () => {
