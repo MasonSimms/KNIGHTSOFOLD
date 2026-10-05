@@ -775,10 +775,10 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
 
   // The second arm joins punches and grabs (for show: it only ever touches the floor and walls); otherwise it just flops.
-  const OH = T.offHand;
+  const OH = T.offArm;
   if (!armed && f.controlled && (grabbing || f.punch > 0)) {
-    f.offShoulder.configureMotorPosition(wrapAngle(mirror(aimR + OH.trail) - tr), OH.stiffness, OH.damping);
-    f.offElbow.configureMotorPosition(f.punch > 0 && punchPhase === 'recover' ? s * K.guardElbow : 0, OH.stiffness, OH.damping);
+    f.offShoulder.configureMotorPosition(wrapAngle(mirror(aimR + OH.trail) - tr), OH.stiffness, OH.poseDamping);
+    f.offElbow.configureMotorPosition(f.punch > 0 && punchPhase === 'recover' ? s * K.guardElbow : 0, OH.stiffness, OH.poseDamping);
     f.offShoulder.setMotorMaxForce(OH.maxTorque);
     f.offElbow.setMotorMaxForce(OH.maxTorque);
   } else {

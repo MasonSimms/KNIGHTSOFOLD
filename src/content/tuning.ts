@@ -106,6 +106,11 @@ export const tuning = {
     // The second arm: pure decoration. It hangs off the shoulder and flops with your motion; it only touches the floor and walls.
     mass: 0.25, // each part (light, so it barely tugs the body)
     damping: 0.4, // joint friction: lower = floppier
+    // In punches and grabs it joins in (for show: it still touches nothing but the floor and walls):
+    stiffness: 60, // how firmly it holds its pose
+    poseDamping: 6,
+    maxTorque: 40,
+    trail: 0.35, // radians it lags behind the main arm, so the two arms look like two arms
   },
   ragdoll: {
     // On death the head comes off onto a floppy neck and the legs go limp.
@@ -183,13 +188,6 @@ export const tuning = {
     stompAngle: 0.6, // how vertical the contact must be (0 = exactly from above, 1 = sideways) to count as a stomp
     knockbackMul: 0.6, // how hard a body slam shoves the victim (1 = like a club hit)
     cooldown: 20, // frames before the same fighter can slam again
-  },
-  offHand: {
-    // The second arm joins punches and grabs (for show: it still touches nothing but the floor and walls).
-    stiffness: 60, // how firmly it holds its pose
-    damping: 6,
-    maxTorque: 40,
-    trail: 0.35, // radians it lags behind the main arm, so the two arms look like two arms
   },
   arm: {
     // The shoulder follows the aim like a velocity servo: turn rate = shoulderTrack x angle error (capped), so no overshoot.

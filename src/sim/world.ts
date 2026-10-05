@@ -238,7 +238,7 @@ export class Sim {
               const head = !!victim.headCollider && other.handle === victim.headCollider.handle;
               const k = knockbackFor(impact) * B.knockbackMul;
               shove(victim, c.nx * k, c.ny * k);
-              this.events.push({ t: stomp ? 'stomp' : 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head });
+              if (stomp) this.events.push({ t: 'stomp', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head }); // an ordinary slam is announced as a 'hit' by wound()
               this.wound(victim, dmg * (head ? T.combat.headMult : 1), impact, pt.x, pt.y, f.index, head, !stomp);
             });
           });
