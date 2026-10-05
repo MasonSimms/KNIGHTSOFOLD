@@ -43,6 +43,7 @@ export interface Fighter {
   limp: boolean; // dead: arms go floppy
   ragdolled: boolean; // dead: head and legs have become real physics parts
   grounded: boolean;
+  airFrames: number; // frames since the feet last touched the ground
   wall: number; // -1 / 0 / 1: touching a wall on the left / none / the right (in the air only)
   wallDir: number; // the last wall touched
   wallCoyote: number; // frames left in which a wall jump still works
@@ -163,7 +164,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, airFrames: 0, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, crouchApplied: 0, attackLock: 0, punchPower: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, lostFrames: 0, dropCooldown: 0,
@@ -473,7 +474,9 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // ---- movement and jumping ----
   senseContacts(world, f);
   const grounded = f.grounded;
-  const crouchTarget = f.controlled && input.crouch && grounded ? 1 : 0;
+  f.airFrames = grounded ? 0 : f.airFrames + 1;
+  // The body sinks into a crouch a few frames after the capsule shrinks, so ground contact is briefly lost: that is not "in the air" unless you are rising.
+  const crouchTarget = f.controlled && input.crouch && (grounded || (f.airFrames < T.crouch.airGrace && f.torso.vy > -1)) ? 1 : 0;
   f.crouch += (crouchTarget - f.crouch) * T.crouch.rate;
   if (f.crouch < 0.01) f.crouch = 0;
   if (Math.abs(f.crouch - f.crouchApplied) > 0.005) applyCrouch(f);

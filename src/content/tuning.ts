@@ -49,7 +49,7 @@ export const tuning = {
     restitution: 0.05,
   },
   motion: {
-    moveSpeed: 5.5,
+    moveSpeed: 6.05, // was 5.5 (+10%)
     groundAccel: 26, // lower = more slide and momentum, higher = snappier
     airAccel: 14,
     jumpSpeed: 8.5, // about 1.6 m high: clears a standing fighter with room to spare
@@ -112,7 +112,8 @@ export const tuning = {
   },
   crouch: {
     // Hold S / down. You drop low (swings aimed at your head pass over you), and crouching lets you do more with the next move.
-    rate: 0.25, // how quickly you drop and rise each frame
+    rate: 0.6, // how quickly you drop and rise each frame (1 = instant)
+    airGrace: 14, // frames the crouch holds while the body sinks the last bit to the floor (do not set below about 10)
     speedFactor: 0.5, // walking speed while fully crouched
     jumpBonus: 0.12, // a jump from a full crouch goes this much higher
     lungeBonus: 0.3, // a lunge or punch from a full crouch has this much more momentum
