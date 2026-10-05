@@ -29,3 +29,7 @@ Negative prompt (if the tool supports it): photorealistic, 3D render, glossy, ai
 Acceptance checklist: readable with a 120 px fighter standing in front of it? Era palette and visible brush texture? No baked text, watermark or smooth gradient? Logged here?
 
 The vignette is generated in code (no file). Tune `finish.vignetteAlpha` in `src/content/tuning.ts` (0 turns it off). The canvas grain was removed.
+
+## art-guide/ (2026-10-05)
+- art-guide/ART_STYLE.md and art-guide/reference/*.jpg: style guide and reference paintings from the owner's separate art window (AI/tool-generated with the owner's own painter tools; used for direction only, not shipped in the game).
+- src/render/oilpaint.ts: oil-paint screen filter written in this repo (our own GLSL; no external asset).

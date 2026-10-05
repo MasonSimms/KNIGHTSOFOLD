@@ -442,6 +442,8 @@ export const tuning = {
   },
   finish: {
     vignetteAlpha: 0.35,
+    // The oil-paint look over the whole world (a screen filter; add ?nooil to the address to compare). Smoother strokes and a softer, thicker paint.
+    oil: { enabled: true, radius: 3.5, relief: 0.13, stroke: 46 }, // radius = how far colour is blended (px at 1080p), relief = paint thickness lighting, stroke = brush length
     paintBlur: 2, // softness of the paint on the picture (pixels at 1080p)
     // The painting style. Every era can override any of these in its `style` row (content/eras.ts).
     style: {
@@ -459,7 +461,7 @@ export const tuning = {
     platformEdge: 0x3a2618,
     outline: 0x3a2618,
     stick: 0x8c5a2f,
-    players: [0xd94a3a, 0x2f6fb5, 0xe8b931, 0x3e9b5a], // player 1 to 4: red, blue, yellow, green
+    players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
     damaged: 0xb04030, // tint blended in as hidden HP drops
   },

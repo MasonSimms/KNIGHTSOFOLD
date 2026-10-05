@@ -1,6 +1,7 @@
-import { Application, Assets, BlurFilter, Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { Application, Assets, BlurFilter, Container, Graphics, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { eraById } from '../content/eras';
 import { COLORS } from '../content/looks';
+import { createOilFilter, setOilScale } from './oilpaint';
 import type { Hat } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
@@ -22,24 +23,33 @@ const BIG = 100;
 /** A hat for the head (placeholder vector shapes until the art arrives). Drawn at the origin = the centre of the head; units are metres. */
 function drawHat(hat: Hat, tint: number, headR: number): Graphics | null {
   if (hat === 'none') return null;
-  const g = new Graphics(), r = headR * BIG, edge = { width: 0.025 * BIG, color: T.colors.outline };
+  const g = new Graphics(), r = headR * BIG;
   const dark = mix(tint, 0x000000, 0.3);
-  if (hat === 'cap') { g.arc(0, -r * 0.2, r * 1.02, Math.PI, 0).fill(dark).stroke(edge); g.rect(-r * 0.2, -r * 0.35, r * 1.5, r * 0.28).fill(dark).stroke(edge); }
-  else if (hat === 'tophat') { g.rect(-r * 1.2, -r * 0.95, r * 2.4, r * 0.3).fill(0x222222).stroke(edge); g.rect(-r * 0.7, -r * 2.2, r * 1.4, r * 1.3).fill(0x222222).stroke(edge); g.rect(-r * 0.7, -r * 1.2, r * 1.4, r * 0.25).fill(tint); }
-  else if (hat === 'helmet') { g.arc(0, -r * 0.1, r * 1.1, Math.PI, 0).fill(0x8a929b).stroke(edge); g.rect(-r * 1.1, -r * 0.15, r * 2.2, r * 0.22).fill(0x6b727a).stroke(edge); }
-  else if (hat === 'crown') { g.poly([-r * 0.9, -r * 0.8, -r * 0.9, -r * 1.8, -r * 0.45, -r * 1.2, 0, -r * 1.9, r * 0.45, -r * 1.2, r * 0.9, -r * 1.8, r * 0.9, -r * 0.8]).fill(0xf2c230).stroke(edge); }
-  else if (hat === 'horns') { g.arc(0, -r * 0.1, r * 1.02, Math.PI, 0).fill(0x8a929b).stroke(edge); g.poly([-r * 0.9, -r * 0.5, -r * 1.7, -r * 1.7, -r * 0.5, -r * 0.9]).fill(0xeeeeee).stroke(edge); g.poly([r * 0.9, -r * 0.5, r * 1.7, -r * 1.7, r * 0.5, -r * 0.9]).fill(0xeeeeee).stroke(edge); }
-  else if (hat === 'cowboy') { g.ellipse(0, -r * 0.75, r * 1.9, r * 0.35).fill(0x8a6a44).stroke(edge); g.rect(-r * 0.7, -r * 1.7, r * 1.4, r * 1.0).fill(0x8a6a44).stroke(edge); }
-  else if (hat === 'beanie') { g.arc(0, -r * 0.2, r * 1.05, Math.PI, 0).fill(tint).stroke(edge); g.circle(0, -r * 1.3, r * 0.25).fill(0xffffff).stroke(edge); }
+  if (hat === 'cap') { g.arc(0, -r * 0.2, r * 1.02, Math.PI, 0).fill(dark); g.rect(-r * 0.2, -r * 0.35, r * 1.5, r * 0.28).fill(dark); }
+  else if (hat === 'tophat') { g.rect(-r * 1.2, -r * 0.95, r * 2.4, r * 0.3).fill(0x222222); g.rect(-r * 0.7, -r * 2.2, r * 1.4, r * 1.3).fill(0x222222); g.rect(-r * 0.7, -r * 1.2, r * 1.4, r * 0.25).fill(tint); }
+  else if (hat === 'helmet') { g.arc(0, -r * 0.1, r * 1.1, Math.PI, 0).fill(0x8a929b); g.rect(-r * 1.1, -r * 0.15, r * 2.2, r * 0.22).fill(0x6b727a); }
+  else if (hat === 'crown') { g.poly([-r * 0.9, -r * 0.8, -r * 0.9, -r * 1.8, -r * 0.45, -r * 1.2, 0, -r * 1.9, r * 0.45, -r * 1.2, r * 0.9, -r * 1.8, r * 0.9, -r * 0.8]).fill(0xf2c230); }
+  else if (hat === 'horns') { g.arc(0, -r * 0.1, r * 1.02, Math.PI, 0).fill(0x8a929b); g.poly([-r * 0.9, -r * 0.5, -r * 1.7, -r * 1.7, -r * 0.5, -r * 0.9]).fill(0xeeeeee); g.poly([r * 0.9, -r * 0.5, r * 1.7, -r * 1.7, r * 0.5, -r * 0.9]).fill(0xeeeeee); }
+  else if (hat === 'cowboy') { g.ellipse(0, -r * 0.75, r * 1.9, r * 0.35).fill(0x8a6a44); g.rect(-r * 0.7, -r * 1.7, r * 1.4, r * 1.0).fill(0x8a6a44); }
+  else if (hat === 'beanie') { g.arc(0, -r * 0.2, r * 1.05, Math.PI, 0).fill(tint); g.circle(0, -r * 1.3, r * 0.25).fill(0xffffff); }
   g.scale.set(1 / BIG);
   return g;
+}
+
+/** Big painted eyes (art direction): two white discs with dark pupils, drawn at the head's centre; the caller flips them with the facing. */
+function drawEyes(headR: number): Container {
+  const c = new Container(), r = headR * BIG, g = new Graphics();
+  for (const dx of [0.2, 0.62]) g.circle(r * dx, -r * 0.1, r * 0.3).fill(0xf5f1e6).circle(r * (dx + 0.09), -r * 0.08, r * 0.14).fill(0x1c1814);
+  g.scale.set(1 / BIG);
+  c.addChild(g);
+  return c;
 }
 
 function drawShape(s: Shape, color: number): Graphics {
   const g = new Graphics();
   if (s.k === 'ball') g.circle(0, 0, s.r * BIG);
   else g.roundRect(-s.r * BIG, -(s.hl + s.r) * BIG, s.r * 2 * BIG, (s.hl + s.r) * 2 * BIG, s.r * BIG);
-  g.fill(color).stroke({ width: 0.025 * BIG, color: T.colors.outline });
+  g.fill(color);
   g.scale.set(1 / BIG);
   g.position.set(s.x, s.y);
   if (s.k === 'cap') g.rotation = s.rot;
@@ -70,6 +80,7 @@ interface Entry {
   group: Container; // everything of one fighter, so the dodge can shrink them about the torso
   c: Container[]; // one per part
   vis: number; // 0 = normal plane, 1 = background plane (smoothed)
+  eyes: Container[]; // painted eyes: they look the way the fighter faces
   blur: BlurFilter; // softens the fighter as they slip back into the background plane (dodge)
   crushed: boolean; // flattened by a stomp or a crash
   sq: number; // how flat (0..1, eases toward 1 once crushed)
@@ -81,8 +92,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   host.appendChild(app.canvas);
   app.ticker.stop(); // main.ts owns the loop and calls draw()
 
+  const world = new Container(); // everything painted: the oil-paint filter covers this (not the canvas grain, wash and vignette on top)
   const view = new Container(); // metres -> pixels, letterboxed, shaken
-  app.stage.addChild(view);
+  world.addChild(view);
+  app.stage.addChild(world);
+  const O = T.finish.oil, oil = createOilFilter(O.radius, O.relief, O.stroke);
+  if (O.enabled && !location.search.includes('nooil')) world.filters = [oil];
   const A = sim.arena; // (only the view size is read from this one: it never changes)
   const sky = new Graphics(), platform = new Graphics(), walls = new Graphics();
   // Depth of field: the painted backdrop (sky + background art) is blurred so the fighters and the ground they stand on stay in focus.
@@ -106,11 +121,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     tintWash.clear().rect(0, 0, 1, 1).fill(st.tint);
     tintWash.alpha = st.tintAlpha;
     platform.clear();
-    for (const g of A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]) platform.rect(g.x, A.platformTop, g.w, A.platformThickness).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
+    for (const g of A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]) platform.rect(g.x, A.platformTop, g.w, A.platformThickness).fill(era.platform);
     for (const l of A.ledges) platform.rect(l.x, A.platformTop - l.up, l.w, 0.3).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
     walls.clear();
     for (const cx of [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2]) {
-      walls.rect(cx - A.wallThickness / 2, A.wallTop, A.wallThickness, A.killY + 2 - A.wallTop).fill(era.wall).stroke({ width: 0.04, color: T.colors.platformEdge });
+      walls.rect(cx - A.wallThickness / 2, A.wallTop, A.wallThickness, A.killY + 2 - A.wallTop).fill(era.wall);
     }
   };
   paintArena(sim.era);
@@ -202,7 +217,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const group = new Container();
       const base = fighterColor(f);
       group.sortableChildren = true;
-      const c: Container[] = [];
+      const c: Container[] = [], eyes: Container[] = [];
       for (const p of f.parts as Part[]) {
         const k = new Container();
         k.zIndex = p.role === 'off' ? -2 : p.role === 'stick' ? -0.5 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs; a held club is behind the hand and arm so it looks gripped
@@ -216,11 +231,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           const h = drawHat(hat, color, T.fighter.headRadius);
           if (h) { h.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(h); }
         }
+        if (onHead) { const ey = drawEyes(T.fighter.headRadius); ey.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(ey); eyes.push(ey); }
         group.addChild(k);
         c.push(k);
       }
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
+      entries.push({ f, group, c, eyes, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
     }
     builtVersion = sim.version;
   }
@@ -271,6 +287,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
       const px = app.screen.height / 1080;
+      world.filterArea = new Rectangle(0, 0, app.screen.width, app.screen.height);
+      setOilScale(oil, app.screen.height / 1080);
       grain.width = tintWash.width = app.screen.width;
       grain.height = tintWash.height = app.screen.height;
       backdropBlur.strength = ({ ...T.finish.style, ...eraById(paintedEra).style }).blur * px; // blur is in screen pixels: tuned at 1080p, so scale with the window
@@ -310,6 +328,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           k.rotation = p.pa + wrap(p.ca - p.pa) * alpha;
           k.tint = tint;
         });
+        for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
         const torso = c[0];
         // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.
         e.group.pivot.set(torso.x, torso.y);
