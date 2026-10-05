@@ -336,6 +336,29 @@ export const tuning = {
     breakSpan: 1, // ...and this many planks either side of it
     shake: 0.03, // screen shake when a plank snaps
   },
+  knock: {
+    // A BIG hit knocks the fighter down: they go limp, spin head over heels in proportion to the blow, cannot act, bounce off walls and the
+    // floor, and then get up on their own as soon as they are calm and on the ground.
+    minImpact: 35, // hits below this just stagger
+    frames: 20, // the shortest knockdown (0.33 s)...
+    perImpact: 0.6, // ...plus this many frames for every point of impact above the minimum
+    maxFrames: 70, // never longer than this (1.2 s)
+    lift: 0.07, // m/s of upward launch per point of impact (the air time to tumble in)
+    spin: 0.34, // rad/s of tumble per point of impact (impact 60 = about 20 rad/s: three turns a second at the start, slowing as the limbs drag)
+    spinJitter: 0.3, // a little variety in the tumble
+    balance: 0.04, // how much of the upright spring is left while knocked down
+    legSoft: 0.9, // how limp the legs go
+    armLimp: 0.05, // how much arm strength is left (a limp arm does not fight the tumble)
+    minAge: 14, // earliest moment they may get up early (frames after the blow)
+    calmSpin: 2.5, // ...once spinning slower than this (rad/s)
+    calmSpeed: 2.5, // ...and moving slower than this (m/s)
+    recoverStun: 6, // frames of staggering left once they are up
+    crashSpeed: 6, // hitting a wall, the floor or a ledge at least this fast (m/s) while knocked down is a crash...
+    crashBounce: 0.5, // ...and bounces them back off it with this much of the speed...
+    crashSpin: 5, // ...and a fresh tumble (rad/s)
+    crashCooldown: 10, // frames before the next crash can bounce them
+    crashShake: 0.004, // screen shake per m/s of a crash
+  },
   parry: {
     // Block a swing with your own club: hold it still (or nearly) in the path of a fast swing. The swinger's club flies back the way it came,
     // the swinger is pushed back a little and staggers, and you are untouched. Swing your own club into theirs and it is a clash instead.
@@ -389,7 +412,7 @@ export const tuning = {
     decayPerSecond: 0.0004, // fraction left after one second (smaller = settles faster)
   },
   splat: {
-    max: 120,
+    max: 400, // decals on the picture (the paint from a whole round stays until the round ends)
     radiusMin: 10, // pixels
     radiusMax: 40,
     radiusPerImpact: 1.2,

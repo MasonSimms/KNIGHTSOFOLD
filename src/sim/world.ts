@@ -2,7 +2,7 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
-import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
+import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { eraById } from '../content/eras';
 import { PROPS } from '../content/props';
@@ -319,6 +319,7 @@ export class Sim {
     this.resolveHits();
     this.resolveBodyHits();
     this.resolveBridge();
+    this.resolveCrashes();
     this.resolveSlams();
     this.checkDeaths();
     this.snapshot();
@@ -519,6 +520,48 @@ export class Sim {
     }
   }
 
+  /** A big hit knocks the fighter down: they tumble (spin in proportion to the blow, head swinging back from it) and lose control for a while. */
+  private knockdown(v: Fighter, impact: number, nx: number): void {
+    const K = T.knock;
+    if (impact < K.minImpact || v.limp) return;
+    v.knock = Math.max(v.knock, Math.min(K.maxFrames, Math.round(K.frames + (impact - K.minImpact) * K.perImpact)));
+    v.knockAge = 0;
+    v.stun = Math.max(v.stun, v.knock);
+    if (v.hold) letGo(this.world, v, false, this.events);
+    v.charge = 0; v.release = 0; v.throwPending = false; v.reaching = false;
+    const dir = -(Math.sign(nx) || (this.rng() < 0.5 ? -1 : 1));
+    const spin = impact * K.spin * (1 + (this.rng() - 0.5) * 2 * K.spinJitter);
+    v.torso.body.setAngvel(v.torso.body.angvel() + dir * spin, true);
+    shove(v, 0, -impact * K.lift * fighterMass(v)); // launched up a little: air to tumble in
+  }
+
+  /** A knocked-down fighter slamming into a wall, the floor or a ledge bounces off it and tumbles again: a crash. */
+  private resolveCrashes(): void {
+    const K = T.knock;
+    for (const f of this.fighters) {
+      if (f.limp || f.knock <= 0 || f.crashWait > 0) continue;
+      for (const part of f.parts) {
+        if (part.role === 'stick' || part.role === 'off') continue;
+        const tp = part.body.translation();
+        for (const col of part.colliders) this.world.contactPairsWith(col, (other) => {
+          if (f.crashWait > 0 || !isWorld(other)) return;
+          this.world.contactPair(col, other, (m) => {
+            if (f.crashWait > 0 || m.numSolverContacts() === 0) return;
+            const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP;
+            const dx = pt.x - tp.x, dy = pt.y - tp.y, d = Math.hypot(dx, dy) || 1;
+            const closing = (part.vx * dx + part.vy * dy) / d; // how fast that part was heading into what it hit
+            if (closing < K.crashSpeed) return;
+            f.crashWait = K.crashCooldown;
+            shove(f, (-dx / d) * closing * K.crashBounce * fighterMass(f), (-dy / d) * closing * K.crashBounce * fighterMass(f));
+            f.torso.body.setAngvel(f.torso.body.angvel() + (this.rng() < 0.5 ? -1 : 1) * K.crashSpin, true);
+            f.knock = Math.max(f.knock, K.frames / 2); // a crash keeps them down a moment longer
+            this.events.push({ t: 'crash', x: pt.x, y: pt.y, v: closing, owner: f.index, victim: f.index });
+          });
+        });
+      }
+    }
+  }
+
   /** A limb that has come off is just debris: it cannot be hit (or hit anyone) as if it were still part of its fighter. */
   private detached(v: Fighter, part: Part): boolean {
     if (part.role === 'upper' || part.role === 'fore') return v.armLost;
@@ -534,6 +577,7 @@ export class Sim {
     if (victim.hold && impact >= T.grab.breakImpact) letGo(this.world, victim, false, this.events); // a good hit makes a grabber let go
     if (announce) this.events.push({ t: 'hit', x, y, v: impact, owner, victim: victim.index, head });
     if (victim.hp <= 0) this.kill(victim, false, impact, cause);
+    else if (cause) this.knockdown(victim, impact, cause.nx);
   }
 
   /** A club lost in the void comes back from the sky after a while, so there are always weapons in play. */
@@ -705,6 +749,7 @@ export class Sim {
     const killing = victim.hp <= 0;
     const k = knockbackFor(impact) * (att.kind === 'fist' ? T.fist.knockbackMul : 1); // punches shove much less than a club
     shove(victim, nx * k, ny * k - impact * T.combat.knockbackUp);
+    if (!killing) this.knockdown(victim, impact, nx);
     // A hit tips the victim backward (head swings away from the blow) a little: smooth and funny, not a random flip.
     victim.torso.body.applyTorqueImpulse(-Math.sign(nx || 1) * impact * T.combat.spinScale * (0.8 + 0.4 * this.rng()), true);
     this.events.push({ t: 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head });

@@ -134,7 +134,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     splatLayer.addChild(s);
     splats.push(s);
   }
-  let nextSplat = 0;
+  let nextSplat = 0, shownRound = sim.round;
   const growing: { s: Sprite; to: number; t: number; dur: number }[] = []; // splats that spread out over a moment
   const splat = (x: number, y: number, radiusPx: number, color: number, grow = 0) => {
     const s = splats[nextSplat++ % splats.length];
@@ -227,6 +227,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const x = Math.max(0.6, Math.min(A.viewW - 0.6, e.x)), y = e.y > A.viewH ? A.viewH - 0.15 : Math.max(0.6, Math.min(A.viewH - 0.6, e.y));
         for (let i = 0; i < 9; i++) splat(x + (Math.random() - 0.5) * 1.8, y - Math.random() * 1.0, 30 + Math.random() * 55, T.death.fallPaint, 0.18 + Math.random() * 0.2);
         shake = Math.max(shake, T.death.shake);
+      } else if (e.t === 'crash') { // a knocked-down fighter hitting a wall or the floor
+        ring(e.x, e.y, 0xffffff);
+        shake = Math.max(shake, Math.min(T.shake.max, e.v * T.knock.crashShake));
       } else if (e.t === 'cut') {
         ring(e.x, e.y, 0xc9a26a); // a snapped rope or plank
         shake = Math.max(shake, T.bridge.shake);
@@ -249,6 +252,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       view.scale.set(scale);
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
+      if (sim.round !== shownRound) { // a new round: the picture is clean again (the paint lasts the whole round)
+        shownRound = sim.round;
+        for (const s of splats) s.visible = false;
+        growing.length = 0;
+      }
       for (let i = growing.length - 1; i >= 0; i--) { const g = growing[i]; g.t += frameSeconds; const k = Math.min(1, g.t / g.dur); g.s.scale.set(g.to * k * (2 - k)); if (k >= 1) growing.splice(i, 1); }
       if (paintedEra !== sim.era) paintArena(sim.era); // a new round in a new era
       if (builtVersion !== sim.version) rebuild();

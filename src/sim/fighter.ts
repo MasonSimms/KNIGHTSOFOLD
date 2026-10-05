@@ -93,6 +93,9 @@ export interface Fighter {
   coyote: number; // frames after leaving a ledge during which a jump still works
   prevDrop: boolean;
   pickupRequest: boolean; // right-click with empty hands: the world looks for a loose weapon in reach
+  knock: number; // frames left of being knocked down by a big hit: limp, tumbling, no control (0 = not)
+  knockAge: number; // frames since the knockdown began
+  crashWait: number; // frames before another crash into the world can bounce them
   pickupAim: number; // where the cursor pointed when they asked: the thing they aim at is the thing they pick up
   lostFrames: number; // how long this fighter's club has been lost in the void
   dropCooldown: number; // frames until a dropped club can be picked up again
@@ -216,7 +219,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, lostFrames: 0, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -447,7 +450,7 @@ export function wrapAngle(a: number): number {
 const tmpC = { x: 0, y: 0 };
 const ray = new RAPIER.Ray({ x: 0, y: 0 }, { x: 0, y: 1 });
 /** Part of the world (the ground, a wall, a bridge plank, a loose log): what you can stand on or slide down. Fighters and the clubs they hold are not. */
-const isWorld = (c: Collider) => ((c.collisionGroups() >>> 16) & GROUP_WORLD) !== 0;
+export const isWorld = (c: Collider) => ((c.collisionGroups() >>> 16) & GROUP_WORLD) !== 0;
 
 /**
  * What the body is touching. The floor: a ray straight down from the hips (it also feeds the stand spring), or a foot on it.
@@ -497,7 +500,7 @@ const smooth = (a: number, b: number, x: number) => { const t = Math.max(0, Math
 function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip: number): void {
   const S = T.stand, CR = T.crouch, LG = T.legs, dt = T.sim.dt;
   const want = lerp(S.height, CR.lowHeight, f.crouch);
-  if (f.groundDist < want + S.reach) {
+  if (f.knock === 0 && f.groundDist < want + S.reach) { // (a knocked-down fighter is not held up)
     const vy = f.torso.body.linvel(tmp).y; // + = falling
     const up = Math.max(0, Math.min(S.maxAccel, S.stiffness * (want - f.groundDist) + S.damping * vy + T.sim.gravity)); // only ever pushes up
     shove(f, 0, -up * fighterMass(f) * dt);
@@ -509,7 +512,7 @@ function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip:
   }
   const speed = Math.abs(vx), run = Math.min(1, speed / 3), dir = speed > 0.3 ? Math.sign(vx) : s;
   f.gait += (grounded ? speed * LG.runRate : 9) * dt;
-  const soft = 1 - CR.legSoften * f.crouch;
+  const soft = (1 - CR.legSoften * f.crouch) * (f.knock > 0 ? 1 - T.knock.legSoft : 1);
   if (tip > 0) { // at the bottom, a gentle push over the way you already lean (or forward, if you are dead upright), so you lie down
     const r = wrapAngle(f.torso.body.rotation());
     if (Math.abs(r) < 1.4) f.torso.body.applyTorqueImpulse((Math.abs(r) > 0.05 ? Math.sign(r) : s) * CR.tipTorque * tip * dt, true);
@@ -529,9 +532,10 @@ function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip:
     k += CR.kneeFold * f.crouch;
     // Relative to the body (balance keeps the body upright). Aiming at the world's "down" instead makes a planted foot twist the body over.
     l.hip.configureMotorPosition(-u, LG.hipStiffness * soft, LG.hipDamping);
-    l.hip.setMotorMaxForce(LG.hipMaxTorque);
+    const limp = f.knock > 0 ? 1 - T.knock.legSoft : 1; // a knocked-down fighter's legs offer almost no resistance, so the tumble is free
+    l.hip.setMotorMaxForce(LG.hipMaxTorque * limp);
     l.knee.configureMotorPosition(s * Math.min(k, LG.kneeLimit), LG.kneeStiffness * soft, LG.kneeDamping);
-    l.knee.setMotorMaxForce(LG.kneeMaxTorque);
+    l.knee.setMotorMaxForce(LG.kneeMaxTorque * limp);
   });
 }
 
@@ -549,6 +553,14 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const body = f.torso.body;
 
   if (f.stun > 0) f.stun--;
+  if (f.crashWait > 0) f.crashWait--;
+  if (f.knock > 0) { // knocked down: tumbling and limp until it passes, or until they are calm and on the ground (then they get up at once)
+    const K = T.knock;
+    f.knockAge++;
+    f.knock--;
+    f.stun = Math.max(f.stun, f.knock);
+    if (f.knockAge >= K.minAge && f.grounded && Math.abs(body.angvel()) < K.calmSpin && Math.hypot(body.linvel(tmp).x, body.linvel(tmp).y) < K.calmSpeed) { f.knock = 0; f.stun = Math.min(f.stun, K.recoverStun); }
+  }
 
   // Dead: arms go floppy (the head and legs of the ragdoll have their own loose joints).
   if (f.limp) {
@@ -572,7 +584,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   f.prevDodge = input.dodge;
   if (f.chargeLocked && !input.attack) f.chargeLocked = false;
-  const attack = input.attack && !f.chargeLocked && !f.inBack && f.attackLock === 0 && !f.armLost; // no attacking from the background plane, or without an arm
+  const attack = input.attack && !f.chargeLocked && !f.inBack && f.attackLock === 0 && !f.armLost && f.knock === 0; // no attacking from the background plane, or without an arm
 
   // ---- right-click: with a club in your hand it lets go (the club keeps the speed of your swing plus a small push, so swing first,
   // then drop it to throw it); with empty hands it picks your club up again if it is within reach ----
@@ -666,7 +678,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   // Near the bottom of a crouch you stop holding yourself upright, so you tip over the way you are leaning and lie down.
   const tip = smooth(T.crouch.tipStart, T.crouch.tipAt, f.crouch);
-  const balance = f.stun > 0 ? B.stunFactor : 1;
+  const balance = f.knock > 0 ? T.knock.balance : f.stun > 0 ? B.stunFactor : 1;
   // Lying down lets go of the upright spring but keeps the spin damping, so crawling does not roll you over.
   const FL = T.flip;
   const flipping = f.controlled && !!input.flip && !f.grounded && !f.hold && f.stun === 0;
@@ -852,6 +864,11 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   } else {
     const eg = grabbing ? gain : 1; // holding a body needs a strong elbow too
     motor(f.elbow, f.poseE, A.elbowStiffness * eg, A.elbowDamping * eg, A.elbowMaxTorque * eg);
+  }
+  if (f.knock > 0) { // knocked down: the arm (and the weapon in it) goes limp, so it does not fight the tumble
+    f.shoulder.setMotorMaxForce(A.shoulderMaxTorque * T.knock.armLimp);
+    f.elbow.setMotorMaxForce(A.elbowMaxTorque * T.knock.armLimp);
+    if (f.grip) (f.grip as RevoluteImpulseJoint).setMotorMaxForce(P.wristMaxTorque * T.knock.armLimp);
   }
   }
 
