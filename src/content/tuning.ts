@@ -442,15 +442,19 @@ export const tuning = {
   },
   finish: {
     vignetteAlpha: 0.35,
-    // The oil-paint look over the whole world (a screen filter; add ?nooil to the address to compare). Smoother strokes and a softer, thicker paint.
+    // Painted backdrops (art-guide/ART_STYLE.md): each round's backdrop and ground are painted with oil strokes in a background worker.
+    // width = painting resolution; under = smooth underpaint showing through the strokes (higher = smoother); relief = paint thickness;
+    // bristle = how streaky a stroke is; jitter = colour wobble between strokes. Each era can scale these (content/paintings.ts, brush).
+    paint: { width: 1280, under: 0.5, relief: 0.55, bristle: 0.25, jitter: 0.45 },
+    // The live oil filter over the fighters, props and paint (add ?nooil to the address to compare).
     oil: { enabled: true, radius: 3.5, relief: 0.13, stroke: 46 }, // radius = how far colour is blended (px at 1080p), relief = paint thickness lighting, stroke = brush length
     paintBlur: 2, // softness of the paint on the picture (pixels at 1080p)
     // The painting style. Every era can override any of these in its `style` row (content/eras.ts).
     style: {
-      blur: 7, // how out of focus the background is (pixels at 1080p; fighters and the ground stay sharp)
-      grain: 0.07, // how strong the canvas weave is (0 = none)
+      blur: 3, // how out of focus the background is (pixels at 1080p; painted in: fighters and the ground stay sharp)
+      grain: 0.035, // how strong the live canvas grain is (0 = none; the painted backdrop has its own weave)
       tint: 0xffe2b0, // a colour wash over the whole picture, like old varnish
-      tintAlpha: 0.08,
+      tintAlpha: 0, // (the painted backdrop is already graded; an era can still add a wash)
     },
   },
   colors: {

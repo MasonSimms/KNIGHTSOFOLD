@@ -47,24 +47,24 @@ float height(vec2 p) {
 void main() {
   vec2 px = uInputSize.zw;
   float s = max(0.5, uRadius * uPx / 3.0); // tap spacing so 4 taps span the radius
-  vec3 mean[4];
+  vec4 mean[4];
   float variance[4];
   for (int k = 0; k < 4; k++) {
     vec2 dir = vec2(k == 0 || k == 3 ? -1.0 : 1.0, k < 2 ? -1.0 : 1.0);
-    vec3 sum = vec3(0.0), sq = vec3(0.0);
+    vec4 sum = vec4(0.0); vec3 sq = vec3(0.0);
     for (int i = 0; i < 4; i++) {
       for (int j = 0; j < 4; j++) {
-        vec3 c = texture(uTexture, vTextureCoord + dir * vec2(float(i), float(j)) * s * px).rgb;
-        sum += c; sq += c * c;
+        vec4 c = texture(uTexture, vTextureCoord + dir * vec2(float(i), float(j)) * s * px);
+        sum += c; sq += c.rgb * c.rgb;
       }
     }
     sum /= 16.0; sq /= 16.0;
     mean[k] = sum;
-    vec3 v = sq - sum * sum;
+    vec3 v = sq - sum.rgb * sum.rgb;
     variance[k] = v.r + v.g + v.b;
   }
   // Blend the sectors by how calm they are (a soft weighting, not a hard pick: that is what keeps the strokes smooth).
-  vec3 col = vec3(0.0);
+  vec4 col = vec4(0.0);
   float wsum = 0.0;
   for (int k = 0; k < 4; k++) {
     float w = 1.0 / (1.0 + pow(variance[k] * 400.0, 3.0));
@@ -77,9 +77,9 @@ void main() {
   float h = height(p);
   float hx = height(p + vec2(1.5, 0.0)) - h, hy = height(p + vec2(0.0, 1.5)) - h;
   float lit = (-hx - hy) * uRelief * 3.0;
-  col *= 1.0 + lit;
-  col = mix(vec3(dot(col, vec3(0.3, 0.59, 0.11))), col, 1.18); // oil pigments are a little richer than the flat colours
-  finalColor = vec4(col, 1.0);
+  vec3 rgb = col.rgb * (1.0 + lit);
+  rgb = mix(vec3(dot(rgb, vec3(0.3, 0.59, 0.11))), rgb, 1.18); // oil pigments are a little richer than the flat colours
+  finalColor = vec4(min(rgb, vec3(col.a)), col.a); // premultiplied: colour never exceeds coverage
 }
 `;
 

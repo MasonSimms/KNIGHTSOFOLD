@@ -24,6 +24,13 @@ const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI - 0.4 };
 
 export type Arena = typeof T.arena;
 
+/** The arena of an era's map: the standard one, or the era's own layout (a pure function, so anyone can ask without building anything). */
+export function arenaFor(eraId: string, map: number): Arena {
+  const era = eraById(eraId);
+  const over: Partial<Arena> = T.eras.changeGameplay ? (map > 0 && era.alt ? era.alt[map - 1] : era.arena) as Partial<Arena> : {};
+  return { ...T.arena, ...over } as Arena;
+}
+
 /** Something a fighter can pick up. */
 type Item = { kind: 'stick'; from: number } | { kind: 'prop'; index: number } | { kind: 'limb'; from: number; k: number };
 const itemCode = (i: Item): number => (i.kind === 'stick' ? -1 : i.kind === 'prop' ? 100 + i.index : 1000 + i.from * 10 + i.k); // how a 'pickup' event says what was taken
@@ -91,12 +98,14 @@ export class Sim {
   /** The arena of the current round: the standard one, or the era's own layout (a pure function of the era, so a client can ask without building anything). */
   get arena(): Arena {
     const key = `${this.era}|${this.map}|${T.eras.changeGameplay}`;
-    if (this.arenaCache?.key !== key) {
-      const era = eraById(this.era);
-      const over: Partial<Arena> = T.eras.changeGameplay ? (this.map > 0 && era.alt ? era.alt[this.map - 1] : era.arena) as Partial<Arena> : {};
-      this.arenaCache = { key, arena: { ...T.arena, ...over } as Arena };
-    }
+    if (this.arenaCache?.key !== key) this.arenaCache = { key, arena: arenaFor(this.era, this.map) };
     return this.arenaCache.arena;
+  }
+
+  /** The era and arena of the next round (so the renderer can paint its backdrop ahead of time). */
+  upcoming(): { era: string; arena: Arena } {
+    const era = this.forceEra ?? eraFor(this.seed, this.round + 1).id;
+    return { era, arena: arenaFor(era, this.forceMap ?? mapFor(this.seed, this.round + 1, era)) };
   }
 
   /** Online client: build the round the server is in (its round number and era), instead of round 1. */

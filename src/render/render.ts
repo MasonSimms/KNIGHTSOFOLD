@@ -1,7 +1,8 @@
-import { Application, Assets, BlurFilter, Container, Graphics, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
+import { Application, BlurFilter, Container, Graphics, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { eraById } from '../content/eras';
 import { COLORS } from '../content/looks';
 import { createOilFilter, setOilScale } from './oilpaint';
+import { createBackdrops } from './painter/backdrops';
 import type { Hat } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
@@ -64,17 +65,6 @@ function canvasTexture(size: number, paint: (ctx: CanvasRenderingContext2D) => v
   return Texture.from(c);
 }
 
-/** Optional painted background: drop public/art/test_bg.webp (or .png/.jpg) in and it appears; no file = flat sky colour. */
-async function loadBackground(): Promise<Texture | null> {
-  for (const ext of ['webp', 'png', 'jpg']) {
-    try {
-      const tex = await Assets.load<Texture>(`/art/test_bg.${ext}`);
-      if (tex?.width > 16) return tex; // the dev server answers a missing file with index.html, which decodes to nothing useful
-    } catch { /* try the next extension */ }
-  }
-  return null;
-}
-
 interface Entry {
   f: Fighter;
   group: Container; // everything of one fighter, so the dodge can shrink them about the torso
@@ -92,18 +82,18 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   host.appendChild(app.canvas);
   app.ticker.stop(); // main.ts owns the loop and calls draw()
 
-  const world = new Container(); // everything painted: the oil-paint filter covers this (not the canvas grain, wash and vignette on top)
   const view = new Container(); // metres -> pixels, letterboxed, shaken
-  world.addChild(view);
-  app.stage.addChild(world);
+  app.stage.addChild(view);
+  const actors = new Container(); // fighters, props and paint: the live oil filter covers these (the backdrop is already painted)
   const O = T.finish.oil, oil = createOilFilter(O.radius, O.relief, O.stroke);
-  if (O.enabled && !location.search.includes('nooil')) world.filters = [oil];
+  if (O.enabled && !location.search.includes('nooil')) actors.filters = [oil];
+  const backdrops = createBackdrops();
   const A = sim.arena; // (only the view size is read from this one: it never changes)
+  // The backdrop: an oil painting of the era with the round's ground in it (painted in a worker: painter/), with depth of field painted in.
+  // Until it is ready (the first second or so), the flat placeholder arena below shows instead.
+  const painted = new Sprite(Texture.EMPTY), flat = new Container();
   const sky = new Graphics(), platform = new Graphics(), walls = new Graphics();
-  // Depth of field: the painted backdrop (sky + background art) is blurred so the fighters and the ground they stand on stay in focus.
-  const backdrop = new Container(), backdropBlur = new BlurFilter({ strength: T.finish.style.blur, quality: 3 });
-  backdrop.filters = [backdropBlur];
-  backdrop.addChild(sky);
+  flat.addChild(sky, platform, walls);
   const grain = new TilingSprite({ texture: canvasTexture(128, (ctx) => { // canvas weave: fine noise over the whole picture (screen space)
     const d = ctx.createImageData(128, 128);
     for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 255; }
@@ -115,7 +105,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const paintArena = (id: string) => {
     const era = eraById(id), A = sim.arena;
     paintedEra = id;
-    sky.clear().rect(-2, -2, A.viewW + 4, A.viewH + 4).fill(era.sky); // a little oversize: the blur eats the edges
+    sky.clear().rect(0, 0, A.viewW, A.viewH).fill(era.sky);
     const st = { ...T.finish.style, ...era.style }; // this era's painting style
     grain.alpha = st.grain;
     tintWash.clear().rect(0, 0, 1, 1).fill(st.tint);
@@ -135,16 +125,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const backLayer = new Container(); // a dodging fighter is drawn here, behind everyone else
   const fighterLayer = new Container();
   const propLayer = new Container(); // planks, logs and other loose objects
-  view.addChild(backdrop, platform, walls, paintLayer, splatLayer, propLayer, backLayer, fighterLayer);
+  actors.addChild(paintLayer, propLayer, backLayer, fighterLayer, splatLayer);
+  view.addChild(flat, painted, actors);
 
-  const bgTex = await loadBackground();
-  if (bgTex) {
-    const bg = new Sprite(bgTex);
-    bg.width = A.viewW;
-    bg.height = A.viewH;
-    bg.position.set(-0.3, -0.3); bg.width = A.viewW + 0.6; bg.height = A.viewH + 0.6; // oversize like the sky
-    backdrop.addChild(bg);
-  }
 
   // Cheap global finish on top of everything (screen space).
   const vignette = new Sprite(canvasTexture(256, (ctx) => {
@@ -287,11 +270,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
       const px = app.screen.height / 1080;
-      world.filterArea = new Rectangle(0, 0, app.screen.width, app.screen.height);
+      actors.filterArea = new Rectangle(0, 0, app.screen.width, app.screen.height);
       setOilScale(oil, app.screen.height / 1080);
       grain.width = tintWash.width = app.screen.width;
       grain.height = tintWash.height = app.screen.height;
-      backdropBlur.strength = ({ ...T.finish.style, ...eraById(paintedEra).style }).blur * px; // blur is in screen pixels: tuned at 1080p, so scale with the window
       paintBlur.strength = T.finish.paintBlur * px;
       if (sim.round !== shownRound) { // a new round: the picture is clean again (the paint lasts the whole round)
         shownRound = sim.round;
@@ -300,6 +282,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
       for (let i = growing.length - 1; i >= 0; i--) { const g = growing[i]; g.t += frameSeconds; const k = Math.min(1, g.t / g.dur); g.s.scale.set(g.to * k * (2 - k)); if (k >= 1) growing.splice(i, 1); }
       if (paintedEra !== sim.era) paintArena(sim.era); // a new round in a new era
+      const tex = backdrops.get(sim.era, sim.arena); // the painted backdrop (null while it is being painted)
+      if (tex && painted.texture !== tex) { painted.texture = tex; painted.width = A.viewW; painted.height = A.viewH; backdrops.prefetch(sim.upcoming().era, sim.upcoming().arena); }
+      painted.visible = !!tex;
+      flat.visible = !tex;
       if (builtVersion !== sim.version) rebuild();
       for (const { p, k } of propEntries) { k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha)); k.rotation = p.pa + wrap(p.ca - p.pa) * alpha; }
       shake *= Math.pow(T.shake.decayPerSecond, frameSeconds);
