@@ -3,6 +3,7 @@ import { eraById } from '../content/eras';
 import { COLORS } from '../content/looks';
 import { createOilFilter, setOilScale } from './oilpaint';
 import { createBackdrops } from './painter/backdrops';
+import { paintedShape, PPM, VARIANTS } from './painter/sprites';
 import type { Hat } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
@@ -37,10 +38,11 @@ function drawHat(hat: Hat, tint: number, headR: number): Graphics | null {
   return g;
 }
 
-/** Big painted eyes (art direction): two white discs with dark pupils, drawn at the head's centre; the caller flips them with the facing. */
+/** Big painted eyes (art direction, as in the package's fighters): two cream discs with dark pupils, drawn at the head's centre; the caller
+ * flips them with the facing. They stay crisp (the package keeps eyes out of the paint). */
 function drawEyes(headR: number): Container {
   const c = new Container(), r = headR * BIG, g = new Graphics();
-  for (const dx of [0.2, 0.62]) g.circle(r * dx, -r * 0.1, r * 0.3).fill(0xf5f1e6).circle(r * (dx + 0.09), -r * 0.08, r * 0.14).fill(0x1c1814);
+  for (const dx of [-0.36, 0.41]) g.circle(r * dx, 0, r * 0.255).fill(0xf7f2e0).circle(r * (dx + 0.073), r * 0.023, r * 0.13).fill(0x120d0a);
   g.scale.set(1 / BIG);
   c.addChild(g);
   return c;
@@ -57,6 +59,37 @@ function drawShape(s: Shape, color: number): Graphics {
   return g;
 }
 
+// The light comes from the upper left (as in the paintings). A painted capsule is lit from its own left; when the other side faces the
+// light, its mirror image fades in instead.
+const LX = -0.6, LY = -0.8;
+const UNDER = 0x1a120d; // the dark underpaint showing at the lower right of every fighter and object (the package's lost-and-found edge)
+
+/** One painted ball or capsule on a part: a sprite (and its mirror image, for a capsule). */
+interface Painted { s: Shape; tex: Texture[]; a: Sprite; b: Sprite | null }
+function addPainted(parent: Container, s: Shape, color: number): Painted {
+  const P = T.finish.paint;
+  const tex = paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, color, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+  const mk = (mirror: boolean) => {
+    const sp = new Sprite(tex[0]);
+    sp.anchor.set(0.5);
+    sp.scale.set((mirror ? -1 : 1) / PPM, 1 / PPM);
+    sp.position.set(s.x, s.y);
+    if (s.k === 'cap') sp.rotation = s.rot;
+    parent.addChild(sp);
+    return sp;
+  };
+  return { s, tex, a: mk(false), b: s.k === 'cap' ? mk(true) : null };
+}
+/** Keep a painted shape lit from the upper left however its part is turned, and show this moment's boil variant. */
+function updatePainted(p: Painted, partRot: number, variant: number): void {
+  p.a.texture = p.tex[variant];
+  if (p.b) {
+    p.b.texture = p.tex[variant];
+    const phi = partRot + (p.s.k === 'cap' ? p.s.rot : 0), d = Math.cos(phi) * LX + Math.sin(phi) * LY, t = Math.min(1, Math.max(0, (d + 0.2) / 0.4));
+    p.b.alpha = t * t * (3 - 2 * t);
+  } else p.a.rotation = -partRot; // a ball keeps its highlight at the upper left
+}
+
 /** A small texture painted in code (used for the vignette): no asset files. */
 function canvasTexture(size: number, paint: (ctx: CanvasRenderingContext2D) => void): Texture {
   const c = document.createElement('canvas');
@@ -70,6 +103,8 @@ interface Entry {
   group: Container; // everything of one fighter, so the dodge can shrink them about the torso
   c: Container[]; // one per part
   vis: number; // 0 = normal plane, 1 = background plane (smoothed)
+  painted: Painted[][]; // per part: its painted shapes
+  under: Container[]; // per part: its dark underpaint silhouette (drawn behind the whole fighter, offset down-right)
   eyes: Container[]; // painted eyes: they look the way the fighter faces
   blur: BlurFilter; // softens the fighter as they slip back into the background plane (dodge)
   crushed: boolean; // flattened by a stomp or a crash
@@ -179,19 +214,33 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const playerColor = (i: number) => COLORS[sim.looks[i]?.color ?? i % COLORS.length].hex; // each player's chosen colour
   const fighterColor = (f: Fighter) => (f.controlled ? playerColor(f.index) : T.colors.dummy); // the training dummy has its own colour
 
+  // Paint every lobby colour's body parts in idle moments after start-up, so picking a colour never stalls a round.
+  const prewarm: (() => void)[] = [];
+  const P0 = T.finish.paint, K0 = { relief: P0.relief, bristle: P0.bristle, jitter: P0.jitter, under: P0.under };
+  for (const { hex } of COLORS) for (const p of sim.fighters[0]?.parts ?? []) for (const s of p.shapes) {
+    const col = p.role === 'stick' ? T.colors.stick : p.role === 'off' ? mix(hex, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(hex, 0x000000, 0.18) : hex;
+    prewarm.push(() => paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0));
+  }
+  const idle = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 50));
+  const warmNext = () => { const job = prewarm.shift(); if (job) { job(); idle(warmNext); } };
+  idle(warmNext);
+
   let scale = 1, shake = 0, builtVersion = -1;
   const entries: Entry[] = [];
 
-  const propEntries: { p: Part; k: Container }[] = [];
+  const propEntries: { p: Part; k: Container; painted: Painted[]; under: Graphics }[] = [];
+  let boil = 0, variant = 0; // the painted fighters "boil": their brush strokes change a few times a second
 
   function rebuild() {
     for (const e of propEntries) e.k.destroy({ children: true });
     propEntries.length = 0;
     for (const p of sim.props) {
-      const k = new Container();
-      for (const s of p.shapes) k.addChild(drawShape(s, T.colors.stick));
+      const k = new Container(), under = new Graphics();
+      for (const s of p.shapes) under.addChild(drawShape(s, UNDER));
+      k.addChild(under);
+      const painted = p.shapes.map((s) => addPainted(k, s, T.colors.stick));
       propLayer.addChild(k);
-      propEntries.push({ p, k });
+      propEntries.push({ p, k, painted, under });
     }
     for (const e of entries) e.group.destroy({ children: true });
     fighterLayer.removeChildren();
@@ -200,13 +249,19 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const group = new Container();
       const base = fighterColor(f);
       group.sortableChildren = true;
-      const c: Container[] = [], eyes: Container[] = [];
+      const c: Container[] = [], eyes: Container[] = [], painted: Painted[][] = [], under: Container[] = [];
+      const underAll = new Container();
+      underAll.zIndex = -10;
+      group.addChild(underAll);
       for (const p of f.parts as Part[]) {
-        const k = new Container();
+        const k = new Container(), u = new Container();
         k.zIndex = p.role === 'off' ? -2 : p.role === 'stick' ? -0.5 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs; a held club is behind the hand and arm so it looks gripped
         const color = p.role === 'stick' ? T.colors.stick : base;
         const shade = p.role === 'off' ? mix(color, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(color, 0x000000, 0.18) : color;
-        for (const s of p.shapes) k.addChild(drawShape(s, shade));
+        painted.push(p.shapes.map((s) => addPainted(k, s, shade)));
+        for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
+        underAll.addChild(u);
+        under.push(u);
         // The hat goes on the head: the head part once it has come off, otherwise the head ball on the torso.
         const hat = f.controlled ? sim.looks[f.index]?.hat : undefined;
         const onHead = p.role === 'head' || (p.role === 'torso' && !f.ragdolled);
@@ -219,7 +274,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         c.push(k);
       }
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, eyes, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
+      entries.push({ f, group, c, eyes, painted, under, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
     }
     builtVersion = sim.version;
   }
@@ -287,7 +342,15 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       painted.visible = !!tex;
       flat.visible = !tex;
       if (builtVersion !== sim.version) rebuild();
-      for (const { p, k } of propEntries) { k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha)); k.rotation = p.pa + wrap(p.ca - p.pa) * alpha; }
+      boil += frameSeconds * T.finish.boilFps;
+      variant = Math.floor(boil) % VARIANTS;
+      const off = T.finish.underOffset;
+      for (const { p, k, painted: pp, under } of propEntries) {
+        k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha));
+        k.rotation = p.pa + wrap(p.ca - p.pa) * alpha;
+        under.position.set(off * (Math.cos(k.rotation) + Math.sin(k.rotation)), off * (Math.cos(k.rotation) - Math.sin(k.rotation))); // world offset down-right
+        for (const q of pp) updatePainted(q, k.rotation, variant);
+      }
       shake *= Math.pow(T.shake.decayPerSecond, frameSeconds);
       for (const r of rings) {
         if (!r.g.visible) continue;
@@ -313,6 +376,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha));
           k.rotation = p.pa + wrap(p.ca - p.pa) * alpha;
           k.tint = tint;
+          const u = e.under[i];
+          u.position.set(k.x + off, k.y + off);
+          u.rotation = k.rotation;
+          for (const q of e.painted[i]) updatePainted(q, k.rotation, variant);
         });
         for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
         const torso = c[0];

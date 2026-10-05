@@ -446,8 +446,10 @@ export const tuning = {
     // width = painting resolution; under = smooth underpaint showing through the strokes (higher = smoother); relief = paint thickness;
     // bristle = how streaky a stroke is; jitter = colour wobble between strokes. Each era can scale these (content/paintings.ts, brush).
     paint: { width: 1280, under: 0.5, relief: 0.55, bristle: 0.25, jitter: 0.45 },
-    // The live oil filter over the fighters, props and paint (add ?nooil to the address to compare).
-    oil: { enabled: true, radius: 3.5, relief: 0.13, stroke: 46 }, // radius = how far colour is blended (px at 1080p), relief = paint thickness lighting, stroke = brush length
+    // A live oil filter over the fighters, props and paint (off: they are painted textures now; set enabled: true to compare).
+    oil: { enabled: false, radius: 3.5, relief: 0.13, stroke: 46 }, // radius = how far colour is blended (px at 1080p), relief = paint thickness lighting, stroke = brush length
+    boilFps: 9, // how often the painted fighters' brush strokes change (the package: 3 painted variants at 8-10 fps)
+    underOffset: 0.025, // metres: the dark underpaint peeking out at the lower right of fighters and objects
     paintBlur: 2, // softness of the paint on the picture (pixels at 1080p)
     // The painting style. Every era can override any of these in its `style` row (content/eras.ts).
     style: {
