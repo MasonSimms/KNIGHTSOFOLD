@@ -49,7 +49,7 @@ export class Room {
     for (const e of this.sim.events) {
       const copy = { ...e };
       this.pending.push(copy);
-      if (e.t === 'newround') this.log.length = 0; // a new round rebuilds everything: earlier events no longer matter (catchUp rebuilds who is parked or gone from the sim itself)
+      if (e.t === 'newround') { this.log.length = 0; continue; } // a new round rebuilds everything: earlier events no longer matter, and the event itself is not replayed to a joiner (they build that round directly)
       if (STRUCTURAL.has(e.t)) this.log.push(copy);
     }
   }

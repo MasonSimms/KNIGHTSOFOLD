@@ -39,17 +39,22 @@ export class Mirror {
   private head = 0; // the server tick being shown (it runs `delay` ticks behind the newest snapshot, so there is always a pair to blend)
   private started = false;
   private lastLooks = '';
+  private fresh = true; // nothing shown yet: the first snapshot says which round and era to build
 
   constructor(readonly sim: Sim, readonly delay = 6) {}
 
   push(s: Snapshot): void {
+    if (this.fresh) { // a new client (or one that rejoined): build the round the server is in, with its era's weapon and arena
+      this.fresh = false;
+      if (s.round !== this.sim.round || s.era !== this.sim.era) this.sim.buildRound(s.round, s.era);
+    }
     if (s.frame > (this.snaps.at(-1)?.frame ?? -1)) this.snaps.push(s);
     if (this.snaps.length > 60) this.snaps.shift();
   }
 
   /** Start over from a fresh build (a rejoining client): forget everything and replay from the next catch-up snapshot. */
   reset(): void {
-    this.snaps = []; this.applied = -1; this.started = false;
+    this.snaps = []; this.applied = -1; this.started = false; this.fresh = true;
     this.sim.gone.fill(false);
     this.sim.reset();
   }

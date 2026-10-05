@@ -4,6 +4,9 @@ import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
 import { buildFighter, controlFighter, cutJoint, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
+import { eraById } from '../content/eras';
+import { weaponById } from '../content/weapons';
+import type { Weapon } from '../content/weapons';
 import { eraFor, outfitsFor } from './era';
 import { makeRng } from './rng';
 import type { Look } from '../content/looks';
@@ -17,6 +20,8 @@ const initRapier = () => (ready ??= RAPIER.init());
 
 /** The training dummy never gets real input: it holds its club in a low guard, facing the player (to its left). */
 const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI - 0.4 };
+
+export type Arena = typeof T.arena;
 
 /** What killed a fighter, so the death can be staged to fit (crushed, blown apart, a limb lost). */
 export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam'; part?: Part; head?: boolean; nx: number; ny: number }
@@ -39,6 +44,9 @@ export class Sim {
   era = 'caveman'; // the era of this round (picks the arena look and the outfits)
   outfits = [0, 1, 2, 3]; // which of the era's 4 outfits each fighter wears this round
   forceEra: string | null = null; // testing: ?era=samurai keeps every round in one era
+  private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
+  weapon: Weapon = { id: 'club', name: 'Club', ...T.stick }; // what everyone fights with this round (the era's weapon)
+  private arenaCache: { key: string; arena: Arena } | null = null;
   looks: Look[] = [0, 1, 2, 3].map((color) => ({ color, hat: 'none' as const })); // each player's colour and hat (looks only: nothing in the physics reads them)
   gone = [false, false, false, false]; // players who left (online): dead this round, and parked out of sight in later rounds
   round = 1;
@@ -68,6 +76,24 @@ export class Sim {
     this.reset();
   }
 
+  /** The arena of the current round: the standard one, or the era's own layout (a pure function of the era, so a client can ask without building anything). */
+  get arena(): Arena {
+    const key = `${this.era}|${T.eras.changeGameplay}`;
+    if (this.arenaCache?.key !== key) {
+      const over = T.eras.changeGameplay ? eraById(this.era).arena : {};
+      this.arenaCache = { key, arena: { ...T.arena, ...over, ledges: (over as { ledges?: Arena['ledges'] }).ledges ?? [] } as Arena };
+    }
+    return this.arenaCache.arena;
+  }
+
+  /** Online client: build the round the server is in (its round number and era), instead of round 1. */
+  buildRound(round: number, era: string): void {
+    this.round = round;
+    this.eraOverride = era;
+    this.build();
+    this.eraOverride = null;
+  }
+
   get matchActive(): boolean { return !this.dummy && this.count >= 2; }
 
   /** Rebuild everything from the current tuning values and start the scores again. */
@@ -82,7 +108,8 @@ export class Sim {
   /** Build a fresh arena and fighters (the scores are kept). */
   private build(): void {
     this.world?.free();
-    this.era = this.forceEra ?? eraFor(this.seed, this.round).id;
+    this.era = this.eraOverride ?? this.forceEra ?? eraFor(this.seed, this.round).id;
+    this.weapon = T.eras.changeGameplay ? weaponById(eraById(this.era).weapon) : { id: 'club', name: 'Club', ...T.stick };
     this.outfits = outfitsFor(this.seed, this.round);
     this.rng = makeRng(this.seed);
     this.frame = 0;
@@ -90,7 +117,7 @@ export class Sim {
     this.events.length = 0;
     this.partByBody.clear();
 
-    const A = T.arena;
+    const A = this.arena;
     this.world = new RAPIER.World({ x: 0, y: T.sim.gravity });
     this.world.timestep = T.sim.dt;
     this.world.numSolverIterations = T.sim.solverIterations;
@@ -110,7 +137,13 @@ export class Sim {
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(A.wallThickness / 2, wallH).setFriction(0.05).setCollisionGroups(worldGroups), wall);
     }
 
-    const xs = this.dummy ? A.spawnX : A.fightSpawnX;
+    // Where each fighter starts, kept in the same place along the platform whatever the era's layout (the standard arena maps to itself).
+    const along = (x: number) => A.platformX + ((x - T.arena.platformX) / T.arena.platformW) * A.platformW;
+    for (const l of A.ledges) { // floating platforms
+      const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(l.x + l.w / 2, A.platformTop - l.up + 0.15));
+      this.world.createCollider(RAPIER.ColliderDesc.cuboid(l.w / 2, 0.15).setFriction(A.friction).setCollisionGroups(worldGroups), body);
+    }
+    const xs = (this.dummy ? A.spawnX : A.fightSpawnX).map(along);
     this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, xs[i], !(this.dummy && i === 1)));
     this.fighters.forEach((f) => { if (this.gone[f.index]) this.park(f); });
     // Arena weapon rule: with 'spots' or 'sky' nobody starts armed; the clubs lie at fixed spots or fall from above.
@@ -153,8 +186,8 @@ export class Sim {
   }
 
   private spawn(index: number, x: number, player: boolean): Fighter {
-    const y = T.arena.platformTop - T.stand.height - 0.02; // the hips at standing height
-    const f = buildFighter(this.world, index, x, y, player, !player || T.fighter.startArmed); // the dummy always holds a club, so you can practise disarming
+    const y = this.arena.platformTop - T.stand.height - 0.02; // the hips at standing height
+    const f = buildFighter(this.world, index, x, y, player, !player || T.fighter.startArmed, this.weapon); // the dummy always holds a club, so you can practise disarming
     for (const p of f.parts) this.partByBody.set(p.body.handle, p);
     return f;
   }
@@ -358,7 +391,7 @@ export class Sim {
 
   /** A club lost in the void comes back from the sky after a while, so there are always weapons in play. */
   private keepWeaponsInPlay(): void {
-    const A = T.arena;
+    const A = this.arena;
     for (const g of this.fighters) {
       if (!g.stick || g.grip) continue;
       if (g.stick.body.translation().y > A.killY) g.lostFrames++;
@@ -443,7 +476,7 @@ export class Sim {
   private clash(f: Fighter, att: Attacker, holder: Fighter, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }): void {
     const c = this.contact(att.part, vp, pt, n);
     if (att.kind === 'stick' && this.parry(f, att, holder, c, pt)) return;
-    const impact = impactValue(c.closing, (att.kind === 'stick' ? T.stick : T.fist).impactFactor);
+    const impact = impactValue(c.closing, (att.kind === 'stick' ? att.part.weapon ?? T.stick : T.fist).impactFactor);
     this.tryDisarm(f, holder, vp, pt, impact, c.nx, c.ny, c.sa, c.sb);
   }
 
@@ -506,7 +539,7 @@ export class Sim {
   private hit(f: Fighter, att: Attacker, victim: Fighter | undefined, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }, head: boolean): void {
     if (!victim || victim.limp || this.detached(victim, vp)) return;
     const { nx, ny, closing, sa, sb } = this.contact(att.part, vp, pt, n);
-    const W = att.kind === 'stick' ? T.stick : T.fist;
+    const W = att.kind === 'stick' ? att.part.weapon ?? T.stick : T.fist;
     const impact = impactValue(closing, W.impactFactor);
     this.tryDisarm(f, victim, vp, pt, impact, nx, ny, sa, sb); // a great hit on the hand or arm can knock the club out
     let dmg = damageFor(impact, head ? T.combat.headMult : 1);
@@ -601,7 +634,7 @@ export class Sim {
   }
 
   private checkDeaths(): void {
-    const A = T.arena;
+    const A = this.arena;
     for (const f of this.fighters.slice()) {
       const t = f.torso.body.translation();
       if (!f.limp && (t.y > A.killY || t.x < -A.killXMargin || t.x > A.viewW + A.killXMargin)) this.kill(f, true);

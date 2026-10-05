@@ -82,15 +82,16 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
 
   const view = new Container(); // metres -> pixels, letterboxed, shaken
   app.stage.addChild(view);
-  const A = T.arena;
+  const A = sim.arena; // (only the view size is read from this one: it never changes)
   const sky = new Graphics(), platform = new Graphics(), walls = new Graphics();
   /** (Re)paint the arena in an era's colours. */
   let paintedEra = '';
   const paintArena = (id: string) => {
-    const era = eraById(id);
+    const era = eraById(id), A = sim.arena;
     paintedEra = id;
     sky.clear().rect(0, 0, A.viewW, A.viewH).fill(era.sky);
     platform.clear().rect(A.platformX, A.platformTop, A.platformW, A.platformThickness).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
+    for (const l of A.ledges) platform.rect(l.x, A.platformTop - l.up, l.w, 0.3).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
     walls.clear();
     for (const cx of [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2]) {
       walls.rect(cx - A.wallThickness / 2, A.wallTop, A.wallThickness, A.killY + 2 - A.wallTop).fill(era.wall).stroke({ width: 0.04, color: T.colors.platformEdge });

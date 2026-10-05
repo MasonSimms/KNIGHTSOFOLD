@@ -1,6 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { Collider, ImpulseJoint, RevoluteImpulseJoint, RigidBody, World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
+import type { Weapon } from '../content/weapons';
 import type { PlayerInput, SimEvent } from './types';
 
 export type Shape =
@@ -12,6 +13,7 @@ export interface Part {
   shapes: Shape[]; // what the renderer draws (the same as the colliders)
   colliders: Collider[];
   role: 'torso' | 'upper' | 'fore' | 'stick' | 'head' | 'thigh' | 'shin' | 'off'; // 'off' = the floppy second arm
+  weapon?: Weapon; // a club's own stats (so it keeps them when someone else picks it up)
   owner: number;
   // interpolation poses (previous / current sim step) for the renderer
   px: number; py: number; pa: number; cx: number; cy: number; ca: number;
@@ -146,7 +148,7 @@ function revolute(world: World, a: RigidBody, ax: number, ay: number, b: RigidBo
   return j;
 }
 
-export function buildFighter(world: World, index: number, x: number, y: number, controlled: boolean, armed: boolean): Fighter {
+export function buildFighter(world: World, index: number, x: number, y: number, controlled: boolean, armed: boolean, weapon: Weapon): Fighter {
   const F = T.fighter;
   const L = F.armLength;
   const armHl = L / 2 - F.armRadius;
@@ -217,11 +219,12 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   };
 
   if (armed) {
-    const S = T.stick;
+    const S = weapon;
     const grip = S.length / 2 - S.gripFromEnd; // grip point sits this far behind the stick centre
     const stick = addPart(world, index, 'stick', sx + 2 * L + grip, sy, 0, [
       { s: { k: 'cap', hl: S.length / 2 - S.thickness / 2, r: S.thickness / 2, x: 0, y: 0, rot: Math.PI / 2 }, mass: S.mass, attacker: 'stick' },
     ], attackers, { lin: 0, ang: 0.2 });
+    stick.weapon = weapon;
     f.stick = stick;
     parts.push(stick);
     attachStick(world, f);
@@ -235,7 +238,8 @@ const tmp = { x: 0, y: 0 };
 function attachStick(world: World, f: Fighter): void {
   const stick = f.stick!;
   const L = T.fighter.armLength;
-  const grip = T.stick.length / 2 - T.stick.gripFromEnd;
+  const W = stick.weapon ?? T.stick;
+  const grip = W.length / 2 - W.gripFromEnd;
   // Snap the stick into the hand, in line with the forearm, so the joint starts relaxed.
   const fore = f.fore.body;
   const a = fore.rotation();

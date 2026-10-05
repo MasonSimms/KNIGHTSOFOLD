@@ -27,6 +27,7 @@ export const tuning = {
     wallTop: 3.2, // how high the walls reach (the platform top is at 7.4)
     spawnX: [7, 11.5, 5.5, 13.5], // playing alone: fighter 0 = you, 1 = the training dummy, 2 and 3 = extra fighters (stress test)
     fightSpawnX: [6.2, 13.0, 8.6, 10.6], // a real fight of 2-4 players: where each one starts
+    ledges: [] as { x: number; up: number; w: number }[], // floating platforms (an era's arena can add them)
   },
   fighter: {
     hp: 100, // hidden: never shown on screen (F3 overlay only)
@@ -284,6 +285,7 @@ export const tuning = {
     pickupDelay: 45, // frames before the dropped club can be picked up
   },
   eras: {
+    changeGameplay: true, // an era changes the arena layout and the weapon (false = every round uses the standard arena and club: the tests do this)
     specialChance: 0.15, // each round has this chance of being one of the special eras (fantasy archers, mobsters...) instead of the normal rotation
   },
   maim: {
