@@ -161,11 +161,18 @@ export const tuning = {
     poseDamping: 6,
     maxTorque: 40,
     trail: 0.35, // radians it lags behind the main arm in punches and grabs, so the two arms look like two arms
-    softness: 25, // how firmly it holds its other poses (lower than stiffness: it still sways with the body)
+    // Its other poses (owner: it was stiff; it should flow with the body). The springs are soft and lightly damped, so the arm lags behind
+    // the body and swings through; the elbow is looser still, so the forearm trails a beat behind. (Was 25 and 6 on both joints: four
+    // times more damping than the arm's weight needs, so it moved as if through honey, glued to the body.)
+    softness: 14, // shoulder: how firmly it pulls toward the pose (N m per radian)
+    swingDamping: 1.1, // shoulder: how much it resists swinging (lower = swings further past the pose before settling)
+    elbowSoftness: 5, // elbow: lower than the shoulder, so the forearm trails
+    elbowDamping: 0.18,
+    blend: 0.12, // seconds: it glides into a new pose over about this long instead of snapping to it
     guard: [1.25, -1.9], // empty-handed, standing: fist up by the chest
     rest: [1.35, -0.6], // holding a weapon, standing: the free hand a little forward, elbow soft
     run: 0.7, // running: it swings this far either way, against the legs...
-    runElbow: -1.3, // ...with the elbow bent like a runner's
+    runPose: [Math.PI / 2, -1.3], // ...about hanging, with the elbow bent like a runner's
     air: [-0.4, -0.7], // in the air: up and out for balance
     charge: [0.35, -0.3], // winding up a club: reached forward as a counterweight
     lunge: [2.4, -0.3], // lunging and swinging: thrown back

@@ -72,7 +72,7 @@ if (onlineParam !== null) {
 const view = mirror ? mirror.sim : sim; // what is drawn
 // The game opens on the menus (home, then the Hall of Champions or training). Testing links skip them and keep the old rules: plugging in
 // a gamepad adds a player. Online has its own room screen.
-const testing = ['stress', 'slow', 'era', 'map', 'hats', 'colors', 'eyes', 'lag', 'bots'].some((k) => query.has(k));
+const testing = ['stress', 'slow', 'era', 'map', 'hats', 'colors', 'eyes', 'lag', 'bots', 'arm'].some((k) => query.has(k));
 let mode: 'auto' | 'training' | 'local' = testing || net ? 'auto' : 'training';
 let devices: (Device | 'bot')[] = []; // a local fight: who drives each fighter (keyboard and mouse, a gamepad, or a bot that plays itself)
 let hallTraining = false; // the Hall was opened for Training (one player is enough, bots allowed)
@@ -225,6 +225,8 @@ function frame(now: number) {
 
 // ?bots=3: you against three bots straight away (no menus); ?bots=4: watch four bots fight. Add &slow=0.3 to watch in slow motion.
 const botsParam = Math.min(4, Number(query.get('bots')) || 0);
+// ?arm=old: the free arm as it was before it was loosened (stiff, glued to the body), to compare with the new one
+if (query.get('arm') === 'old') Object.assign(T.offArm, { softness: 25, swingDamping: 6, elbowSoftness: 25, elbowDamping: 6, blend: 1 / 60 });
 if (botsParam) {
   mode = 'local'; mySlot = 0;
   devices = botsParam >= 4 ? ['bot', 'bot', 'bot', 'bot'] : ['kb', ...Array<'bot'>(botsParam).fill('bot')];

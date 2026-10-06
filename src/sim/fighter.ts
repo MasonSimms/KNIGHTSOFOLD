@@ -55,6 +55,9 @@ export interface Fighter {
   neck: RevoluteImpulseJoint | null; // once the head has come off onto a floppy neck (death)
   offShoulder: RevoluteImpulseJoint; // the second arm: only for show
   offElbow: RevoluteImpulseJoint;
+  offPose: number[]; // the pose the second arm is gliding toward its wanted pose through ([upper arm, elbow] as if facing right: see tuning.offArm)
+  offSwing: number; // how much of the runner's swing it has eased into (0..1)
+  offSide: number; // the facing that offPose is written for
   bodyHitAt: number; // earliest frame this fighter may body-slam again
   gait: number; // walk cycle phase
   kneeSide: number; // which way the knees currently fold (follows the facing)
@@ -241,7 +244,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
@@ -971,16 +974,24 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     : f.release > 0 ? OH.lunge
     : armed && f.charge > 0 ? OH.charge
     : !f.grounded ? OH.air
-    : run > 0.3 ? [Math.PI / 2 + OH.run * run * Math.sin(f.gait), OH.runElbow]
+    : run > 0.3 ? OH.runPose
     : armed ? OH.rest : OH.guard;
+  const upperB = f.offShoulder.body2(), foreB = f.offElbow.body2();
+  if (f.offSide !== s) { f.offPose[0] = wrapAngle(Math.PI - f.offPose[0]); f.offPose[1] = -f.offPose[1]; f.offSide = s; } // turned round: carry on from where the arm is
   if (!armed && f.controlled && (grabbing || f.punch > 0)) {
     f.offShoulder.configureMotorPosition(wrapAngle(mirror(aimR + OH.trail) - tr), OH.stiffness, OH.poseDamping);
     f.offElbow.configureMotorPosition(f.punch > 0 && punchPhase === 'recover' ? s * K.guardElbow : 0, OH.stiffness, OH.poseDamping);
     f.offShoulder.setMotorMaxForce(OH.maxTorque);
     f.offElbow.setMotorMaxForce(OH.maxTorque);
   } else if (pose) {
-    f.offShoulder.configureMotorPosition(wrapAngle(mirror(pose[0]) - tr), OH.softness, OH.poseDamping);
-    f.offElbow.configureMotorPosition(s * pose[1], OH.softness, OH.poseDamping);
+    // Glide toward the pose (never snap to it), on soft, lightly damped springs: the arm lags behind the body and swings through, the
+    // forearm a beat behind the upper arm (owner: the arm was stiff; it should flow with the rest of the body).
+    const k = Math.min(1, dt / OH.blend);
+    f.offPose[0] = wrapAngle(f.offPose[0] + wrapAngle(pose[0] - f.offPose[0]) * k);
+    f.offPose[1] += (pose[1] - f.offPose[1]) * k;
+    f.offSwing += ((pose === OH.runPose ? run : 0) - f.offSwing) * k;
+    f.offShoulder.configureMotorPosition(wrapAngle(mirror(f.offPose[0] + OH.run * f.offSwing * Math.sin(f.gait)) - tr), OH.softness, OH.swingDamping);
+    f.offElbow.configureMotorPosition(s * f.offPose[1], OH.elbowSoftness, OH.elbowDamping);
     f.offShoulder.setMotorMaxForce(OH.maxTorque);
     f.offElbow.setMotorMaxForce(OH.maxTorque);
   } else {
@@ -988,5 +999,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     f.offElbow.configureMotorPosition(0, 0, T.offArm.damping);
     f.offShoulder.setMotorMaxForce(1e6);
     f.offElbow.setMotorMaxForce(1e6);
+  }
+  if (!pose || (!armed && f.controlled && (grabbing || f.punch > 0))) { // punching, grabbing or limp: the next pose glides from where the arm really is
+    f.offPose[0] = wrapAngle(mirror(upperB.rotation())); f.offPose[1] = s * wrapAngle(foreB.rotation() - upperB.rotation()); f.offSwing = 0;
   }
 }
