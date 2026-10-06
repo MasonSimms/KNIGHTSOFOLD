@@ -8,10 +8,16 @@ The last knight standing wins the round.
 
 1. Open the game link in **Chrome**: `<the link goes here once the game is online>`
 2. Click **Online**.
-3. One person clicks **Make a room** and reads out the 4-letter code. Everyone else types the code and clicks **Join**.
+3. One person clicks **Make a room**, then **Copy invite link** and pastes it in the chat: a click on it takes you straight into the room.
+   (Or read out the 4-letter code: everyone else types it and clicks **Join**.)
 4. Pick a hat, eyes and a colour, then click **Ready up**. The host clicks **To Battle**.
 
+A match is 12 rounds, one per era; the winner is crowned at the end and everyone goes back to the room for a rematch.
+The host can end a fight early with **Esc** (everyone goes back to the room); anyone else leaves with **Esc**.
+
 Dropped out? Reload the page. You get your seat and your score back. Joining late? You come in at the next round.
+Your connection's delay shows in the bottom corner (amber when it is slow). **Settings > Controls**: Instant moves your fighter the
+moment you press (the server corrects it if needed); Exact waits for the server.
 
 ## Controls (mouse and keyboard)
 

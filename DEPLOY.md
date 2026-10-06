@@ -9,6 +9,10 @@ npm run server        # the room server, port 8080
 npm run dev           # the game, in a second terminal
 ```
 Open `http://localhost:5173/?online` in two browser tabs: one makes a room, the other joins with the 4-letter code, the first one presses Start.
+Or: the first tab clicks **Copy invite link** and the second tab opens that link. `http://localhost:8080/health` answers "ok" while the server runs.
+
+**Keep the page and the server the same version.** A page from another version is turned away with "the game has been updated: reload" (their
+copies of the fight would never match). So after changing the game, deploy BOTH: `fly deploy` for the server, and a new build of the page.
 `http://localhost:5173/?lag=100` plays solo through a pretend 100 ms network (no server needed).
 
 ## Cheapest ways to host (prices are approximate: check the provider's page before you commit)
