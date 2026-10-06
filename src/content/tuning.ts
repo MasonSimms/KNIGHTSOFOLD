@@ -609,6 +609,10 @@ export const tuning = {
     radiusMax: 40,
     radiusPerImpact: 1.2,
     alpha: 0.95,
+    // Hurt (owner): a subtle spray in the hurt player's own colour, flung the way the blow went, soaking into the canvas.
+    spray: { drops: [3, 9], reach: [0.25, 1.1], size: [7, 18], alpha: 0.55 }, // drops per hit (small hit .. big hit), how far they fly (m), their size (px), how strong
+    // Knocked off (owner): streaks of their paint fly onto the canvas from where they went out toward the middle of the picture.
+    streaks: { count: [5, 7], length: [2.5, 6], width: [10, 22], spread: 0.45, seconds: 0.35, alpha: 0.85, color: 'player' as 'player' | number }, // length in m, width in px, spread = radians either side; color 'player' or a colour like 0xb3232b (red)
   },
   audio: {
     master: 0.4,

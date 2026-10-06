@@ -156,6 +156,38 @@ export function paintedSplats(K: SpriteKnobs, count = 6): Texture[] {
   return out;
 }
 
+/** A few painted streaks of paint (white, tinted when used): a thick round head thinning to a tail, with drops along it. Anchor at (0, 0.5): the head is where it starts. */
+export function paintedStreaks(K: SpriteKnobs, count = 4): Texture[] {
+  const key = `streaks|${count}|${JSON.stringify(K)}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const out: Texture[] = [];
+  for (let n = 0; n < count; n++) {
+    const W = 260, H = 44, cy = H / 2, N = W * H, R = makeRandom(7001 + n * 17);
+    const c = new OffscreenCanvas(W, H), g = c.getContext('2d', { willReadFrequently: true })!;
+    g.fillStyle = '#fff';
+    g.beginPath(); // a tapered body: full width at the head, a thin wavy tail
+    const head = R.range(14, 18), tail = R.range(1.5, 3), wob = R.range(0.5, 2.5);
+    for (let x = 8; x <= W - 6; x += 4) { const t = (x - 8) / (W - 14), w = head * (1 - t) ** 0.8 + tail * t; g.lineTo(x, cy - w + Math.sin(t * 9 + n) * wob); }
+    for (let x = W - 6; x >= 8; x -= 4) { const t = (x - 8) / (W - 14), w = head * (1 - t) ** 0.8 + tail * t; g.lineTo(x, cy + w + Math.sin(t * 9 + n) * wob); }
+    g.closePath(); g.fill();
+    g.beginPath(); g.arc(14, cy, head + 1, 0, Math.PI * 2); g.fill(); // the round head
+    for (let i = 0; i < 6; i++) { g.beginPath(); g.arc(R.range(60, W - 10), cy + R.range(-14, 14), R.range(1.5, 4), 0, Math.PI * 2); g.fill(); } // drops thrown off it
+    const a0 = new Float32Array(N), d = g.getImageData(0, 0, W, H).data;
+    for (let i = 0; i < N; i++) a0[i] = d[4 * i + 3] / 255;
+    const a1 = blur(a0, W, H, 1), alpha = new Float32Array(N), img = newImg(W, H), ang = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      alpha[i] = Math.min(1, Math.max(0, (a1[i] - 0.3) * 3));
+      const y = (i / W) | 0, lit = Math.max(-1, Math.min(1, (cy - y) / cy)); // the top edge catches the light
+      for (let ch = 0; ch < 3; ch++) img.c[ch][i] = 0.86 + 0.1 * lit;
+      ang[i] = 0; // strokes along the streak
+    }
+    out.push(paintFlat(img, alpha, ang, 91 + n, K, 1)[0]); // (paint lies still: one variant)
+  }
+  cache.set(key, out);
+  return out;
+}
+
 /**
  * Something on the front plane, between us and the fighters (grass, a sign): painted like the rest, base at the bottom middle.
  * `greens` = the era's foliage colours, darkest first (used for grass).

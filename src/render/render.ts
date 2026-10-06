@@ -5,7 +5,7 @@ import { createOilFilter, setOilScale } from './oilpaint';
 import { createBackdrops } from './painter/backdrops';
 import { BOT_GRAYS, drawRobotHead } from './robot';
 import { createSea } from './sea';
-import { CAPE, paintedCape, paintedFront, paintedShape, paintedSplats, PPM, VARIANTS } from './painter/sprites';
+import { CAPE, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
 import { tuning as T } from '../content/tuning';
@@ -261,15 +261,43 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   }
   let nextSplat = 0, shownRound = sim.round;
   const growing: { s: Sprite; to: number; t: number; dur: number }[] = []; // splats that spread out over a moment
-  const splat = (x: number, y: number, radiusPx: number, color: number, grow = 0) => {
+  const splat = (x: number, y: number, radiusPx: number, color: number, grow = 0, alpha: number = T.splat.alpha) => {
     const s = splats[nextSplat++ % splats.length];
     s.position.set(x, y);
     s.scale.set(radiusPx / 100 / 45); // px at 1080p -> metres (the painted blob is about 45 texture px across its middle)
     s.rotation = (Math.random() - 0.5) * 0.4; // drips always run more or less down
     if (grow > 0) { growing.push({ s, to: s.scale.x, t: 0, dur: grow }); s.scale.set(0); }
     s.tint = color;
-    s.alpha = T.splat.alpha;
+    s.alpha = alpha;
     s.visible = true;
+  };
+  // Streaks of paint (a knock-off): a pool of painted streaks that shoot out from where someone went off, toward the middle of the picture.
+  const streakTexs = paintedStreaks({ relief: P1.relief, bristle: P1.bristle, jitter: P1.jitter, under: P1.under });
+  const streaks = Array.from({ length: 28 }, (_, i) => { const s = new Sprite(streakTexs[i % streakTexs.length]); s.anchor.set(0, 0.5); s.visible = false; paintLayer.addChild(s); return s; });
+  let nextStreak = 0;
+  const flying: { s: Sprite; len: number; t: number; delay: number }[] = [];
+  const lerpR = (r: number[], k: number) => r[0] + (r[1] - r[0]) * k;
+  /** Someone went off at (x, y): their paint streaks onto the canvas from the edge where they went out toward the middle. */
+  const paintStreaks = (x: number, y: number, color: number) => {
+    const S = T.splat.streaks, ex = Math.max(0.3, Math.min(A.viewW - 0.3, x)), ey = Math.max(0.3, Math.min(A.viewH - 0.3, y)), base = Math.atan2(A.viewH / 2 - ey, A.viewW / 2 - ex);
+    const n = Math.round(lerpR(S.count, Math.random()));
+    for (let i = 0; i < n; i++) {
+      const s = streaks[nextStreak++ % streaks.length], len = lerpR(S.length, Math.random()), w = lerpR(S.width, Math.random());
+      s.position.set(ex + (Math.random() - 0.5) * 0.6, ey + (Math.random() - 0.5) * 0.6);
+      s.rotation = base + (Math.random() * 2 - 1) * S.spread;
+      s.scale.set(0, w / 100 / 30); // grows to its length (the painted streak is 260 px long, its head about 30 px across)
+      s.tint = color; s.alpha = S.alpha; s.visible = true;
+      flying.push({ s, len: len / 2.6, t: 0, delay: i * 0.04 });
+    }
+  };
+  /** A hit: a subtle spray of the hurt player's paint, flung the way the blow went. */
+  const spray = (e: SimEvent, color: number) => {
+    const P = T.splat.spray, k = Math.min(1, e.v / 100), a = sim.fighters[e.owner]?.torso, b = sim.fighters[e.victim]?.torso;
+    const dir = a && b ? Math.atan2(b.cy - a.cy, b.cx - a.cx) : -Math.PI / 2;
+    for (let i = 0, n = Math.round(lerpR(P.drops, k)); i < n; i++) {
+      const d = lerpR(P.reach, Math.random()) * (0.5 + k), ang = dir + (Math.random() - 0.5) * 1.1;
+      splat(e.x + Math.cos(ang) * d, e.y + Math.sin(ang) * d, lerpR(P.size, Math.random()) * (0.6 + 0.6 * k), color, 0, P.alpha);
+    }
   };
   // Big-hit indicator rings (a small pool: nothing is allocated while playing).
   const rings = Array.from({ length: 8 }, () => {
@@ -400,7 +428,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const boost = e.head ? 1.5 : 1;
         const big = e.v * boost - T.shake.minImpact; // only big hits shake the screen
         if (big > 0) shake = Math.min(T.shake.max, Math.max(shake, big * T.shake.perImpact));
-        splat(e.x, e.y, Math.min(T.splat.radiusMax, T.splat.radiusMin + e.v * T.splat.radiusPerImpact) * boost, playerColor(e.owner));
+        if (e.victim >= 0) spray(e, fighterColor(sim.fighters[e.victim] ?? sim.fighters[0])); // the hurt player's own paint
         if (e.v * boost >= T.indicator.minImpact) ring(e.x, e.y, T.indicator.color);
       } else if (e.t === 'disarm') {
         ring(e.x, e.y, 0xffd24a); // a golden ring where a club is knocked loose
@@ -408,9 +436,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         ring(e.x, e.y, 0xffffff); ring(e.x, e.y, 0xffd24a);
         shake = Math.max(shake, T.death.shake);
         for (let i = 0; i < 8; i++) splat(e.x + Math.cos(i * 0.785) * 0.4, e.y + Math.sin(i * 0.785) * 0.4, T.splat.radiusMax, playerColor(e.victim));
-      } else if (e.t === 'fall') { // someone fell off the stage: red paint splashes up the edge of the picture where they went
-        const x = Math.max(0.6, Math.min(A.viewW - 0.6, e.x)), y = e.y > A.viewH ? A.viewH - 0.15 : Math.max(0.6, Math.min(A.viewH - 0.6, e.y));
-        for (let i = 0; i < 9; i++) splat(x + (Math.random() - 0.5) * 1.8, y - Math.random() * 1.0, 30 + Math.random() * 55, T.death.fallPaint, 0.18 + Math.random() * 0.2);
+      } else if (e.t === 'fall') { // someone went off the stage: streaks of their paint fly onto the canvas from where they went out
+        const S = T.splat.streaks;
+        paintStreaks(e.x, e.y, S.color === 'player' ? fighterColor(sim.fighters[e.owner] ?? sim.fighters[0]) : S.color);
         shake = Math.max(shake, T.death.shake);
       } else if (e.t === 'crash') { // a knocked-down fighter hitting a wall or the floor
         ring(e.x, e.y, 0xffffff);
@@ -445,7 +473,14 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       if (sim.round !== shownRound) { // a new round: the picture is clean again (the paint lasts the whole round)
         shownRound = sim.round;
         for (const s of splats) s.visible = false;
-        growing.length = 0;
+        for (const s of streaks) s.visible = false;
+        growing.length = 0; flying.length = 0;
+      }
+      for (let i = flying.length - 1; i >= 0; i--) { // streaks shooting across (fast, slowing as they land)
+        const f = flying[i]; f.t += frameSeconds;
+        const k = Math.min(1, Math.max(0, (f.t - f.delay) / T.splat.streaks.seconds));
+        f.s.scale.x = (f.len / 100) * (1 - (1 - k) ** 3);
+        if (k >= 1) flying.splice(i, 1);
       }
       for (let i = growing.length - 1; i >= 0; i--) { const g = growing[i]; g.t += frameSeconds; const k = Math.min(1, g.t / g.dur); g.s.scale.set(g.to * k * (2 - k)); if (k >= 1) growing.splice(i, 1); }
       if (paintedEra !== sim.era) paintArena(sim.era); // a new round in a new era

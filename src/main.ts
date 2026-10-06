@@ -327,5 +327,5 @@ if (mode === 'training') void menu('home');
 if (import.meta.env.DEV) (window as unknown as { sim: Sim }).sim = sim; // dev-only handle for console poking and browser tests
 if (import.meta.env.DEV) (window as unknown as { view: Sim; mirror: Mirror | null }).view = view; // (online: the copy that is drawn)
 if (import.meta.env.DEV) (window as unknown as { mirror: Mirror | null }).mirror = mirror;
-if (import.meta.env.DEV) Object.assign(window, { devTape: tape, devReplay: replay }); // (dev: cut and play an end-of-round replay from the console)
+if (import.meta.env.DEV) Object.assign(window, { devTape: tape, devReplay: replay, devPlay: play }); // (dev: cut and play an end-of-round replay from the console)
 if (import.meta.env.DEV) (window as unknown as { tuning: typeof tuning }).tuning = tuning; // dev-only: lets the browser console and tests flip settings
