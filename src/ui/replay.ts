@@ -40,9 +40,11 @@ export async function playClip(clip: Clip, renderer: Renderer, live: Sim, onEven
       last = now;
       if (menuPresses().some((p) => p.b === 'a' || p.b === 'b' || p.b === 'start')) stop = true;
       at = Math.min(end, at + dt * 60 * T.replay.speed);
-      const shown = m.show(at);
-      for (const e of shown.events) onEvent(e);
-      renderer.draw(shown.alpha, dt * T.replay.speed);
+      try {
+        const shown = m.show(at);
+        for (const e of shown.events) onEvent(e);
+        renderer.draw(shown.alpha, dt * T.replay.speed);
+      } catch (err) { console.warn('replay stopped:', err); stop = true; } // (never leave the game stuck on a replay)
       if (at >= end) hold -= dt;
       if (stop || hold <= 0) { removeEventListener('keydown', onKey, true); done(); return; }
       requestAnimationFrame(frame);

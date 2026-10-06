@@ -1,3 +1,4 @@
+import { setMusicVolume } from '../audio/music';
 import { setVolumes } from '../audio/sfx';
 import { menuPresses } from '../input/input';
 import type { Quality, Renderer } from '../render/render';
@@ -28,6 +29,7 @@ export function loadSettings(): Settings {
 export function applySettings(s: Settings, renderer: Renderer): void {
   renderer.setQuality(s.quality);
   setVolumes(s.master, s.effects);
+  setMusicVolume(s.master * s.music);
 }
 
 /** Music volume, for the music player when there is one (master x music). */
@@ -42,7 +44,7 @@ export function runSettings(renderer: Renderer): Promise<void> {
     { name: 'Graphics', value: () => s.quality[0].toUpperCase() + s.quality.slice(1), step: (d) => { s.quality = QUALITIES[(QUALITIES.indexOf(s.quality) + d + 3) % 3]; }, about: () => ABOUT[s.quality] },
     { name: 'Master volume', value: () => pct(s.master), step: vol('master') },
     { name: 'Sound effects', value: () => pct(s.effects), step: vol('effects') },
-    { name: 'Music', value: () => pct(s.music), step: vol('music'), about: () => 'There is no music yet: this is ready for when there is.' },
+    { name: 'Music', value: () => pct(s.music), step: vol('music') },
   ];
   const root = openMenu('prefs-wall', `<button class="back">${BACK}</button>
     <div class="prefs"><div class="plaque">Settings</div>

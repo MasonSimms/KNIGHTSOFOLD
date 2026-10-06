@@ -38,13 +38,15 @@ export class Tape {
     const s = snap ?? takeSnapshot(sim, sim.frame, sim.events.map((e) => ({ ...e })));
     if (sim.round !== this.round || sim.frame < this.lastFrame) this.newRound(sim);
     this.lastFrame = sim.frame;
-    this.spotter.feed(sim, this.key, s.ev);
-    for (const e of s.ev) {
+    // (the round starting is not part of it: the clip's copy is built in this round already, and replaying "newround" would build the next)
+    const ev = s.ev.filter((e) => e.t !== 'newround');
+    this.spotter.feed(sim, this.key, ev);
+    for (const e of ev) {
       if (STRUCTURAL.has(e.t)) this.log.push({ f: sim.frame, e });
       if (e.t === 'round') this.due = sim.frame + T.replay.after;
     }
-    if (sim.frame % 2 === 0 || this.due === sim.frame) { this.kept.push({ f: sim.frame, s: { ...s, ev: [...this.carry, ...s.ev] } }); this.carry = []; }
-    else this.carry.push(...s.ev);
+    if (sim.frame % 2 === 0 || this.due === sim.frame) { this.kept.push({ f: sim.frame, s: { ...s, ev: [...this.carry, ...ev] } }); this.carry = []; }
+    else this.carry.push(...ev);
     while (this.kept.length && this.kept[0].f < sim.frame - T.replay.keepSeconds * 60) this.kept.shift();
     if (this.due >= 0 && sim.frame >= this.due) { this.due = -1; this.ready = this.cut(sim); }
   }

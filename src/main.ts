@@ -1,4 +1,6 @@
 import { sfx, unlockAudio } from './audio/sfx';
+import { Excitement } from './audio/intensity';
+import { setMusicEra, updateMusic } from './audio/music';
 import { eraById } from './content/eras';
 import { botLook } from './content/looks';
 import { tuning } from './content/tuning';
@@ -125,9 +127,11 @@ async function replay(clip: Parameters<typeof playClip>[0], arrived?: number) {
   replaying = false;
 }
 
+const excitement = new Excitement(); // how exciting the fight is: the music follows it
 /** The picture and the sound for what just happened in the fight. */
 function play(e: SimEvent) {
   renderer.onEvent(e);
+  excitement.event(e);
   if (e.t === 'hit') sfx.hit(e.v, !!e.head);
   else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.(); // some events (respawn, new round) have no sound
 }
@@ -293,6 +297,12 @@ function frame(now: number) {
   }
   renderer.draw(alpha, ft / 1000);
   updateHud(view);
+  { // the music: the era's instruments in a fight, swelling with the excitement (how much is happening, how much everyone moves)
+    const alive = view.fighters.filter((f) => f.controlled && !f.limp);
+    const motion = alive.length ? alive.reduce((s, f) => s + Math.hypot(f.torso.cx - f.torso.px, f.torso.cy - f.torso.py) * 60, 0) / alive.length : 0;
+    setMusicEra(view.matchActive ? view.era : '');
+    updateMusic(excitement.update(ft / 1000, motion));
+  }
 
   frames++;
   msSum += ft;

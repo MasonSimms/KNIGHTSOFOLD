@@ -63,6 +63,31 @@ describe('the end-of-round replay', () => {
     }
   }, 120_000);
 
+  it('with everything on (weapons dropping in, props lying about, mixed starts), every round of two bot matches replays without a mismatch', async () => {
+    const saved2 = { sp: T.spawn.enabled, ly: T.props.lying, mx: T.eras.mixStarts };
+    T.spawn.enabled = true; T.props.lying = true; T.eras.mixStarts = true;
+    try {
+      let clips = 0;
+      for (const seed of [1, 3]) {
+        const sim = await botFight(seed), tape = new Tape();
+        for (let i = 0; i < 60 * 100; i++) {
+          sim.step([NEUTRAL, NEUTRAL, NEUTRAL, NEUTRAL]);
+          tape.feed(sim);
+          const clip = tape.take();
+          if (!clip) continue;
+          clips++;
+          const copy = await Sim.create(clip.seed, clip.count, clip.dummy);
+          copy.looks = clip.looks; copy.forceMap = clip.map; copy.buildRound(clip.round, clip.era);
+          const { m, worst } = play(clip, copy);
+          expect(m.desyncs, `seed ${seed} round ${clip.round}`).toBe(0);
+          expect(worst).toBeLessThan(0.01);
+          copy.world.free();
+        }
+      }
+      expect(clips).toBeGreaterThan(10);
+    } finally { T.spawn.enabled = saved2.sp; T.props.lying = saved2.ly; T.eras.mixStarts = saved2.mx; }
+  }, 300_000);
+
   it('online: the server cuts the clip, and waits for it before the next round', async () => {
     const sim = await botFight(32), room = new Room(sim);
     let clipAt = -1, roundAt = -1, newAt = -1;

@@ -614,6 +614,15 @@ export const tuning = {
     // Knocked off (owner): streaks of their paint fly onto the canvas from where they went out toward the middle of the picture.
     streaks: { count: [5, 7], length: [2.5, 6], width: [10, 22], spread: 0.45, seconds: 0.35, alpha: 0.85, color: 'player' as 'player' | number }, // length in m, width in px, spread = radians either side; color 'player' or a colour like 0xb3232b (red)
   },
+  music: {
+    // Dynamic music (owner; the stems are in content/audio.ts). Every sway is subtle.
+    volume: 0.5, // the music's level under the sound effects
+    eraFade: 2, // seconds an era's instruments take to fade in or out
+    sway: { gain: 0.12, drive: 1, brightLow: 2200, brightHigh: 7000 }, // what excitement does: up to 12% louder, the drive layer from silent to full, and brighter (Hz)
+    // Excitement (0..1): bursts for big moments that fade over burstFade s, on top of how much the fighters move (full at motionFull m/s,
+    // worth up to 'motion'); it swells in about 'rise' s and calms over about 'fall' s.
+    excite: { hit: 0.18, knockout: 0.45, big: 0.3, burstFade: 3, motion: 0.55, motionFull: 4, rise: 0.6, fall: 4 },
+  },
   audio: {
     master: 0.4,
     hitFreqHigh: 160,

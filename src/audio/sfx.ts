@@ -1,7 +1,13 @@
+import { SOUNDS } from '../content/audio';
+import type { SoundName } from '../content/audio';
 import { tuning as T } from '../content/tuning';
+import { pitchVariance } from './intensity';
+import { startMusic } from './music';
 
-// Placeholder sounds synthesised with WebAudio (no asset files). Real licensed SFX come in the art/audio phase.
+// Sound effects. A sound with a file in content/audio.ts plays that file (public/audio/sfx/); the others are placeholders synthesised
+// with WebAudio. Every play varies its pitch a little (a normal distribution within the sound's range: hits -5%..+5%, owner).
 let ctx: AudioContext | null = null;
+const samples = new Map<SoundName, AudioBuffer>();
 let effects = 1; // the player's volume settings (master x sound effects), 0..1
 /** The settings screen's volumes: master and sound effects (music has its own when there is music). */
 export function setVolumes(master: number, sfx: number): void { effects = master * sfx; }
@@ -16,6 +22,24 @@ export function unlockAudio(): void {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
   void ctx.resume();
+  const c = ctx;
+  if (!samples.size) for (const [name, s] of Object.entries(SOUNDS) as [SoundName, (typeof SOUNDS)[SoundName]][]) {
+    if (s.file) void fetch(`audio/sfx/${s.file}`).then((r) => r.arrayBuffer()).then((b) => c.decodeAudioData(b)).then((buf) => samples.set(name, buf)).catch(() => { /* (the placeholder plays) */ });
+  }
+  startMusic(c);
+}
+
+/** Play a sound: its file if there is one, else its placeholder, at a slightly different pitch each time (p = the pitch factor). */
+function play(name: SoundName, placeholder: (p: number) => void, vol = 1): void {
+  if (!ctx) return;
+  const S = SOUNDS[name], p = 1 + pitchVariance(S.pitch), buf = samples.get(name);
+  if (!buf) return placeholder(p);
+  const s = ctx.createBufferSource(), g = ctx.createGain();
+  s.buffer = buf;
+  s.playbackRate.value = p;
+  g.gain.value = vol * (S.volume ?? 1) * T.audio.master * effects;
+  s.connect(g).connect(ctx.destination);
+  s.start();
 }
 
 function tone(type: OscillatorType, from: number, to: number, len: number, vol: number): void {
@@ -45,23 +69,25 @@ function burst(len: number, vol: number): void {
 export const sfx = {
   hit(impact: number, head = false) {
     const k = Math.min(impact / T.audio.hitFullImpact, 1);
-    tone('sine', T.audio.hitFreqHigh, T.audio.hitFreqLow, T.audio.hitLength, 0.5 + 0.5 * k);
-    burst(0.06 + 0.06 * k, 0.3 + 0.5 * k);
-    if (head) tone('square', 700, 350, 0.12, 0.35); // a "bonk" on top for a head shot
+    play('hit', (p) => {
+      tone('sine', T.audio.hitFreqHigh * p, T.audio.hitFreqLow * p, T.audio.hitLength, 0.5 + 0.5 * k);
+      burst(0.06 + 0.06 * k, 0.3 + 0.5 * k);
+      if (head) tone('square', 700 * p, 350 * p, 0.12, 0.35); // a "bonk" on top for a head shot
+    }, 0.5 + 0.5 * k);
   },
-  jump() { tone('square', 220, 440, 0.08, 0.15); },
-  punch() { burst(0.08, 0.25); tone('triangle', 420, 160, 0.09, 0.15); }, // a quick whoosh
-  dodge() { tone('sine', 500, 180, 0.22, 0.2); burst(0.18, 0.12); }, // slipping away
-  drop() { tone('triangle', 520, 240, 0.09, 0.2); }, // let go of the club
-  throw() { tone('sawtooth', 220, 650, 0.12, 0.2); burst(0.1, 0.2); }, // whoosh
-  disarm() { tone('square', 900, 300, 0.14, 0.3); burst(0.08, 0.3); }, // a metallic clang
-  round() { tone('triangle', 392, 392, 0.12, 0.25); setTimeout(() => tone('triangle', 523, 523, 0.12, 0.25), 130); setTimeout(() => tone('triangle', 659, 659, 0.25, 0.25), 260); }, // a little win jingle
-  parry() { tone('square', 1400, 900, 0.1, 0.35); tone('triangle', 2200, 1500, 0.15, 0.2); burst(0.05, 0.3); }, // a bright ring of steel
-  crash() { tone('sine', 140, 60, 0.14, 0.45); burst(0.07, 0.4); }, // a thud
-  cut() { tone('sawtooth', 300, 120, 0.1, 0.3); burst(0.08, 0.35); }, // a snapping rope
-  stomp() { tone('square', 120, 60, 0.18, 0.5); burst(0.12, 0.5); }, // a heavy squash
-  grab() { tone('square', 180, 120, 0.08, 0.25); burst(0.05, 0.2); }, // a grunt-like thud
-  pickup() { tone('triangle', 300, 520, 0.07, 0.2); },
-  die() { tone('sawtooth', 330, 90, 0.35, 0.2); }, // a short comic "wah"
-  fall() { tone('sine', 700, 80, 0.6, 0.3); },
+  jump() { play('jump', (p) => tone('square', 220 * p, 440 * p, 0.08, 0.15)); },
+  punch() { play('punch', (p) => { burst(0.08, 0.25); tone('triangle', 420 * p, 160 * p, 0.09, 0.15); }); }, // a quick whoosh
+  dodge() { play('dodge', (p) => { tone('sine', 500 * p, 180 * p, 0.22, 0.2); burst(0.18, 0.12); }); }, // slipping away
+  drop() { play('drop', (p) => tone('triangle', 520 * p, 240 * p, 0.09, 0.2)); }, // let go of the club
+  throw() { play('throw', (p) => { tone('sawtooth', 220 * p, 650 * p, 0.12, 0.2); burst(0.1, 0.2); }); }, // whoosh
+  disarm() { play('disarm', (p) => { tone('square', 900 * p, 300 * p, 0.14, 0.3); burst(0.08, 0.3); }); }, // a metallic clang
+  round() { play('round', () => { tone('triangle', 392, 392, 0.12, 0.25); setTimeout(() => tone('triangle', 523, 523, 0.12, 0.25), 130); setTimeout(() => tone('triangle', 659, 659, 0.25, 0.25), 260); }); }, // a little win jingle
+  parry() { play('parry', (p) => { tone('square', 1400 * p, 900 * p, 0.1, 0.35); tone('triangle', 2200 * p, 1500 * p, 0.15, 0.2); burst(0.05, 0.3); }); }, // a bright ring of steel
+  crash() { play('crash', (p) => { tone('sine', 140 * p, 60 * p, 0.14, 0.45); burst(0.07, 0.4); }); }, // a thud
+  cut() { play('cut', (p) => { tone('sawtooth', 300 * p, 120 * p, 0.1, 0.3); burst(0.08, 0.35); }); }, // a snapping rope
+  stomp() { play('stomp', (p) => { tone('square', 120 * p, 60 * p, 0.18, 0.5); burst(0.12, 0.5); }); }, // a heavy squash
+  grab() { play('grab', (p) => { tone('square', 180 * p, 120 * p, 0.08, 0.25); burst(0.05, 0.2); }); }, // a grunt-like thud
+  pickup() { play('pickup', (p) => tone('triangle', 300 * p, 520 * p, 0.07, 0.2)); },
+  die() { play('die', (p) => tone('sawtooth', 330 * p, 90 * p, 0.35, 0.2)); }, // a short comic "wah"
+  fall() { play('fall', (p) => tone('sine', 700 * p, 80 * p, 0.6, 0.3)); },
 };
