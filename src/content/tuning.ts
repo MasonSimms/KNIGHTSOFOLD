@@ -347,7 +347,7 @@ export const tuning = {
     pickupDelay: 45, // frames before the dropped club can be picked up
   },
   spawn: {
-    enabled: false, // TESTING (owner): off for now, so no extra clubs lie around while the fighting is tuned. true = weapons keep arriving
+    enabled: true, // weapons keep arriving during a round (owner: on for the first playtest night; false = off, to tune the fighting without extra weapons)
     // Weapons keep arriving during a round, faster and better as it goes on (so rounds finish by themselves). Each era's pickups are in eras.ts.
     firstGap: 480, // frames from one spawn to the next at the start of a round (8 s)
     minGap: 150, // ...shrinking to this by rampFrames (2.5 s)
@@ -360,7 +360,7 @@ export const tuning = {
     startRules: { start: 0.5, spots: 0.25, sky: 0.25 }, // how a round begins: everyone armed, clubs on the floor at fixed spots, or clubs falling from the sky
   },
   eras: {
-    mixStarts: false, // TESTING (owner): everyone starts armed for now (true = some rounds start with the clubs on the floor or falling from the sky); // each round picks its starting rule from spawn.startRules (false = always the arena's weaponRule: the tests do this)
+    mixStarts: true, // each round picks how weapons arrive from spawn.startRules: everyone armed, clubs on the floor, or clubs from the sky (owner: on for the playtest; false = always the arena's weaponRule: the tests do this)
     changeGameplay: true, // an era changes the arena layout and the weapon (false = every round uses the standard arena and club: the tests do this)
     specialChance: 0.15, // each slot of a match has this chance of being one of the special eras (fantasy archers, mobsters...) instead of its normal era
   },
@@ -395,7 +395,7 @@ export const tuning = {
   },
   props: {
     // Loose objects in the world (planks, logs, bones) and lost limbs: all of them can be picked up (right-click, empty hands) and used as a club.
-    lying: false, // TESTING (owner): the loose planks, logs and bones an era leaves lying on its map are off for now (true = on; bridges keep their planks)
+    lying: true, // the loose planks, logs and bones an era leaves lying on its map (owner: on for the playtest; false = off; bridges keep their planks)
     factor: 2.0, // damage factor of a held prop
     limbFactor: 1.6, // ...of a held limb (a leg, say)
   },
