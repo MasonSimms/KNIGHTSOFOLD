@@ -368,3 +368,36 @@ export function paintedFlame(K: SpriteKnobs, w = 0.3, h = 0.6): Texture[] {
   cache.set(key, out);
   return out;
 }
+
+/** The woolly mammoth (Mammoth Chase), facing right: a shaggy brown body with a hump, a domed head, a hanging trunk, cream tusks curling
+ *  forward, four pillar legs; brushed downward like fur. Painted once. Centred on the middle of its len x h body (its collider). */
+export function paintedMammoth(len: number, h: number, K: SpriteKnobs): { tex: Texture; ppm: number } {
+  const key = `mammoth|${len}|${h}|${JSON.stringify(K)}`, k = SEA_PPM;
+  const hit = cache.get(key);
+  if (hit) return { tex: hit[0], ppm: k };
+  const padX = 0.9, padY = 0.4, W = Math.ceil((len + 2 * padX) * k), H = Math.ceil((h + 2 * padY) * k), N = W * H, R = makeRandom(5101);
+  const img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N);
+  const fur = rgb('#5b3b24'), top = rgb('#86603c'), belly = rgb('#33210f'), ivory = rgb('#eadfc4'), eye = rgb('#120a06');
+  const ell = (x: number, y: number, cx: number, cy: number, rx: number, ry: number) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+  const L = len / 2, B = h / 2; // (metres from the middle; y down)
+  for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
+    const i = py * W + px, x = px / k - padX - L, y = py / k - padY - B;
+    const body = ell(x, y, -0.15 * L, -0.12 * B, 0.92 * L, 0.62 * B) || ell(x, y, 0.2 * L, -0.5 * B, 0.45 * L, 0.38 * B); // the body and the hump
+    const head = ell(x, y, 0.72 * L, -0.42 * B, 0.36 * L, 0.42 * B);
+    const legs = [-0.7, -0.38, 0.28, 0.58].some((lx) => Math.abs(x - lx * L) < 0.13 * L && y > 0.1 * B && y < B);
+    const tr = (y + 0.2 * B) / (1.1 * B), trunkX = 0.98 * L + 0.12 * L * Math.sin(Math.min(1, Math.max(0, tr)) * 2.4), trunk = tr >= 0 && tr <= 1 && Math.abs(x - trunkX) < 0.1 * L * (1 - 0.5 * tr);
+    const tu = (x - 0.85 * L) / (0.55 * L), tusk = tu >= 0 && tu <= 1 && Math.abs(y - (0.05 * B + 0.25 * B * Math.sin(tu * 2.6) - 0.35 * B * tu * tu)) < 0.05 * B * (1.2 - tu);
+    const eyeAt = ell(x, y, 0.82 * L, -0.55 * B, 0.03 * L, 0.03 * L);
+    const shag = Math.abs(Math.sin(px * 0.9) * 0.04) * B; // a ragged fringe of hair along the bottom of the body
+    const inBody = body || head || legs || trunk || (ell(x, y - shag, -0.15 * L, -0.12 * B, 0.92 * L, 0.66 * B) && y > 0);
+    if (!inBody && !tusk) continue;
+    alpha[i] = 1;
+    const c = eyeAt ? eye : tusk && !head ? ivory : y < -0.55 * B ? top : y > 0.25 * B && !legs ? belly : fur;
+    const n = R.range(-0.05, 0.05);
+    for (let ch = 0; ch < 3; ch++) img.c[ch][i] = Math.min(1, Math.max(0, c[ch] + n));
+    ang[i] = Math.PI / 2 + R.normal() * 0.18; // hair hangs down
+  }
+  const out = paintFlat(img, alpha, ang, 5107, K, 1);
+  cache.set(key, out);
+  return { tex: out[0], ppm: k };
+}

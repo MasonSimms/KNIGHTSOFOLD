@@ -50,6 +50,7 @@ export const tuning = {
     boat: false, // the main platform is a floating ship's deck instead of solid ground (needs a sea; see tuning.boat)
     tar: [] as { x: number; w: number; level: number }[], // tar pits (see tuning.tar): from x, w wide (a gap in the ground), the surface `level` m below the platform top
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
+    chase: null as null | { speed: number; mammothX: number; obstacles: string[]; gap: number }, // a treadmill map (see tuning.chase): the floor slides left at speed (m/s) toward a mammoth at mammothX; obstacles (props.ts kinds) ride in from the right, gap metres apart
     fires: [] as { x: number; w: number; up: number }[], // fires (see tuning.fire): flames from x, w wide, on the ground (up = 0) or a ledge `up` m higher
     // The front plane: things between us and the fighters (looks only: nobody can touch them). kind = grass or sign; x, y = where its base
     // sits (metres, the view is 24 x 13.5); scale = size; speed = m/s it slides across (a sign passing the train), wrapping round.
@@ -498,6 +499,13 @@ export const tuning = {
     kick: 0.6, // the kick out of it, as a share of a normal jump (weak: a pit's edge should be low)
     drownDepth: 1.1, // sinking this far below the surface finishes you (m)
   },
+  chase: {
+    // The Mammoth Chase (sim/chase.ts; the map's own numbers are in its arena.chase). PLACEHOLDER numbers until the playtest.
+    length: 3.2, height: 2.6, // the mammoth's size (m): touching it gets you tossed
+    gallop: 1.4, bob: 0.12, rock: 0.05, surge: 0.35, // its gallop: strides a second, how high it bobs (m), how much it rocks (radians), how far it lunges forward and back (m)
+    toss: { x: 9, y: 11 }, // how hard it tosses you up and back (m/s): out of the picture
+    tossSpin: 8,
+  },
   fire: {
     // Fire (owner): standing in flames hurts over time and sets you burning; burning goes on hurting for a few seconds after you are out
     // (the sea puts it out). Wooden weapons and loose wood catch fire, and set alight whoever they touch. PLACEHOLDER numbers.
@@ -582,6 +590,7 @@ export const tuning = {
     stunFrames: 25,
   },
   bot: {
+    mammothMargin: 2.5, // a bot runs away from the mammoth when it is this close (m)
     gunKeep: 3, // with a loaded gun: stay at least this far from the target (m)...
     gunMax: 11, // ...and come closer if further than this
     gunAimTol: 0.08, // fire when the aim is this close to the target (radians)

@@ -18,6 +18,7 @@ export interface EraArena {
   tar?: { x: number; w: number; level: number }[]; // tar pits (see tuning.arena.tar)
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
   weapon?: string; // this map's own weapon (weapons.ts), instead of the era's
+  chase?: { speed: number; mammothX: number; obstacles: string[]; gap: number }; // a treadmill map (see tuning.arena.chase)
 }
 
 /** How the whole picture is painted in this era (each one overrides tuning.finish.style): blur = background softness, haze = background fading into the air, grain = canvas weave, tint/tintAlpha = colour wash. */
@@ -48,7 +49,9 @@ export const eras: Era[] = [
     // slam, a thrown body, shots) brings them down on whoever is under them; fallen, they are cover too heavy to lift. Stone axes.
     { name: 'Standing Stones', weapon: 'stone-axe', fightSpawnX: [6.0, 18.0, 10.75, 13.25], scenery: [
       { kind: 'upright', x: 7.3, up: 0 }, { kind: 'upright', x: 9.7, up: 0 }, { kind: 'capstone', x: 8.5, up: 1.62 },
-      { kind: 'upright', x: 14.3, up: 0 }, { kind: 'upright', x: 16.7, up: 0 }, { kind: 'capstone', x: 15.5, up: 1.62 }] }], outfits: ['fur pelt', 'bone necklace', 'leaf wrap', 'war paint'] },
+      { kind: 'upright', x: 14.3, up: 0 }, { kind: 'upright', x: 16.7, up: 0 }, { kind: 'capstone', x: 15.5, up: 1.62 }] },
+    // Mammoth Chase (owner's list): the ground slides left toward a mammoth at the left edge; run right; rocks and logs come along
+    { name: 'Mammoth Chase', ground: [{ x: -1, w: 26 }], chase: { speed: 2.2, mammothX: 1.4, obstacles: ['boulder', 'log', 'boulder', 'log'], gap: 9 } }], outfits: ['fur pelt', 'bone necklace', 'leaf wrap', 'war paint'] },
   { id: 'egypt', name: 'Ancient Egypt', special: false, pickups: ['sceptre', 'flail'], sky: 0xd9b46a, platform: 0xb08a58, wall: 0x8a6a44, weapon: 'khopesh', arena: { walls: [/* the temple wall, level with the top step */ { side: -1, up: 3.6, gap: 0 }], ledges: [{ x: 5.6, up: 1.8, w: 2.2 }, { x: 7.8, up: 3.6, w: 2.2 }] }, alt: [/* Pyramid Steps: $1*/ { name: 'Pyramid Steps',  ledges: [{ x: 6.0, up: 1.8, w: 3.0 }, { x: 10.0, up: 3.6, w: 4.0 }, { x: 15.0, up: 1.8, w: 3.0 }] }], outfits: ['pharaoh', 'priest', 'guard', 'scribe'] },
   { id: 'gladiators', name: 'Roman Gladiators', special: false, pickups: ['trident', 'chain-mace'], sky: 0xb5875a, platform: 0xa88d68, wall: 0x7a6a56, weapon: 'gladius', arena: { platformX: 5.625, platformW: 12.75, walls: [/* a low parapet each side: nobody walks off, you are thrown (or jump) over it */ { side: -1, up: 1.0, gap: 0 }, { side: 1, up: 1.0, gap: 0 }], props: [{ kind: 'plank', x: 10.0, up: 0 }] }, alt: [/* Lion's Pit: $1*/ { name: "Lion's Pit",  walls: [/* tall arena walls: the pit is the only way out */ { side: -1, up: 2.5, gap: 0 }, { side: 1, up: 2.5, gap: 0 }], ground: [{ x: 5.25, w: 5.25 }, { x: 13.5, w: 5.25 }], ledges: [{ x: 11.125, up: 0, w: 1.75 }], fightSpawnX: [6.75, 17.25, 9.0, 15.0] }], outfits: ['murmillo', 'retiarius', 'thraex', 'centurion'] },
   { id: 'vikings', name: 'Vikings', special: false, pickups: ['spear', 'great-axe'], sky: 0x6f8aa0, platform: 0x6a5a48, wall: 0x4a4a4e, weapon: 'axe', arena: { platformW: 13.75, props: [{ kind: 'log', x: 11.75, up: 0 }] }, outfits: ['jarl', 'raider', 'shieldmaiden', 'berserker'] },

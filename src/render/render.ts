@@ -9,6 +9,7 @@ import { createSea } from './sea';
 import { createFx } from './fx';
 import { createFrame } from './frame';
 import { createFlames } from './flames';
+import { createMammoth } from './mammoth';
 import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -239,7 +240,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const front = new Container(), frontBlur = new BlurFilter({ strength: 3, quality: 3 });
   front.filters = [frontBlur];
   const frontItems: { s: Sprite; x: number; speed: number }[] = [];
-  view.addChild(flat, painted, shadows, actors, front);
+  // The Mammoth Chase: the painting slides by with the treadmill. After it, a mirrored copy and another copy, so the join never shows.
+  const rolling = [new Sprite(Texture.EMPTY), new Sprite(Texture.EMPTY)];
+  view.addChild(flat, painted, ...rolling, shadows, actors, front);
 
 
   // Cheap global finish on top of everything (screen space).
@@ -327,6 +330,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   actors.addChild(fxLayer);
   const fx = createFx(fxLayer, splatTexs);
   const flames = createFlames(fxLayer); // the arena's fires, and flames on whatever is burning
+  const mammoth = createMammoth(propLayer);
   /** A weapon's or a thing's colour: a gun's metal, scenery's own wood, otherwise the stick colour. */
   const thingColor = (p: Part) => (p.weapon?.gun ? T.colors.gun : T.colors.things[p.weapon?.id ?? ''] ?? T.colors.stick);
   const sea = createSea(ring); // the ship and the near water, on a map with a sea
@@ -366,6 +370,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     for (const e of entries) { e.group.destroy({ children: true }); e.shade.destroy({ children: true }); }
     sea.build(sim);
     flames.build(sim);
+    mammoth.build(sim);
     // The front plane of this arena (looks only).
     for (const it of frontItems) it.s.destroy();
     frontItems.length = 0;
@@ -514,6 +519,14 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       if (tex && painted.texture !== tex) { painted.texture = tex; painted.width = A.viewW; painted.height = A.viewH; backdrops.prefetch(sim.upcoming().era, sim.upcoming().arena); }
       painted.visible = !!tex;
       flat.visible = !tex;
+      const ch = sim.arena.chase, W = A.viewW, roll = ch && tex ? ((((ch.speed * (sim.frame - 1 + alpha) * T.sim.dt) % (2 * W)) + 2 * W) % (2 * W)) : 0;
+      painted.x = -roll;
+      rolling.forEach((r, i) => {
+        r.visible = !!ch && !!tex;
+        if (!r.visible) return;
+        r.texture = tex!; r.height = A.viewH; r.width = W;
+        if (i === 0) { r.scale.x = -Math.abs(r.scale.x); r.x = 2 * W - roll; } else r.x = 2 * W - roll; // (the mirrored copy reaches back from its right edge)
+      });
       if (builtVersion !== sim.version) rebuild();
       boil += frameSeconds * T.finish.boilFps;
       variant = Q.boil ? Math.floor(boil) % VARIANTS : 0;
@@ -594,6 +607,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       sea.draw(sim, alpha);
       fx.draw(sim, alpha, frameSeconds);
       flames.draw(sim, alpha, frameSeconds, variant);
+      mammoth.draw(sim, alpha);
       const bx = (app.screen.width - A.viewW * scale) / 2, by = (app.screen.height - A.viewH * scale) / 2;
       frame.draw({ x: bx, y: by, w: A.viewW * scale, h: A.viewH * scale }, frameSeconds);
       if (target) { // into a painting (the museum): just the picture, cropped to its box

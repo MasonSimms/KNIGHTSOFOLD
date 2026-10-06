@@ -13,6 +13,8 @@ import { Bot } from './bot';
 import { makeRng } from './rng';
 import { applyWater, buildBoat, surfaceY } from './water';
 import { applyFire } from './fire';
+import { buildChase, loopFloor, stepChase } from './chase';
+import type { Chase } from './chase';
 import { breakProp, damageScenery, fire, moveBullets, predictShot, snapPart, spendShot } from './guns';
 import type { Bullet } from './guns';
 import type { Boat } from './water';
@@ -80,6 +82,7 @@ export class Sim {
   props: Part[] = []; // loose objects in the world (planks, logs...): anyone can pick them up
   private bridge: Part[] = []; // the planks of this round's bridge, in order
   boat: Boat | null = null; // this round's ship, on a map with one (see water.ts)
+  chase: Chase | null = null; // this round's treadmill and mammoth, on the Mammoth Chase (see chase.ts)
   private cutLinks = new Set<unknown>(); // bridge joints already removed
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
   weapon: Weapon = { id: 'club', name: 'Club', ...T.stick }; // what everyone fights with this round (the era's weapon)
@@ -212,7 +215,7 @@ export class Sim {
     this.world.timestep = T.sim.dt;
     this.world.numSolverIterations = T.sim.solverIterations;
     this.world.numInternalPgsIterations = T.sim.pgsIterations;
-    const slabs = A.boat ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor)
+    const slabs = A.boat || A.chase ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor; on a treadmill, its moving sections)
     this.boat = A.boat && A.sea ? buildBoat(this.world, A) : null;
     const grounds = slabs.map((g) => {
       const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop + A.platformThickness / 2));
@@ -220,6 +223,7 @@ export class Sim {
       return { ...g, body };
     });
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
+    this.chase = A.chase ? buildChase(this) : null;
 
     // The map's side walls (if any): a backstop at an end, or a wall across a gap you can fall into and wall-jump out of.
     for (const w of wallsOf(A)) {
@@ -447,6 +451,7 @@ export class Sim {
     this.keepWeaponsInPlay();
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     this.world.step();
+    if (this.chase) stepChase(this, this.chase);
     this.capSpeeds();
     this.absorbLandings();
     this.settlePlanes();
@@ -485,6 +490,7 @@ export class Sim {
     const tv = f.torso.body.linvel(this.tmpV);
     this.preV[2 * f.index] = tv.x; this.preV[2 * f.index + 1] = tv.y;
     this.world.step();
+    if (this.chase) loopFloor(this.chase);
     this.absorbLandings([f]);
     for (const p of f.parts) {
       const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y), M = T.sim.maxPartSpeed;

@@ -25,7 +25,7 @@ describe('maps', () => {
         expect(f.hp, why).toBeGreaterThan(0);
         const floor = sim.boat ? sim.boat.body.translation().y - T.boat.depth / 2 : sim.arena.platformTop; // (a ship's deck sits lower with people on it)
         expect(Math.abs(floor - T.stand.height - p.y), why).toBeLessThan(0.15); // still at standing height on the floor
-        expect(Math.abs(p.x - xs[i]), why).toBeLessThan(0.5);
+        if (!sim.arena.chase) expect(Math.abs(p.x - xs[i]), why).toBeLessThan(0.5); // (a treadmill carries you)
       });
     }
   });
@@ -49,6 +49,7 @@ describe('maps', () => {
 
   // Owner: you should never get stuck on a map. Walk (and hop) from one end of the ground to the other.
   it.each(maps)('%s map %i: you can walk and hop across it without getting stuck', async (era, map) => {
+    if (arenaFor(era, map).chase) return; // (a treadmill: you run to stand still; chase.test.ts)
     for (const hop of arenaFor(era, map).tar.length ? [true] : [false, true]) { // (a tar pit is jumped: walking into it is the point)
       const sim = await Sim.create(5, 2, false);
       sim.forceEra = era; sim.forceMap = map; sim.reset();

@@ -151,6 +151,7 @@ export class Bot {
     this.aim = wrap(this.aim + clamp(wrap(want - this.aim), B.turnRate / 60));
     out.aim = this.aim;
     if (this.jumpFrames > 0) { out.jump = this.jumpFrames > 1; this.jumpFrames--; } // (the last frame lets go, so the next jump is a fresh press)
+    if (A.chase && p.x < A.chase.mammothX + T.chase.length / 2 + B.mammothMargin) out.moveX = 1; // the mammoth: run
     return out;
   }
 

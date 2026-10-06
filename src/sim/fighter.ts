@@ -758,7 +758,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
 
   // ---- lean and balance: the body leans into where it is going (and winds back before a lunge or punch), then springs upright ----
   const B = T.balance;
-  const vx = body.linvel(tmp).x;
+  const belt = f.grounded && f.groundBody?.isKinematic() ? f.groundBody.linvel().x : 0; // on a moving floor (the Mammoth Chase), you walk on the floor, not on the world
+  const vx = body.linvel(tmp).x - belt;
   let lean = 0;
   if (f.controlled) {
     const want = input.moveX * T.motion.moveSpeed;
