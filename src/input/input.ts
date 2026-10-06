@@ -32,6 +32,31 @@ addEventListener('pointermove', (e) => { mouseX = e.clientX; mouseY = e.clientY;
 /** One-shot key check (R, F3): true once per key press. */
 export function wasPressed(code: string): boolean { return taps.delete(code); }
 
+/** Forget key and button presses that happened while a menu was open, so they do not leak into the fight. */
+export function flushInput(): void { taps.clear(); dropTap = false; }
+
+// Menus with a gamepad: A, B, Start, and the d-pad or left stick as four directions.
+export type MenuButton = 'a' | 'b' | 'start' | 'up' | 'down' | 'left' | 'right';
+const menuHeld = new Map<number, Set<MenuButton>>();
+/** Buttons newly pressed on each gamepad since the last call (`pad` = the gamepad's index). */
+export function menuPresses(): { pad: number; b: MenuButton }[] {
+  const out: { pad: number; b: MenuButton }[] = [];
+  for (const p of connectedPads()) {
+    const ax = p.axes[0] ?? 0, ay = p.axes[1] ?? 0, on = (i: number) => !!p.buttons[i]?.pressed, now = new Set<MenuButton>();
+    if (on(0)) now.add('a');
+    if (on(1)) now.add('b');
+    if (on(9)) now.add('start');
+    if (on(12) || ay < -0.6) now.add('up');
+    if (on(13) || ay > 0.6) now.add('down');
+    if (on(14) || ax < -0.6) now.add('left');
+    if (on(15) || ax > 0.6) now.add('right');
+    const was = menuHeld.get(p.index);
+    for (const b of now) if (!was?.has(b)) out.push({ pad: p.index, b });
+    menuHeld.set(p.index, now);
+  }
+  return out;
+}
+
 /** Every connected gamepad, in the order the browser lists them. */
 export function connectedPads(): Gamepad[] {
   return (navigator.getGamepads?.() ?? []).filter((g): g is Gamepad => !!g && g.connected);
@@ -61,8 +86,9 @@ export function readPadInput(slot: number, pad: Gamepad): PlayerInput {
   };
 }
 
-/** Player 1. `fighter` = where the player is on screen (px); mouse aim is the angle from there to the cursor. */
-export function readInput(fighter: { x: number; y: number }): PlayerInput {
+/** Player 1. `fighter` = where the player is on screen (px); mouse aim is the angle from there to the cursor. `withPad` = the first
+ * gamepad drives this player too (not in a local fight, where every gamepad has its own seat). */
+export function readInput(fighter: { x: number; y: number }, withPad = true): PlayerInput {
   let moveX = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
   const tapped = (...codes: string[]) => codes.map((c) => taps.delete(c)).some(Boolean); // a press that was over before this frame still counts
   let jump = keys.has('Space') || tapped('Space');
@@ -72,7 +98,7 @@ export function readInput(fighter: { x: number; y: number }): PlayerInput {
   dropTap = false;
   let dodge = keys.has('ShiftLeft') || keys.has('ShiftRight') || tapped('ShiftLeft', 'ShiftRight');
 
-  const pad = connectedPads()[0];
+  const pad = withPad ? connectedPads()[0] : undefined;
   if (pad) {
     if (Math.abs(pad.axes[0]) > 0.2) moveX = pad.axes[0];
     const ax = pad.axes[2] ?? 0, ay = pad.axes[3] ?? 0;

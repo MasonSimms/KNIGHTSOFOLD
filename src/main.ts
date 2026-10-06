@@ -1,7 +1,7 @@
 import { sfx, unlockAudio } from './audio/sfx';
 import { eraById } from './content/eras';
 import { tuning } from './content/tuning';
-import { connectedPads, readInput, readPadInput, wasPressed } from './input/input';
+import { connectedPads, flushInput, readInput, readPadInput, wasPressed } from './input/input';
 import { createRenderer } from './render/render';
 import { NEUTRAL } from './sim/types';
 import type { PlayerInput } from './sim/types';
@@ -10,6 +10,9 @@ import { Mirror } from './net/snapshot';
 import type { Snapshot } from './net/snapshot';
 import { Room } from './net/room';
 import { Sim } from './sim/world';
+import { runHall } from './ui/hall';
+import type { Device } from './ui/hall';
+import { runHome } from './ui/home';
 import { updateHud } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
@@ -27,6 +30,7 @@ const mapParam = query.get('map');
 if (eraParam || mapParam) { sim.forceEra = eraParam; sim.forceMap = mapParam === null ? null : Number(mapParam); sim.reset(); } // ?era=samurai&map=1 is the samurai bridge
 query.get('hats')?.split(',').forEach((h, i) => { if (sim.looks[i]) sim.looks[i].hat = h as typeof sim.looks[0]['hat']; });
 query.get('colors')?.split(',').forEach((c, i) => { if (sim.looks[i]) sim.looks[i].color = Number(c) || 0; });
+query.get('eyes')?.split(',').forEach((e, i) => { if (sim.looks[i]) sim.looks[i].eyes = e as typeof sim.looks[0]['eyes']; }); // ?eyes=round,fierce,sleepy
 // Open http://localhost:5173/?lag=100 to play through a pretend network: the real sim runs as a "server" in this page, your inputs and its
 // snapshots each take 100 ms to arrive, and what you see is a client copy built only from those snapshots (solo vs the dummy; R is off).
 const lagMs = Number(query.get('lag')) || 0;
@@ -65,6 +69,12 @@ if (onlineParam !== null) {
   attach(net);
 }
 const view = mirror ? mirror.sim : sim; // what is drawn
+// The game opens on the menus (home, then the Hall of Champions or training). Testing links skip them and keep the old rules: plugging in
+// a gamepad adds a player. Online has its own room screen.
+const testing = ['stress', 'slow', 'era', 'map', 'hats', 'colors', 'eyes', 'lag'].some((k) => query.has(k));
+let mode: 'auto' | 'training' | 'local' = testing || net ? 'auto' : 'training';
+let devices: Device[] = []; // a local fight: who drives each fighter (keyboard and mouse, or a gamepad)
+let paused = false, startHeld = false;
 const toServer: { at: number; input: PlayerInput }[] = [], toClient: { at: number; s: Snapshot }[] = [];
 
 function flail(frame: number, who: number): PlayerInput {
@@ -103,8 +113,39 @@ let frames = 0, msSum = 0, simMsSum = 0, statTime = last;
 let lastInput: PlayerInput = NEUTRAL;
 let players = 1; // how many people are playing: 1 plus every gamepad beyond the first
 
+/** Show the menus (the fight waits underneath) until someone picks what to play. */
+async function menu(screen: 'home' | 'hall') {
+  paused = true;
+  for (;;) {
+    if (screen === 'home') {
+      const go = await runHome();
+      if (go === 'online') { location.search = '?online'; return; } // online starts on a fresh page
+      if (go === 'play') { screen = 'hall'; continue; }
+      mode = 'training'; mySlot = 0; sim.setPlayers(1);
+      break;
+    }
+    const seats = await runHall();
+    if (!seats) { screen = 'home'; continue; }
+    mode = 'local'; devices = seats.map((s) => s.dev);
+    seats.forEach((s, i) => { sim.looks[i] = { ...s.look }; });
+    mySlot = Math.max(0, devices.indexOf('kb'));
+    sim.setPlayers(seats.length);
+    break;
+  }
+  flushInput(); // (keys pressed in the menus do not reach the fight)
+  last = performance.now(); acc = 0;
+  paused = false;
+}
+
+/** A gamepad's controls for fighter `slot` (a gamepad that was unplugged stands still). */
+function padInput(slot: number, index: number, pads: Gamepad[]): PlayerInput {
+  const pad = pads.find((p) => p.index === index);
+  return pad ? readPadInput(slot, pad) : NEUTRAL;
+}
+
 function frame(now: number) {
   requestAnimationFrame(frame);
+  if (paused) return;
   const ft = Math.min(now - last, 100); // clamp so a tab switch doesn't cause a huge catch-up
   last = now;
   acc += (ft / 1000) * slow;
@@ -112,18 +153,22 @@ function frame(now: number) {
   // Plugging in or unplugging a gamepad changes the number of players (2-4 starts a real fight; alone you get the training dummy).
   const pads = connectedPads();
   const wanted = stress || mirror ? 1 : Math.max(1, Math.min(4, pads.length));
-  if (wanted !== players) {
+  if (mode === 'auto' && wanted !== players) {
     players = wanted;
     sim.setPlayers(players);
   }
 
   if (wasPressed('F3')) toggleOverlay();
   if (wasPressed('KeyR') && !room) sim.reset(); // (a reset is not an event a client can replay)
+  // Esc (or Start on a gamepad) leaves the fight: back to the Hall with everyone still seated, or home from training.
+  const startNow = pads.some((p) => !!p.buttons[9]?.pressed), leave = wasPressed('Escape') || (startNow && !startHeld);
+  startHeld = startNow;
+  if (leave && mode !== 'auto') { void menu(mode === 'local' ? 'hall' : 'home'); return; }
 
   const t0 = performance.now();
   for (let steps = 0; acc >= T.sim.dt && steps < T.sim.maxStepsPerFrame; steps++, acc -= T.sim.dt) {
     const p = view.fighters[mySlot].torso;
-    lastInput = readInput(toScreen(p.cx, p.cy));
+    lastInput = readInput(toScreen(p.cx, p.cy), mode !== 'local');
     if (room) {
       toServer.push({ at: now + lagMs, input: lastInput });
       while (toServer.length && toServer[0].at <= now) room.setInput(0, toServer.shift()!.input);
@@ -134,7 +179,8 @@ function frame(now: number) {
     }
     if (net) { net.send({ t: 'in', i: lastInput }); continue; } // online: the server runs the fight, we only send our controls
     const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
-    if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
+    if (mode === 'local') for (let k = 0; k < devices.length; k++) { const d = devices[k]; inputs[k] = d === 'kb' ? lastInput : padInput(k, d, pads); }
+    else if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
     sim.step(inputs);
     for (const e of sim.events) {
       renderer.onEvent(e);
@@ -176,6 +222,7 @@ function frame(now: number) {
 }
 
 requestAnimationFrame(frame);
+if (mode === 'training') void menu('home');
 
 if (import.meta.env.DEV) (window as unknown as { sim: Sim }).sim = sim; // dev-only handle for console poking and browser tests
 if (import.meta.env.DEV) (window as unknown as { tuning: typeof tuning }).tuning = tuning; // dev-only: lets the browser console and tests flip settings

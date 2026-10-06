@@ -17,11 +17,31 @@ export function geoOf(A: Arena): ArenaGeo {
   return { slabs, ledges: A.ledges.map((l) => ({ x: l.x * s, y: (A.platformTop - l.up) * s, w: l.w * s })), top: A.platformTop * s, thick: A.platformThickness * s, walls, wallTop: A.wallTop * s };
 }
 
+const knobsOf = (era: string): PaintKnobs => { const P = T.finish.paint, S = { ...T.finish.style, ...eraById(era).style }; return { under: P.under, relief: P.relief, bristle: P.bristle, jitter: P.jitter, dof: S.blur, haze: S.haze }; };
+const newWorker = (): Worker | null => { try { return typeof OffscreenCanvas !== 'undefined' ? new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }) : null; } catch { return null; } };
+
+// One-off paintings at any size (the menus: gallery pictures and portrait backgrounds), painted by their own worker and kept in storage
+// like the backdrops. Resolves null where painting in a worker is impossible.
+let picWorker: Worker | null | undefined;
+const picWaiting = new Map<string, ((b: ImageBitmap | null) => void)[]>();
+export function paintPicture(era: string, geo: ArenaGeo, w: number, h: number): Promise<ImageBitmap | null> {
+  if (picWorker === undefined) {
+    picWorker = newWorker();
+    picWorker?.addEventListener('message', (e: MessageEvent<BakeResult>) => { picWaiting.get(e.data.key)?.forEach((ok) => ok(e.data.bitmap ?? null)); picWaiting.delete(e.data.key); });
+  }
+  if (!picWorker) return Promise.resolve(null);
+  const knobs = knobsOf(era), key = `pic|${era}|${w}x${h}|${JSON.stringify(geo)}|${JSON.stringify(knobs)}`;
+  return new Promise((ok) => {
+    const list = picWaiting.get(key);
+    if (list) { list.push(ok); return; }
+    picWaiting.set(key, [ok]);
+    picWorker!.postMessage({ key, era, geo, w, h, seed: 7, knobs } satisfies BakeRequest);
+  });
+}
+
 export function createBackdrops() {
-  let worker: Worker | null = null;
-  try { worker = typeof OffscreenCanvas !== 'undefined' ? new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }) : null; } catch { worker = null; }
+  const worker = newWorker();
   const done = new Map<string, Texture>(), pending = new Set<string>(), order: string[] = [];
-  const knobsOf = (era: string): PaintKnobs => { const P = T.finish.paint, S = { ...T.finish.style, ...eraById(era).style }; return { under: P.under, relief: P.relief, bristle: P.bristle, jitter: P.jitter, dof: S.blur, haze: S.haze }; };
   const keyOf = (era: string, A: Arena) => `${era}|${JSON.stringify(geoOf(A))}|${JSON.stringify(knobsOf(era))}|${T.finish.paint.width}`;
   worker?.addEventListener('message', (e: MessageEvent<BakeResult>) => {
     const r = e.data;

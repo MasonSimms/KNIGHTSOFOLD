@@ -65,7 +65,7 @@ export class Sim {
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
   weapon: Weapon = { id: 'club', name: 'Club', ...T.stick }; // what everyone fights with this round (the era's weapon)
   private arenaCache: { key: string; arena: Arena } | null = null;
-  looks: Look[] = [0, 1, 2, 3].map((color) => ({ color, hat: 'none' as const })); // each player's colour and hat (looks only: nothing in the physics reads them)
+  looks: Look[] = [0, 1, 2, 3].map((color) => ({ color, hat: 'none' as const, eyes: 'round' as const })); // each player's colour, hat and eyes (looks only: nothing in the physics reads them)
   gone = [false, false, false, false]; // players who left (online): dead this round, and parked out of sight in later rounds
   round = 1;
   roundOver = false;
