@@ -446,6 +446,7 @@ export const tuning = {
     crushFactor: 11, // damage factor of a crush (a club is 2.2): a capstone tipping onto a head is about a full club hit, a boulder dropped from a ledge kills
     crushCooldown: 20, // frames before the same thing can crush again
     throughGlass: 0.75, // thrown through a shop window, you keep this share of your speed
+    shatterSpeed: 6, // a mug smashes when its speed changes this much in one frame (m/s): thrown into something, or broken over a head
   },
   bridge: {
     // A bridge is a chain of planks: it can be cut, it snaps if someone slams into it, and every plank that comes free is a club.
@@ -749,7 +750,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

@@ -17,7 +17,7 @@ import { buildChase, loopFloor, stepChase } from './chase';
 import type { Chase } from './chase';
 import { buildTrain, stepTrain } from './train';
 import type { Passing } from './train';
-import { breakProp, damageScenery, fire, moveBullets, predictShot, snapPart, spendShot } from './guns';
+import { breakProp, damageScenery, fire, moveBullets, predictShot, shatter, snapPart, spendShot } from './guns';
 import type { Bullet } from './guns';
 import type { Boat } from './water';
 import type { Look } from '../content/looks';
@@ -474,6 +474,7 @@ export class Sim {
     this.resolveSlams();
     this.resolveBodySlams();
     this.resolveCrushes();
+    this.shatterMugs();
     moveBullets(this);
     applyFire(this);
     this.checkDeaths();
@@ -528,6 +529,7 @@ export class Sim {
     else if (e.t === 'shot') { if (f) spendShot(f); }
     else if (e.t === 'snap') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) snapPart(this, p, e.v, h); }
     else if (e.t === 'break') { const p = this.props[e.victim]; if (p) breakProp(this, p, false); }
+    else if (e.t === 'shatter') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) shatter(this, p, h, false); }
   }
 
   /** How this round begins (a pure function of the seed and round): armed, clubs at fixed spots, or clubs from the sky. */
@@ -850,6 +852,18 @@ export class Sim {
         }
         if (!v.limp) this.wound(v, dmg, h.speed * S.impactFactor, h.x, h.y, g?.index ?? -1, h.head, true, { how: 'slam', nx: h.nx, ny: h.ny });
       }
+    }
+  }
+
+  /** A mug (props.ts shatters) whose speed changed hard this frame hit something: it smashes (thrown at a wall, or broken over a head:
+   *  the hit itself was scored first). */
+  private shatterMugs(): void {
+    const list: [Part, Fighter | undefined][] = this.props.map((p) => [p, undefined]);
+    for (const g of this.fighters) if (g.stick) list.push([g.stick, g]);
+    for (const [p, g] of list) {
+      if (!PROPS[p.weapon?.id ?? '']?.shatters) continue;
+      const v = p.body.linvel(this.tmpV);
+      if (Math.hypot(v.x - p.vx, v.y - p.vy) > T.props.shatterSpeed) shatter(this, p, g);
     }
   }
 

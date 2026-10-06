@@ -36,7 +36,7 @@ describe('maps', () => {
     const A = arenaFor(era, map);
     const reach = T.motion.jumpSpeed ** 2 / (2 * T.sim.gravity) - 0.2; // how high a full jump lifts your feet, less a little to land with
     type Surface = { x: number; w: number; up: number };
-    const surfaces: Surface[] = [...(A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]).map((g) => ({ ...g, up: 0 })), ...A.ledges];
+    const surfaces: Surface[] = [...(A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]).map((g) => ({ ...g, up: (g as { up?: number }).up ?? 0 })), ...A.ledges];
     const near = (a: Surface, b: Surface, by: number) => a.x < b.x + b.w + by && b.x < a.x + a.w + by; // overlapping (or within `by` metres) side to side
     for (const l of A.ledges) {
       const why = `ledge at x ${l.x}, ${l.up} m up`;
@@ -51,11 +51,12 @@ describe('maps', () => {
   it.each(maps)('%s map %i: you can walk and hop across it without getting stuck', async (era, map) => {
     if (arenaFor(era, map).chase || arenaFor(era, map).train) return; // (a treadmill: you run to stand still, chase.test.ts; the train sweeps you off, train.test.ts)
     // What must be jumped: tar pits, and gaps between the ground slabs with no bridge or stepping stone (the alleys between roofs).
-    const A0 = arenaFor(era, map), sorted = [...A0.ground].sort((a, b) => a.x - b.x), pits = A0.tar.map((p) => ({ x: p.x, w: p.w }));
+    const A0 = arenaFor(era, map), sorted = [...A0.ground].sort((a, b) => a.x - b.x), pits: { x: number; w: number; run: number; down?: boolean }[] = A0.tar.map((p) => ({ x: p.x, w: p.w, run: 0.6 }));
     for (let i = 1; i < sorted.length; i++) {
       const g0 = sorted[i - 1].x + sorted[i - 1].w, g1 = sorted[i].x;
       const crossed = (A0.bridge && A0.bridge.x0 <= g0 + 0.1 && A0.bridge.x1 >= g1 - 0.1) || A0.ledges.some((l) => l.up < 0.3 && l.x < g1 && l.x + l.w > g0);
-      if (g1 - g0 > 0.3 && !crossed) pits.push({ x: g0, w: g1 - g0 });
+      if (g1 - g0 > 0.3 && !crossed) pits.push({ x: g0, w: g1 - g0, run: 0.6, down: (sorted[i].up ?? 0) < (sorted[i - 1].up ?? 0) }); // (down onto a lower roof: a hop, or you sail over it)
+      else if ((sorted[i].up ?? 0) - (sorted[i - 1].up ?? 0) > 0.5) pits.push({ x: g0, w: 0.3, run: 1.3 }); // a step up (the bar counter): a running jump onto it (from too close you hit its face)
     }
     for (const hop of pits.length ? [true] : [false, true]) { // (a pit is jumped: walking into it is the point)
       const sim = await Sim.create(5, 2, false);
@@ -70,9 +71,16 @@ describe('maps', () => {
       for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + x0 - t.x, y: q.y }, true); }
       let n = 0;
       const block = (p: { back?: boolean; body: { mass(): number; translation(): { x: number; y: number } } }, x: number) => !p.back && p.body.mass() > T.props.maxLift && p.body.translation().y > A.platformTop - 1 && p.body.translation().x - x > 0 && p.body.translation().x - x < 1.2;
-      const leap = () => { const x = f.torso.body.translation().x; return pits.some((p) => x > p.x - 0.6 && x < p.x + p.w) || sim.props.some((p) => block(p, x)); }; // a pit or a standing stone: a full jump
-      const near = () => { const x = f.torso.body.translation().x; return pits.some((p) => x > p.x - 2 && x < p.x); }; // (walk up to a pit's edge rather than hop into it)
-      while (f.torso.body.translation().x < x1 && n++ < 240) sim.step([{ ...NEUTRAL, moveX: 1, jump: hop && (leap() ? !(f.grounded && f.prevJump && f.torso.body.linvel().y > -1) : f.grounded && n % 20 < 10 && !near()) }, NEUTRAL]);
+      const leap = () => { const x = f.torso.body.translation().x; return pits.some((p) => x > p.x - p.run && x < p.x + p.w) || sim.props.some((p) => block(p, x)); }; // a pit or a standing stone: a full jump
+      const near = () => { const x = f.torso.body.translation().x; return pits.some((p) => x > p.x - p.run - 1.4 && x < p.x); }; // (walk up to a pit's edge rather than hop into it)
+      let leaping = false, from = 0; // (a leap is held until you land, as a player holds the jump button; down onto a lower roof it is a hop)
+      const down = () => { const x = f.torso.body.translation().x; return pits.some((p) => p.down && x > p.x - p.run && x < p.x + p.w); };
+      while (f.torso.body.translation().x < x1 && n++ < (pits.length ? 360 : 240) && !f.limp) { // (4 s; 6 with leaps to make)
+        if (f.grounded && f.torso.body.linvel().y > -1) { const was = leaping; leaping = leap(); if (leaping && !was) from = n; }
+        const vy = f.torso.body.linvel().y, stalled = !f.grounded && Math.abs(vy) < 0.5; // (caught on an edge: press again, as a player would)
+        const held = leaping && down() ? n - from < 6 : stalled ? n % 10 < 5 : !(f.grounded && f.prevJump && vy > -1);
+        sim.step([{ ...NEUTRAL, moveX: 1, jump: hop && (leaping ? held : f.grounded && n % 20 < 10 && !near()) }, NEUTRAL]);
+      }
       expect(f.torso.body.translation().x, hop ? 'hopping' : 'walking').toBeGreaterThan(x1); // across in under 4 s (a straight run takes about 2)
       expect(f.limp).toBe(false);
     }

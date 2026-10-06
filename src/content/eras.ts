@@ -12,6 +12,7 @@ export interface EraArena {
   props?: { kind: string; x: number; up: number }[]; // loose objects lying around (see props.ts)
   scenery?: { kind: string; x: number; up: number }[]; // breakable scenery (barrels, crates: props.ts breaks), always on the map
   front?: { kind: 'grass' | 'sign'; x: number; y: number; scale?: number; speed?: number }[]; // the front plane (see tuning.arena.front)
+  spawnX?: number[]; // where you and the training dummy start, playing alone (metres)
   fightSpawnX?: number[]; // where the fighters of a 2-4 player fight start (metres; for maps where the standard spots would be over a gap)
   sea?: { level: number }; // water under the stage (see tuning.arena.sea)
   boat?: boolean; // the platform is a floating ship (see tuning.boat)
@@ -72,8 +73,14 @@ export const eras: Era[] = [
       ledges: [{ x: 1.5, up: 1.9, w: 4.5 }, { x: 10.5, up: 1.9, w: 3.0 }, { x: 18.0, up: 1.9, w: 4.5 }], fightSpawnX: [9.43, 14.57, 11.2, 12.8],
       scenery: [{ kind: 'pane', x: 5.95, up: 0 }, { kind: 'pane', x: 18.05, up: 0 }, { kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] },
     // Rooftops (owner's list): across the town's roofs at different heights; the alleys between them are the void. Revolvers.
-    { name: 'Rooftops', platformThickness: 6, ground: [{ x: 1.0, w: 4.0 }, { x: 6.5, w: 3.5, up: 1.0 }, { x: 11.5, w: 3.0, up: 0.4 }, { x: 16.0, w: 3.5, up: 1.2 }, { x: 21.0, w: 3.0, up: 0.2 }],
-      fightSpawnX: [2.75, 22.5, 8.25, 17.75] }], outfits: ['sheriff', 'outlaw', 'gambler', 'rancher'] },
+    { name: 'Rooftops', platformThickness: 6, ground: [{ x: 0.4, w: 4.0 }, { x: 5.6, w: 3.8, up: 1.0 }, { x: 10.6, w: 3.8, up: 0.4 }, { x: 15.6, w: 3.8, up: 1.2 }, { x: 20.6, w: 3.2, up: 0.2 }],
+      fightSpawnX: [2.4, 22.2, 7.5, 17.5], spawnX: [7.5, 12.5, 2.4, 17.5] },
+    // Saloon Brawl (owner's list): a bar fight indoors (walls both sides): the bar counter to stand on, a balcony above (from the
+    // counter), bar stools to swing and beer mugs to throw or smash over heads. Fists, stools and mugs only.
+    { name: 'Saloon', platformX: 2.5, platformW: 19, walls: [{ side: -1, up: 4.5, gap: 0 }, { side: 1, up: 4.5, gap: 0 }], noWeapons: true,
+      ground: [{ x: 2.5, w: 7 }, { x: 9.5, w: 4, up: 1.1, thick: 2.3 }, { x: 13.5, w: 8 }], ledges: [{ x: 14.5, up: 2.6, w: 7 }], fightSpawnX: [6.67, 17.33, 8.8, 15.2],
+      scenery: [{ kind: 'stool', x: 5.5, up: 0 }, { kind: 'stool', x: 8.0, up: 0 }, { kind: 'stool', x: 15.5, up: 0 }, { kind: 'stool', x: 18.0, up: 0 },
+        { kind: 'mug', x: 10.3, up: 1.1 }, { kind: 'mug', x: 11.5, up: 1.1 }, { kind: 'mug', x: 12.7, up: 1.1 }, { kind: 'mug', x: 19.5, up: 2.6 }] }], outfits: ['sheriff', 'outlaw', 'gambler', 'rancher'] },
   { id: 'ww1', name: 'World War I', special: false, pickups: ['grenade', 'bayonet-rifle'], style: { grain: 0.05 }, sky: 0x7b8576, platform: 0x5a5444, wall: 0x45463c, weapon: 'shovel', arena: { ledges: [/* islands out past each end of the ground, over the void */ { x: 2.25, up: 0.6, w: 2.0 }, { x: 19.75, up: 0.6, w: 2.0 }] }, outfits: ['infantry', 'officer', 'medic', 'trench raider'] },
   { id: 'vietnam', name: 'Vietnam', special: false, pickups: ['bamboo-stick', 'bayonet-knife'], sky: 0x5f8a5a, platform: 0x6a5a3c, wall: 0x4a5a3c, weapon: 'machete', arena: { platformW: 12.5, ledges: [{ x: 11.25, up: 1.8, w: 2.0 }], front: [{ kind: 'grass', x: 1.25, y: 13.75, scale: 3.0 }, { kind: 'grass', x: 4.0, y: 13.9, scale: 2.1 }, { kind: 'grass', x: 22.25, y: 13.8, scale: 2.75 }] }, outfits: ['jungle grunt', 'scout', 'radioman', 'tunnel rat'] },
   { id: 'modern', name: 'Modern Warfare', special: false, pickups: ['combat-knife', 'riot-shield'], sky: 0x7a8794, platform: 0x585d63, wall: 0x42474c, weapon: 'baton', arena: { platformX: 6.0, platformW: 12.0, walls: [/* a building across the alley */ { side: 1, up: 3.0, gap: 1.4 }], ledges: [{ x: 10.75, up: 1.8, w: 2.5 }] }, outfits: ['rifleman', 'sniper', 'operator', 'engineer'] },

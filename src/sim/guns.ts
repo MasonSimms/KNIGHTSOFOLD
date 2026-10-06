@@ -219,6 +219,15 @@ export function breakProp(sim: Sim, part: Part, announce = true): void {
   sim.version++;
 }
 
+/** A beer mug (props.ts shatters) smashes: gone, from the hand holding it or from the floor. Also used by the online copies ('shatter'). */
+export function shatter(sim: Sim, part: Part, holder: Fighter | undefined, announce = true): void {
+  const t = part.body.translation(), index = holder ? -1 : sim.props.indexOf(part);
+  if (!holder && index < 0) return;
+  if (announce) sim.events.push({ t: 'shatter', x: t.x, y: t.y, v: 0, owner: holder?.index ?? -1, victim: index, w: part.weapon?.id });
+  sim.removeBody(part, holder);
+  sim.version++;
+}
+
 /** Destroy breakable scenery that took a hard hit (a club, a crash): the same as a bullet breaking it. */
 export function damageScenery(sim: Sim, part: Part, impact: number): void {
   if (part.hp === undefined || impact < (PROPS[part.weapon?.id ?? '']?.breaks?.min ?? T.guns.sceneryMinImpact)) return;
