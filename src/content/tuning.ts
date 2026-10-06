@@ -507,9 +507,9 @@ export const tuning = {
     hesitate: 0.08, // share of decisions that are a moment of doing nothing
     hopChance: 0.04, // share of decisions with a hop for no reason
     stuckFrames: 30, // lying down, or pushing to walk and getting nowhere, this long: it jumps out of it
-    backoffFrames: [12, 30], // after an attack it steps back for this many frames...
-    backoffRange: 2.2, // ...to about this far from who it is fighting (m)
-    personalSpace: 0.8, // m: it will not walk into someone it is not fighting (it waits for a gap)
+    backoffFrames: [8, 20], // after an attack it steps back for this many frames...
+    backoffRange: 1.8, // ...to about this far from who it is fighting (m)
+    personalSpace: 0.8, // m: someone else this close in its way becomes who it fights (it does not walk into them)
   },
   net: {
     // Online (owner: cut the lag cheaply before trying prediction). From pressing a key to seeing your fighter move online takes your ping,

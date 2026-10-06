@@ -86,8 +86,9 @@ export class Bot {
       if (me.grip || age > 180) this.start({ kind: 'idle' }, now);
     } else if (plan.kind === 'approach') {
       out.moveX = Math.abs(dx) > 0.8 ? Math.sign(dx) : 0;
-      // do not walk into someone it is not fighting: wait for a gap (a person steps round a scrum, not through it)
-      if (out.moveX && sim.fighters.some((g) => g !== me && g !== this.target && !g.limp && Math.sign(g.torso.body.translation().x - p.x) === out.moveX && Math.abs(g.torso.body.translation().x - p.x) < B.personalSpace)) out.moveX = 0;
+      // someone else is in the way: fight them instead (a person deals with whoever is in front of them, rather than walking into them)
+      const blocker = out.moveX ? sim.fighters.find((g) => g !== me && g !== this.target && !g.limp && !g.inBack && Math.sign(g.torso.body.translation().x - p.x) === out.moveX && Math.abs(g.torso.body.translation().x - p.x) < B.personalSpace) : undefined;
+      if (blocker) { this.target = blocker; const t = blocker.torso.body.translation(), v = blocker.torso.body.linvel(); this.seen = { x: t.x, y: t.y, vx: v.x, vy: v.y, at: now }; }
       if (dy < -B.climbHeight && Math.abs(dx) < 2.5 && me.grounded) this.hop(); // they are up on a ledge: jump after them
     } else if (plan.kind === 'swing') {
       out.moveX = Math.abs(dx) > 1.2 ? Math.sign(dx) * 0.6 : Math.abs(dx) < 0.7 ? -Math.sign(dx) * 0.8 : 0; // too close for a club: step back for room
