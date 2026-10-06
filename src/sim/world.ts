@@ -5,7 +5,7 @@ import { damageFor, impactValue, knockbackFor } from './combat';
 import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, syncStickGroups, terrainGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { eraById } from '../content/eras';
-import { PROPS, PROP_KINDS } from '../content/props';
+import { ITEMS, PROPS, PROP_KINDS } from '../content/props';
 import { weaponById } from '../content/weapons';
 import type { Weapon } from '../content/weapons';
 import { eraFor, mapFor, outfitsFor } from './era';
@@ -62,6 +62,9 @@ export class Sim {
   outfits = [0, 1, 2, 3]; // which of the era's 4 outfits each fighter wears this round
   forceEra: string | null = null; // testing: ?era=samurai keeps every round in one era
   forceMap: number | null = null; // testing: ?map=1 keeps every round on the era's second map
+  // Training (practising alone): who the second fighter is. A standing dummy (with a club, or empty-handed), or a bot that fights back.
+  // Either way there are no rounds: whoever dies stands up again. (The bot also needs its look to say bot: the training menu does both.)
+  training = { foe: 'dummy' as 'dummy' | 'bot', foeArmed: true };
   map = 0; // which of the era's maps this round is on
   props: Part[] = []; // loose objects in the world (planks, logs...): anyone can pick them up
   private bridge: Part[] = []; // the planks of this round's bridge, in order
@@ -121,6 +124,9 @@ export class Sim {
     this.build();
     this.eraOverride = null;
   }
+
+  /** Practising alone (with the training dummy or a training bot): no rounds. */
+  get practising(): boolean { return this.dummy; }
 
   get matchActive(): boolean { return !this.dummy && this.count >= 2; }
 
@@ -183,7 +189,7 @@ export class Sim {
       this.props.push(p);
       this.partByBody.set(p.body.handle, p);
     }
-    this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, xs[i], !(this.dummy && i === 1)));
+    this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, xs[i], !(this.dummy && i === 1 && this.training.foe === 'dummy')));
     this.fighters.forEach((f) => { if (this.gone[f.index]) this.park(f); });
     // Arena weapon rule: with 'spots' or 'sky' nobody starts armed; the clubs lie at fixed spots or fall from above.
     const rule = T.eras.changeGameplay && T.eras.mixStarts ? this.startRule() : A.weaponRule;
@@ -293,7 +299,8 @@ export class Sim {
 
   private spawn(index: number, x: number, player: boolean): Fighter {
     const y = this.arena.platformTop - T.stand.height - 0.02; // the hips at standing height
-    const f = buildFighter(this.world, index, x, y, player, !player || T.fighter.startArmed, this.weapon); // the dummy always holds a club, so you can practise disarming
+    const foe = this.dummy && index === 1; // the training partner: armed or not as the training menu says
+    const f = buildFighter(this.world, index, x, y, player, foe ? this.training.foeArmed : T.fighter.startArmed, this.weapon);
     for (const p of f.parts) this.partByBody.set(p.body.handle, p);
     return f;
   }
@@ -373,9 +380,22 @@ export class Sim {
   }
 
   private addProp(kind: string, x: number, y: number): void {
-    const p = createProp(this.world, x, y, 0, { kind, ...PROPS[kind] });
+    const p = createProp(this.world, x, y, 0, { kind, ...(PROPS[kind] ?? ITEMS.find((it) => it.id === kind)?.spec ?? PROPS.plank) });
     this.props.push(p);
     this.partByBody.set(p.body.handle, p);
+    this.version++;
+  }
+
+  /** Training: drop a weapon or pickup (an id from content/props.ts ITEMS) in at a point. */
+  spawnItem(kind: string, x: number, y: number): void { this.addProp(kind, x, y); }
+
+  /** Training: take every loose weapon and object off the map (a bridge keeps its planks; clubs dropped by fighters stay). */
+  clearLoose(): void {
+    for (const p of this.props.filter((q) => !this.bridge.includes(q))) {
+      this.partByBody.delete(p.body.handle);
+      this.world.removeRigidBody(p.body);
+    }
+    this.props = this.props.filter((q) => this.bridge.includes(q));
     this.version++;
   }
 

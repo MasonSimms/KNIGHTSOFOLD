@@ -117,3 +117,31 @@
 /* A line over the game ("Reconnecting...", "You join next round"). */
 #notice { position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: 5; display: none; padding: 6px 18px; color: #efe3c2;
   background: rgba(20, 14, 6, .75); box-shadow: inset 0 0 0 1px #8a6a2a; font: 19px 'Fell SC', Georgia, serif; letter-spacing: .06em; }
+
+/* Training settings: a panel slid over the right of the paused fight (the fight stays in view, a little dimmed). The same painted wall,
+   gilded edge, gold lettering and arrow rows as the Hall. */
+#menu.over { background: rgba(6, 10, 8, .38); }
+.drill { position: absolute; top: 0; right: 0; bottom: 0; width: min(430px, 100%); overflow: hidden auto; padding: 16px 24px 18px 30px;
+  background: var(--wall, none), linear-gradient(90deg, #13241b, #1c3327 28%, #162a20); background-size: 512px 512px, auto;
+  box-shadow: -18px 0 46px rgba(0, 0, 0, .62), inset 4px 0 0 #8a6020, inset 6px 0 0 rgba(255, 236, 170, .38), inset 9px 0 0 #5a3e10; }
+.drill .plaque { display: block; width: fit-content; margin: 2px auto 6px; font-size: 22px; letter-spacing: .24em; }
+.drill h3 { margin: 16px 0 0; padding-bottom: 3px; border-bottom: 1px solid rgba(168, 146, 92, .32); color: var(--gold-dim);
+  font-size: 14px; font-weight: normal; letter-spacing: .22em; text-transform: uppercase; }
+.drill .row { margin-top: 7px; }
+.drill .row .name { width: 9.2em; flex: none; color: #d8c89c; font-size: 15px; }
+.drill .row .val { color: var(--cream); }
+.drill .row.sel { outline: 1px solid var(--gold); outline-offset: 3px; }
+.drill .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 9px; }
+.drill .item, .drill .act { padding: 6px 4px 5px; border: 1px solid #6a5a34; background: rgba(0, 0, 0, .28); color: var(--cream);
+  font-size: 13px; line-height: 1.15; letter-spacing: .03em; transition: background .15s, color .15s; }
+.drill .item small { display: block; margin-top: 2px; color: #8f8463; font-size: 10.5px; letter-spacing: .02em; }
+.drill .item:hover, .drill .act:hover, .drill .item.sel, .drill .act.sel { border-color: var(--gold); color: var(--gold); outline: 1px solid var(--gold); outline-offset: 1px; }
+.drill .item.done { background: linear-gradient(#e7c673, #b38a35); color: var(--ink); } /* a weapon just dropped in */
+.drill .item.done small { color: #4a3510; }
+.drill .act.wide { display: block; width: 100%; margin-top: 8px; letter-spacing: .1em; }
+.drill .act.wide.done { background: linear-gradient(#e7c673, #b38a35); color: var(--ink); }
+.drill .acts { display: flex; gap: 8px; margin-top: 18px; }
+.drill .acts .act { flex: 1; padding: 9px 4px; font-size: 15px; letter-spacing: .12em; }
+.drill .act.gold { background: linear-gradient(#ecce7c, #b38a35); color: var(--ink); border-color: #f5dc92; box-shadow: 0 0 22px rgba(240, 200, 110, .25); }
+.drill .act.gold:hover, .drill .act.gold.sel { color: var(--ink); }
+.drill .hint { margin-top: 10px; }

@@ -7,6 +7,8 @@ export function toggleOverlay(): void {
   el.style.display = on ? '' : 'none';
 }
 
+export const isOverlayOn = (): boolean => on;
+
 export function updateOverlay(lines: string[]): void {
   if (on) el.textContent = lines.join('\n');
 }

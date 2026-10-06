@@ -17,6 +17,7 @@ import { runHome } from './ui/home';
 import { updateHud } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
+import { applyTraining, leaveTraining, loadTraining, runTraining } from './ui/training';
 
 const T = tuning;
 // Open http://localhost:5173/?stress to add two scripted flailing fighters: a 4-fighter frame-time check, not AI.
@@ -76,7 +77,8 @@ const testing = ['stress', 'slow', 'era', 'map', 'hats', 'colors', 'eyes', 'lag'
 let mode: 'auto' | 'training' | 'local' = testing || net ? 'auto' : 'training';
 let devices: (Device | 'bot')[] = []; // a local fight: who drives each fighter (keyboard and mouse, a gamepad, or a bot that plays itself)
 let hallTraining = false; // the Hall was opened for Training (one player is enough, bots allowed)
-let paused = false, startHeld = false;
+let paused = false, startHeld = false, backHeld = false;
+let speed = slow; // game speed (the training settings can slow it down)
 const toServer: { at: number; input: PlayerInput }[] = [], toClient: { at: number; s: Snapshot }[] = [];
 
 function flail(frame: number, who: number): PlayerInput {
@@ -130,12 +132,25 @@ async function menu(screen: 'home' | 'hall') {
     if (!seats) { screen = 'home'; continue; }
     mode = 'local'; devices = seats.map((s) => s.dev);
     sim.looks = [0, 1, 2, 3].map((i) => ({ ...(seats[i]?.look ?? { color: i, hat: 'none' as const, eyes: 'round' as const }) })); // (an unseated look carries no bot over from last time)
+    // Training keeps its own settings (the training menu: Tab); anything else plays as normal.
+    if (hallTraining) { const t = loadTraining(); applyTraining(sim, t, seats.length === 1); speed = t.speed; }
+    else { leaveTraining(sim, eraParam, mapParam === null ? null : Number(mapParam)); speed = slow; }
     mySlot = Math.max(0, devices.indexOf('kb'));
     sim.setPlayers(seats.length); // one player: practice on the dummy; two or more (people or bots): a real fight
     break;
   }
   flushInput(); // (keys pressed in the menus do not reach the fight)
   last = performance.now(); acc = 0;
+  paused = false;
+}
+
+/** The training settings over the paused fight. */
+async function trainingMenu() {
+  paused = true;
+  const r = await runTraining(sim, mySlot, sim.practising, (x) => { speed = x; });
+  flushInput(); // (keys pressed in the panel do not reach the fight)
+  last = performance.now(); acc = 0;
+  if (r === 'leave') { void menu('home'); return; }
   paused = false;
 }
 
@@ -150,7 +165,7 @@ function frame(now: number) {
   if (paused) return;
   const ft = Math.min(now - last, 100); // clamp so a tab switch doesn't cause a huge catch-up
   last = now;
-  acc += (ft / 1000) * slow;
+  acc += (ft / 1000) * speed;
 
   // Plugging in or unplugging a gamepad changes the number of players (2-4 starts a real fight; alone you get the training dummy).
   const pads = connectedPads();
@@ -166,6 +181,10 @@ function frame(now: number) {
   const startNow = pads.some((p) => !!p.buttons[9]?.pressed), leave = wasPressed('Escape') || (startNow && !startHeld);
   startHeld = startNow;
   if (leave && mode !== 'auto') { void menu(mode === 'local' ? 'hall' : 'home'); return; }
+  // Tab (or Back on a gamepad) while training: the training settings.
+  const backNow = pads.some((p) => !!p.buttons[8]?.pressed), drill = wasPressed('Tab') || (backNow && !backHeld);
+  backHeld = backNow;
+  if (drill && mode === 'local' && hallTraining) { void trainingMenu(); return; }
 
   const t0 = performance.now();
   for (let steps = 0; acc >= T.sim.dt && steps < T.sim.maxStepsPerFrame; steps++, acc -= T.sim.dt) {

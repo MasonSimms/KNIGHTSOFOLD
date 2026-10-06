@@ -10,7 +10,7 @@ let padAim = 0, usePadAim = false;
 addEventListener('keydown', (e) => {
   keys.add(e.code);
   taps.add(e.code);
-  if (e.code === 'Space' || e.code.startsWith('Arrow') || e.code === 'F3') e.preventDefault();
+  if (e.code === 'Space' || e.code.startsWith('Arrow') || e.code === 'F3' || e.code === 'Tab') e.preventDefault(); // (Tab opens the training settings, not the browser's focus)
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => { keys.clear(); taps.clear(); mouseDown = false; rightWas = false; });

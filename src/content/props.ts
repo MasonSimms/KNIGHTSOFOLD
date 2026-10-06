@@ -1,3 +1,5 @@
+import { weapons } from './weapons';
+
 // Loose objects that can lie around an arena (placeholder sizes). Anything in the world is a physics body: players can pick it up and use it as a club.
 // `factor` is the damage factor when held (default tuning.props.factor). The era pickups (listed per era in eras.ts, weakest first) are the better
 // weapons that spawn in as a round goes on: heavier or longer, hitting harder.
@@ -23,3 +25,9 @@ export const PROPS: Record<string, PropSpec> = {
   crowbar: { len: 0.8, thick: 0.05, mass: 1.2, factor: 2.5 }, 'lead-pipe': { len: 1.0, thick: 0.07, mass: 2.0, factor: 2.9 },
 };
 export const PROP_KINDS = Object.keys(PROPS); // a 'spawn' event names its prop by position in this list
+
+/** Everything that can be dropped in from the training menu: every era's weapon, then the pickups and the loose objects. */
+export const ITEMS: { id: string; name: string; spec: PropSpec }[] = [
+  ...weapons.map((w) => ({ id: w.id, name: w.name, spec: { len: w.length, thick: w.thickness, mass: w.mass, factor: w.impactFactor } })),
+  ...PROP_KINDS.map((id) => ({ id, name: id.split('-').map((s) => s[0].toUpperCase() + s.slice(1)).join(' '), spec: PROPS[id] })),
+];
