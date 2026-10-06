@@ -31,6 +31,6 @@ export function cleanInput(raw: unknown): PlayerInput {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   return {
     moveX: num(r.moveX, -1, 1), aim: num(r.aim, -10, 10),
-    jump: r.jump === true, attack: r.attack === true, crouch: r.crouch === true, drop: r.drop === true, dodge: r.dodge === true, flip: r.flip === true,
+    jump: r.jump === true, attack: r.attack === true, crouch: r.crouch === true, drop: r.drop === true, dodge: r.dodge === true,
   };
 }

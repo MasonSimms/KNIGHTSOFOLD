@@ -5,6 +5,7 @@ export const tuning = {
     dt: 1 / 60,
     gravity: 22, // heavier than Earth: snappier, more comedic arcs
     maxStepsPerFrame: 5,
+    maxPartSpeed: 60, // m/s: a safety cap on any body part (real play stays far below it: club tips reach about 35); stops rare solver blow-ups
     maxFallSpeed: 18, // terminal fall speed (m/s): a body landing faster than this on its legs gets blasted back out of the floor
     solverIterations: 32, // Rapier default is 4; more = stiffer joints (arm chain) at some CPU cost
     pgsIterations: 4,
@@ -122,6 +123,7 @@ export const tuning = {
     // tumbling bodies may bounce. Jumps, hits and knockdowns are applied separately and are not affected.)
     fallSpeed: 3, // m/s
     maxRebound: 1, // m/s
+    maxCut: 12, // m/s: never takes away more than this (real rebounds from the joints are under 10)
   },
   offArm: {
     // The second arm: pure decoration. It hangs off the shoulder and flops with your motion; it only touches the floor and walls.
@@ -191,15 +193,33 @@ export const tuning = {
     maxTorque: 900,
     stunFactor: 0.25, // balance strength while stunned
   },
-  flip: {
-    // Hold W (gamepad: left stick up) in the air: the body rotates forward, the way you face. Let go and it rights itself.
-    spin: 7, // rad/s the body spins up to while holding W (one turn a second; was 11, owner found it too fast)
-    accel: 90, // rad/s^2: how quickly it gets there (and how quickly it stops spinning when you let go)
-    // After landing (or letting go of flip on the ground) a body that is not upright turns smoothly back, instead of snapping:
-    rightGain: 7, // 1/s: turn rate per radian of tilt
-    rightMax: 6, // rad/s cap on that turn
-    rightAccel: 45, // rad/s^2
-    rightFrom: 0.7, // radians of tilt (40 degrees) beyond which the smooth righting takes over from normal balance
+  rightUp: {
+    // A body far from upright (after a knock, a landing, a tumble) turns smoothly back, instead of snapping. (W used to flip you; owner removed it.)
+    gain: 7, // 1/s: turn rate per radian of tilt
+    max: 6, // rad/s cap on that turn
+    accel: 45, // rad/s^2
+    from: 0.7, // radians of tilt (40 degrees) beyond which the smooth righting takes over from normal balance
+  },
+  slam: {
+    // BODY SLAM (owner): holding someone (left-click held), jump and hold S. Your arm drives them straight down, they are turned head-first
+    // and you both fall faster. When their head hits the ground, the damage depends on how far they were driven down: a slam from a
+    // normal jump does good damage but does not kill; from a height it does. Then you let go of them and they are knocked down.
+    drive: 30, // m/s^2: while slamming you both fall at least as fast as a fall with this much extra pull (gravity is 22)
+    settleFrames: 6, // a slam can only start once you have held them this long (a brand-new grab is still settling)
+    turnGain: 10, // turning them head-down: 1/s per radian still to go...
+    turnMax: 14, // ...capped at this many rad/s...
+    turnAccel: 240, // ...and reached this quickly (rad/s^2: a sudden spin would tear the grab apart)
+    under: [0.25, 0.9], // where they are brought to: metres in front of and below your body
+    steer: 10, // 1/s: how quickly they are brought there...
+    steerAccel: 300, // ...changing their speed by at most this much (m/s^2: 5 m/s a frame)
+    armGain: 0.3, // while slamming your grabbing arm is this soft (x its normal strength): the slam moves them and the arm follows
+    damage: 15, // hidden HP for any slam that lands...
+    damagePerMetre: 32, // ...plus this per metre their body dropped from the top of the slam (a slam from a jump: about 35-40; a drop of about 2.6 m or more: a kill)
+    carryJump: 1, // jumping while holding someone lifts them with you (x your jump speed)
+    swingDrive: 40, // m/s^2: someone you hold who is already coming down (a downward swing, a drop) is pulled down this much harder, so swinging them into the ground hits hard
+    swingMin: 1.5, // m/s: ...once they are coming down at least this fast
+    minSpeed: 4, // m/s: their head must hit the ground at least this fast
+    impactFactor: 3.5, // how hard it counts for knockdown, screen shake and paint (x the head's speed)
   },
   body: {
     // Body collisions: a fighter moving much faster than the one they hit deals damage by closing speed x factor (through the usual damage
@@ -295,9 +315,10 @@ export const tuning = {
     armMul: 1.8, // how much stronger your arm is while reaching or holding someone (was 4: a body whirled like nothing; now the other fighter has real weight but can still be swung and thrown)
     fling: 1, // the flung fighter's speed is multiplied by this when you let go (1 = only the swing itself)
     maxFling: 12, // m/s: nobody leaves your hands faster than this
+    maxCatchSpeed: 10, // m/s: a hand cannot lock onto someone flying past faster than this (relative to the hand)
     breakImpact: 20, // a hit on the grabber at least this big makes them drop who they are holding: the one held can hit their way out, or anyone else can
     thrownFrames: 90, // for this long after being flung (1.5 s) a hard crash hurts
-    slamFactor: 2.0, // damage factor for crashing into the floor, a wall or another fighter: impact = crash speed (m/s) x this
+    slamFactor: 2.6, // damage factor for a flung or held fighter crashing into the floor, a wall or another fighter: impact = crash speed (m/s) x this (was 2.0: owner wants throws into walls and swings into the ground to count as body slams)
     slamCooldown: 12, // frames between two crash hits on the same thrown fighter
   },
   disarm: {

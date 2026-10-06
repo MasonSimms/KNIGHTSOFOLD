@@ -4,7 +4,6 @@ export interface PlayerInput {
   jump: boolean;
   aim: number; // world-space angle in radians (0 = right, +pi/2 = down)
   attack: boolean; // left-click. Unarmed: tap = punch, hold = grab (let go to fling). With a club: hold to charge, release to lunge
-  flip?: boolean; // W / stick up: hold to rotate forward in the air (absent = false)
   crouch: boolean; // S / down: crouch (lower to the ground: higher jump, more swing momentum, ducks under swings)
   drop: boolean; // right-click: let go of the weapon (it keeps the speed of your swing, plus a small push)
   dodge: boolean; // press: slip into the background plane for a moment (long cooldown)
