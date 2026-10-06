@@ -8,6 +8,7 @@ import { tuningFingerprint } from '../src/replay/recording';
 import type { ClientMsg, ServerMsg } from '../src/net/protocol';
 import { Room } from '../src/net/room';
 import { Sim } from '../src/sim/world';
+import { tuning as T } from '../src/content/tuning';
 
 // The room server: 4-letter room codes, up to 4 players, the host starts the fight, the real sim runs here at 60 Hz.
 // People can join a fight under way (they appear next round) and come back after a drop (same seat, same score).
@@ -234,6 +235,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
         for (const p of r.present) if (p.ws!.readyState === WebSocket.OPEN && p.ws!.bufferedAmount < 1_000_000) p.ws!.send(msg); // a slow client just misses snapshots
       }
     }
+    for (const r of rooms.values()) if (r.game?.sim.matchOver && r.game.sim.matchFrames >= T.match.crownFrames) endGame(r, 'the match is over'); // the crown has been shown: back to the room
     if (now - sweep > 1000) { // once a second: delete fights nobody is watching (an away player's seat is simply up for grabs after reserveMs: see 'join')
       sweep = now;
       for (const [ip, ts] of created) if (!ts.some((t) => Date.now() - t < CREATE_LIMIT.perMs)) created.delete(ip);

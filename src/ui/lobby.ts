@@ -33,14 +33,18 @@ export function showPing(ms: number | null): void {
 
 const home = () => { forgetSession(); location.href = location.pathname; }; // back to the gallery (a fresh page)
 
-export function runLobby(url: string): Promise<{ client: NetClient; seed: number; you: number; queued: boolean }> {
+/**
+ * The online room: connect (or, with `existing`, come back to the room after a match on the same connection), the door (make or join),
+ * then the Hall until the host starts. Resolves when you are in a fight.
+ */
+export function runLobby(url: string, existing?: NetClient): Promise<{ client: NetClient; seed: number; you: number; queued: boolean; host: boolean }> {
   notice('');
-  const root = openMenu('door', `<button class="back" title="Back">${BACK}</button><h1>Knights of Old</h1><div class="body">Connecting...</div><div class="err"></div>`);
+  const root = openMenu('door', `<button class="back" title="Back">${BACK}</button><h1>Knights of Old</h1><div class="body">${existing ? 'Back to the room...' : 'Connecting...'}</div><div class="err"></div>`);
   const body = root.querySelector('.body') as HTMLElement, err = root.querySelector('.err') as HTMLElement;
   (root.querySelector('.back') as HTMLElement).onclick = home;
 
   return new Promise((resolve) => {
-    NetClient.connect(url).then((client) => {
+    (existing ? Promise.resolve(existing) : NetClient.connect(url)).then((client) => {
       let code = '', last: Extract<ServerMsg, { t: 'lobby' }> | null = null, row = 0, problem = '', raf = 0;
       let hall: ReturnType<typeof mountHall> | null = null;
       const door = () => {
@@ -86,16 +90,18 @@ export function runLobby(url: string): Promise<{ client: NetClient; seed: number
         }
       };
       const invited = (new URLSearchParams(location.search).get('room') ?? '').toUpperCase().trim(); // opened from an invite link
-      let saved = loadSession();
+      let saved = existing ? null : loadSession();
       if (saved && invited && saved.code !== invited) { forgetSession(); saved = null; } // an invite to another room: go there
-      if (saved) { body.textContent = 'Rejoining your room...'; code = saved.code; client.send({ t: 'rejoin', ...saved }); }
+      if (existing) { /* the server sends the room as it is now */ }
+      else if (saved) { body.textContent = 'Rejoining your room...'; code = saved.code; client.send({ t: 'rejoin', ...saved }); }
       else if (invited) { body.textContent = `Joining room ${invited}...`; code = invited; client.send({ t: 'join', code }); }
       else door();
       client.onClose(() => { problem = 'Lost the connection to the server. Reload the page to try again.'; err.textContent = problem; draw(); });
       client.onMsg = (m) => {
         if (m.t === 'error') {
           problem = m.why; err.textContent = m.why; draw();
-          if (!hall && !saved && invited && !m.fatal) door(); // the invite's room is gone or full: make or join another
+          if (!hall && !saved && invited && !m.fatal && !existing) door(); // the invite's room is gone or full: make or join another
+          if (m.fatal) { forgetSession(); alert(m.why); location.href = location.pathname; }
           if (saved && /seat is gone/.test(m.why)) { forgetSession(); err.textContent = problem = ''; door(); }
         } else if (m.t === 'lobby') {
           problem = '';
@@ -120,7 +126,7 @@ export function runLobby(url: string): Promise<{ client: NetClient; seed: number
           cancelAnimationFrame(raf);
           removeEventListener('keydown', onKey);
           if (hall) hall.close(); else closeMenu();
-          resolve({ client, seed: m.seed, you: m.you, queued: m.queued });
+          resolve({ client, seed: m.seed, you: m.you, queued: m.queued, host: !!last?.host });
         }
       };
     }).catch((e: Error) => { body.textContent = ''; err.textContent = e.message; });

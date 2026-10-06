@@ -575,6 +575,8 @@ export const tuning = {
   match: {
     // A fight: last fighter standing wins the round and scores a point. Dead fighters stay down until the round is over.
     resultFrames: 150, // how long the result is shown before the next round starts (2.5 s)
+    rounds: 12, // a match: one round per era (owner). A tie at the top after the last one plays extra rounds until someone leads
+    crownFrames: 480, // how long the crown screen shows the winner before everyone goes back to the Hall (8 s)
   },
   respawn: {
     frames: 120,

@@ -43,7 +43,7 @@ const lagMs = Number(query.get('lag')) || 0;
 const room = lagMs ? new Room(sim) : null;
 let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 2)) : null;
 // Open http://localhost:5173/?online to play for real: make or join a room, the host starts. (Needs the room server: npm run server.)
-let net: NetClient | null = null, mySlot = 0, inputSeq = 0, ping = 0;
+let net: NetClient | null = null, mySlot = 0, inputSeq = 0, ping = 0, isHost = false;
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
   const url = serverUrl(onlineParam);
@@ -56,8 +56,8 @@ if (onlineParam !== null) {
     c.onMsg = (msg) => {
       if (msg.t === 'snap') m.push(msg.s);
       else if (msg.t === 'pong') { ping = performance.now() - msg.n; showPing(ping); }
-      else if (msg.t === 'start') { mySlot = msg.you; m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
-      else if (msg.t === 'over') { forgetSession(); alert(`The fight is over: ${msg.why}.`); location.reload(); } // back to the menu (ponytail: a fresh connection; a lobby that survives the fight can come later)
+      else if (msg.t === 'start') { mySlot = msg.you; if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
+      else if (msg.t === 'over') void backToRoom(c); // the match is over (or the host ended it): back to the room's Hall, ready for a rematch
       else if (msg.t === 'error' && msg.fatal) { forgetSession(); alert(msg.why); location.href = location.pathname; }
       else if (msg.t === 'error') { forgetSession(); alert(`Could not rejoin: ${msg.why}.`); location.reload(); }
     };
@@ -74,6 +74,21 @@ if (onlineParam !== null) {
     }
     forgetSession(); alert('Could not get back into the game.'); location.reload();
   };
+  /** After a match: the room's Hall on the same connection, then the next fight (a new seed: a new order of maps). */
+  const backToRoom = async (c: NetClient) => {
+    c.onMsg = null; // (the room's messages wait for the Hall to pick them up)
+    paused = true;
+    notice('');
+    const r = await runLobby(url, c);
+    mySlot = r.you; isHost = r.host;
+    m.sim.reseed(r.seed);
+    m.reset();
+    notice(r.queued ? 'You join at the start of the next round' : '');
+    attach(c);
+    flushInput(); last = performance.now(); acc = 0;
+    paused = false;
+  };
+  isHost = r.host;
   attach(net);
   setInterval(() => net?.send({ t: 'ping', n: performance.now() }), 2000); // the round trip, shown in a corner
 }
@@ -156,6 +171,7 @@ async function menu(screen: 'home' | 'hall') {
     if (hallTraining) { const t = loadTraining(); applyTraining(sim, t, seats.length === 1); speed = t.speed; }
     else { leaveTraining(sim, eraParam, mapParam === null ? null : Number(mapParam)); speed = slow; }
     mySlot = Math.max(0, devices.indexOf('kb'));
+    sim.reseed(Math.floor(Math.random() * 2 ** 31)); // a new match: a new order of maps and weapon drops
     sim.setPlayers(seats.length); // one player: practice on the dummy; two or more (people or bots): a real fight
     break;
   }
@@ -211,6 +227,12 @@ function frame(now: number) {
   const startNow = pads.some((p) => !!p.buttons[9]?.pressed), leave = wasPressed('Escape') || (startNow && !startHeld);
   startHeld = startNow;
   if (leave && mode !== 'auto') { void menu(mode === 'local' ? 'hall' : 'home'); return; }
+  if (leave && net) { // online: the host can end the fight for everyone (back to the room); anyone can leave
+    if (isHost && confirm('End the fight for everyone and go back to the room?')) net.send({ t: 'end' });
+    else if (!isHost && confirm('Leave this fight?')) { forgetSession(); location.href = location.pathname; }
+    flushInput(); last = performance.now(); acc = 0;
+    return;
+  }
   // Tab (or Back on a gamepad) while training: the training settings.
   const backNow = pads.some((p) => !!p.buttons[8]?.pressed), drill = wasPressed('Tab') || (backNow && !backHeld);
   backHeld = backNow;
@@ -240,6 +262,10 @@ function frame(now: number) {
   }
   if (acc >= T.sim.dt) acc = 0; // too far behind: drop the backlog instead of spiralling
   simMsSum += performance.now() - t0;
+  if (!net && !room && sim.matchOver && sim.matchFrames >= T.match.crownFrames) { // the crown has been shown: back to the Hall, everyone still seated
+    if (mode === 'local') { void menu('hall'); return; }
+    sim.reseed(Math.floor(Math.random() * 2 ** 31)); // (testing links: straight into the next match)
+  }
 
   let alpha = acc / T.sim.dt;
   if (mirror) {

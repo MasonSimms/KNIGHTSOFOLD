@@ -6,6 +6,7 @@ import { Sim } from '../sim/world';
 import { PROTOCOL } from './protocol';
 import type { ClientMsg, ServerMsg } from './protocol';
 import { tuningFingerprint } from '../replay/recording';
+import { tuning as T } from '../content/tuning';
 import { Mirror } from './snapshot';
 
 /** A tiny test client: remembers every message and lets a test wait for one. */
@@ -375,4 +376,28 @@ describe('room server', () => {
     const s = await host.wait('snap', (m) => m.s.ack?.[0] === 5);
     expect(s.s.ack![0]).toBe(5);
   });
+  it('a match ends with the crown, everyone goes back to the room, and the host can start a rematch with a new seed', async () => {
+    const saved = { r: T.match.rounds, c: T.match.crownFrames };
+    T.match.rounds = 2; T.match.crownFrames = 30; // (a short match; set before the server starts: its version check includes them)
+    try {
+      const { host, others, game, seed, all } = await fightOf(2);
+      for (let round = 1; round <= 2; round++) {
+        while (game.sim.round < round) await sleep(20);
+        kill(game.sim, 1); // the host wins every round
+        while (!game.sim.roundOver) await sleep(20);
+      }
+      const snap = await host.wait('snap', (m) => !!m.s.matchOver, 8000);
+      expect(snap.s.matchWinner).toBe(0);
+      await host.wait('over', () => true, 8000);
+      await others[0].wait('over');
+      const lob = await host.wait('lobby', (m) => m.n === 2);
+      expect(lob.host).toBe(true);
+      expect(lob.ready.every((r, i) => !lob.looks[i] || !r)).toBe(true); // everyone readies up again
+      all.forEach((c) => c.clear());
+      await readyAll(all);
+      host.send({ t: 'start' });
+      const st = await host.wait('start');
+      expect(st.seed).not.toBe(seed);
+    } finally { T.match.rounds = saved.r; T.match.crownFrames = saved.c; }
+  }, 30_000);
 });

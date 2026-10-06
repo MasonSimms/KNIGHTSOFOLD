@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { tuning as T } from '../content/tuning';
 import type { PlayerInput } from './types';
+import { eraFor, mapFor } from './era';
 import { Sim } from './world';
 
 const idle = (over: Partial<PlayerInput> = {}): PlayerInput => ({ moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false, ...over });
@@ -85,5 +86,47 @@ describe('the charged throw at full charge', () => {
     for (let i = 0; i < 20 && !thrown; i++) { sim.step([idle({ attack: true })]); thrown = sim.events.some((e) => e.t === 'throw'); }
     expect(thrown).toBe(true);
     expect(f.grip).toBeNull();
+  });
+});
+
+describe('a match (12 rounds, then the crown)', () => {
+  /** Everyone but `who` falls into the void; step until the next round starts (or the match is over). */
+  const winRound = (sim: Sim, who: number) => {
+    sim.fighters.forEach((f, i) => { if (i !== who && !f.limp) knockOff(sim, i); });
+    for (let i = 0; i < T.match.resultFrames + 20; i++) { stepAll(sim); if (sim.events.some((e) => e.t === 'newround' || e.t === 'match')) return; }
+  };
+
+  it('after the last round the leader takes the crown, and no more rounds start', async () => {
+    const sim = await Sim.create(5, 3, false);
+    for (let r = 1; r <= T.match.rounds; r++) winRound(sim, r <= 7 ? 0 : 1); // 7 rounds to fighter 0, 5 to fighter 1
+    expect(sim.round).toBe(T.match.rounds);
+    expect(sim.matchOver).toBe(true);
+    expect(sim.matchWinner).toBe(0);
+    stepAll(sim, T.match.crownFrames);
+    expect(sim.round).toBe(T.match.rounds); // nothing more happens until the players go on
+    expect(sim.matchFrames).toBeGreaterThanOrEqual(T.match.crownFrames);
+  }, 60_000);
+
+  it('a tie at the top plays extra rounds until someone leads', async () => {
+    const sim = await Sim.create(6, 2, false);
+    for (let r = 1; r <= T.match.rounds; r++) winRound(sim, r % 2); // 6 each
+    expect(sim.matchOver).toBe(false);
+    expect(sim.round).toBe(T.match.rounds + 1);
+    expect(sim.tieBreak).toBe(true);
+    winRound(sim, 1);
+    expect(sim.matchOver).toBe(true);
+    expect(sim.matchWinner).toBe(1);
+  }, 60_000);
+
+  it('a new match (a new seed) starts at round 1 with no scores, in another order of maps', async () => {
+    const sim = await Sim.create(5, 2, false);
+    winRound(sim, 0);
+    const before = Array.from({ length: 12 }, (_, i) => i + 1).map((r) => `${eraFor(sim.matchSeed, r).id}/${mapFor(sim.matchSeed, r, eraFor(sim.matchSeed, r).id)}`).join();
+    sim.reseed(987654);
+    expect(sim.round).toBe(1);
+    expect(sim.scores).toEqual([0, 0, 0, 0]);
+    expect(sim.matchSeed).toBe(987654);
+    const after = Array.from({ length: 12 }, (_, i) => i + 1).map((r) => `${eraFor(987654, r).id}/${mapFor(987654, r, eraFor(987654, r).id)}`).join();
+    expect(after).not.toBe(before); // (the specials and the maps fall differently)
   });
 });

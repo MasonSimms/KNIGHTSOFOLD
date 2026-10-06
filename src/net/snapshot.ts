@@ -10,6 +10,8 @@ export interface Snapshot {
   round: number;
   roundOver: boolean;
   roundWinner: number;
+  matchOver?: boolean; // the match is over: the crown (and who won it)
+  matchWinner?: number;
   scores: number[];
   f: { hp: number; back: boolean; p: number[] }[]; // per fighter: hp, on the background plane, and x, y, angle for each part
   era: string;
@@ -27,7 +29,7 @@ const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot {
   return {
-    frame, round: sim.round, roundOver: sim.roundOver, roundWinner: sim.roundWinner, scores: sim.scores.slice(), ev,
+    frame, round: sim.round, roundOver: sim.roundOver, roundWinner: sim.roundWinner, scores: sim.scores.slice(), ev, matchOver: sim.matchOver, matchWinner: sim.matchWinner,
     era: sim.era, map: sim.map, outfits: sim.outfits.slice(),
     props: sim.props.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }), looks: sim.looks.map((l) => ({ ...l })),
     boat: sim.boat ? [r3(sim.boat.body.translation().x), r3(sim.boat.body.translation().y), r3(sim.boat.body.rotation())] : undefined,
@@ -101,7 +103,7 @@ export class Mirror {
     const looksNow = JSON.stringify(a.looks);
     if (looksNow !== this.lastLooks) { this.lastLooks = looksNow; sim.version++; } // someone picked a new hat or colour: the renderer must redraw the fighters
     sim.era = a.era; sim.map = a.map; sim.outfits = a.outfits; sim.looks = a.looks;
-    sim.scores = a.scores.slice(); sim.round = a.round; sim.roundOver = a.roundOver; sim.roundWinner = a.roundWinner;
+    sim.scores = a.scores.slice(); sim.round = a.round; sim.roundOver = a.roundOver; sim.roundWinner = a.roundWinner; sim.matchOver = !!a.matchOver; sim.matchWinner = a.matchWinner ?? -1;
     if (a.props.length !== sim.props.length * 3) this.desyncs++;
     else {
       const pb = b.props.length === a.props.length ? b.props : a.props;

@@ -86,6 +86,9 @@ export class Sim {
   roundOver = false;
   roundWinner = -1; // index of the winner of the round just finished, or -1 for a draw
   private roundOverAt = 0;
+  matchOver = false; // the last round is done and someone leads: the crown (tuning.match)
+  matchWinner = -1;
+  private matchOverAt = 0;
   private nextSpawn = 0; // the frame the next pickup weapon spawns
   private preV = [0, 0, 0, 0, 0, 0, 0, 0]; // each fighter's body velocity (x, y) just before the physics step
 
@@ -135,6 +138,19 @@ export class Sim {
   /** The seed the match was made with (replays need it). */
   get matchSeed(): number { return this.seed; }
 
+  /** A new match: a new seed (so a new order of maps and weapon drops), round 1, no scores. */
+  reseed(seed: number): void {
+    this.seed = seed >>> 0;
+    this.rng = makeRng(this.seed);
+    this.reset();
+  }
+
+  /** How long the crown has been showing (0 until the match is over). */
+  get matchFrames(): number { return this.matchOver ? this.frame - this.matchOverAt : 0; }
+
+  /** The tie-break rounds after the last round of the match (the top score was shared). */
+  get tieBreak(): boolean { return this.round > T.match.rounds; }
+
   /** Practising alone (with the training dummy or a training bot): no rounds. */
   get practising(): boolean { return this.dummy; }
 
@@ -142,6 +158,8 @@ export class Sim {
 
   /** Rebuild everything from the current tuning values and start the scores again. */
   reset(): void {
+    this.matchOver = false;
+    this.matchWinner = -1;
     this.scores = [0, 0, 0, 0];
     this.round = 1;
     this.roundOver = false;
@@ -1031,8 +1049,17 @@ export class Sim {
 
   /** The last fighter standing wins the round and scores a point; after a short pause the next round starts. */
   private updateRound(): void {
+    if (this.matchOver) return;
     if (this.roundOver) {
       if (this.frame - this.roundOverAt >= T.match.resultFrames) {
+        const scores = this.scores.slice(0, this.count), top = Math.max(...scores);
+        if (this.round >= T.match.rounds && scores.filter((s) => s === top).length === 1) { // the last round, and one leads: the match is theirs
+          this.matchOver = true;
+          this.matchWinner = scores.indexOf(top);
+          this.matchOverAt = this.frame;
+          this.events.push({ t: 'match', x: 0, y: 0, v: top, owner: this.matchWinner, victim: -1 });
+          return;
+        }
         this.round++;
         this.roundOver = false;
         this.roundWinner = -1;

@@ -56,7 +56,8 @@ export async function runLab(o: LabOptions): Promise<Round[]> {
         out.push({ era, map, seconds: (sim.frame - start) / 60, capped, winner, deaths, hits, damage });
         // On to the next round: the game starts it itself after showing the result; a round nobody won is ended by the lab.
         if (capped) sim.buildRound(sim.round + 1, eraFor(seed, sim.round + 1).id);
-        else for (let k = 0; k < 600 && !sim.events.some((e) => e.t === 'newround'); k++) sim.step(inputs);
+        else for (let k = 0; k < 600 && !sim.events.some((e) => e.t === 'newround') && !sim.matchOver; k++) sim.step(inputs);
+        if (sim.matchOver) sim.reseed(seed + 7919 * (r + 1)); // a match is 12 rounds: the next round starts a new match
       }
     }
   } finally {
