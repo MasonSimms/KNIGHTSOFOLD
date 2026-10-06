@@ -432,11 +432,11 @@ export const tuning = {
     perImpact: 0.6, // ...plus this many frames for every point of impact above the minimum
     maxFrames: 70, // never longer than this (1.2 s)
     lift: 0.07, // m/s of upward launch per point of impact (the air time to tumble in)
-    spin: 0.34, // rad/s of tumble per point of impact (impact 60 = about 20 rad/s: three turns a second at the start, slowing as the limbs drag)
+    spin: 0.2, // rad/s of tumble per point of impact (owner: less flopping; was 0.34: a medium hit cartwheeled the body 1.75 turns, a big one 3. Now about 0.9 and 1.8)
     spinJitter: 0.3, // a little variety in the tumble
     balance: 0.04, // how much of the upright spring is left while knocked down
-    legSoft: 0.9, // how limp the legs go
-    armLimp: 0.05, // how much arm strength is left (a limp arm does not fight the tumble)
+    legSoft: 0.6, // how limp the legs go (was 0.9: they flailed at 11 rad/s; now about a third of that)
+    armLimp: 0.3, // how much arm strength is left (was 0.05: fully limp; a little tension keeps the arm with the body in the tumble)
     minAge: 14, // earliest moment they may get up early (frames after the blow)
     calmSpin: 2.5, // ...once spinning slower than this (rad/s)
     calmSpeed: 2.5, // ...and moving slower than this (m/s)
