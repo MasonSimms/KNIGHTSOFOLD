@@ -434,8 +434,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const { f, c } = e;
         e.vis += ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds);
         if (e.crushed) e.sq = Math.min(1, e.sq + frameSeconds / T.death.squashSeconds);
-        let tint = mix(0xffffff, T.colors.damaged, 1 - Math.max(0, f.hp) / T.fighter.hp);
-        tint = mix(tint, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker
+        const tint = mix(0xffffff, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker (no damage tint: health stays hidden)
         e.blur.strength = e.vis * T.dodge.visualBlur * px;
         e.group.filters = e.vis > 0.02 ? [e.blur] : null; // no filter cost unless they are dodging
         const layer = f.inBack ? backLayer : fighterLayer;

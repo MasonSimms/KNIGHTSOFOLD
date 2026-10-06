@@ -50,7 +50,7 @@ describe('body collisions', () => {
     const sim = await twoFighters();
     const P = sim.fighters[0], D = sim.fighters[1];
     const dt = D.torso.body.translation().x - P.torso.body.translation().x;
-    place(P, dt - 0.05, -2.2); // directly above the dummy
+    place(P, dt + 0.15, -2.2); // above the dummy's head, a touch behind it (its raised club hand covers the front)
     const hp0 = D.hp;
     let stomped = false;
     for (let i = 0; i < 60; i++) {

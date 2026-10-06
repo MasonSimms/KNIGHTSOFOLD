@@ -45,10 +45,10 @@ describe('picking up and knocking out weapons', () => {
     const missile = P2().stick!.body;
     const ft = P0().fore.body.translation(), fa = P0().fore.body.rotation();
     const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
-    // from the front, just under the club, straight at the fist (in guard the club lies across the top of the fist and the body is behind it)
-    missile.setTranslation({ x: hx + 1.0, y: hy + 0.12 }, true);
-    missile.setRotation(0, true);
-    missile.setLinvel({ x: -30, y: 0 }, true);
+    // straight at the knuckles, along the forearm (the club comes out of the side of the fist, so this way only the fist is in the way)
+    missile.setTranslation({ x: hx + Math.cos(fa), y: hy + Math.sin(fa) }, true);
+    missile.setRotation(fa - Math.PI / 2, true);
+    missile.setLinvel({ x: -Math.cos(fa) * 30, y: -Math.sin(fa) * 30 }, true);
     let disarmed = false;
     for (let i = 0; i < 10; i++) {
       step({}, {});
@@ -66,7 +66,7 @@ describe('picking up and knocking out weapons', () => {
     const missile = P2().stick!.body;
     const ft = dummy().fore.body.translation(), fa = dummy().fore.body.rotation();
     const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
-    missile.setTranslation({ x: hx - 1.0, y: hy }, true); // in front of the dummy (it faces left), coming at the hand
+    missile.setTranslation({ x: hx - 1.0, y: hy + 0.05 }, true); // level from in front of the dummy (it faces left), at its raised fist, under the club
     missile.setRotation(0, true);
     missile.setLinvel({ x: 30, y: 0 }, true);
     for (let i = 0; i < 10; i++) step({}, {});
@@ -152,7 +152,7 @@ describe('parry', () => {
   /** Fighter 2's club (let go, then flung) hits fighter 0's club, which is held still in guard. */
   async function swingAtGuard(speed: number) {
     const { sim, step: step0, P0, P2 } = await three();
-    const step = (a: Partial<PlayerInput> = {}, c: Partial<PlayerInput> = {}) => step0({ aim: -1.1, ...a }, c); // guard raised: the club stands up and forward, side-on to the swing
+    const step = (a: Partial<PlayerInput> = {}, c: Partial<PlayerInput> = {}) => step0({ aim: -Math.PI / 2 - T.longMelee.holdLead, ...a }, c); // the club stands upright, side-on to the swing
     for (let i = 0; i < 30; i++) step();
     step({}, { drop: true });
     const missile = P2().stick!.body;

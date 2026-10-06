@@ -20,7 +20,7 @@ let ready: Promise<void> | null = null;
 const initRapier = () => (ready ??= RAPIER.init());
 
 /** The training dummy never gets real input: it holds its club in a low guard, facing the player (to its left). */
-const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI - 0.4 };
+const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI + 1.4 }; // the training dummy holds its club raised (up and toward the left), leaving its chest open to practise on
 
 export type Arena = typeof T.arena;
 
@@ -72,6 +72,7 @@ export class Sim {
   roundWinner = -1; // index of the winner of the round just finished, or -1 for a draw
   private roundOverAt = 0;
   private nextSpawn = 0; // the frame the next pickup weapon spawns
+  private preV = [0, 0, 0, 0, 0, 0, 0, 0]; // each fighter's body velocity (x, y) just before the physics step
 
   private constructor(seed: number, private count: number, private dummy: boolean) {
     this.seed = seed;
@@ -171,7 +172,7 @@ export class Sim {
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(l.w / 2, 0.15).setFriction(A.friction).setCollisionGroups(worldGroups), body);
     }
     const xs = (this.dummy ? A.spawnX : A.fightSpawnX).map(along);
-    for (const pr of A.props) { // loose objects lying on the arena
+    for (const pr of T.props.lying ? A.props : []) { // loose objects lying on the arena
       const spec = PROPS[pr.kind] ?? PROPS.plank;
       const p = createProp(this.world, pr.x, A.platformTop - pr.up - spec.thick / 2 - 0.01, 0, { kind: pr.kind, ...spec });
       this.props.push(p);
@@ -326,7 +327,9 @@ export class Sim {
     this.spawnPickups();
     this.resolvePickups();
     this.keepWeaponsInPlay();
+    for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     this.world.step();
+    this.absorbLandings();
     this.settlePlanes();
     this.resolveGrabs();
     this.resolveHits();
@@ -370,7 +373,7 @@ export class Sim {
   /** Better weapons drop in during the round, faster and stronger as it goes on, at fixed spots or from the sky. */
   private spawnPickups(): void {
     const S = T.spawn, pickups = eraById(this.era).pickups;
-    if (!T.eras.changeGameplay || !pickups?.length || this.frame < this.nextSpawn) return;
+    if (!T.eras.changeGameplay || !T.spawn.enabled || !pickups?.length || this.frame < this.nextSpawn) return;
     this.nextSpawn = this.frame + Math.round(S.firstGap + (S.minGap - S.firstGap) * Math.min(1, this.frame / S.rampFrames));
     if (this.props.filter((p) => pickups.includes(p.weapon?.id ?? '')).length >= S.maxLoose) return;
     const strong = pickups.length > 1 && this.frame >= S.strongAfterFrames && this.rng() < S.strongChance;
@@ -379,6 +382,25 @@ export class Sim {
     const y = sky ? -1.5 : A.platformTop - 0.4;
     this.addProp(kind, x, y);
     this.events.push({ t: 'spawn', x, y, v: PROP_KINDS.indexOf(kind), owner: -1, victim: -1 });
+  }
+
+  /** A body that runs into something fast (the floor, a wall) does not spring back off it (see tuning.land). */
+  private absorbLandings(): void {
+    const L = T.land;
+    for (const f of this.fighters) {
+      if (f.knock > 0) continue; // a knocked-down body may bounce about
+      // Sideways (walls) and up-down (floors) separately: a fast movement that the impact turned round is let back by at most maxRebound.
+      const tv = f.torso.body.linvel(this.tmpV), cut = [0, 1].map((a) => {
+        const before = this.preV[2 * f.index + a], after = a ? tv.y : tv.x;
+        return Math.abs(before) >= L.fallSpeed && after * Math.sign(before) < -L.maxRebound ? -after - Math.sign(before) * L.maxRebound : 0;
+      });
+      if (!cut[0] && !cut[1]) continue;
+      for (const p of f.parts) {
+        // only what is still attached to the body (not a dropped club or a lost limb lying elsewhere)
+        if ((p.role === 'stick' && !f.grip) || (f.armLost && (p.role === 'upper' || p.role === 'fore')) || (f.legLost.some(Boolean) && (p.role === 'thigh' || p.role === 'shin'))) continue;
+        const v = p.body.linvel(this.tmpV); p.body.setLinvel({ x: v.x + cut[0], y: v.y + cut[1] }, true);
+      }
+    }
   }
 
   /** Right-click with empty hands: pick up the nearest loose weapon in reach, anyone's. */

@@ -69,6 +69,7 @@ export const tuning = {
     wallJumpX: 6.5, // speed kicked away from the wall (m/s)
     wallJumpY: 10, // upward speed of a wall jump (same height as a normal jump)
     wallCoyoteFrames: 6, // a wall jump still works this long after leaving the wall
+    wallTuckFrames: 30, // after a wall jump the club is held up over the head this long (0.5 s), so it does not snag the platform edge on the way out
     wallLockFrames: 10, // after a wall jump, steering is switched off for this long so you do not drift back into the wall
   },
   lean: {
@@ -109,6 +110,18 @@ export const tuning = {
     damping: 40,
     reach: 0.25, // the spring still grabs the floor this far beyond the wanted height (stepping off a ledge lets go)
     maxAccel: 80, // m/s^2 cap, so a landing does not catapult you
+    // Only while you are on your feet (owner: landing on your arm, head or back bounced you off the ground: the spring was lifting a
+    // body that was upside down or lying). Full strength up to uprightFull of tilt, nothing past uprightNone (cosine of the tilt).
+    uprightFull: 0.55, // cos: about 55 degrees
+    uprightNone: 0.15, // cos: about 80 degrees
+  },
+  land: {
+    // Running into things never rebounds (owner: landing on your arm, head or an item bounced you off the ground; it also bounced fighters off
+    // walls). The stiff joint chain (sim.solverIterations) can spring a body back when a limb, the head or a held club hits first; a fighter
+    // moving faster than fallSpeed may not come back the way they came faster than maxRebound in the same step. (Not while knocked down:
+    // tumbling bodies may bounce. Jumps, hits and knockdowns are applied separately and are not affected.)
+    fallSpeed: 3, // m/s
+    maxRebound: 1, // m/s
   },
   offArm: {
     // The second arm: pure decoration. It hangs off the shoulder and flops with your motion; it only touches the floor and walls.
@@ -229,10 +242,12 @@ export const tuning = {
     // negative = counter-clockwise = up. U is the upper arm, E the elbow bend, W the wrist bend (both relative to the part before).
     // Guard (owner: the club follows the mouse but is HELD like a club, coming out of the fist across the forearm, not pointing straight on
     // from the arm). The club itself points at the mouse; the wrist holds it bent off the forearm and the arm is placed to suit.
-    // The whole arm turns with the aim from the shoulder (so swings keep their power); the grip itself is fixed. Aiming forward: fist at the
-    // chest, club out level. Aiming up: fist above the head, club up. Aiming down: fist at the waist, club hanging down.
-    holdWrist: 1.3, // the club sits this far off the forearm (about 75 degrees: it comes out of the fist, not along the arm)
-    holdElbow: -2.0, // elbow folded (upper arm down and forward, forearm up)
+    // A normal grip: the club comes out of the THUMB side of the fist, across the forearm (owner: not the reverse grip), and turns with the
+    // mouse (rigidly, from the shoulder, so swings keep their power). The arm reaches out in front a little below the aim, nearly straight, so
+    // the fist sits at chest height; the club leads the mouse upward. Aiming level = a club held up from a fist in front of the chest.
+    holdLead: -1.0, // the club points this far above the aim (radians, about 70 degrees: aiming level, it stands nearly upright out of the fist; 0 = exactly at the mouse)
+    holdArm: 0.4, // the arm points this far below the aim (0 when aiming straight down): fist out in front at shoulder height
+    holdElbow: -0.4, // the elbow bends up a little
     bendFade: 0.35, // the bend fades out over this much of aim as the cursor gets near straight up or down, so the arm can sweep over the top
     chargeUpper: -1.2, // charge: arm raised above the head...
     chargeElbow: -0.5, // ...elbow folded back a little
@@ -299,6 +314,7 @@ export const tuning = {
     pickupDelay: 45, // frames before the dropped club can be picked up
   },
   spawn: {
+    enabled: false, // TESTING (owner): off for now, so no extra clubs lie around while the fighting is tuned. true = weapons keep arriving
     // Weapons keep arriving during a round, faster and better as it goes on (so rounds finish by themselves). Each era's pickups are in eras.ts.
     firstGap: 480, // frames from one spawn to the next at the start of a round (8 s)
     minGap: 150, // ...shrinking to this by rampFrames (2.5 s)
@@ -311,7 +327,7 @@ export const tuning = {
     startRules: { start: 0.5, spots: 0.25, sky: 0.25 }, // how a round begins: everyone armed, clubs on the floor at fixed spots, or clubs falling from the sky
   },
   eras: {
-    mixStarts: true, // each round picks its starting rule from spawn.startRules (false = always the arena's weaponRule: the tests do this)
+    mixStarts: false, // TESTING (owner): everyone starts armed for now (true = some rounds start with the clubs on the floor or falling from the sky); // each round picks its starting rule from spawn.startRules (false = always the arena's weaponRule: the tests do this)
     changeGameplay: true, // an era changes the arena layout and the weapon (false = every round uses the standard arena and club: the tests do this)
     specialChance: 0.15, // each slot of a match has this chance of being one of the special eras (fantasy archers, mobsters...) instead of its normal era
   },
@@ -346,6 +362,7 @@ export const tuning = {
   },
   props: {
     // Loose objects in the world (planks, logs, bones) and lost limbs: all of them can be picked up (right-click, empty hands) and used as a club.
+    lying: false, // TESTING (owner): the loose planks, logs and bones an era leaves lying on its map are off for now (true = on; bridges keep their planks)
     factor: 2.0, // damage factor of a held prop
     limbFactor: 1.6, // ...of a held limb (a leg, say)
   },
@@ -484,7 +501,6 @@ export const tuning = {
     stick: 0x8c5a2f,
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
-    damaged: 0xb04030, // tint blended in as hidden HP drops
   },
 };
 

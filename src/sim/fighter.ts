@@ -61,6 +61,7 @@ export interface Fighter {
   wallDir: number; // the last wall touched
   wallCoyote: number; // frames left in which a wall jump still works
   wallLock: number; // frames of switched-off steering after a wall jump
+  tuck: number; // frames left of holding the club raised over the head after a wall jump (so it clears the platform edge)
   dodge: number; // frames left in the background plane (0 = none)
   dodgeCooldown: number; // frames until another dodge is allowed
   inBack: boolean; // currently on the background plane (collisions with fighters and weapons are off)
@@ -216,7 +217,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
@@ -504,7 +505,8 @@ function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip:
   if (f.knock === 0 && f.groundDist < want + S.reach) { // (a knocked-down fighter is not held up)
     const vy = f.torso.body.linvel(tmp).y; // + = falling
     const up = Math.max(0, Math.min(S.maxAccel, S.stiffness * (want - f.groundDist) + S.damping * vy + T.sim.gravity)); // only ever pushes up
-    shove(f, 0, -up * fighterMass(f) * dt);
+    const onFeet = smooth(S.uprightNone, S.uprightFull, Math.cos(f.torso.body.rotation())); // not while lying, tumbling or upside down
+    if (onFeet > 0) shove(f, 0, -up * onFeet * fighterMass(f) * dt);
   }
 
   if (f.kneeSide !== s) { // knees fold toward where you face
@@ -715,6 +717,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     if (f.wall !== 0) { f.wallDir = f.wall; f.wallCoyote = M.wallCoyoteFrames; }
     else if (f.wallCoyote > 0) f.wallCoyote--;
     if (f.wallLock > 0) f.wallLock--;
+    if (f.tuck > 0) f.tuck--;
     // Wall slide: in the air, pushing toward a wall, you slide down it slowly instead of dropping.
     if (!grounded && f.wall !== 0 && input.moveX * f.wall > 0.2) {
       for (const p of f.parts) {
@@ -751,6 +754,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       f.jumpBuffer = 0;
       f.wallCoyote = 0;
       f.wallLock = M.wallLockFrames;
+      f.tuck = M.wallTuckFrames;
       const t = body.translation();
       events.push({ t: 'jump', x: t.x, y: t.y, v: 0, owner: f.index, victim: -1 });
     } else if (f.prevJump && !input.jump && body.linvel(tmp).y < -M.jumpCutMinSpeed) {
@@ -828,10 +832,11 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     } else {
       // The club cocks back gradually as the charge builds, from the guard toward raised-and-leaning-back, and stays there while you
       // fly forward after releasing. The pose is the charge indicator: there is nothing else to look at.
-      const c = holdingUp ? (f.releaseMul - 1) / (C.torqueMul - 1) : charging ? f.charge / C.maxFrames : 0;
+      const c = Math.max(holdingUp ? (f.releaseMul - 1) / (C.torqueMul - 1) : charging ? f.charge / C.maxFrames : 0, f.tuck > 0 ? 1 : 0); // (just after a wall jump the club is held up over the head)
       // Guard: the club points at the aim, gripped across the fist (wrist bent), and the arm is placed so it adds up: arm + elbow + wrist = aim.
-      const gW = P.holdWrist * guardBend, gE = P.holdElbow * guardBend;
-      U = lerp(aimR - gW - gE, P.chargeUpper, c);
+      const dn = Math.min(1, Math.max(0, aimR / (Math.PI / 2))); // 1 aiming straight down: the arm points at the aim
+      const gArm = P.holdArm * (1 - dn) * guardBend, gE = P.holdElbow * guardBend, gW = (P.holdLead - P.holdArm * (1 - dn) - P.holdElbow) * guardBend; // arm + elbow + wrist = lead
+      U = lerp(aimR + gArm, P.chargeUpper, c);
       E = lerp(gE, P.chargeElbow + P.chargeCock * c, c);
       W = lerp(gW, P.chargeWrist, c);
       followAim = c < 0.5;
@@ -855,7 +860,10 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   let err = wrapAngle(mirror(U) - f.upper.body.rotation());
   // A big swing (turning round, a flick of the mouse) goes up over the top rather than down through the floor, where the club would dig in
   // and shove the fighter.
-  if (Math.abs(err) > A.overTopMin && Math.sin(f.upper.body.rotation() + err / 2) > 0.5) err -= Math.sign(err) * Math.PI * 2;
+  if (armed && Math.abs(err) > A.overTopMin) { // holding a club: does the short way round pass straight down? then go the other way
+    const down = wrapAngle(Math.PI / 2 - f.upper.body.rotation());
+    if (err > 0 ? down > 0 && down < err : down < 0 && down > err) err -= Math.sign(err) * Math.PI * 2;
+  }
   const wantRate = clamp(A.shoulderTrack * err, A.shoulderMaxRate * (1 + (gain - 1) * A.burstRateShare)) + aimRate; // desired world turn rate of the arm
   f.shoulder.configureMotorVelocity(wantRate - body.angvel(), A.shoulderForce * gain); // the joint works in torso-relative terms
   f.shoulder.setMotorMaxForce(A.shoulderMaxTorque * gain);

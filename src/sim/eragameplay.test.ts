@@ -12,8 +12,8 @@ import { Sim } from './world';
 const idle = (over: Partial<PlayerInput> = {}): PlayerInput => ({ moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false, ...over });
 
 // These tests are about the eras' own weapon and arena, so they turn that on (the other tests run with it off).
-beforeAll(() => { T.eras.changeGameplay = true; T.eras.mixStarts = false; });
-afterAll(() => { T.eras.changeGameplay = false; });
+beforeAll(() => { T.eras.changeGameplay = true; T.eras.mixStarts = false; T.spawn.enabled = true; T.props.lying = true; });
+afterAll(() => { T.eras.changeGameplay = false; T.spawn.enabled = false; T.props.lying = false; });
 
 async function inEra(id: string, players = 4) {
   const sim = await Sim.create(5, players, false);

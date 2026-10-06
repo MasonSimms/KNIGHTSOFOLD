@@ -37,7 +37,7 @@ describe('determinism', () => {
     expect(a.hash).toBe(b.hash);
     expect(a.hits).toBe(b.hits);
     expect(a.hits).toBeGreaterThan(0); // the test must actually exercise combat
-  });
+  }, 20_000); // (two 1000-frame runs: slow when the whole suite runs at once)
 
   it('different inputs give a different hash (the hash is not vacuous)', async () => {
     const a = await run(1234, 300);

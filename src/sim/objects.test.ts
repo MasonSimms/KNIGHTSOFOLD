@@ -11,8 +11,8 @@ import { Sim } from './world';
 const idle = (over: Partial<PlayerInput> = {}): PlayerInput => ({ moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false, ...over });
 
 // The bridge map belongs to the samurai era and only exists with the eras' own arenas switched on.
-beforeAll(() => { T.eras.changeGameplay = true; });
-afterAll(() => { T.eras.changeGameplay = false; });
+beforeAll(() => { T.eras.changeGameplay = true; T.props.lying = true; }); // these tests are about the props lying around
+afterAll(() => { T.eras.changeGameplay = false; T.props.lying = false; });
 
 /** A fight on the samurai bridge map. */
 async function onBridge(players = 2) {
