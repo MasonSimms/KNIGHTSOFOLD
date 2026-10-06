@@ -7,7 +7,7 @@ import { BACK, closeMenu, openMenu } from './menu';
 // Settings (owner): graphics quality for slower computers, and the volumes. Kept in this browser (localStorage) and applied at start-up.
 // Music has its own volume already, for when there is music.
 
-export interface Settings { quality: Quality; master: number; effects: number; music: number }
+export interface Settings { quality: Quality; master: number; effects: number; music: number; predict: boolean }
 const KEY = 'knights-settings';
 const QUALITIES: Quality[] = ['high', 'medium', 'low'];
 const ABOUT: Record<Quality, string> = {
@@ -17,7 +17,7 @@ const ABOUT: Record<Quality, string> = {
 };
 
 export function loadSettings(): Settings {
-  const d: Settings = { quality: 'high', master: 0.8, effects: 1, music: 0.7 };
+  const d: Settings = { quality: 'high', master: 0.8, effects: 1, music: 0.7, predict: true };
   try {
     const s = { ...d, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') } as Settings;
     if (!QUALITIES.includes(s.quality)) s.quality = d.quality;
@@ -45,11 +45,13 @@ export function runSettings(renderer: Renderer): Promise<void> {
     { name: 'Master volume', value: () => pct(s.master), step: vol('master') },
     { name: 'Sound effects', value: () => pct(s.effects), step: vol('effects') },
     { name: 'Music', value: () => pct(s.music), step: vol('music') },
+    { name: 'Controls', value: () => (s.predict ? 'Instant' : 'Exact'), step: () => { s.predict = !s.predict; }, about: () => (s.predict ? 'Online, your fighter moves the moment you press (the server corrects it if needed).' : 'Online, your fighter moves when the server says so (a moment later, never corrected).') },
   ];
   const root = openMenu('prefs-wall', `<button class="back">${BACK}</button>
     <div class="prefs"><div class="plaque">Settings</div>
       <h3>Picture</h3>${row(0)}<div class="about" data-about="0"></div>
-      <h3>Sound</h3>${row(1)}${row(2)}${row(3)}<div class="about" data-about="3"></div>
+      <h3>Sound</h3>${row(1)}${row(2)}${row(3)}
+      <h3>Online</h3>${row(4)}<div class="about" data-about="4"></div>
       <div class="hint">Changes apply at once and are remembered on this computer &middot; Esc goes back</div></div>`);
   function row(i: number) { return `<div class="row" data-r="${i}"><span class="name">${rows[i].name}</span><button class="arw" data-d="-1">&lsaquo;</button><span class="val"></span><button class="arw" data-d="1">&rsaquo;</button></div>`; }
   const els = [...root.querySelectorAll<HTMLElement>('.row')];

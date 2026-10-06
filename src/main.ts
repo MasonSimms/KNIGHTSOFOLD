@@ -10,6 +10,7 @@ import { NEUTRAL } from './sim/types';
 import type { PlayerInput, SimEvent } from './sim/types';
 import { NetClient, serverUrl } from './net/client';
 import { Mirror } from './net/snapshot';
+import { Predictor } from './net/predict';
 import type { Snapshot } from './net/snapshot';
 import { Room } from './net/room';
 import { Spotter } from './replay/highlights';
@@ -48,6 +49,7 @@ const room = lagMs ? new Room(sim) : null;
 let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 2)) : null;
 // Open http://localhost:5173/?online to play for real: make or join a room, the host starts. (Needs the room server: npm run server.)
 let net: NetClient | null = null, mySlot = 0, inputSeq = 0, ping = 0, isHost = false;
+let predictor: Predictor | null = null, shownAlpha = 0; // online: your own fighter moved at once (the Settings switch 'Controls: Instant')
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
   const url = serverUrl(onlineParam);
@@ -58,10 +60,10 @@ if (onlineParam !== null) {
   if (r.queued) notice('You join at the start of the next round');
   const attach = (c: NetClient) => {
     c.onMsg = (msg) => {
-      if (msg.t === 'snap') m.push(msg.s);
+      if (msg.t === 'snap') { m.push(msg.s); predictor?.reconcile(msg.s); }
       else if (msg.t === 'pong') { ping = performance.now() - msg.n; showPing(ping); }
       else if (msg.t === 'clip') void replay(msg.c, performance.now());
-      else if (msg.t === 'start') { mySlot = msg.you; if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
+      else if (msg.t === 'start') { mySlot = msg.you; if (predictor) { predictor.stop(); predictor.slot = msg.you; } if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
       else if (msg.t === 'over') void backToRoom(c); // the match is over (or the host ended it): back to the room's Hall, ready for a rematch
       else if (msg.t === 'error' && msg.fatal) { forgetSession(); alert(msg.why); location.href = location.pathname; }
       else if (msg.t === 'error') { forgetSession(); alert(`Could not rejoin: ${msg.why}.`); location.reload(); }
@@ -86,6 +88,7 @@ if (onlineParam !== null) {
     notice('');
     const r = await runLobby(url, c);
     mySlot = r.you; isHost = r.host;
+    if (predictor) { predictor.stop(); predictor.slot = r.you; }
     m.sim.reseed(r.seed);
     m.reset();
     notice(r.queued ? 'You join at the start of the next round' : '');
@@ -99,6 +102,7 @@ if (onlineParam !== null) {
 }
 let desyncsSeen = 0, resyncAt = 0;
 const view = mirror ? mirror.sim : sim; // what is drawn
+if (mirror && loadSettings().predict) predictor = new Predictor(mirror, mySlot);
 // The game opens on the menus (home, then the Hall of Champions or training). Testing links skip them and keep the old rules: plugging in
 // a gamepad adds a player. Online has its own room screen.
 const testing = ['stress', 'slow', 'era', 'map', 'hats', 'colors', 'eyes', 'lag', 'bots', 'arm'].some((k) => query.has(k));
@@ -107,7 +111,7 @@ let devices: (Device | 'bot')[] = []; // a local fight: who drives each fighter 
 let hallTraining = false; // the Hall was opened for Training (one player is enough, bots allowed)
 let paused = false, startHeld = false, backHeld = false;
 let speed = slow; // game speed (the training settings can slow it down)
-const toServer: { at: number; input: PlayerInput }[] = [], toClient: { at: number; s: Snapshot }[] = [];
+const toServer: { at: number; input: PlayerInput; n: number }[] = [], toClient: { at: number; s: Snapshot }[] = [];
 
 function flail(frame: number, who: number): PlayerInput {
   const t = frame * (0.05 + who * 0.013);
@@ -260,14 +264,16 @@ function frame(now: number) {
     const p = view.fighters[mySlot].torso;
     lastInput = readInput(toScreen(p.cx, p.cy), mode !== 'local');
     if (room) {
-      toServer.push({ at: now + lagMs, input: lastInput });
-      while (toServer.length && toServer[0].at <= now) room.setInput(0, toServer.shift()!.input);
+      const n = ++inputSeq;
+      toServer.push({ at: now + lagMs, input: lastInput, n });
+      while (toServer.length && toServer[0].at <= now) { const x = toServer.shift()!; room.setInput(0, x.input, x.n); }
+      predictor?.tick(lastInput, n, shownAlpha);
       room.setInput(2, flail(sim.frame, 2)); room.setInput(3, flail(sim.frame, 3));
       const s = room.tick();
       if (s) toClient.push({ at: now + lagMs, s: JSON.parse(JSON.stringify(s)) }); // through the "wire"
       continue;
     }
-    if (net) { net.send({ t: 'in', i: lastInput, n: ++inputSeq }); continue; } // online: the server runs the fight, we only send our controls
+    if (net) { const n = ++inputSeq; net.send({ t: 'in', i: lastInput, n }); predictor?.tick(lastInput, n, shownAlpha); continue; } // online: the server runs the fight; we send our controls (and, predicting, move our own fighter at once)
     const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
     if (mode === 'local') for (let k = 0; k < devices.length; k++) { const d = devices[k]; inputs[k] = d === 'kb' ? lastInput : d === 'bot' ? NEUTRAL : padInput(k, d, pads); } // (a bot presses its own buttons inside the sim)
     else if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
@@ -288,14 +294,14 @@ function frame(now: number) {
 
   let alpha = acc / T.sim.dt;
   if (mirror) {
-    while (toClient.length && toClient[0].at <= now) mirror.push(toClient.shift()!.s);
+    while (toClient.length && toClient[0].at <= now) { const s = toClient.shift()!.s; mirror.push(s); predictor?.reconcile(s); }
     const shown = mirror.update(ft / 1000);
     if (net && mirror.desyncs > desyncsSeen && now - resyncAt > 2000) { net.send({ t: 'resync' }); resyncAt = now; } // our copy went wrong: ask for all of it again
     desyncsSeen = mirror.desyncs;
-    alpha = shown.alpha;
+    alpha = shownAlpha = shown.alpha;
     for (const e of shown.events) play(e);
   }
-  renderer.draw(alpha, ft / 1000);
+  renderer.draw(alpha, ft / 1000, predictor?.active ? { slot: mySlot, alpha: acc / T.sim.dt } : undefined);
   updateHud(view);
   { // the music: the era's instruments in a fight, swelling with the excitement (how much is happening, how much everyone moves)
     const alive = view.fighters.filter((f) => f.controlled && !f.limp);

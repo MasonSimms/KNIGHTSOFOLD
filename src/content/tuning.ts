@@ -571,6 +571,8 @@ export const tuning = {
     snapEvery: 1, // the server sends a snapshot every this many 60 Hz ticks (1 = 60 a second; was 3 = 20 a second)
     blendTicks: 3, // your screen shows the world this many ticks behind the newest snapshot, to blend smoothly (3 = 50 ms; was 6 = 100 ms). Raise it if online play stutters on a shaky connection
     inputQueue: 3, // the server keeps at most this many of a player's inputs waiting (one is used per tick, so a quick tap is never lost); more than that and the oldest are folded together
+    // Prediction (online, the Settings switch "Online controls: Instant"): your own fighter moves at once and is nudged toward the server.
+    predict: { blend: 0.25, blendPerMetre: 0.6, blendMax: 0.6, snap: 1.5, deadzone: 0.01, history: 180, drive: 12 }, // blend: share of the difference closed each snapshot (plus blendPerMetre for every metre off, at most blendMax); snap: metres off before it jumps straight there; deadzone: closer than this is left alone; history: inputs remembered; drive: how firmly the others are held to where the server shows them, for bumping into (per second)
   },
   match: {
     // A fight: last fighter standing wins the round and scores a point. Dead fighters stay down until the round is over.

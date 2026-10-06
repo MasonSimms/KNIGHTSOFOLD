@@ -391,6 +391,33 @@ export class Sim {
   }
 
   /**
+   * Online client, prediction only (net/predict.ts): move fighter `slot` by its own buttons for one tick, without waiting for the server.
+   * Everything else must already be set to follow the server (kinematic). Nothing is decided here (hits, deaths, pickups, rounds): the
+   * server does that and says so; this only moves the body, so your own fighter answers your keys at once.
+   */
+  predictStep(slot: number, input: PlayerInput): void {
+    const f = this.fighters[slot];
+    if (!f || f.limp) return;
+    applyWater(this.arena, this.frame, [f], [], null);
+    controlFighter(this.world, f, input, this.predictEvents, 0);
+    this.predictEvents.length = 0; // (no sounds or paint from a guess: the server's events bring those)
+    syncStickGroups(f);
+    for (const p of f.parts) {
+      const v = p.body.linvel(this.tmpV);
+      if (v.y > T.sim.maxFallSpeed) p.body.setLinvel({ x: v.x, y: T.sim.maxFallSpeed }, true);
+    }
+    const tv = f.torso.body.linvel(this.tmpV);
+    this.preV[2 * f.index] = tv.x; this.preV[2 * f.index + 1] = tv.y;
+    this.world.step();
+    this.absorbLandings([f]);
+    for (const p of f.parts) {
+      const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y), M = T.sim.maxPartSpeed;
+      if (s > M) p.body.setLinvel({ x: (v.x / s) * M, y: (v.y / s) * M }, true);
+    }
+  }
+  private predictEvents: SimEvent[] = [];
+
+  /**
    * Online client: copy a structural change the server announced (the client never steps the physics, so this is all it needs to keep
    * its fighters' part lists identical to the server's; the poses are written in separately).
    */
@@ -470,9 +497,9 @@ export class Sim {
   }
 
   /** A body that runs into something fast (the floor, a wall) does not spring back off it (see tuning.land). */
-  private absorbLandings(): void {
+  private absorbLandings(fighters = this.fighters): void {
     const L = T.land;
-    for (const f of this.fighters) {
+    for (const f of fighters) {
       if (f.knock > 0 || f.hold || f.carried > 0) continue; // a knocked-down body may bounce about; grabs move bodies on purpose
       // Sideways (walls) and up-down (floors) separately: a fast movement that the impact turned round is let back by at most maxRebound.
       const tv = f.torso.body.linvel(this.tmpV), cut = [0, 1].map((a) => {

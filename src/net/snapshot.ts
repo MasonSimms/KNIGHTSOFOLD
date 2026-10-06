@@ -2,6 +2,7 @@ import { tuning as T } from '../content/tuning';
 import type { SimEvent } from '../sim/types';
 import type { Look } from '../content/looks';
 import type { Sim } from '../sim/world';
+import type { Fighter } from '../sim/fighter';
 
 // What the server sends the clients: where every body part is, plus the structural events since the last snapshot (deaths, pickups,
 // respawns, new rounds) so the client's copy of the sim keeps the same list of parts. Plain JSON-safe data.
@@ -13,7 +14,8 @@ export interface Snapshot {
   matchOver?: boolean; // the match is over: the crown (and who won it)
   matchWinner?: number;
   scores: number[];
-  f: { hp: number; back: boolean; p: number[] }[]; // per fighter: hp, on the background plane, and x, y, angle for each part
+  f: { hp: number; back: boolean; p: number[]; st?: number }[]; // per fighter: hp, on the background plane, x, y, angle for each part, and state flags (FREE: see fighterState)
+  simFrame?: number; // the round's own frame (the waves follow it)
   era: string;
   map: number;
   props: number[]; // x, y, angle of every loose prop (planks, logs...)
@@ -22,6 +24,11 @@ export interface Snapshot {
   outfits: number[];
   looks: Look[]; // everyone's colour and hat (so a player who joins late or rejoins sees the right ones)
   ev: SimEvent[];
+}
+
+/** What the server says a fighter is doing that only it decides (a hit, a grab): 0 = free, moving on their own buttons (prediction may run). */
+export function fighterState(f: Fighter): number {
+  return (f.knock > 0 ? 1 : 0) | (f.stun > 0 ? 2 : 0) | (f.carried > 0 || f.slamBy >= 0 ? 4 : 0) | (f.hold ? 8 : 0) | (f.limp ? 16 : 0) | (f.inBack ? 32 : 0);
 }
 
 const TELEPORT = 4; // metres moved between two snapshots (50 ms) that can only be a teleport
@@ -33,7 +40,8 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
     era: sim.era, map: sim.map, outfits: sim.outfits.slice(),
     props: sim.props.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }), looks: sim.looks.map((l) => ({ ...l })),
     boat: sim.boat ? [r3(sim.boat.body.translation().x), r3(sim.boat.body.translation().y), r3(sim.boat.body.rotation())] : undefined,
-    f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
+    f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, st: fighterState(f), p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
+    simFrame: sim.frame,
   };
 }
 
@@ -50,6 +58,7 @@ export class Mirror {
   private lastLooks = '';
   private fresh = true; // nothing shown yet: the first snapshot says which round and era to build
 
+  own = -1; // a fighter this page moves itself (prediction): its poses are not written in from snapshots
   constructor(readonly sim: Sim, readonly delay = T.net.blendTicks, readonly keep = 60) {} // keep: snapshots held (a replay clip holds all of its own)
 
   push(s: Snapshot): void {
@@ -115,11 +124,13 @@ export class Mirror {
       });
     }
     if (sim.boat && a.boat) { const bb = b.boat ?? a.boat; Object.assign(sim.boat, { px: a.boat[0], py: a.boat[1], pa: a.boat[2], cx: bb[0], cy: bb[1], ca: bb[2] }); }
+    if (b.simFrame !== undefined) sim.frame = b.simFrame;
     sim.fighters.forEach((f, i) => {
       const pa = a.f[i]?.p, pb = b.f[i]?.p;
       if (!pa || pa.length !== f.parts.length * 3) { this.desyncs++; return; }
       const to = pb && pb.length === pa.length ? pb : pa; // the next snapshot has a different part count (a death just happened): hold still until we get there
       f.hp = a.f[i].hp; f.inBack = a.f[i].back;
+      if (i === this.own) return; // (this page moves it)
       f.parts.forEach((p, j) => {
         const teleport = Math.hypot(to[j * 3] - pa[j * 3], to[j * 3 + 1] - pa[j * 3 + 1]) > TELEPORT; // a club back from the void, a new round: do not smear it across the screen
         const from = teleport ? to : pa;

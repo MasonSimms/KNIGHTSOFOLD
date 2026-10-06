@@ -460,7 +460,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         shake = Math.max(shake, T.parry.shake);
       }
     },
-    draw(alpha: number, frameSeconds: number) {
+    /** Draw the world between its last two states (alpha). own: online prediction moves your fighter on its own ticks (its own alpha). */
+    draw(alpha: number, frameSeconds: number, own?: { slot: number; alpha: number }) {
       scale = Math.min(app.screen.width / A.viewW, app.screen.height / A.viewH);
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
@@ -540,10 +541,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         e.group.filters = Q.blur && e.vis > 0.02 ? [e.blur] : null; // no filter cost unless they are dodging
         const layer = f.inBack ? backLayer : fighterLayer;
         if (e.group.parent !== layer) layer.addChild(e.group);
+        const a = own && f.index === own.slot ? own.alpha : alpha;
         f.parts.forEach((p, i) => {
           const k = c[i];
-          k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha));
-          k.rotation = p.pa + wrap(p.ca - p.pa) * alpha;
+          k.position.set(lerp(p.px, p.cx, a), lerp(p.py, p.cy, a));
+          k.rotation = p.pa + wrap(p.ca - p.pa) * a;
           k.tint = tint;
           const u = e.under[i];
           u.position.set(k.x + off, k.y + off);
