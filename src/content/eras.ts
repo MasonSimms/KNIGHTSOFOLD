@@ -7,7 +7,7 @@ export interface EraArena {
   platformThickness?: number; // how deep the ground goes (m): deep enough and it is a landmass running off the bottom of the picture
   walls?: { side: -1 | 1; up: number; gap: number }[]; // side walls (see tuning.arena.walls): most maps have none
   ledges?: { x: number; up: number; w: number }[];
-  ground?: { x: number; w: number }[]; // separate ground slabs instead of one platform
+  ground?: { x: number; w: number; up?: number; thick?: number }[]; // separate ground slabs instead of one platform (each at its own height and depth)
   bridge?: { x0: number; x1: number; planks: number }; // a breakable plank bridge between the slabs
   props?: { kind: string; x: number; up: number }[]; // loose objects lying around (see props.ts)
   scenery?: { kind: string; x: number; up: number }[]; // breakable scenery (barrels, crates: props.ts breaks), always on the map
@@ -65,7 +65,15 @@ export const eras: Era[] = [
     // The Train (owner's list): on the roofs of a moving train, no weapons; signs and tunnel mouths come at you (a whistle first): get
     // down or be swept off; throw people into them
     { name: 'Train', ground: [{ x: 1.0, w: 6.5 }, { x: 8.75, w: 6.5 }, { x: 16.5, w: 6.5 }], platformThickness: 2.2, fightSpawnX: [4.0, 20.0, 10.5, 13.5], noWeapons: true, roll: 10,
-      train: { speed: 10, cycle: 8, passing: [{ kind: 'sign', at: 3 }, { kind: 'tunnel', at: 7 }] } }], outfits: ['sheriff', 'outlaw', 'gambler', 'rancher'] },
+      train: { speed: 10, cycle: 8, passing: [{ kind: 'sign', at: 3 }, { kind: 'tunnel', at: 7 }] } },
+    // Main Street (owner's list, with shop windows): the street between two shops; each shop's window is real glass you can be thrown
+    // through (or punch or shoot out) into the shop. The shop roofs and the porch roof in the middle are ledges. Barrels; revolvers.
+    { name: 'Main Street', platformX: 1.5, platformW: 21, walls: [{ side: -1, up: 1.9, gap: 0 }, { side: 1, up: 1.9, gap: 0 }],
+      ledges: [{ x: 1.5, up: 1.9, w: 4.5 }, { x: 10.5, up: 1.9, w: 3.0 }, { x: 18.0, up: 1.9, w: 4.5 }], fightSpawnX: [9.43, 14.57, 11.2, 12.8],
+      scenery: [{ kind: 'pane', x: 5.95, up: 0 }, { kind: 'pane', x: 18.05, up: 0 }, { kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] },
+    // Rooftops (owner's list): across the town's roofs at different heights; the alleys between them are the void. Revolvers.
+    { name: 'Rooftops', platformThickness: 6, ground: [{ x: 1.0, w: 4.0 }, { x: 6.5, w: 3.5, up: 1.0 }, { x: 11.5, w: 3.0, up: 0.4 }, { x: 16.0, w: 3.5, up: 1.2 }, { x: 21.0, w: 3.0, up: 0.2 }],
+      fightSpawnX: [2.75, 22.5, 8.25, 17.75] }], outfits: ['sheriff', 'outlaw', 'gambler', 'rancher'] },
   { id: 'ww1', name: 'World War I', special: false, pickups: ['grenade', 'bayonet-rifle'], style: { grain: 0.05 }, sky: 0x7b8576, platform: 0x5a5444, wall: 0x45463c, weapon: 'shovel', arena: { ledges: [/* islands out past each end of the ground, over the void */ { x: 2.25, up: 0.6, w: 2.0 }, { x: 19.75, up: 0.6, w: 2.0 }] }, outfits: ['infantry', 'officer', 'medic', 'trench raider'] },
   { id: 'vietnam', name: 'Vietnam', special: false, pickups: ['bamboo-stick', 'bayonet-knife'], sky: 0x5f8a5a, platform: 0x6a5a3c, wall: 0x4a5a3c, weapon: 'machete', arena: { platformW: 12.5, ledges: [{ x: 11.25, up: 1.8, w: 2.0 }], front: [{ kind: 'grass', x: 1.25, y: 13.75, scale: 3.0 }, { kind: 'grass', x: 4.0, y: 13.9, scale: 2.1 }, { kind: 'grass', x: 22.25, y: 13.8, scale: 2.75 }] }, outfits: ['jungle grunt', 'scout', 'radioman', 'tunnel rat'] },
   { id: 'modern', name: 'Modern Warfare', special: false, pickups: ['combat-knife', 'riot-shield'], sky: 0x7a8794, platform: 0x585d63, wall: 0x42474c, weapon: 'baton', arena: { platformX: 6.0, platformW: 12.0, walls: [/* a building across the alley */ { side: 1, up: 3.0, gap: 1.4 }], ledges: [{ x: 10.75, up: 1.8, w: 2.5 }] }, outfits: ['rifleman', 'sniper', 'operator', 'engineer'] },

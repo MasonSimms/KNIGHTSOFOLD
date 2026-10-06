@@ -51,6 +51,8 @@ export function createFx(layer: Container, puffTex: Texture[]) {
         twirls.set(e.owner, 0);
       } else if (e.t === 'spark') { // metal: a burst of sparks back toward the shot
         for (let i = 0; i < 7; i++) bit(e.x, e.y, e.v + (Math.random() - 0.5) * 2.2, 4 + Math.random() * 5, 0.12 + Math.random() * 0.12, 0.025, 0xffd27a, 0.18, false);
+      } else if (e.t === 'break' && e.w === 'pane') { // a window: glass flying, glinting, falling
+        for (let i = 0; i < 22; i++) bit(e.x, e.y + (Math.random() - 0.5) * 1.4, (Math.random() - 0.5) * Math.PI * 2, 2 + Math.random() * 5, 0.05 + Math.random() * 0.12, 0.03, i % 3 ? 0xd8eef4 : 0xffffff, 0.9, true);
       } else if (e.t === 'splinter' || e.t === 'snap' || e.t === 'break') { // wood: splinters flying, more when it gives way
         const n = e.t === 'splinter' ? 5 : e.t === 'snap' ? 10 : 16;
         for (let i = 0; i < n; i++) bit(e.x, e.y, -Math.PI / 2 + (Math.random() - 0.5) * 3, 2 + Math.random() * 4, 0.06 + Math.random() * 0.1, 0.035, i % 3 ? 0x8c5a2f : 0xc9a26a, 0.7, true);

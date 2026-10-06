@@ -93,8 +93,8 @@ Pickups: **Flintlock Pistol** (clubbed with, or thrown), **Grappling Hook** (a h
 ## 8. The Wild West
 Pickups: **Revolver**, **Lasso** (grab from a distance, needs the "grab at range" feature).
 The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not built yet: online comes first.
-1. **Main Street**: a dirt road with storefronts behind; players can get revolvers.
-2. **Rooftops**: on top of the town's buildings; falling off kills you (the gaps between roofs are the void). Players can get revolvers.
+1. **Main Street**: a dirt road with storefronts behind; players can get revolvers. **BUILT 2026-10-06** (westerns map 2): a shop at each end with a real glass window you can be thrown through, roofs and a porch roof to stand on, barrels.
+2. **Rooftops**: on top of the town's buildings; falling off kills you (the gaps between roofs are the void). Players can get revolvers. **BUILT 2026-10-06** (westerns map 3): five roofs at different heights, 1.5 m alleys.
 3. **Train**: a moving train with NO weapons: throw other players into the obstacles, and avoid the wooden signs and tunnels that pass. (Needs: a moving map, passing obstacles that hit you: the front plane's passing sign was planned for this.) **BUILT 2026-10-06** (westerns map 1): three boxcars, the land rushing past (motion-blurred), a sign and a tunnel mouth every 8 s with a whistle first.
 4. **Saloon Brawl**: a bar fight inside the saloon, with beer glasses and bar stools to throw.
 5. **Water Tower**: on top of a water tower.

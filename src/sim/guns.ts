@@ -206,7 +206,7 @@ export function breakProp(sim: Sim, part: Part, announce = true): void {
   const t = part.body.translation(), a = part.body.rotation(), v = part.body.linvel();
   const index = sim.props.indexOf(part);
   if (index < 0) return;
-  if (announce) sim.events.push({ t: 'break', x: t.x, y: t.y, v: 0, owner: -1, victim: index });
+  if (announce) sim.events.push({ t: 'break', x: t.x, y: t.y, v: 0, owner: -1, victim: index, w: part.weapon?.id }); // (w: what broke: glass shatters)
   sim.removeBody(part, undefined);
   into.forEach((kind, k) => {
     const off = (k - (into.length - 1) / 2) * 0.22, ps = PROPS[kind];
@@ -221,7 +221,7 @@ export function breakProp(sim: Sim, part: Part, announce = true): void {
 
 /** Destroy breakable scenery that took a hard hit (a club, a crash): the same as a bullet breaking it. */
 export function damageScenery(sim: Sim, part: Part, impact: number): void {
-  if (part.hp === undefined || impact < T.guns.sceneryMinImpact) return;
+  if (part.hp === undefined || impact < (PROPS[part.weapon?.id ?? '']?.breaks?.min ?? T.guns.sceneryMinImpact)) return;
   part.hp -= impact;
   if (part.hp <= 0) breakProp(sim, part);
 }

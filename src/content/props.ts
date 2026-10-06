@@ -6,7 +6,7 @@ import type { GunSpec, Material } from './weapons';
 // weapons that spawn in as a round goes on: heavier or longer, hitting harder.
 /** breaks: scenery that breaks (owner: environments have destructible elements): how much it takes (bullets by calibre x 10, hard hits by
  *  impact) and the loose pieces it leaves (kinds in this list). */
-export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[] }; box?: boolean; back?: boolean }
+export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean }
 
 /** The guns (owner: the revolver and the flintlock first). PLACEHOLDER numbers until the playtest. */
 const REVOLVER: GunSpec = { ammo: 6, cooldown: 14, speed: 70, calibre: 1, impact: 31, push: 9, recoil: 2.5, kick: 6 }; // 6 quick shots, each about half a full club hit
@@ -39,6 +39,9 @@ export const PROPS: Record<string, PropSpec> = {
   upright: { len: 0.6, thick: 1.6, mass: 60, material: 'stone', box: true, back: true }, // a standing stone: a step behind the fighters (it holds up a capstone; you walk in front of it)
   capstone: { len: 3.0, thick: 0.45, mass: 30, material: 'stone', box: true }, // laid across two uprights: a body slammed into it (about 200 N s) brings it down
   boulder: { len: 0.7, thick: 0.6, mass: 40, material: 'stone', box: true },
+  // a shop window (Main Street): a pane of glass held in its frame (it does not fall), that a body thrown into it, a punch, a club or a
+  // bullet breaks (min: the smallest knock that counts); you go on through into the shop
+  pane: { len: 0.2, thick: 1.6, mass: 1, material: 'light', box: true, fixed: true, breaks: { hp: 8, into: [], min: 8 } },
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 for (const id of ['stone-hammer', 'sceptre', 'flail', 'trident', 'chain-mace', 'great-axe', 'mace', 'iron-fan', 'pickaxe', 'grenade', 'plasma-blade', 'gravity-hammer', 'war-hammer', 'crowbar', 'lead-pipe', 'riot-shield']) PROPS[id].material = 'metal';

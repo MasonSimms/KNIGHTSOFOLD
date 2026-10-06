@@ -93,7 +93,11 @@ export class Bot {
       // someone else is in the way: fight them instead (a person deals with whoever is in front of them, rather than walking into them)
       const blocker = out.moveX ? sim.fighters.find((g) => g !== me && g !== this.target && !g.limp && !g.inBack && Math.sign(g.torso.body.translation().x - p.x) === out.moveX && Math.abs(g.torso.body.translation().x - p.x) < B.personalSpace) : undefined;
       if (blocker) { this.target = blocker; const t = blocker.torso.body.translation(), v = blocker.torso.body.linvel(); this.seen = { x: t.x, y: t.y, vx: v.x, vy: v.y, at: now }; }
-      if (dy < -B.climbHeight && Math.abs(dx) < 2.5 && me.grounded) this.hop(); // they are up on a ledge: jump after them
+      // One right above the other, on different levels: walk to the nearer end of the ledge between you (off it, or out from under it),
+      // as a person would, instead of jumping into its underside (two bots used to wait like that for ever).
+      const over = Math.abs(dy) > B.climbHeight && Math.abs(dx) < 1.5 ? A.ledges.find((l) => p.x > l.x - 0.3 && p.x < l.x + l.w + 0.3) : undefined;
+      if (over) out.moveX = p.x - over.x < over.x + over.w - p.x ? -1 : 1;
+      else if (dy < -B.climbHeight && Math.abs(dx) < 2.5 && me.grounded) this.hop(); // they are up on a ledge: jump after them
     } else if (plan.kind === 'shoot') {
       const G = T.bot;
       out.moveX = Math.abs(dx) < G.gunKeep ? -Math.sign(dx) * 0.7 : Math.abs(dx) > G.gunMax ? Math.sign(dx) * 0.6 : 0; // not too close, not too far
@@ -208,7 +212,7 @@ export class Bot {
   private looseWeapons(sim: Sim, me: Fighter): Part[] {
     const out: Part[] = [];
     for (const g of sim.fighters) if (g.stick && !g.grip && g.dropCooldown <= 0 && (g === me || g.stick.owner === g.index)) out.push(g.stick);
-    for (const p of sim.props) if (!p.links?.length && p.body.mass() <= T.props.maxLift && p.body.translation().y < sim.arena.platformTop + 0.5) out.push(p);
+    for (const p of sim.props) if (!p.links?.length && p.body.isDynamic() && p.body.mass() <= T.props.maxLift && p.body.translation().y < sim.arena.platformTop + 0.5) out.push(p);
     const y = me.torso.body.translation().y;
     return out.filter((w) => y - w.body.translation().y < T.bot.reachUp); // not up out of reach (on a high step)
   }

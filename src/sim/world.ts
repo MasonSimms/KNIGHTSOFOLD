@@ -41,6 +41,12 @@ export function arenaFor(eraId: string, map: number): Arena {
   return { ...T.arena, ...over } as Arena;
 }
 
+/** The top of the floor under x (a slab can stand higher or lower than the main platform: rooftops, a water tower). */
+export function floorAt(A: Arena, x: number): number {
+  const g = A.ground.find((s) => x >= s.x && x <= s.x + s.w);
+  return A.platformTop - (g?.up ?? 0);
+}
+
 /** The arena's side walls (see tuning.arena.walls): left edge x and top y of each. Every wall reaches down below the void. */
 export const wallsOf = (A: Arena) => A.walls.map((w) => ({ x: w.side < 0 ? A.platformX - w.gap - A.wallThickness : A.platformX + A.platformW + w.gap, top: A.platformTop - w.up }));
 
@@ -220,9 +226,9 @@ export class Sim {
     this.world.numInternalPgsIterations = T.sim.pgsIterations;
     const slabs = A.boat || A.chase ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor; on a treadmill, its moving sections)
     this.boat = A.boat && A.sea ? buildBoat(this.world, A) : null;
-    const grounds = slabs.map((g) => {
-      const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop + A.platformThickness / 2));
-      this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, A.platformThickness / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
+    const grounds = slabs.map((g: Arena['ground'][number]) => {
+      const th = g.thick ?? A.platformThickness, body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop - (g.up ?? 0) + th / 2));
+      this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, th / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
       return { ...g, body };
     });
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
@@ -408,7 +414,7 @@ export class Sim {
   }
 
   private spawn(index: number, x: number, player: boolean): Fighter {
-    const y = this.arena.platformTop - T.stand.height - 0.02; // the hips at standing height
+    const y = floorAt(this.arena, x) - T.stand.height - 0.02; // the hips at standing height
     const foe = this.dummy && index === 1; // the training partner: armed or not as the training menu says
     const f = buildFighter(this.world, index, x, y, player, !this.arena.noWeapons && (foe ? this.training.foeArmed : T.fighter.startArmed), this.weapon);
     for (const p of f.parts) this.partByBody.set(p.body.handle, p);
@@ -667,7 +673,7 @@ export class Sim {
   /** An outstretched empty hand locks onto the first part of another fighter it touches (not a club, not the floppy second arm). */
   /** What an object is, if a hand can take it: a prop, a club nobody is holding, or a limb that has come off. */
   private itemOf(part: Part): Item | null {
-    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
+    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && part.body.isDynamic() && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
     const g = this.fighters[part.owner];
     if (!g) return null;
     if (part.role === 'stick') return g.stick === part && !g.grip && g.dropCooldown <= 0 ? { kind: 'stick', from: g.index } : null;
@@ -757,7 +763,7 @@ export class Sim {
 
   /** A flung fighter crashing hard into the floor, a wall or a third fighter gets hurt (and so does that third fighter). */
   private resolveSlams(): void {
-    const G = T.grab;
+    const G = T.grab, glass: [Fighter, Part, number][] = [];
     for (const v of this.fighters) {
       // Flung, or still held and swung into something (owner: swinging someone into the ground or a wall is a body slam too). A jump
       // slam (resolveBodySlams) is scored there instead.
@@ -782,6 +788,7 @@ export class Sim {
               // the speed of the spot that hits (a limb swung round comes down faster than its middle)
               const crash = Math.abs((p.vx - p.w * (pt.y - c.y) - (op?.vx ?? 0)) * n.x + (p.vy + p.w * (pt.x - c.x) - (op?.vy ?? 0)) * n.y);
               const impact = impactValue(crash, G.slamFactor);
+              if (op?.hp !== undefined && op.body.isFixed()) glass.push([v, op, impact]); // a shop window: it may give way (after the scan)
               if (impact <= v.crashPeak) return; // (a body lands a limb at a time: only a harder moment of the same crash adds anything)
               const dmg = damageFor(impact) - damageFor(v.crashPeak); // the hardest moment counts: a harder hit in the wait tops the damage up to it
               if (dmg <= 0) return;
@@ -794,6 +801,11 @@ export class Sim {
           });
         }
       }
+    }
+    for (const [v, pane, impact] of glass) { // thrown through a window: it breaks, and they carry on through (a little slower)
+      if (this.props.indexOf(pane) < 0) continue;
+      damageScenery(this, pane, impact);
+      if (this.props.indexOf(pane) < 0) for (const q of v.parts) q.body.setLinvel({ x: q.vx * T.props.throughGlass, y: q.vy * T.props.throughGlass }, true);
     }
   }
 

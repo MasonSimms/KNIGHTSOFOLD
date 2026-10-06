@@ -42,7 +42,7 @@ export const tuning = {
     spawnX: [9.75, 14.25, 8.25, 16.25], // playing alone: fighter 0 = you, 1 = the training dummy (4.5 m apart, as before the zoom), 2 and 3 = extra fighters (stress test)
     fightSpawnX: [7.75, 16.25, 10.75, 13.25], // a real fight of 2-4 players: where each one starts
     ledges: [] as { x: number; up: number; w: number }[], // floating platforms (an era's arena can add them)
-    ground: [] as { x: number; w: number }[], // separate ground slabs instead of one platform (empty = the one platform)
+    ground: [] as { x: number; w: number; up?: number; thick?: number }[], // separate ground slabs instead of one platform (empty = the one platform); each can stand `up` metres higher (or lower) and be `thick` deep
     bridge: null as null | { x0: number; x1: number; planks: number }, // a plank bridge across a gap in the ground
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
     scenery: [] as { kind: string; x: number; up: number }[], // breakable scenery that belongs to the map (barrels, crates): always there, unlike the loose weapons (owner: environments have destructible elements)
@@ -445,6 +445,7 @@ export const tuning = {
     crushSpeed: 2.5, // ...when it is moving at least this fast into them (m/s): a capstone dropping off its stones onto a head is about 3.5
     crushFactor: 11, // damage factor of a crush (a club is 2.2): a capstone tipping onto a head is about a full club hit, a boulder dropped from a ledge kills
     crushCooldown: 20, // frames before the same thing can crush again
+    throughGlass: 0.75, // thrown through a shop window, you keep this share of your speed
   },
   bridge: {
     // A bridge is a chain of planks: it can be cut, it snaps if someone slams into it, and every plank that comes free is a club.
@@ -715,6 +716,7 @@ export const tuning = {
     shadow: { alpha: 0.22, blur: 6, x: 0.05, y: 0.06 }, // the faint soft shadow that lifts each fighter off the map: strength, softness (px at 1080p), offset (m)
     front: { blur: 3.5 }, // how out of focus the front plane is (px at 1080p)
     water: { alpha: 0.8, crestWidth: 0.06, crestAlpha: 0.55 },
+    glassAlpha: 0.4, // how much a shop window hides what is behind it
     rollBlur: 2.5, // a moving map's painting is blurred along the way it moves: px (at 1080p) per m/s of speed
     tar: { alpha: 0.97, top: '#2b2017', deep: '#0b0806', sheen: '#7a6a58' }, // a tar pit: nearly opaque (whoever sinks is gone), dark, a dull sheen on top
     // Bullets (owner: moving white streaks with see-through trails that reach back past the shooter). m, 0..1, seconds.
@@ -747,7 +749,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14 } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

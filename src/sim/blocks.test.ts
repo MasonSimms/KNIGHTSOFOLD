@@ -74,3 +74,34 @@ describe('Standing Stones', () => {
     expect((sim as unknown as Internals).itemOf(up)).toBeNull();
   });
 });
+
+describe('Main Street windows', () => {
+  async function street() {
+    T.eras.changeGameplay = true;
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'westerns'; sim.forceMap = 2; sim.reset();
+    T.eras.changeGameplay = false;
+    return sim;
+  }
+  it('thrown into a shop window, you go through it (the glass shatters) and land in the shop', async () => {
+    const sim = await street(), v = sim.fighters[0], pane = sim.props.find((p) => p.weapon?.id === 'pane')!, px = pane.body.translation().x;
+    for (let i = 0; i < 10; i++) sim.step([NEUTRAL, NEUTRAL]);
+    const t = v.torso.body.translation();
+    for (const p of v.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + px + 1.0 - t.x, y: q.y - 0.3 }, true); p.body.setLinvel({ x: -10, y: -1 }, true); }
+    v.thrown = 40; v.thrownBy = 1; // (flung by fighter 1)
+    const events: SimEvent[] = [];
+    for (let i = 0; i < 40; i++) { sim.step([NEUTRAL, NEUTRAL]); events.push(...sim.events.map((e) => ({ ...e }))); }
+    expect(events.some((e) => e.t === 'break' && e.w === 'pane')).toBe(true);
+    expect(sim.props.includes(pane)).toBe(false);
+    expect(v.torso.body.translation().x).toBeLessThan(px - 0.3); // inside
+  });
+
+  it('a window cannot be picked up, and walking into it does not break it', async () => {
+    const sim = await street(), f = sim.fighters[0], pane = sim.props.find((p) => p.weapon?.id === 'pane')!;
+    expect((sim as unknown as Internals).itemOf(pane)).toBeNull();
+    const t = f.torso.body.translation();
+    for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + pane.body.translation().x + 1.5 - t.x, y: q.y }, true); }
+    for (let i = 0; i < 90; i++) sim.step([{ ...NEUTRAL, moveX: -1 }, NEUTRAL]);
+    expect(sim.props.includes(pane)).toBe(true);
+  });
+});

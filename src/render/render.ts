@@ -18,7 +18,7 @@ import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
 import type { SimEvent } from '../sim/types';
 import { wallsOf } from '../sim/world';
-import type { Sim } from '../sim/world';
+import type { Arena, Sim } from '../sim/world';
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const wrap = (a: number) => a - Math.PI * 2 * Math.floor((a + Math.PI) / (Math.PI * 2));
@@ -219,7 +219,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     tintWash.clear().rect(0, 0, 1, 1).fill(st.tint);
     tintWash.alpha = st.tintAlpha;
     platform.clear();
-    for (const g of A.boat ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]) platform.rect(g.x, A.platformTop, g.w, A.platformThickness).fill(era.platform);
+    for (const g of A.boat ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW } as Arena['ground'][number]]) platform.rect(g.x, A.platformTop - (g.up ?? 0), g.w, g.thick ?? A.platformThickness).fill(era.platform);
     for (const l of A.ledges) platform.rect(l.x, A.platformTop - l.up, l.w, A.ledgeThick).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
     walls.clear();
     for (const w of wallsOf(A)) {
@@ -368,6 +368,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       for (const s of p.shapes) under.addChild(drawShape(s, UNDER));
       k.addChild(under);
       const painted = p.shapes.map((s, i) => addPainted(k, s, i > 0 && p.weapon?.gun ? T.colors.stick : thingColor(p)));
+      if (p.weapon?.id === 'pane') k.alpha = T.finish.glassAlpha; // (glass: you see through it)
       propLayer.addChild(k);
       propEntries.push({ p, k, painted, under });
     }

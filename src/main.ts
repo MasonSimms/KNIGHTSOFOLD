@@ -179,6 +179,7 @@ function play(e: SimEvent) {
   excitement.event(e);
   if (e.t === 'hit') sfx.hit(e.v, !!e.head);
   else if (e.t === 'shot') sfx.shot(e.w === 'pistol');
+  else if (e.t === 'break' && e.w === 'pane') sfx.shatter();
   else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.(); // some events (respawn, new round) have no sound
 }
 
