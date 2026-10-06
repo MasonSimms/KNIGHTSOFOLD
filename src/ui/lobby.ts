@@ -23,6 +23,14 @@ export function notice(text: string): void {
   el.style.display = text ? 'block' : 'none';
 }
 
+/** Online: the round trip to the server in a corner (null hides it). */
+export function showPing(ms: number | null): void {
+  let el = document.getElementById('ping');
+  if (!el) { el = document.createElement('div'); el.id = 'ping'; document.body.appendChild(el); }
+  el.style.display = ms === null ? 'none' : 'block';
+  if (ms !== null) { el.textContent = `${Math.round(ms)} ms`; el.classList.toggle('slow', ms > 150); }
+}
+
 const home = () => { forgetSession(); location.href = location.pathname; }; // back to the gallery (a fresh page)
 
 export function runLobby(url: string): Promise<{ client: NetClient; seed: number; you: number; queued: boolean }> {
@@ -77,12 +85,17 @@ export function runLobby(url: string): Promise<{ client: NetClient; seed: number
           else change(p.b === 'left' ? -1 : 1);
         }
       };
-      const saved = loadSession();
-      if (saved) { body.textContent = 'Rejoining your room...'; code = saved.code; client.send({ t: 'rejoin', ...saved }); } else door();
+      const invited = (new URLSearchParams(location.search).get('room') ?? '').toUpperCase().trim(); // opened from an invite link
+      let saved = loadSession();
+      if (saved && invited && saved.code !== invited) { forgetSession(); saved = null; } // an invite to another room: go there
+      if (saved) { body.textContent = 'Rejoining your room...'; code = saved.code; client.send({ t: 'rejoin', ...saved }); }
+      else if (invited) { body.textContent = `Joining room ${invited}...`; code = invited; client.send({ t: 'join', code }); }
+      else door();
       client.onClose(() => { problem = 'Lost the connection to the server. Reload the page to try again.'; err.textContent = problem; draw(); });
       client.onMsg = (m) => {
         if (m.t === 'error') {
           problem = m.why; err.textContent = m.why; draw();
+          if (!hall && !saved && invited && !m.fatal) door(); // the invite's room is gone or full: make or join another
           if (saved && /seat is gone/.test(m.why)) { forgetSession(); err.textContent = problem = ''; door(); }
         } else if (m.t === 'lobby') {
           problem = '';

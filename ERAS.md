@@ -34,11 +34,13 @@ Rule of thumb for weapons: signature weapons are long-melee "clubs" like the cur
 
 ## 1. Cavemen
 Pickups: **Stone Hammer** (very heavy, slow, huge impact), **Mammoth Tusk** (long, light, sharp).
-1. **Tar Pit Ledge** BUILT-ish (log and bone props): a tar pool at one edge. Bodies sink slowly and everything is dragged, so a fighter stuck in tar is easy to knock off.
-2. **Mammoth Ribcage**: the ribs are the platforms and are loose bones you can pull free and swing.
-3. **Boulder Slope**: sloped ground with a big boulder that rolls down. Push it, ride it, or hit people with it.
-4. **Volcano Rim**: floating basalt slabs over lava, with falling rocks now and then. Lava is the knockoff.
-5. **Vine Ravine** BUILT (first version: the samurai bridge with six logs, which you cut or break; no vines yet): a hanging log bridge on vines over a gorge. Cut the vines and it swings down (like the samurai bridge).
+The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not built yet: online comes first.
+1. **Campfire Clearing**: flat grassy ground with a campfire in it; the fire deals damage. Everyone starts with a stick. (Needs: a hazard zone that hurts.)
+2. **Tar Pit**: a pit of tar in the centre with grassy ground on either side. Everyone starts with a stick. (Needs: a tar zone that slows and holds you; the old "Tar Pit Ledge" idea had it sink bodies and drag everything.)
+3. **Standing Stones**: a Stonehenge-like structure whose rocks can fall and crush players. Stone weapons. (Needs: big loose rock bodies balanced on the uprights, crushing by weight: the crush death exists.)
+4. **Mammoth Chase** (a moving map): everyone keeps running to the right while a woolly mammoth chases from the left; touching the mammoth kills you. (Needs: a scrolling map, the mammoth as a moving body.)
+5. **Vine Ravine** BUILT (a log bridge over a gorge, cut it or break it). Not on the owner's list of four: kept as the fifth until the owner says otherwise.
+Old ideas, not on the list: Mammoth Ribcage (rib bones as platforms you can pull free), Boulder Slope (a rolling boulder), Volcano Rim (lava and falling rocks).
 
 ## 2. Ancient Egypt
 Pickups: **Was Sceptre** (long staff), **Golden Flail** (a chain with a weight: swings wildly, hits hard).
@@ -89,12 +91,14 @@ Pickups: **Flintlock Pistol** (clubbed with, or thrown), **Grappling Hook** (a h
 5. **Tidal Cove**: a treasure cove where the tide rises and falls with the frame counter. The sand platform shrinks as the water comes in.
 
 ## 8. The Wild West
-Pickups: **Revolver** (used as a short club or thrown), **Lasso** (grab from a distance, needs the "grab at range" feature).
-1. **Saloon**: a balcony and ground floor, swinging doors, a chandelier to cut, and tables to flip.
-2. **Main Street**: a wagon you can push along, a water trough, and hitching posts.
-3. **Train Roof**: a moving train car: the floor slides under you (a moving platform).
-4. **Canyon Mine Carts**: rails with carts you can ride, push and ram into people.
-5. **Gold Mine**: timber supports that, if cut, make the ceiling rubble drop.
+Pickups: **Revolver**, **Lasso** (grab from a distance, needs the "grab at range" feature).
+The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not built yet: online comes first.
+1. **Main Street**: a dirt road with storefronts behind; players can get revolvers.
+2. **Rooftops**: on top of the town's buildings; falling off kills you (the gaps between roofs are the void). Players can get revolvers.
+3. **Train**: a moving train with NO weapons: throw other players into the obstacles, and avoid the wooden signs and tunnels that pass. (Needs: a moving map, passing obstacles that hit you: the front plane's passing sign was planned for this.)
+4. **Saloon Brawl**: a bar fight inside the saloon, with beer glasses and bar stools to throw.
+5. **Water Tower**: on top of a water tower.
+OPEN (ask the owner before building): does a revolver SHOOT here (the game has no guns yet: a new weapon kind, and it changes balance), or is it still clubbed and thrown as planned?
 
 ## 9. World War I
 Pickups: **Bayonet Rifle** (long, good lunge), **Stick Grenade** (thrown, goes off after a short time with a push, not a kill).

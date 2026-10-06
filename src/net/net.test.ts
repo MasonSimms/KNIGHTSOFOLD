@@ -51,6 +51,23 @@ describe('online mirror', () => {
     expect(seen.has('pickup')).toBe(true);
   }, 120_000);
 
+  it('a client that stops drawing for a few seconds (a hidden tab) is still in step when it looks again', async () => {
+    const { room, mirror, server, client } = await pair(2, 4, false);
+    const inputs = fuzzer(23);
+    let hidden = 0;
+    for (let i = 0; i < 2400; i++) {
+      for (let k = 0; k < 4; k++) room.setInput(k, inputs(4)[k]);
+      const s = room.tick();
+      if (!s) continue;
+      mirror.push(wire(s));
+      if (i % 600 < 240) { hidden++; continue; } // 4 s of every 10 nothing is shown (snapshots keep arriving)
+      mirror.show(s.frame);
+      expect(gap(server, client)).toBeLessThan(0.01);
+    }
+    expect(hidden).toBeGreaterThan(600);
+    expect(mirror.desyncs).toBe(0);
+  }, 120_000);
+
   it('the client copy stays in step when limbs come off (the parts stay, only the joints and the poses change)', async () => {
     const { room, mirror, server, client } = await pair(14, 4, false);
     const inputs = fuzzer(61);

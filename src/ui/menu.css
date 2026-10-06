@@ -114,6 +114,13 @@
 .door input { width: 7em; padding: 10px; border: 1px solid #6a5a34; background: rgba(0, 0, 0, .35); text-align: center; letter-spacing: .3em; text-transform: uppercase; }
 .err { min-height: 1.4em; color: #f0a080; }
 
+.hall .invite { display: block; margin: 6px auto 0; padding: 4px 14px; border: 1px solid #8a6a2a; background: rgba(0, 0, 0, .25); color: var(--gold);
+  font: 14px 'Fell SC', Georgia, serif; letter-spacing: .08em; cursor: pointer; }
+.hall .invite:hover { background: linear-gradient(#e7c673, #b38a35); color: var(--ink); }
+/* Online: the connection's round trip, small in a corner (amber when it is slow). */
+#ping { position: fixed; right: 12px; bottom: 8px; z-index: 5; display: none; color: rgba(239, 227, 194, .55); font: 13px Georgia, serif; letter-spacing: .04em; }
+#ping.slow { color: #f0b060; }
+
 /* A line over the game ("Reconnecting...", "You join next round"). */
 #notice { position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: 5; display: none; padding: 6px 18px; color: #efe3c2;
   background: rgba(20, 14, 6, .75); box-shadow: inset 0 0 0 1px #8a6a2a; font: 19px 'Fell SC', Georgia, serif; letter-spacing: .06em; }

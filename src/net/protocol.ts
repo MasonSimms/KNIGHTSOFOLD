@@ -3,7 +3,12 @@ import type { PlayerInput } from '../sim/types';
 import type { Snapshot } from './snapshot';
 
 // Messages between a browser and the room server: one JSON object per WebSocket message.
+/** Bump when the messages change. A page and a server with different versions (or different gameplay numbers) refuse to play together:
+ *  their copies of the fight would not match. */
+export const PROTOCOL = 2;
+
 export type ClientMsg =
+  | { t: 'hello'; v: number; tuning: string } // the first message: which version of the game this page is (PROTOCOL, and the gameplay numbers' fingerprint)
   | { t: 'create' } // make a room and become its host
   | { t: 'join'; code: string } // also works while a fight is under way: you join at the start of the next round
   | { t: 'rejoin'; code: string; token: string } // back after a dropped connection or a page reload: you get your own seat and score back
@@ -12,19 +17,23 @@ export type ClientMsg =
   | { t: 'bot'; at: number } // host only, in the lobby: put a bot in empty seat `at`, or take away the bot sitting there
   | { t: 'start' } // host only
   | { t: 'end' } // host only: back to the lobby
-  | { t: 'in'; i: PlayerInput }; // my controls, sent every tick
+  | { t: 'in'; i: PlayerInput; n?: number } // my controls, sent every tick; n counts them (the snapshot says which one the server used last: prediction needs it)
+  | { t: 'resync' } // my copy of the fight went wrong (a missed event): send me all of it again
+  | { t: 'ping'; n: number }; // send n straight back (to measure the round trip)
 
 export type ServerMsg =
   | { t: 'lobby'; code: string; n: number; you: number; host: boolean; token: string; looks: (Look | null)[]; ready: boolean[] } // who is in the room and who is ready (sent to everyone whenever it changes); `token` is your private key to rejoin
-  | { t: 'start'; seed: number; you: number; queued: boolean; token: string } // you are in a fight (new, or back): build or reset the Mirror (always 4 fighters; the snapshot that follows says which seats are empty), you are fighter `you`; `queued` = you appear next round
+  | { t: 'start'; seed: number; you: number; queued: boolean; token: string; resync?: boolean } // you are in a fight (new, or back): build or reset the Mirror (always 4 fighters; the snapshot that follows says which seats are empty), you are fighter `you`; `queued` = you appear next round
   | { t: 'snap'; s: Snapshot }
   | { t: 'over'; why: string } // the host ended the fight (or everyone left): back to the menu
-  | { t: 'error'; why: string };
+  | { t: 'pong'; n: number }
+  | { t: 'error'; why: string; fatal?: boolean }; // fatal: this page cannot play here (an old version, the server restarting): the connection closes
 
 export const MAX_PLAYERS = 4;
 export const MIN_PLAYERS = 2; // to start a fight
 export const RESERVE_MS = 60_000; // how long a player's seat is kept for them after they drop out of a fight
 export const EMPTY_MS = 60_000; // how long a fight with nobody connected is kept before the room is deleted
+export const CREATE_LIMIT = { rooms: 10, perMs: 600_000 }; // one address can make at most this many rooms in this long (stops a script filling the server)
 
 const num = (v: unknown, lo: number, hi: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : 0);
 

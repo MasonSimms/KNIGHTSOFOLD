@@ -3,7 +3,9 @@ import { WebSocket } from 'ws';
 import { startServer } from '../../server/index';
 import type { Server, ServerOptions } from '../../server/index';
 import { Sim } from '../sim/world';
+import { PROTOCOL } from './protocol';
 import type { ClientMsg, ServerMsg } from './protocol';
+import { tuningFingerprint } from '../replay/recording';
 import { Mirror } from './snapshot';
 
 /** A tiny test client: remembers every message and lets a test wait for one. */
@@ -34,7 +36,7 @@ class Client {
 let server: Server | null = null;
 const clients: Client[] = [];
 async function boot(opts: ServerOptions = {}) { server = await startServer(0, opts); return server; }
-async function connect() { const c = new Client(server!.port); clients.push(c); await c.ready(); return c; }
+async function connect(hello = true) { const c = new Client(server!.port); clients.push(c); await c.ready(); if (hello) c.send({ t: 'hello', v: PROTOCOL, tuning: tuningFingerprint() }); return c; }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 afterEach(async () => { clients.splice(0).forEach((c) => c.ws.terminate()); await server?.close(); server = null; });
 
@@ -324,5 +326,53 @@ describe('room server', () => {
     const st = await friend.wait('start');
     expect(st.you).toBeGreaterThanOrEqual(1); // a bot's seat (the room was full)
     expect(st.queued).toBe(true); // in from the next round
+  });
+  it('a page of another version is turned away with a reload message (and so is one that never says which version it is)', async () => {
+    await boot();
+    const old = await connect(false);
+    old.send({ t: 'hello', v: PROTOCOL, tuning: 'not-the-same-numbers' });
+    const e = await old.wait('error');
+    expect(e.fatal).toBe(true);
+    expect(e.why).toMatch(/reload/i);
+    await sleep(100);
+    expect(old.closed).toBe(true);
+    const silent = await connect(false);
+    silent.send({ t: 'create' });
+    expect((await silent.wait('error')).fatal).toBe(true);
+  });
+
+  it('answers the host\'s health check and plain web requests, and pings', async () => {
+    await boot();
+    const r = await fetch(`http://127.0.0.1:${server!.port}/health`);
+    expect(r.status).toBe(200);
+    expect(await r.text()).toMatch(/^ok/);
+    const c = await connect();
+    c.send({ t: 'ping', n: 1234.5 });
+    expect((await c.wait('pong')).n).toBe(1234.5);
+  });
+
+  it('one address can only make so many rooms in a while', async () => {
+    await boot({ createLimit: 2 });
+    for (let i = 0; i < 2; i++) { const c = await connect(); c.send({ t: 'create' }); await c.wait('lobby'); }
+    const third = await connect();
+    third.send({ t: 'create' });
+    expect((await third.wait('error')).why).toMatch(/too many rooms/);
+  });
+
+  it('a client whose copy went wrong can ask for the whole fight again', async () => {
+    const { host } = await fightOf(2);
+    host.clear();
+    host.send({ t: 'resync' });
+    const st = await host.wait('start');
+    expect(st.resync).toBe(true);
+    expect(st.you).toBe(0);
+    await host.wait('snap');
+  });
+
+  it('every snapshot says which of each player\'s inputs it used', async () => {
+    const { host } = await fightOf(2);
+    for (let n = 1; n <= 5; n++) host.send({ t: 'in', n, i: { moveX: 1, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false } });
+    const s = await host.wait('snap', (m) => m.s.ack?.[0] === 5);
+    expect(s.s.ack![0]).toBe(5);
   });
 });

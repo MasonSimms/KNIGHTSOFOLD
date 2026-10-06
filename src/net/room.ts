@@ -9,25 +9,39 @@ import type { Snapshot } from './snapshot';
 export class Room {
   private ticks = 0;
   private inputs: PlayerInput[];
+  private queue: { i: PlayerInput; n: number }[][]; // each player's inputs not used yet (one per tick)
+  private acks: number[]; // the number of the input each player's fighter last moved by (the snapshot says it: prediction needs it)
   private pending: SimEvent[] = [];
   private log: SimEvent[] = []; // structural events since the round began, so a late joiner can catch up
 
   constructor(readonly sim: Sim, readonly snapEvery = T.net.snapEvery) {
     this.inputs = sim.fighters.map(() => NEUTRAL);
+    this.queue = sim.fighters.map(() => []);
+    this.acks = sim.fighters.map(() => 0);
   }
 
-  /** A player's newest input (a missing or late one just means the previous input keeps being used). */
-  setInput(slot: number, input: PlayerInput): void {
-    if (slot >= 0 && slot < this.inputs.length) this.inputs[slot] = input;
+  /** A player's next input (n counts them). One is used per tick; with none waiting the previous one is used again. Too many waiting
+   *  (a burst after a stall) and the oldest are folded into the next: a press in them still counts. */
+  setInput(slot: number, input: PlayerInput, n = 0): void {
+    const q = this.queue[slot];
+    if (!q) return;
+    q.push({ i: input, n });
+    while (q.length > T.net.inputQueue) {
+      const [a, b] = q;
+      b.i = { ...b.i, jump: a.i.jump || b.i.jump, attack: a.i.attack || b.i.attack, drop: a.i.drop || b.i.drop, dodge: a.i.dodge || b.i.dodge };
+      q.shift();
+    }
   }
 
   /** One 60 Hz tick. Returns a snapshot on every `snapEvery`th tick. */
   tick(): Snapshot | null {
+    this.queue.forEach((q, i) => { const x = q.shift(); if (x) { this.inputs[i] = x.i; this.acks[i] = x.n; } });
     this.sim.step(this.inputs);
     this.ticks++;
     this.collect();
     if (this.ticks % this.snapEvery !== 0) return null;
     const s = takeSnapshot(this.sim, this.ticks, this.pending);
+    s.ack = this.acks.slice();
     this.pending = [];
     return s;
   }

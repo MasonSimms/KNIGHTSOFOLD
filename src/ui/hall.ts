@@ -13,6 +13,13 @@ import { BACK, closeMenu, openMenu } from './menu';
 /** One seat as drawn. `row` = where this seat's gamepad cursor is (0 hat, 1 eyes, 2 colour, 3 ready), -1 = none. */
 export interface HallSeat { look: Look; ready: boolean; mine: boolean; row: number }
 /** `bots` = this viewer may add a bot to an empty seat and take one away. */
+/** A link that opens the game straight into this room (online, on the same server). */
+export function inviteLink(code: string): string {
+  const server = new URLSearchParams(location.search).get('online');
+  return `${location.origin}${location.pathname}?online${server ? '=' + encodeURIComponent(server) : ''}&room=${code}`;
+}
+const copyInvite = async (code: string): Promise<boolean> => { try { await navigator.clipboard.writeText(inviteLink(code)); return true; } catch { return false; } };
+
 export interface HallModel { seats: (HallSeat | null)[]; empty: string; canStart: boolean; startLabel: string; note: string; hint: string; code?: string; bots?: boolean }
 export interface HallActions { look(i: number, l: Look): void; ready(i: number): void; join(i: number): void; leave(i: number): void; start(): void; back(): void; bot(i: number): void }
 export const ROWS = 4;
@@ -75,7 +82,9 @@ export function mountHall(actions: HallActions) {
   return {
     update(m: HallModel) {
       model = m;
-      $('.code').innerHTML = m.code ? `<div class="plaque">Room<b>${m.code}</b><br><small>tell your friends the code</small></div>` : '';
+      $('.code').innerHTML = m.code ? `<div class="plaque">Room<b>${m.code}</b><br><small>tell your friends the code</small></div><button class="invite">Copy invite link</button>` : '';
+      const inv = root.querySelector<HTMLButtonElement>('.invite');
+      if (inv && m.code) inv.onclick = () => { copyInvite(m.code!).then((ok) => { inv.textContent = ok ? 'Link copied: paste it to your friends' : inviteLink(m.code!); }); };
       $('.seats').innerHTML = m.seats.map((s, i) => seatHtml(s, i, m)).join('');
       const arts = root.querySelectorAll<HTMLElement>('.seat');
       m.seats.forEach((s, i) => {

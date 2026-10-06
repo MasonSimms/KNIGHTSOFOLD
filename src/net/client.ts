@@ -1,3 +1,5 @@
+import { tuningFingerprint } from '../replay/recording';
+import { PROTOCOL } from './protocol';
 import type { ClientMsg, ServerMsg } from './protocol';
 
 /** The browser's end of the room server connection. Messages that arrive before anyone is listening are kept and handed over once a handler is set. */
@@ -16,7 +18,7 @@ export class NetClient {
   static connect(url: string): Promise<NetClient> {
     return new Promise((ok, fail) => {
       const ws = new WebSocket(url);
-      ws.onopen = () => ok(new NetClient(ws));
+      ws.onopen = () => { const c = new NetClient(ws); c.send({ t: 'hello', v: PROTOCOL, tuning: tuningFingerprint() }); ok(c); }; // (first: which version this page is)
       ws.onerror = () => fail(new Error(`could not reach the game server at ${url}`));
     });
   }

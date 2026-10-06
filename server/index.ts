@@ -1,8 +1,10 @@
 import { randomBytes } from 'node:crypto';
+import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { botLook, COLORS, EYES, HATS } from '../src/content/looks';
 import type { Look } from '../src/content/looks';
-import { cleanInput, EMPTY_MS, MAX_PLAYERS, MIN_PLAYERS, RESERVE_MS } from '../src/net/protocol';
+import { cleanInput, CREATE_LIMIT, EMPTY_MS, MAX_PLAYERS, MIN_PLAYERS, PROTOCOL, RESERVE_MS } from '../src/net/protocol';
+import { tuningFingerprint } from '../src/replay/recording';
 import type { ClientMsg, ServerMsg } from '../src/net/protocol';
 import { Room } from '../src/net/room';
 import { Sim } from '../src/sim/world';
@@ -26,15 +28,23 @@ class GameRoom {
   get present(): Seat[] { return this.seats.filter((s): s is Seat => !!s?.ws); } // connected players, lowest seat first: the first is the host
 }
 
-export interface ServerOptions { maxRooms?: number; reserveMs?: number; emptyMs?: number }
-export interface Server { port: number; rooms: Map<string, GameRoom>; close(): Promise<void> }
+export interface ServerOptions { maxRooms?: number; reserveMs?: number; emptyMs?: number; createLimit?: number }
+export interface Server { port: number; rooms: Map<string, GameRoom>; close(why?: string): Promise<void> }
 
 export async function startServer(port: number, opts: ServerOptions = {}): Promise<Server> {
   const maxRooms = opts.maxRooms ?? 20, reserveMs = opts.reserveMs ?? RESERVE_MS, emptyMs = opts.emptyMs ?? EMPTY_MS;
   const rooms = new Map<string, GameRoom>();
   const where = new WeakMap<WebSocket, { room: GameRoom; seat: Seat }>();
-  const wss = new WebSocketServer({ port, maxPayload: 4096 }); // inputs are tiny: anything bigger is junk
-  await new Promise<void>((ok) => wss.once('listening', ok));
+  const conn = new WeakMap<WebSocket, { ip: string; hello: boolean }>(); // who is on the other end, and whether their page is the right version
+  const createLimit = opts.createLimit ?? CREATE_LIMIT.rooms, created = new Map<string, number[]>(); // per address: when it made its last rooms
+  const version = tuningFingerprint(); // a page must have the same gameplay numbers, or its copy of the fight would not match ours
+  // A plain web address too: /health is for the host's checks (Fly.io), anything else says what this is.
+  const http = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
+    res.end(req.url === '/health' ? `ok ${rooms.size} rooms` : 'Knights of Old room server');
+  });
+  const wss = new WebSocketServer({ server: http, maxPayload: 4096 }); // inputs are tiny: anything bigger is junk
+  await new Promise<void>((ok) => http.listen(port, ok));
 
   const send = (ws: WebSocket | null, m: ServerMsg) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); };
   const newToken = () => randomBytes(12).toString('hex');
@@ -55,9 +65,9 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
   };
 
   /** Tell a player they are in the fight, with everything their client needs to build (or rebuild) its copy of it. */
-  function sendStart(r: GameRoom, seat: Seat, queued: boolean, seed: number) {
+  function sendStart(r: GameRoom, seat: Seat, queued: boolean, seed: number, resync = false) {
     const g = r.game!;
-    send(seat.ws, { t: 'start', seed, you: slotOf(r, seat), queued, token: seat.token });
+    send(seat.ws, { t: 'start', seed, you: slotOf(r, seat), queued, token: seat.token, ...(resync ? { resync } : {}) });
     send(seat.ws, { t: 'snap', s: g.room.catchUp() });
   }
   const seeds = new WeakMap<GameRoom, number>();
@@ -96,12 +106,24 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     let m: ClientMsg;
     try { m = JSON.parse(raw); } catch { return; }
     if (!m || typeof m !== 'object') return;
-    const at = where.get(ws);
+    const at = where.get(ws), c = conn.get(ws)!;
+    if (m.t === 'ping') return send(ws, { t: 'pong', n: Number(m.n) || 0 });
+    if (m.t === 'hello') {
+      if (m.v === PROTOCOL && m.tuning === version) { c.hello = true; return; }
+      send(ws, { t: 'error', why: 'The game has been updated. Reload the page to get the new version.', fatal: true });
+      return ws.close(1008, 'old version');
+    }
+    if (!c.hello) { send(ws, { t: 'error', why: 'The game has been updated. Reload the page to get the new version.', fatal: true }); return ws.close(1008, 'no hello'); } // (a page from before versions were checked)
     if (m.t === 'in') {
-      if (at?.room.game) at.room.game.room.setInput(slotOf(at.room, at.seat), cleanInput(m.i));
+      if (at?.room.game) at.room.game.room.setInput(slotOf(at.room, at.seat), cleanInput(m.i), Number.isInteger(m.n) ? m.n : 0);
+    } else if (m.t === 'resync') {
+      if (at?.room.game) sendStart(at.room, at.seat, false, seeds.get(at.room)!, true);
     } else if (m.t === 'create') {
       if (at) return send(ws, { t: 'error', why: 'already in a room' });
       if (rooms.size >= maxRooms) return send(ws, { t: 'error', why: 'the server is full, try again later' });
+      const now = Date.now(), mine = (created.get(c.ip) ?? []).filter((t) => now - t < CREATE_LIMIT.perMs);
+      if (mine.length >= createLimit) return send(ws, { t: 'error', why: 'too many rooms made from here: try again in a few minutes' });
+      created.set(c.ip, [...mine, now]);
       const r = new GameRoom(newCode());
       rooms.set(r.code, r);
       const seat = newSeat(r);
@@ -185,7 +207,9 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     }
   }
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    const fwd = req.headers['fly-client-ip'] ?? req.headers['x-forwarded-for'];
+    conn.set(ws, { ip: String(Array.isArray(fwd) ? fwd[0] : fwd ?? req.socket.remoteAddress ?? '').split(',')[0].trim(), hello: false });
     let alive = true, count = 0;
     ws.on('pong', () => { alive = true; });
     const rate = setInterval(() => { count = 0; }, 1000);
@@ -212,6 +236,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     }
     if (now - sweep > 1000) { // once a second: delete fights nobody is watching (an away player's seat is simply up for grabs after reserveMs: see 'join')
       sweep = now;
+      for (const [ip, ts] of created) if (!ts.some((t) => Date.now() - t < CREATE_LIMIT.perMs)) created.delete(ip);
       for (const r of rooms.values()) {
         if (!r.game) continue;
         if (!r.present.length && r.emptySince && Date.now() - r.emptySince > emptyMs) rooms.delete(r.code);
@@ -219,10 +244,15 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     }
   }, 5);
 
-  const address = wss.address();
+  const address = http.address();
   return {
     port: address && typeof address === 'object' ? address.port : port, rooms,
-    close: () => new Promise<void>((ok) => { clearInterval(loop); wss.clients.forEach((c) => c.terminate()); wss.close(() => ok()); }),
+    /** Stop: everyone is told (why), then dropped. */
+    close: (why?: string) => new Promise<void>((ok) => {
+      clearInterval(loop);
+      wss.clients.forEach((c) => { if (why) send(c, { t: 'error', why, fatal: true }); c.terminate(); });
+      wss.close(() => http.close(() => ok()));
+    }),
   };
 }
 
@@ -230,4 +260,8 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
 if (process.argv[1] && /dist-server[\\/]index\.js$/.test(process.argv[1])) {
   const s = await startServer(Number(process.env.PORT) || 8080, { maxRooms: Number(process.env.MAX_ROOMS) || 20 });
   console.log(`Knights of Old room server listening on port ${s.port}`);
+  // Stopped (a new version going up, or the host stopping an idle machine): tell everyone, then go.
+  const stop = async () => { console.log('stopping'); await s.close('The server is restarting. Make a new room in a minute.'); process.exit(0); };
+  process.once('SIGTERM', () => void stop());
+  process.once('SIGINT', () => void stop());
 }

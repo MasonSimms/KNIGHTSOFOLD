@@ -18,7 +18,7 @@ import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
 import { runHome } from './ui/home';
 import { updateHud } from './ui/hud';
-import { forgetSession, loadSession, notice, runLobby } from './ui/lobby';
+import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 import { applySettings, loadSettings, runSettings } from './ui/settings';
 import { applyTraining, leaveTraining, loadTraining, runTraining } from './ui/training';
@@ -43,7 +43,7 @@ const lagMs = Number(query.get('lag')) || 0;
 const room = lagMs ? new Room(sim) : null;
 let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 2)) : null;
 // Open http://localhost:5173/?online to play for real: make or join a room, the host starts. (Needs the room server: npm run server.)
-let net: NetClient | null = null, mySlot = 0;
+let net: NetClient | null = null, mySlot = 0, inputSeq = 0, ping = 0;
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
   const url = serverUrl(onlineParam);
@@ -55,8 +55,10 @@ if (onlineParam !== null) {
   const attach = (c: NetClient) => {
     c.onMsg = (msg) => {
       if (msg.t === 'snap') m.push(msg.s);
-      else if (msg.t === 'start') { mySlot = msg.you; m.reset(); notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
+      else if (msg.t === 'pong') { ping = performance.now() - msg.n; showPing(ping); }
+      else if (msg.t === 'start') { mySlot = msg.you; m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
       else if (msg.t === 'over') { forgetSession(); alert(`The fight is over: ${msg.why}.`); location.reload(); } // back to the menu (ponytail: a fresh connection; a lobby that survives the fight can come later)
+      else if (msg.t === 'error' && msg.fatal) { forgetSession(); alert(msg.why); location.href = location.pathname; }
       else if (msg.t === 'error') { forgetSession(); alert(`Could not rejoin: ${msg.why}.`); location.reload(); }
     };
     c.onClose(() => void reconnect());
@@ -73,7 +75,9 @@ if (onlineParam !== null) {
     forgetSession(); alert('Could not get back into the game.'); location.reload();
   };
   attach(net);
+  setInterval(() => net?.send({ t: 'ping', n: performance.now() }), 2000); // the round trip, shown in a corner
 }
+let desyncsSeen = 0, resyncAt = 0;
 const view = mirror ? mirror.sim : sim; // what is drawn
 // The game opens on the menus (home, then the Hall of Champions or training). Testing links skip them and keep the old rules: plugging in
 // a gamepad adds a player. Online has its own room screen.
@@ -225,7 +229,7 @@ function frame(now: number) {
       if (s) toClient.push({ at: now + lagMs, s: JSON.parse(JSON.stringify(s)) }); // through the "wire"
       continue;
     }
-    if (net) { net.send({ t: 'in', i: lastInput }); continue; } // online: the server runs the fight, we only send our controls
+    if (net) { net.send({ t: 'in', i: lastInput, n: ++inputSeq }); continue; } // online: the server runs the fight, we only send our controls
     const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
     if (mode === 'local') for (let k = 0; k < devices.length; k++) { const d = devices[k]; inputs[k] = d === 'kb' ? lastInput : d === 'bot' ? NEUTRAL : padInput(k, d, pads); } // (a bot presses its own buttons inside the sim)
     else if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
@@ -241,6 +245,8 @@ function frame(now: number) {
   if (mirror) {
     while (toClient.length && toClient[0].at <= now) mirror.push(toClient.shift()!.s);
     const shown = mirror.update(ft / 1000);
+    if (net && mirror.desyncs > desyncsSeen && now - resyncAt > 2000) { net.send({ t: 'resync' }); resyncAt = now; } // our copy went wrong: ask for all of it again
+    desyncsSeen = mirror.desyncs;
     alpha = shown.alpha;
     for (const e of shown.events) play(e);
   }
@@ -257,7 +263,7 @@ function frame(now: number) {
       `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: ${view.fighters.map((f) => (f.controlled ? 'P' + (f.index + 1) : 'dummy') + ' ' + Math.max(0, f.hp).toFixed(0)).join('  ')}   players ${players}`,
       `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} charge ${view.fighters[mySlot].charge}/${T.charge.maxFrames} dodge-ready-in ${(view.fighters[mySlot].dodgeCooldown / 60).toFixed(1)}s`,
       `era ${eraById(view.era).name}   outfit ${eraById(view.era).outfits[view.outfits[mySlot]]}`,
-      net ? `ONLINE: you are fighter ${mySlot + 1}, ${mirror!.desyncs} desyncs` : room ? `PRETEND NETWORK: ${lagMs} ms each way, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
+      net ? `ONLINE: you are fighter ${mySlot + 1}, ping ${Math.round(ping)} ms, ${mirror!.desyncs} desyncs` : room ? `PRETEND NETWORK: ${lagMs} ms each way, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
     ]);
     frames = 0; msSum = 0; simMsSum = 0; statTime = now;
   }
@@ -278,4 +284,6 @@ requestAnimationFrame(frame);
 if (mode === 'training') void menu('home');
 
 if (import.meta.env.DEV) (window as unknown as { sim: Sim }).sim = sim; // dev-only handle for console poking and browser tests
+if (import.meta.env.DEV) (window as unknown as { view: Sim; mirror: Mirror | null }).view = view; // (online: the copy that is drawn)
+if (import.meta.env.DEV) (window as unknown as { mirror: Mirror | null }).mirror = mirror;
 if (import.meta.env.DEV) (window as unknown as { tuning: typeof tuning }).tuning = tuning; // dev-only: lets the browser console and tests flip settings

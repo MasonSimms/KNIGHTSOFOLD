@@ -16,6 +16,7 @@ export interface Snapshot {
   map: number;
   props: number[]; // x, y, angle of every loose prop (planks, logs...)
   boat?: number[]; // x, y, angle of the ship, on a map with one
+  ack?: number[]; // per player: the number of their last input this tick used
   outfits: number[];
   looks: Look[]; // everyone's colour and hat (so a player who joins late or rejoins sees the right ones)
   ev: SimEvent[];
@@ -55,7 +56,12 @@ export class Mirror {
       if (s.round !== this.sim.round || s.era !== this.sim.era) this.sim.buildRound(s.round, s.era);
     }
     if (s.frame > (this.snaps.at(-1)?.frame ?? -1)) this.snaps.push(s);
-    if (this.snaps.length > 60) this.snaps.shift();
+    while (this.snaps.length > 60) { // only the last second is kept. A page that is not drawing (a hidden tab) still gets every snapshot:
+      const old = this.snaps.shift()!; // one it never showed still has its deaths and pickups made, or the copy would never match again
+      if (old.frame <= this.applied) continue;
+      for (const e of old.ev) if (STRUCTURAL.has(e.t)) this.sim.mirrorEvent(e);
+      this.applied = old.frame;
+    }
   }
 
   /** Start over from a fresh build (a rejoining client): forget everything and replay from the next catch-up snapshot. */
