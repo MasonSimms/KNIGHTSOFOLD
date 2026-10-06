@@ -294,3 +294,30 @@ export function paintedWater(w: number, h: number, top: string, deep: string, fo
   cache.set(key, out);
   return { tex: out[0], ppm: k };
 }
+
+/**
+ * The painting's gilded frame (owner: a thin gold frame around the game, like a painting frame): one strip of carved moulding, `w` long
+ * and `h` across, painted like the rest. Across it, from the outside: a dark outer edge, a bright rounded gold bead with a row of carved
+ * dots, a flat, and a dark inner lip against the picture. It tiles along each side of the frame.
+ */
+export function paintedMoulding(K: SpriteKnobs, w = 256, h = 28): Texture {
+  const key = `moulding|${w}|${h}|${JSON.stringify(K)}`;
+  const hit = cache.get(key);
+  if (hit) return hit[0];
+  const N = w * h, img = newImg(w, h), alpha = new Float32Array(N).fill(1), ang = new Float32Array(N), R = makeRandom(83);
+  const stops: [number, number[]][] = [[0, [0.29, 0.2, 0.07]], [0.12, [0.55, 0.4, 0.14]], [0.3, [0.96, 0.82, 0.5]], [0.45, [0.78, 0.6, 0.27]], [0.62, [0.62, 0.47, 0.2]], [0.8, [0.86, 0.71, 0.4]], [0.9, [0.4, 0.28, 0.09]], [1, [0.2, 0.13, 0.04]]];
+  for (let y = 0; y < h; y++) {
+    const v = y / (h - 1);
+    let i = 0;
+    while (i < stops.length - 2 && stops[i + 1][0] < v) i++;
+    const [v0, c0] = stops[i], [v1, c1] = stops[i + 1], t = Math.min(1, Math.max(0, (v - v0) / (v1 - v0)));
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x, bead = v > 0.2 && v < 0.42 ? 0.12 * Math.cos(((x % 16) / 16) * Math.PI * 2) : 0; // a row of carved beads
+      for (let ch = 0; ch < 3; ch++) img.c[ch][p] = Math.min(1, c0[ch] + (c1[ch] - c0[ch]) * t + bead + (R.range(-1, 1) * 0.03));
+      ang[p] = 0;
+    }
+  }
+  const out = paintFlat(img, alpha, ang, 97, K, 1);
+  cache.set(key, out);
+  return out[0];
+}

@@ -662,6 +662,9 @@ export const tuning = {
     front: { blur: 3.5 }, // how out of focus the front plane is (px at 1080p)
     water: { alpha: 0.8, crestWidth: 0.06, crestAlpha: 0.55 },
     // Bullets (owner: moving white streaks with see-through trails that reach back past the shooter). m, 0..1, seconds.
+    // The gold frame around the picture (render/frame.ts): its width (share of the picture's height), and the size of a hole (someone
+    // knocked out through it) and of a bullet's crack, in frame widths.
+    frame: { width: 0.018, hole: 3.2, crack: 0.9 },
     bullets: { streak: 0.7, streakWidth: 0.05, trailWidth: 0.05, trailAlpha: 0.35, tailBack: 1.5, trailFadeSeconds: 0.35, flashSeconds: 0.08, twirlSeconds: 0.35 }, // the near water: how much it hides what is under the surface (1 = all of it), and the light line along the top of the waves (m, 0..1)
     boilFps: 9, // how often the painted fighters' brush strokes change (the package: 3 painted variants at 8-10 fps)
     // The hot-colour cape (looks only): where it hangs from (metres from the torso's centre), and how the cloth moves.

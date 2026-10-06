@@ -6,6 +6,7 @@ import { createBackdrops } from './painter/backdrops';
 import { BOT_GRAYS, drawRobotHead } from './robot';
 import { createSea } from './sea';
 import { createFx } from './fx';
+import { createFrame } from './frame';
 import { CAPE, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -247,6 +248,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   app.stage.addChild(grain, tintWash, vignette);
   const box = new Graphics(); // the picture's frame on screen: zoomed in, nothing may spill outside it
   app.stage.addChild(box);
+  const frame = createFrame(app.stage, { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under }); // the gold frame, over everything (screen space)
   let zoom = 1, camX = A.viewW / 2, camY = A.viewH / 2; // the subtle camera (tuning.camera)
 
   // Splat decal pool (ring buffer: no allocation after start-up).
@@ -431,6 +433,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     toWorld(px: number, py: number) { return { x: (px - view.x) / view.scale.x, y: (py - view.y) / view.scale.y }; },
     onEvent(e: SimEvent) {
       fx.onEvent(e);
+      frame.onEvent(e, A.viewW, A.viewH);
       if (e.t === 'hit' || e.t === 'stomp') {
         const boost = e.head ? 1.5 : 1;
         const big = e.v * boost - T.shake.minImpact; // only big hits shake the screen
@@ -485,6 +488,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         for (const s of splats) s.visible = false;
         for (const s of streaks) s.visible = false;
         fx.clear();
+        frame.clear();
         growing.length = 0; flying.length = 0;
       }
       for (let i = flying.length - 1; i >= 0; i--) { // streaks shooting across (fast, slowing as they land)
@@ -578,6 +582,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
       sea.draw(sim, alpha);
       fx.draw(sim, alpha, frameSeconds);
+      frame.draw({ x: (app.screen.width - A.viewW * scale) / 2, y: (app.screen.height - A.viewH * scale) / 2, w: A.viewW * scale, h: A.viewH * scale }, frameSeconds);
       app.render();
     },
   };
