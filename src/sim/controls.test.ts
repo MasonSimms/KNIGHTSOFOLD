@@ -278,8 +278,8 @@ describe('crouch and the dodge recovery', () => {
 });
 
 describe('walls: slide and jump', () => {
-  beforeAll(() => { T.arena.walls = true; }); // (the game has no side walls now: tuning.arena.walls)
-  afterAll(() => { T.arena.walls = false; });
+  beforeAll(() => { T.arena.walls = [{ side: -1, up: 4.2, gap: 1.6 }, { side: 1, up: 4.2, gap: 1.6 }]; }); // tall walls across a gap (the standard arena has none: tuning.arena.walls)
+  afterAll(() => { T.arena.walls = []; });
   async function fallIntoTheGap() {
     const sim = await settled(0);
     const f = () => sim.fighters[0];
@@ -301,12 +301,13 @@ describe('walls: slide and jump', () => {
 
   it('a wall jump kicks away from the wall and gets back onto the platform if you are quick', async () => {
     const { sim, f } = await fallIntoTheGap();
-    let touching = 0, jumped = false, back = false;
+    let touching = 0, jumped = false, back = false, held = 0;
     for (let i = 0; i < 200 && !back; i++) {
       if (f().wall !== 0) touching++;
       const jump = !jumped && touching >= 8;
       if (jump) jumped = true;
-      sim.step([idle({ moveX: jumped ? 1 : -1, jump })]);
+      if (jumped) held++;
+      sim.step([idle({ moveX: jumped ? 1 : -1, jump: jumped && held <= 12 })]); // jump held for the full height (a tap is a short hop)
       if (jump) expect(f().torso.body.linvel().x).toBeGreaterThan(4); // kicked away from the wall
       if (jumped && f().grounded && f().torso.body.translation().x > T.arena.platformX + 0.1) back = true;
     }

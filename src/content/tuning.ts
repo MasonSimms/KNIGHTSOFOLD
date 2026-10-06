@@ -24,19 +24,21 @@ export const tuning = {
     killY: 15, // below this is the void: instant kill (just under the bottom of the screen)
     killXMargin: 2, // metres past either screen edge
     // Floating ledges must never be in the way (owner: no getting stuck or interrupted by platforms, and room to swing, like SpiderHeck).
-    // Every ledge's underside is at least ledgeHeadroom above whatever is under it, so you walk AND swing a weapon straight up under it,
-    // and every ledge is low enough for a full jump to get onto it from somewhere. The maps test checks every era's map against both.
+    // Every ledge's underside is at least ledgeHeadroom above whatever is under it, so you walk under it freely (weapons in a hand pass
+    // through the scenery, so swings are never blocked), and every ledge is low enough for a full jump to get onto it from somewhere.
+    // The maps test checks every era's map against both.
     ledgeThick: 0.3, // how thick a floating ledge is
-    ledgeHeadroom: 2.5, // an era weapon swung straight up reaches 2.2-2.7 m above the floor (a fighter is 1.16 m tall)
+    ledgeHeadroom: 1.5, // a fighter is 1.16 m tall
     weaponRule: 'start' as 'start' | 'sky' | 'spots', // how weapons reach fighters: 'start' = everyone starts armed, 'sky' = clubs rain from above, 'spots' = clubs lie at fixed spots
     weaponSpots: [0.42, 0.58, 0.34, 0.66], // where along the platform (0 = left end, 1 = right end) the clubs lie in the 'spots' rule
     weaponReturnFrames: 120, // a weapon lost in the void comes back from the sky after this long (2 s)
-    // Side walls (owner: no high pillars at the sides, the map should feel open like Stick Fight's). Off: a fighter knocked off an end falls
-    // into the void (you can still slide down the platform's side and jump off it). true = the old tall walls with a gap, to compare.
-    walls: false,
-    wallGap: 1.6, // metres between each platform end and its wall: a fighter knocked off the end falls into the gap and can wall-jump out
+    // Side walls, chosen per map in eras.ts (owner: no high pillars on every map, but some maps should have walls, placed with thought).
+    // None here: off an open end you fall into the void (you can still slide down the platform's side and jump off it).
+    // side = -1 the left end, 1 the right end; up = how high the wall's top stands above the floor (metres; a fighter is 1.16 m);
+    // gap = metres between the platform's end and the wall: 0 = a backstop (nobody goes off that end unless thrown over it), more = a gap
+    // you fall into and can wall-jump out of.
+    walls: [] as { side: -1 | 1; up: number; gap: number }[],
     wallThickness: 0.6,
-    wallTop: 4.0, // how high the walls reach (the platform top is at 9.25)
     spawnX: [9.75, 14.25, 8.25, 16.25], // playing alone: fighter 0 = you, 1 = the training dummy (4.5 m apart, as before the zoom), 2 and 3 = extra fighters (stress test)
     fightSpawnX: [7.75, 16.25, 10.75, 13.25], // a real fight of 2-4 players: where each one starts
     ledges: [] as { x: number; up: number; w: number }[], // floating platforms (an era's arena can add them)
@@ -72,7 +74,8 @@ export const tuning = {
     moveSpeed: 6.05, // was 5.5 (+10%)
     groundAccel: 26, // lower = more slide and momentum, higher = snappier
     airAccel: 14,
-    jumpSpeed: 11.5, // about 3 m high, 2.6 body heights (owner: Stick Fight style; was 8.5 = 1.6 m, too low to get onto any ledge you could also walk and swing under). Lower it and the maps test names the ledges that went out of reach
+    jumpSpeed: 9.8, // about 2.2 m high, two body heights (was 8.5 = 1.6 m, too low to get onto a ledge you can walk under; 11.5 = 3 m was way too floaty)
+    fallGravity: 1.6, // coming down you fall this many times faster than gravity alone (owner: floaty; Stick Fight jumps rise and drop quickly). 1 = a plain arc
     coyoteFrames: 6, // you can still jump this long after walking off a ledge
     jumpBufferFrames: 6, // a jump pressed this early before landing still happens
     jumpCut: 0.5, // letting go of jump early cuts the jump short by this much (1 = no cut)

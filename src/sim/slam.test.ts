@@ -110,4 +110,19 @@ describe('holding S in the air', () => {
     expect(held.v).toBeGreaterThan(held.v0 * 0.9);
     expect(plain.v).toBeLessThan(held.v - 0.5);
   });
+
+  it('does not lie you down in mid-air: you land on your feet, and only then go down', async () => {
+    const sim = await Sim.create(11);
+    const P = sim.fighters[0];
+    for (let i = 0; i < 20; i++) sim.step([idle({ moveX: 1 })]); // a running jump, S held from the top of it until well after landing
+    let tilt = 0, landed = -1;
+    for (let i = 0; i < 90; i++) {
+      sim.step([idle({ moveX: i < 20 ? 1 : 0, jump: i < 20, crouch: i >= 20 })]);
+      if (landed < 0) tilt = Math.max(tilt, Math.abs(P.torso.body.rotation()));
+      if (landed < 0 && i > 25 && P.grounded) landed = i;
+    }
+    expect(landed).toBeGreaterThan(0);
+    expect(tilt).toBeLessThan(0.6); // upright the whole way down (it used to tip onto its side and land sideways)
+    expect(P.crouch).toBe(1); // and lying down once on the ground
+  });
 });

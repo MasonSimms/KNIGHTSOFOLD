@@ -70,12 +70,12 @@ describe('knockdown: a big hit sends them tumbling, and they get up by themselve
   });
 
   it('a knocked-down fighter that slams into a wall crashes: it bounces back and tumbles again', async () => {
-    T.arena.walls = true; // (the game has no side walls now: tuning.arena.walls)
+    T.arena.walls = [{ side: -1, up: 4.2, gap: 1.6 }]; // a tall wall across a gap (the standard arena has none: tuning.arena.walls)
     const sim = await setup();
-    T.arena.walls = false;
+    T.arena.walls = [];
     const f = sim.fighters[0];
     (sim as unknown as { knockdown(v: unknown, i: number, nx: number): void }).knockdown(f, 60, 1);
-    const wallX = T.arena.platformX - T.arena.wallGap; // the wall beside the platform end (the gap's far side)
+    const wallX = T.arena.platformX - 1.6; // the wall beside the platform end (the gap's far side)
     const dx = (wallX + 0.9) - f.torso.body.translation().x;
     for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + dx, y: q.y - 0.3 }, true); p.body.setLinvel({ x: -14, y: -1 }, true); }
     const seen: number[] = [];

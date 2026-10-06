@@ -47,6 +47,7 @@ export interface Fighter {
   ragdolled: boolean; // dead: the head has come off onto a floppy neck and the legs are limp
   grounded: boolean;
   groundDist: number; // how far below the hips the floor is (Infinity = nothing in reach)
+  groundBody: RigidBody | null; // what the floor below the hips is (a loose object or plank gets pushed back down by the stand spring)
   legs: { thigh: Part; shin: Part; hip: RevoluteImpulseJoint; knee: RevoluteImpulseJoint }[];
   cutJoints: Set<unknown>; // joints that have been removed (a lost limb, a blown-apart body): never touch them again
   armLost: boolean; // the fighting arm is gone: no attacking, grabbing or holding a weapon this round
@@ -233,7 +234,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamSpeed: 0, slamBy: -1, slamTop: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamSpeed: 0, slamBy: -1, slamTop: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
@@ -479,6 +480,7 @@ function senseContacts(world: World, f: Fighter): void {
   ray.origin.x = bt.x; ray.origin.y = bt.y;
   const hit = world.castRay(ray, T.stand.height + T.stand.reach, true, undefined, undefined, undefined, undefined, isWorld);
   f.groundDist = hit ? hit.timeOfImpact : Infinity;
+  f.groundBody = hit ? hit.collider.parent() : null;
   let ground = f.groundDist < T.stand.height + 0.12, wall = 0;
   for (const col of f.torso.colliders) { // the body capsule and the head: a leaning body touches a wall with its head first
     world.contactPairsWith(col, (other) => {
@@ -523,7 +525,14 @@ function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip:
     const vy = f.torso.body.linvel(tmp).y; // + = falling
     const up = Math.max(0, Math.min(S.maxAccel, S.stiffness * (want - f.groundDist) + S.damping * vy + T.sim.gravity)); // only ever pushes up
     const onFeet = smooth(S.uprightNone, S.uprightFull, Math.cos(f.torso.body.rotation())); // not while lying, tumbling or upside down
-    if (onFeet > 0) shove(f, 0, -up * onFeet * fighterMass(f) * dt);
+    if (onFeet > 0) {
+      const push = up * onFeet * fighterMass(f) * dt;
+      shove(f, 0, -push);
+      // ...and what you stand on is pushed down just as hard (owner rule: the world is physics). Without this a loose weapon caught
+      // between your legs held you up while your legs carried it: the two floated up forever.
+      const gb = f.groundBody, t = f.torso.body.translation();
+      if (gb?.isDynamic()) gb.applyImpulseAtPoint({ x: 0, y: push }, { x: t.x, y: t.y + f.groundDist }, true);
+    }
   }
 
   if (f.kneeSide !== s) { // knees fold toward where you face
@@ -730,8 +739,9 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     if (f.release > 0) lean += s * LN.slamForward;
     if (punchPhase === 'strike') lean += s * LN.punchForward * f.punchPower;
   }
-  // Near the bottom of a crouch you stop holding yourself upright, so you tip over the way you are leaning and lie down.
-  const tip = smooth(T.crouch.tipStart, T.crouch.tipAt, f.crouch);
+  // Near the bottom of a crouch you stop holding yourself upright, so you tip over the way you are leaning and lie down. Only on the ground
+  // (owner: holding S in the air tipped you onto your side mid-jump, so you landed sideways and bounced).
+  const tip = f.grounded ? smooth(T.crouch.tipStart, T.crouch.tipAt, f.crouch) : 0;
   const balance = f.slamBy >= 0 || f.carried > 0 ? 0 : f.knock > 0 ? T.knock.balance : f.stun > 0 ? B.stunFactor : 1; // (held or being slammed: no keeping your balance)
   // Lying down lets go of the upright spring but keeps the spin damping, so crawling does not roll you over.
   const RU = T.rightUp;
@@ -751,7 +761,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const grounded = f.grounded;
   const CR = T.crouch;
   const lostLegs = +f.legLost[0] + +f.legLost[1];
-  f.crouch = f.controlled && (input.crouch || lostLegs === 2) ? Math.min(1, f.crouch + CR.downRate) : Math.max(0, f.crouch - CR.upRate);
+  const crouchHeld = f.controlled && (input.crouch || lostLegs === 2);
+  f.crouch = crouchHeld ? (grounded ? Math.min(1, f.crouch + CR.downRate) : f.crouch) : Math.max(0, f.crouch - CR.upRate); // you only go lower on the ground (in the air S keeps your momentum)
   standAndLegs(f, grounded, vx, s, tip);
   const lungeMul = 1 + T.crouch.lungeBonus * f.crouch; // crouching loads more momentum into a lunge or punch
   const M = T.motion;
@@ -764,6 +775,9 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     else if (f.wallCoyote > 0) f.wallCoyote--;
     if (f.wallLock > 0) f.wallLock--;
     if (f.tuck > 0) f.tuck--;
+    // Coming down is quicker than going up (owner: the jump felt floaty): extra pull while you fall on your own. Not while knocked down,
+    // flung, held or holding someone (carries and slams keep their own arcs), so big hits and throws still fly.
+    if (!grounded && f.knock === 0 && f.thrown === 0 && f.carried === 0 && !f.held && body.linvel(tmp).y > 0) shove(f, 0, (M.fallGravity - 1) * T.sim.gravity * fighterMass(f) * dt);
     // Wall slide: in the air, pushing toward a wall, you slide down it slowly instead of dropping.
     if (!grounded && f.wall !== 0 && input.moveX * f.wall > 0.2) {
       for (const p of f.parts) {

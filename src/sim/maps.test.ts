@@ -50,7 +50,7 @@ describe('maps', () => {
       const sim = await Sim.create(5, 2, false);
       sim.forceEra = era; sim.forceMap = map; sim.reset();
       const A = sim.arena, slabs = A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }];
-      const x0 = slabs[0].x + 0.5, x1 = slabs[slabs.length - 1].x + slabs[slabs.length - 1].w - 0.5;
+      const x0 = slabs[0].x + 0.5, x1 = slabs[slabs.length - 1].x + slabs[slabs.length - 1].w - 1.0; // (to 1 m from the far end: some maps have a wall there)
       const f = sim.fighters[0], other = sim.fighters[1];
       setBackPlane(other, true); other.dodge = 1e9; // the other fighter steps aside (we pass through it)
       const t = f.torso.body.translation();

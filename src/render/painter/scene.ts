@@ -13,7 +13,7 @@ export const DEF_DEG = [-9, 0, 4, -40, -80, 0, 8, 0]; // default brush direction
 export const DEF_STD = [9, 5, 6, 45, 18, 5, 8, 0]; // ...and how much it wanders
 
 /** The round's solid ground, in design px: slabs of the main platform, floating ledges (y = top), and the two walls. */
-export interface ArenaGeo { slabs: { x: number; w: number }[]; ledges: { x: number; y: number; w: number }[]; ledgeThick: number; top: number; thick: number; walls: { x: number; w: number }[]; wallTop: number }
+export interface ArenaGeo { slabs: { x: number; w: number }[]; ledges: { x: number; y: number; w: number }[]; ledgeThick: number; top: number; thick: number; walls: { x: number; w: number; top: number }[] }
 
 export interface Source { img: Img; region: Uint8Array; ovAng: Float32Array; ovW: Float32Array; fmask: Float32Array; platMask: Float32Array }
 
@@ -318,10 +318,10 @@ export function compose(cfg: Painting, geo: ArenaGeo, W: number, H: number, seed
     regFill([[x0, y0 + th * 0.22], [x1, y0 + th * 0.22], [x1, y0 + th], [x0, y0 + th]], REG.stone);
   };
   for (const w of geo.walls) { // a stone pillar, lit from the left
-    main.fillStyle = pc.face; poly(main, [[w.x, geo.wallTop], [w.x + w.w, geo.wallTop], [w.x + w.w, 1080], [w.x, 1080]]);
-    main.fillStyle = pc.dark; poly(main, [[w.x + w.w * 0.55, geo.wallTop], [w.x + w.w, geo.wallTop], [w.x + w.w, 1080], [w.x + w.w * 0.55, 1080]]);
-    main.fillStyle = pc.lip; poly(main, [[w.x - 4, geo.wallTop - 6], [w.x + w.w + 4, geo.wallTop - 6], [w.x + w.w + 4, geo.wallTop + 8], [w.x - 4, geo.wallTop + 8]]);
-    regFill([[w.x - 4, geo.wallTop - 6], [w.x + w.w + 4, geo.wallTop - 6], [w.x + w.w + 4, 1080], [w.x - 4, 1080]], REG.stone);
+    main.fillStyle = pc.face; poly(main, [[w.x, w.top], [w.x + w.w, w.top], [w.x + w.w, 1080], [w.x, 1080]]);
+    main.fillStyle = pc.dark; poly(main, [[w.x + w.w * 0.55, w.top], [w.x + w.w, w.top], [w.x + w.w, 1080], [w.x + w.w * 0.55, 1080]]);
+    main.fillStyle = pc.lip; poly(main, [[w.x - 4, w.top - 6], [w.x + w.w + 4, w.top - 6], [w.x + w.w + 4, w.top + 8], [w.x - 4, w.top + 8]]);
+    regFill([[w.x - 4, w.top - 6], [w.x + w.w + 4, w.top - 6], [w.x + w.w + 4, 1080], [w.x - 4, 1080]], REG.stone);
   }
   for (const s of geo.slabs) slab(s.x, s.x + s.w, geo.top, geo.thick);
   for (const l of geo.ledges) slab(l.x, l.x + l.w, l.y, geo.ledgeThick);

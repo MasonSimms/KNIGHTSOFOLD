@@ -31,8 +31,8 @@ export function arenaFor(eraId: string, map: number): Arena {
   return { ...T.arena, ...over } as Arena;
 }
 
-/** The centres of the arena's two side walls (none when walls are off). */
-export const wallXs = (A: Arena): number[] => (A.walls ? [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2] : []);
+/** The arena's side walls (see tuning.arena.walls): left edge x and top y of each. Every wall reaches down below the void. */
+export const wallsOf = (A: Arena) => A.walls.map((w) => ({ x: w.side < 0 ? A.platformX - w.gap - A.wallThickness : A.platformX + A.platformW + w.gap, top: A.platformTop - w.up }));
 
 /** Something a fighter can pick up. */
 type Item = { kind: 'stick'; from: number } | { kind: 'prop'; index: number } | { kind: 'limb'; from: number; k: number };
@@ -161,10 +161,10 @@ export class Sim {
     });
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
 
-    // With walls on, a tall wall stands outside each platform end, with a gap: a fighter knocked off an end falls into the gap and can wall-jump out.
-    const wallH = (A.killY + 2 - A.wallTop) / 2;
-    for (const cx of wallXs(A)) {
-      const wall = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(cx, A.wallTop + wallH));
+    // The map's side walls (if any): a backstop at an end, or a wall across a gap you can fall into and wall-jump out of.
+    for (const w of wallsOf(A)) {
+      const wallH = (A.killY + 2 - w.top) / 2;
+      const wall = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(w.x + A.wallThickness / 2, w.top + wallH));
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(A.wallThickness / 2, wallH).setFriction(0.05).setCollisionGroups(terrainGroups), wall);
     }
 

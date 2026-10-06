@@ -9,7 +9,7 @@ import type { Eyes, Hat } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
 import type { SimEvent } from '../sim/types';
-import { wallXs } from '../sim/world';
+import { wallsOf } from '../sim/world';
 import type { Sim } from '../sim/world';
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -201,8 +201,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     for (const g of A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]) platform.rect(g.x, A.platformTop, g.w, A.platformThickness).fill(era.platform);
     for (const l of A.ledges) platform.rect(l.x, A.platformTop - l.up, l.w, A.ledgeThick).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
     walls.clear();
-    for (const cx of wallXs(A)) {
-      walls.rect(cx - A.wallThickness / 2, A.wallTop, A.wallThickness, A.killY + 2 - A.wallTop).fill(era.wall);
+    for (const w of wallsOf(A)) {
+      walls.rect(w.x, w.top, A.wallThickness, A.killY + 2 - w.top).fill(era.wall);
     }
   };
   paintArena(sim.era);

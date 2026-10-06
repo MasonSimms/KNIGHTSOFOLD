@@ -26,7 +26,7 @@ Planning only, nothing here is built yet (except where marked BUILT). Everything
 | 11 | Modern Warfare | 2020 | Riot Baton | BUILT (placeholder) |
 | 12 | Space Age | 2300 | Energy Staff | BUILT (placeholder) |
 
-Rule for every map (owner, 2026-10-05, Stick Fight and SpiderHeck): open, no tall side walls, and platforms never in the way. A floating ledge leaves at least 2.5 m under it (room to walk AND swing a weapon), and a jump gets you onto it from somewhere; weapons in a hand pass through the scenery. The maps test checks every map (ideas below with ceilings or low overhangs, like the Bunker Walkway, break this rule and need rethinking).
+Rule for every map (owner, 2026-10-05, Stick Fight and SpiderHeck): open, and platforms never in the way. A floating ledge leaves at least 1.5 m under it (room to walk under; weapons in a hand pass through the scenery, so swings are never blocked), and a jump gets you onto it from somewhere. Side walls only where the map is about them (a backstop, a parapet you get thrown over, or a wall across a gap you wall-jump out of): most maps are open at both ends. The maps test checks every map (ideas below with ceilings or low overhangs, like the Bunker Walkway, break this rule and need rethinking).
 
 Rule of thumb for weapons: signature weapons are long-melee "clubs" like the current engine. Pickups are where new behaviour comes in (a shield that parries, something thrown, a grappling tool), and each one needs an engine feature, listed in "What the engine needs".
 

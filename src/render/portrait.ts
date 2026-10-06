@@ -15,7 +15,7 @@ import type { Painted } from './render';
 export const PORTRAIT = { w: 300, h: 380 }; // canvas pixels
 const Z = 2.2; // a portrait is a close-up: shapes are painted this much bigger than in the fight (finer strokes for their size)
 const BACKGROUND = 'medieval'; // whose landscape stands behind every portrait (each seat sees a different stretch of it)
-const NO_GROUND = { slabs: [], ledges: [], ledgeThick: 0, top: 1080, thick: 0, walls: [], wallTop: 1080 };
+const NO_GROUND = { slabs: [], ledges: [], ledgeThick: 0, top: 1080, thick: 0, walls: [] };
 
 let app: Promise<Application> | null = null;
 let land: Promise<ImageBitmap | null> | null = null;
