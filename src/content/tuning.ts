@@ -48,6 +48,8 @@ export const tuning = {
     scenery: [] as { kind: string; x: number; up: number }[], // breakable scenery that belongs to the map (barrels, crates): always there, unlike the loose weapons (owner: environments have destructible elements)
     sea: null as null | { level: number }, // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
     boat: false, // the main platform is a floating ship's deck instead of solid ground (needs a sea; see tuning.boat)
+    tar: [] as { x: number; w: number; level: number }[], // tar pits (see tuning.tar): from x, w wide (a gap in the ground), the surface `level` m below the platform top
+    fires: [] as { x: number; w: number; up: number }[], // fires (see tuning.fire): flames from x, w wide, on the ground (up = 0) or a ledge `up` m higher
     // The front plane: things between us and the fighters (looks only: nobody can touch them). kind = grass or sign; x, y = where its base
     // sits (metres, the view is 24 x 13.5); scale = size; speed = m/s it slides across (a sign passing the train), wrapping round.
     front: [] as { kind: 'grass' | 'sign'; x: number; y: number; scale?: number; speed?: number }[],
@@ -483,6 +485,27 @@ export const tuning = {
     kickFrames: 30, // the shortest time between two kicks
     drownDepth: 1.3, // sinking this far below the surface finishes you (m)
   },
+  tar: {
+    // Tar pits (owner): it slows you heavily and you can only kick weakly; stay in too long and you sink (a knock-off). Loose things sink
+    // slowly. Like the sea (sim/water.ts) but thick, still and hungry. PLACEHOLDER numbers until the Tar Pit playtest.
+    float: 1.4, // how strongly a fighter floats in it (the sea is 2): about chest deep
+    propFloat: 0.85, // ...loose things: below 1, they sink, slowly
+    sinkFloat: 0.3, // ...a fighter whose time has run out: going under
+    bodyHalf: 0.16, drag: 12, spinDrag: 6, // (as tuning.water: tar is much thicker)
+    frames: 180, // how long you can stay in it (3 s; back on the ground it starts again)
+    walk: 0.35, // your paddling speed in it, as a share of walking
+    kick: 0.6, // the kick out of it, as a share of a normal jump (weak: a pit's edge should be low)
+    drownDepth: 1.1, // sinking this far below the surface finishes you (m)
+  },
+  fire: {
+    // Fire (owner): standing in flames hurts over time and sets you burning; burning goes on hurting for a few seconds after you are out
+    // (the sea puts it out). Wooden weapons and loose wood catch fire, and set alight whoever they touch. PLACEHOLDER numbers.
+    height: 0.9, // how high the flames reach (m)
+    flameDps: 25, // hidden health per second while standing in the flames (out of 100)
+    burnFrames: 180, // how long you keep burning (3 s)
+    burnDps: 6, // hidden health per second while burning
+    woodFrames: 360, // how long wood keeps burning (6 s)
+  },
   boat: {
     // A floating ship (maps with arena.boat): the main platform is its deck. It tilts when people stand toward one end, bobs on the waves,
     // always rolls back upright (it can not capsize) and drifts back to the middle.
@@ -672,6 +695,7 @@ export const tuning = {
     shadow: { alpha: 0.22, blur: 6, x: 0.05, y: 0.06 }, // the faint soft shadow that lifts each fighter off the map: strength, softness (px at 1080p), offset (m)
     front: { blur: 3.5 }, // how out of focus the front plane is (px at 1080p)
     water: { alpha: 0.8, crestWidth: 0.06, crestAlpha: 0.55 },
+    tar: { alpha: 0.97, top: '#2b2017', deep: '#0b0806', sheen: '#7a6a58' }, // a tar pit: nearly opaque (whoever sinks is gone), dark, a dull sheen on top
     // Bullets (owner: moving white streaks with see-through trails that reach back past the shooter). m, 0..1, seconds.
     // The gold frame around the picture (render/frame.ts): its width (share of the picture's height), and the size of a hole (someone
     // knocked out through it) and of a bullet's crack, in frame widths.

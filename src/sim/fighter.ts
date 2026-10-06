@@ -21,6 +21,7 @@ export interface Part {
   cracks?: number; // a wooden weapon: how much shooting it has taken (it snaps at its toughness)
   hp?: number; // breakable scenery: how much more it takes before it breaks (see props.ts breaks)
   crushAt?: number; // a heavy loose thing: the frame it may crush someone again
+  burning?: number; // wood on fire: frames it goes on burning (sim/fire.ts)
   owner: number;
   // interpolation poses (previous / current sim step) for the renderer
   px: number; py: number; pa: number; cx: number; cy: number; ca: number;
@@ -80,6 +81,8 @@ export interface Fighter {
   wet: number; // how much of the body is under water (0..1; set by sim/water.ts each frame)
   wetFrames: number; // frames spent swimming since last on a floor (tuning.swim.frames and you sink)
   sinking: boolean; // the swim ran out: going under
+  tar: boolean; // the liquid you are in is tar (sim/water.ts): slow, a weak kick
+  burning: number; // frames you go on burning (sim/fire.ts)
   swimKick: number; // frames until the next kick out of the water
   carried: number; // frames left of being held by someone (the holder renews it): you do not hold yourself up on your feet
   slamming: boolean; // holding someone, came off the ground and holding S: landing them hard is a slam (see tuning.slam)
@@ -260,7 +263,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, swimKick: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, swimKick: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
@@ -835,13 +838,14 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     // While lunging the walking controller must not brake, or it cancels the lunge.
     const legMul = [1, T.maim.oneLegSpeed, T.maim.noLegSpeed][lostLegs]; // missing legs: hobbling, then crawling
     // (holding S in the air keeps your momentum: no steering, no braking. Owner: it lets you carry speed into a collision.)
-    const dv = f.release > 0 || f.wallLock > 0 || (!grounded && input.crouch) ? 0 : clamp(input.moveX * M.moveSpeed * legMul * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
+    const mired = swimming && f.tar ? T.tar.walk : 1; // tar: a slow paddle
+    const dv = f.release > 0 || f.wallLock > 0 || (!grounded && input.crouch) ? 0 : clamp(input.moveX * M.moveSpeed * legMul * mired * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
     shove(f, dv * fighterMass(f), 0);
     if (swimming && f.jumpBuffer > 0 && f.swimKick === 0 && !f.sinking) { // a kick up out of the water (to climb back aboard)
       for (const p of f.parts) {
         if (p.role === 'stick' && !f.grip) continue;
         const lv = p.body.linvel(tmp);
-        p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed * T.swim.kick }, true);
+        p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed * (f.tar ? T.tar.kick : T.swim.kick) }, true);
       }
       f.jumpBuffer = 0;
       f.swimKick = T.swim.kickFrames;

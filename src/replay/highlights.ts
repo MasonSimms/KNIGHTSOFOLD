@@ -55,7 +55,7 @@ export class Spotter<R extends { era: string } = Recording> {
       } else if (e.t === 'disarm' && e.owner >= 0) {
         this.add(sim, rec, now, 12, `${nameOf(sim, e.owner)} knocks the weapon out of ${nameOf(sim, e.victim)}'s hand`);
       } else if (e.t === 'die' || e.t === 'fall') {
-        const v = e.owner, h = this.last.get(v), by = h && (e.t === 'die' || now - h.frame <= H.knockoffMemory + (sim.arena.sea ? T.swim.frames : 0)) ? h : null; // (in the sea you swim a while before you go under)
+        const v = e.owner, h = this.last.get(v), by = h && (e.t === 'die' || now - h.frame <= H.knockoffMemory + (sim.arena.sea ? T.swim.frames : sim.arena.tar.length ? T.tar.frames : 0)) ? h : null; // (in the sea you swim a while before you go under)
         if (!by) { if (e.t === 'fall') this.add(sim, rec, now, 6, `${nameOf(sim, v)} falls off on their own`); continue; }
         const who = nameOf(sim, by.owner), them = nameOf(sim, v);
         const title = e.t === 'fall' ? `${who} knocks ${them} off the stage`

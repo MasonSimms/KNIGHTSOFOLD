@@ -4,6 +4,7 @@
 export interface EraArena {
   name?: string; // what the map is called (menus); the usual arena of an era needs none
   platformX?: number; platformW?: number;
+  platformThickness?: number; // how deep the ground goes (m): deep enough and it is a landmass running off the bottom of the picture
   walls?: { side: -1 | 1; up: number; gap: number }[]; // side walls (see tuning.arena.walls): most maps have none
   ledges?: { x: number; up: number; w: number }[];
   ground?: { x: number; w: number }[]; // separate ground slabs instead of one platform
@@ -14,6 +15,8 @@ export interface EraArena {
   fightSpawnX?: number[]; // where the fighters of a 2-4 player fight start (metres; for maps where the standard spots would be over a gap)
   sea?: { level: number }; // water under the stage (see tuning.arena.sea)
   boat?: boolean; // the platform is a floating ship (see tuning.boat)
+  tar?: { x: number; w: number; level: number }[]; // tar pits (see tuning.arena.tar)
+  fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
 }
 
 /** How the whole picture is painted in this era (each one overrides tuning.finish.style): blur = background softness, haze = background fading into the air, grain = canvas weave, tint/tintAlpha = colour wash. */
@@ -35,7 +38,11 @@ export interface Era {
 }
 
 export const eras: Era[] = [
-  { id: 'caveman', name: 'Cavemen', special: false, pickups: ['tusk', 'stone-hammer'], style: { grain: 0.05 }, sky: 0x6b8f5a, platform: 0x7a6248, wall: 0x5c5046, weapon: 'bone-club', arena: { platformX: 4.75, platformW: 14.5, walls: [/* the cave wall at your back */ { side: 1, up: 3.0, gap: 0 }], props: [{ kind: 'log', x: 12.0, up: 0 }, { kind: 'bone', x: 13.25, up: 0 }] }, alt: [/* Vine Ravine: $1*/ { name: 'Vine Ravine',  ground: [{ x: 5.25, w: 3.75 }, { x: 15.0, w: 3.75 }], bridge: { x0: 9.0, x1: 15.0, planks: 6 } }], outfits: ['fur pelt', 'bone necklace', 'leaf wrap', 'war paint'] },
+  { id: 'caveman', name: 'Cavemen', special: false, pickups: ['tusk', 'stone-hammer'], style: { grain: 0.05 }, sky: 0x6b8f5a, platform: 0x7a6248, wall: 0x5c5046, weapon: 'bone-club', arena: { platformX: 4.75, platformW: 14.5, walls: [/* the cave wall at your back */ { side: 1, up: 3.0, gap: 0 }], props: [{ kind: 'log', x: 12.0, up: 0 }, { kind: 'bone', x: 13.25, up: 0 }] }, alt: [/* Vine Ravine: $1*/ { name: 'Vine Ravine',  ground: [{ x: 5.25, w: 3.75 }, { x: 15.0, w: 3.75 }], bridge: { x0: 9.0, x1: 15.0, planks: 6 } },
+    // Campfire Clearing (owner's list): a fire in the middle (it burns you, and sets your club alight: a torch), a ledge over it
+    { name: 'Campfire Clearing', fires: [{ x: 11.4, w: 1.2, up: 0 }], ledges: [{ x: 10.5, up: 1.8, w: 3.0 }], fightSpawnX: [7.0, 17.0, 9.0, 15.0], props: [{ kind: 'log', x: 8.2, up: 0 }, { kind: 'log', x: 15.8, up: 0 }] },
+    // Tar Pit (owner's list): grass both sides of a pit of tar (slow, a weak kick, and it swallows you): leap it
+    { name: 'Tar Pit', platformThickness: 6, ground: [{ x: 4.0, w: 6.5 }, { x: 13.5, w: 6.5 }], tar: [{ x: 10.5, w: 3.0, level: 0.25 }], fightSpawnX: [6.0, 18.0, 8.5, 15.5], props: [{ kind: 'log', x: 5.0, up: 0 }, { kind: 'plank', x: 19.0, up: 0 }] }], outfits: ['fur pelt', 'bone necklace', 'leaf wrap', 'war paint'] },
   { id: 'egypt', name: 'Ancient Egypt', special: false, pickups: ['sceptre', 'flail'], sky: 0xd9b46a, platform: 0xb08a58, wall: 0x8a6a44, weapon: 'khopesh', arena: { walls: [/* the temple wall, level with the top step */ { side: -1, up: 3.6, gap: 0 }], ledges: [{ x: 5.6, up: 1.8, w: 2.2 }, { x: 7.8, up: 3.6, w: 2.2 }] }, alt: [/* Pyramid Steps: $1*/ { name: 'Pyramid Steps',  ledges: [{ x: 6.0, up: 1.8, w: 3.0 }, { x: 10.0, up: 3.6, w: 4.0 }, { x: 15.0, up: 1.8, w: 3.0 }] }], outfits: ['pharaoh', 'priest', 'guard', 'scribe'] },
   { id: 'gladiators', name: 'Roman Gladiators', special: false, pickups: ['trident', 'chain-mace'], sky: 0xb5875a, platform: 0xa88d68, wall: 0x7a6a56, weapon: 'gladius', arena: { platformX: 5.625, platformW: 12.75, walls: [/* a low parapet each side: nobody walks off, you are thrown (or jump) over it */ { side: -1, up: 1.0, gap: 0 }, { side: 1, up: 1.0, gap: 0 }], props: [{ kind: 'plank', x: 10.0, up: 0 }] }, alt: [/* Lion's Pit: $1*/ { name: "Lion's Pit",  walls: [/* tall arena walls: the pit is the only way out */ { side: -1, up: 2.5, gap: 0 }, { side: 1, up: 2.5, gap: 0 }], ground: [{ x: 5.25, w: 5.25 }, { x: 13.5, w: 5.25 }], ledges: [{ x: 11.125, up: 0, w: 1.75 }], fightSpawnX: [6.75, 17.25, 9.0, 15.0] }], outfits: ['murmillo', 'retiarius', 'thraex', 'centurion'] },
   { id: 'vikings', name: 'Vikings', special: false, pickups: ['spear', 'great-axe'], sky: 0x6f8aa0, platform: 0x6a5a48, wall: 0x4a4a4e, weapon: 'axe', arena: { platformW: 13.75, props: [{ kind: 'log', x: 11.75, up: 0 }] }, outfits: ['jarl', 'raider', 'shieldmaiden', 'berserker'] },

@@ -13,8 +13,20 @@ import type { Arena } from './world';
 /** A floating ship: its hull body, and its pose last frame and this frame (for the renderer to blend between). */
 export interface Boat { body: RigidBody; w: number; depth: number; homeX: number; px: number; py: number; pa: number; cx: number; cy: number; ca: number }
 
-/** Height of the sea surface at x (y grows downward), at a given frame. */
+/** The tar pit holding x, if any (arena.tar). */
+export function tarAt(A: Arena, x: number): Arena['tar'][number] | null {
+  for (const p of A.tar) if (x >= p.x && x <= p.x + p.w) return p;
+  return null;
+}
+
+/** What liquid is at x: tar, the sea, or none. */
+const liquidAt = (A: Arena, x: number) => (tarAt(A, x) ? T.tar : A.sea ? T.water : null);
+type Liquid = NonNullable<ReturnType<typeof liquidAt>>;
+
+/** Height of the surface at x (y grows downward), at a given frame: a tar pit's is still, the sea's has waves. */
 export function surfaceY(A: Arena, frame: number, x: number): number {
+  const pit = tarAt(A, x);
+  if (pit) return A.platformTop + pit.level;
   let y = A.platformTop + (A.sea?.level ?? 0);
   const t = frame * T.sim.dt;
   for (const w of T.water.waves) y += w.amp * Math.sin(2 * Math.PI * (x / w.length - t / w.period));
@@ -46,9 +58,9 @@ export function buildBoat(world: World, A: Arena): Boat {
 const tv = { x: 0, y: 0 };
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-/** One body in the water: pushed up in proportion to how deep it is (`float` = 1 holds it level with the surface), and slowed. Returns how much of it is under (0..1). */
-function floatBody(A: Arena, frame: number, b: RigidBody, float: number): number {
-  const W = T.water, dt = T.sim.dt, t = b.translation();
+/** One body in the water (or tar): pushed up in proportion to how deep it is (`float` = 1 holds it level with the surface), and slowed. Returns how much of it is under (0..1). */
+function floatBody(A: Arena, frame: number, b: RigidBody, float: number, W: Liquid): number {
+  const dt = T.sim.dt, t = b.translation();
   const under = clamp01((t.y - surfaceY(A, frame, t.x)) / (2 * W.bodyHalf) + 0.5);
   if (under <= 0) return 0;
   const m = b.mass(), v = b.linvel();
@@ -80,18 +92,17 @@ function floatBoat(A: Arena, frame: number, boat: Boat, fighters: Fighter[]): vo
  * counted (f.wet for the controls: swimming and the kick out; f.sinking once the swim has run out).
  */
 export function applyWater(A: Arena, frame: number, fighters: Fighter[], props: Part[], boat: Boat | null): void {
-  if (!A.sea) return;
-  const W = T.water, S = T.swim;
+  if (!A.sea && !A.tar.length) return;
   for (const f of fighters) {
-    const body = f.sinking ? W.sinkFloat : W.float;
     for (const p of f.parts) {
-      const under = floatBody(A, frame, p.body, p.role === 'stick' && !f.grip ? W.propFloat : body);
-      if (p === f.torso) f.wet = under;
+      const W = liquidAt(A, p.body.translation().x);
+      const under = W ? floatBody(A, frame, p.body, p.role === 'stick' && !f.grip ? W.propFloat : f.sinking ? W.sinkFloat : W.float, W) : 0;
+      if (p === f.torso) { f.wet = under; f.tar = W === T.tar; }
     }
     if (f.limp) continue;
-    if (f.wet > S.wetAt && !f.grounded) { if (++f.wetFrames >= S.frames) f.sinking = true; }
+    if (f.wet > T.swim.wetAt && !f.grounded) { if (++f.wetFrames >= (f.tar ? T.tar.frames : T.swim.frames)) f.sinking = true; }
     else if (f.grounded) f.wetFrames = 0;
   }
-  for (const p of props) floatBody(A, frame, p.body, W.propFloat);
+  for (const p of props) { const W = liquidAt(A, p.body.translation().x); if (W) floatBody(A, frame, p.body, W.propFloat, W); }
   if (boat) floatBoat(A, frame, boat, fighters);
 }

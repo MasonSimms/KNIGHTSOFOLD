@@ -12,6 +12,7 @@ import { eraFor, mapFor, outfitsFor } from './era';
 import { Bot } from './bot';
 import { makeRng } from './rng';
 import { applyWater, buildBoat, surfaceY } from './water';
+import { applyFire } from './fire';
 import { breakProp, damageScenery, fire, moveBullets, predictShot, snapPart, spendShot } from './guns';
 import type { Bullet } from './guns';
 import type { Boat } from './water';
@@ -47,7 +48,7 @@ const decodeItem = (e: { v: number; victim: number }): Item => (e.v < 0 ? { kind
 /** What killed a fighter, so the death can be staged to fit (crushed, blown apart, a limb lost). */
 /** A training change at frame f: an item dropped in at (x, y), or (no item) the loose things cleared away. */
 export interface Edit { f: number; item?: string; x?: number; y?: number }
-export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam' | 'shot' | 'crush'; part?: Part; head?: boolean; nx: number; ny: number }
+export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam' | 'shot' | 'crush' | 'fire'; part?: Part; head?: boolean; nx: number; ny: number }
 
 export class Sim {
   frame = 0;
@@ -335,6 +336,12 @@ export class Sim {
     this.ripFree(part);
     this.events.push({ t: 'cut', x, y, v: 0, owner, victim: -1 });
   }
+  /** Fire's damage (fire.ts): a little hidden health at a time, no stagger; it can finish you. */
+  scorch(f: Fighter, dmg: number): void {
+    if (f.limp) return;
+    f.hp -= dmg;
+    if (f.hp <= 0) this.kill(f, false, 0, { how: 'fire', nx: 0, ny: 0 });
+  }
   /** After a bullet hit a fighter: a hold breaks on a big one, a knockdown, or the end. */
   afterShot(v: Fighter, impact: number, dx: number): void {
     this.lastImpact = impact;
@@ -452,6 +459,7 @@ export class Sim {
     this.resolveBodySlams();
     this.resolveCrushes();
     moveBullets(this);
+    applyFire(this);
     this.checkDeaths();
     this.snapshot();
   }
@@ -1163,7 +1171,7 @@ export class Sim {
     for (const f of this.fighters.slice()) {
       const t = f.torso.body.translation();
       if (!f.limp && (t.y > A.killY || t.x < -A.killXMargin || t.x > A.viewW + A.killXMargin)) this.kill(f, true);
-      else if (!f.limp && f.sinking && t.y > surfaceY(A, this.frame, t.x) + T.swim.drownDepth) this.kill(f, true); // went under: a knock-off
+      else if (!f.limp && f.sinking && t.y > surfaceY(A, this.frame, t.x) + (f.tar ? T.tar : T.swim).drownDepth) this.kill(f, true); // went under: a knock-off
       if (!this.matchActive && f.limp && this.frame - f.deadAt >= T.respawn.frames) { this.respawn(f); this.events.push({ t: 'respawn', x: f.spawnX, y: f.spawnY, v: 0, owner: f.index, victim: -1 }); } // alone, you respawn; in a fight you stay down
     }
     if (this.matchActive) this.updateRound();

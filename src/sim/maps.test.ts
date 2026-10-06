@@ -47,7 +47,7 @@ describe('maps', () => {
 
   // Owner: you should never get stuck on a map. Walk (and hop) from one end of the ground to the other.
   it.each(maps)('%s map %i: you can walk and hop across it without getting stuck', async (era, map) => {
-    for (const hop of [false, true]) {
+    for (const hop of arenaFor(era, map).tar.length ? [true] : [false, true]) { // (a tar pit is jumped: walking into it is the point)
       const sim = await Sim.create(5, 2, false);
       sim.forceEra = era; sim.forceMap = map; sim.reset();
       const A = sim.arena, slabs = A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }];
@@ -58,7 +58,8 @@ describe('maps', () => {
       const t = f.torso.body.translation();
       for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + x0 - t.x, y: q.y }, true); }
       let n = 0;
-      while (f.torso.body.translation().x < x1 && n++ < 240) sim.step([{ ...NEUTRAL, moveX: 1, jump: hop && f.grounded && n % 20 < 10 }, NEUTRAL]);
+      const leap = () => { const x = f.torso.body.translation().x; return A.tar.some((p) => x > p.x - 0.6 && x < p.x + p.w); }; // a tar pit: a full jump from its edge
+      while (f.torso.body.translation().x < x1 && n++ < 240) sim.step([{ ...NEUTRAL, moveX: 1, jump: hop && (leap() ? !(f.grounded && f.prevJump && f.torso.body.linvel().y > -1) : f.grounded && n % 20 < 10) }, NEUTRAL]);
       expect(f.torso.body.translation().x, hop ? 'hopping' : 'walking').toBeGreaterThan(x1); // across in under 4 s (a straight run takes about 2)
       expect(f.limp).toBe(false);
     }

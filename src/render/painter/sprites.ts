@@ -345,3 +345,26 @@ export function paintedBox(hw: number, hh: number, color: number, K: SpriteKnobs
   cache.set(key, all);
   return all;
 }
+
+/** A painted flame (owner: everything is a painting): a teardrop, a hot pale core low down, orange, then red at the edges and the tip,
+ *  brushed upward. Three variants (it boils like the fighters, which reads as flicker). w x h metres, anchored at its base. */
+export function paintedFlame(K: SpriteKnobs, w = 0.3, h = 0.6): Texture[] {
+  const key = `flame|${w}|${h}|${JSON.stringify(K)}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const W = Math.ceil(w * PPM + 2 * PAD), H = Math.ceil(h * PPM + 2 * PAD), N = W * H, R = w * PPM * 0.5, cx = W / 2;
+  const img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), Rn = makeRandom(4049);
+  const core = [1, 0.95, 0.7], mid = [1, 0.58, 0.14], edge = [0.78, 0.16, 0.05];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, v = (H - PAD - y) / (H - 2 * PAD); // 0 at the base, 1 at the tip
+    const hw = v < 0.3 ? R * Math.sqrt(Math.max(0, 1 - ((0.3 - v) / 0.3) ** 2)) : R * Math.max(0, 1 - (v - 0.3) / 0.7) ** 1.3; // round at the base, tapering to the tip
+    const u = Math.abs(x + 0.5 - cx), d = hw > 0 ? u / hw : 2;
+    alpha[i] = Math.min(1, Math.max(0, (hw - u + 0.5) / 2)) * (v >= 0 && v <= 1 ? 1 : 0);
+    const heat = Math.max(0, 1 - Math.max(d, v * 1.1)); // hottest low in the middle
+    for (let c = 0; c < 3; c++) img.c[c][i] = heat > 0.55 ? mid[c] + (core[c] - mid[c]) * ((heat - 0.55) / 0.45) : edge[c] + (mid[c] - edge[c]) * (heat / 0.55);
+    ang[i] = Math.PI / 2 + (x - cx) / Math.max(1, R) * 0.25 + Rn.normal() * 0.05; // brushed upward, leaning in toward the tip
+  }
+  const out = paintFlat(img, alpha, ang, 4051, K);
+  cache.set(key, out);
+  return out;
+}

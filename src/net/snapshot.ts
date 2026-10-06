@@ -20,6 +20,7 @@ export interface Snapshot {
   era: string;
   map: number;
   props: number[]; // x, y, angle of every loose prop (planks, logs...)
+  pf?: number[]; // which loose props are on fire (their places in the list)
   boat?: number[]; // x, y, angle of the ship, on a map with one
   ack?: number[]; // per player: the number of their last input this tick used
   outfits: number[];
@@ -29,7 +30,8 @@ export interface Snapshot {
 
 /** What the server says a fighter is doing that only it decides (a hit, a grab): 0 = free, moving on their own buttons (prediction may run). */
 export function fighterState(f: Fighter): number {
-  return (f.knock > 0 ? 1 : 0) | (f.stun > 0 ? 2 : 0) | (f.carried > 0 || f.slamBy >= 0 ? 4 : 0) | (f.hold ? 8 : 0) | (f.limp ? 16 : 0) | (f.inBack ? 32 : 0);
+  return (f.knock > 0 ? 1 : 0) | (f.stun > 0 ? 2 : 0) | (f.carried > 0 || f.slamBy >= 0 ? 4 : 0) | (f.hold ? 8 : 0) | (f.limp ? 16 : 0) | (f.inBack ? 32 : 0)
+    | (f.burning > 0 ? 64 : 0) | (f.stick?.burning ? 128 : 0); // (on fire, and their weapon on fire: for the picture)
 }
 
 const TELEPORT = 4; // metres moved between two snapshots (50 ms) that can only be a teleport
@@ -43,6 +45,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
     boat: sim.boat ? [r3(sim.boat.body.translation().x), r3(sim.boat.body.translation().y), r3(sim.boat.body.rotation())] : undefined,
     f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, st: fighterState(f), p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
     simFrame: sim.frame,
+    pf: sim.props.flatMap((p, i) => (p.burning ? [i] : [])),
     bl: sim.bullets.flatMap((u) => [u.id, r3(u.x), r3(u.y), r3(u.ox), r3(u.oy), u.owner]),
   };
 }
@@ -115,6 +118,7 @@ export class Mirror {
     if (looksNow !== this.lastLooks) { this.lastLooks = looksNow; sim.version++; } // someone picked a new hat or colour: the renderer must redraw the fighters
     sim.era = a.era; sim.map = a.map; sim.outfits = a.outfits; sim.looks = a.looks;
     sim.scores = a.scores.slice(); sim.round = a.round; sim.roundOver = a.roundOver; sim.roundWinner = a.roundWinner; sim.matchOver = !!a.matchOver; sim.matchWinner = a.matchWinner ?? -1;
+    sim.props.forEach((p, j) => { p.burning = a.pf?.includes(j) ? 1 : 0; });
     if (a.props.length !== sim.props.length * 3) this.desyncs++;
     else {
       const pb = b.props.length === a.props.length ? b.props : a.props;
@@ -141,6 +145,9 @@ export class Mirror {
       if (!pa || pa.length !== f.parts.length * 3) { this.desyncs++; return; }
       const to = pb && pb.length === pa.length ? pb : pa; // the next snapshot has a different part count (a death just happened): hold still until we get there
       f.hp = a.f[i].hp; f.inBack = a.f[i].back;
+      const st = a.f[i].st ?? 0;
+      f.burning = st & 64 ? 1 : 0;
+      if (f.stick) f.stick.burning = st & 128 ? 1 : 0;
       if (i === this.own) return; // (this page moves it)
       f.parts.forEach((p, j) => {
         const teleport = Math.hypot(to[j * 3] - pa[j * 3], to[j * 3 + 1] - pa[j * 3 + 1]) > TELEPORT; // a club back from the void, a new round: do not smear it across the screen

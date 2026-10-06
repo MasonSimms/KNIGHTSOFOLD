@@ -8,6 +8,7 @@ import { BOT_GRAYS, drawRobotHead } from './robot';
 import { createSea } from './sea';
 import { createFx } from './fx';
 import { createFrame } from './frame';
+import { createFlames } from './flames';
 import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -325,6 +326,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const fxLayer = new Container(); // gunfire: bullets and their trails, flashes, sparks, splinters, smoke
   actors.addChild(fxLayer);
   const fx = createFx(fxLayer, splatTexs);
+  const flames = createFlames(fxLayer); // the arena's fires, and flames on whatever is burning
   /** A weapon's or a thing's colour: a gun's metal, scenery's own wood, otherwise the stick colour. */
   const thingColor = (p: Part) => (p.weapon?.gun ? T.colors.gun : T.colors.things[p.weapon?.id ?? ''] ?? T.colors.stick);
   const sea = createSea(ring); // the ship and the near water, on a map with a sea
@@ -363,6 +365,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     }
     for (const e of entries) { e.group.destroy({ children: true }); e.shade.destroy({ children: true }); }
     sea.build(sim);
+    flames.build(sim);
     // The front plane of this arena (looks only).
     for (const it of frontItems) it.s.destroy();
     frontItems.length = 0;
@@ -590,6 +593,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
       sea.draw(sim, alpha);
       fx.draw(sim, alpha, frameSeconds);
+      flames.draw(sim, alpha, frameSeconds, variant);
       const bx = (app.screen.width - A.viewW * scale) / 2, by = (app.screen.height - A.viewH * scale) / 2;
       frame.draw({ x: bx, y: by, w: A.viewW * scale, h: A.viewH * scale }, frameSeconds);
       if (target) { // into a painting (the museum): just the picture, cropped to its box
