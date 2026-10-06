@@ -15,6 +15,7 @@ export interface Snapshot {
   era: string;
   map: number;
   props: number[]; // x, y, angle of every loose prop (planks, logs...)
+  boat?: number[]; // x, y, angle of the ship, on a map with one
   outfits: number[];
   looks: Look[]; // everyone's colour and hat (so a player who joins late or rejoins sees the right ones)
   ev: SimEvent[];
@@ -28,6 +29,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
     frame, round: sim.round, roundOver: sim.roundOver, roundWinner: sim.roundWinner, scores: sim.scores.slice(), ev,
     era: sim.era, map: sim.map, outfits: sim.outfits.slice(),
     props: sim.props.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }), looks: sim.looks.map((l) => ({ ...l })),
+    boat: sim.boat ? [r3(sim.boat.body.translation().x), r3(sim.boat.body.translation().y), r3(sim.boat.body.rotation())] : undefined,
     f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
   };
 }
@@ -104,6 +106,7 @@ export class Mirror {
         p.cx = pb[j * 3]; p.cy = pb[j * 3 + 1]; p.ca = pb[j * 3 + 2];
       });
     }
+    if (sim.boat && a.boat) { const bb = b.boat ?? a.boat; Object.assign(sim.boat, { px: a.boat[0], py: a.boat[1], pa: a.boat[2], cx: bb[0], cy: bb[1], ca: bb[2] }); }
     sim.fighters.forEach((f, i) => {
       const pa = a.f[i]?.p, pb = b.f[i]?.p;
       if (!pa || pa.length !== f.parts.length * 3) { this.desyncs++; return; }

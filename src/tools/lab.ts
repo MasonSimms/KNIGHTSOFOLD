@@ -18,7 +18,7 @@ export interface Round { era: string; map: string; seconds: number; capped: bool
 interface Hit { how: string; w?: string; frame: number }
 
 const KNOCKOFF_MEMORY = 240; // frames: someone falling off within 4 s of being hit was knocked off by that hit
-const mapName = (era: string, i: number) => (i === 0 ? 'main' : (eraById(era).alt?.[i - 1]?.name ?? `map ${i + 1}`));
+const mapName = (era: string, i: number) => (i === 0 ? eraById(era).arena.name ?? 'main' : (eraById(era).alt?.[i - 1]?.name ?? `map ${i + 1}`));
 export const causeName = (c: string) => {
   if (c === 'nothing') return 'fell on their own';
   if (c.startsWith('club:')) return weapons.find((w) => w.id === c.slice(5))?.name ?? ITEMS.find((i) => i.id === c.slice(5))?.name ?? c.slice(5);
@@ -47,7 +47,7 @@ export async function runLab(o: LabOptions): Promise<Round[]> {
               hits++; damage += e.d ?? 0;
               last.set(e.victim, { how: e.how ?? 'body', w: e.w, frame: sim.frame });
             } else if (e.t === 'die' || e.t === 'fall') {
-              const h = last.get(e.owner), recent = h && (e.t === 'die' || sim.frame - h.frame <= KNOCKOFF_MEMORY);
+              const h = last.get(e.owner), recent = h && (e.t === 'die' || sim.frame - h.frame <= KNOCKOFF_MEMORY + (sim.arena.sea ? T.swim.frames : 0)); // (in the sea you swim a while before you go under)
               deaths.push({ cause: recent ? (h.how === 'club' && h.w ? `club:${h.w}` : h.how) : 'nothing', fell: e.t === 'fall' });
             } else if (e.t === 'round') winner = e.owner;
           }

@@ -13,7 +13,7 @@ export const DEF_DEG = [-9, 0, 4, -40, -80, 0, 8, 0]; // default brush direction
 export const DEF_STD = [9, 5, 6, 45, 18, 5, 8, 0]; // ...and how much it wanders
 
 /** The round's solid ground, in design px: slabs of the main platform, floating ledges (y = top), and the two walls. */
-export interface ArenaGeo { slabs: { x: number; w: number }[]; ledges: { x: number; y: number; w: number }[]; ledgeThick: number; top: number; thick: number; walls: { x: number; w: number; top: number }[] }
+export interface ArenaGeo { slabs: { x: number; w: number }[]; ledges: { x: number; y: number; w: number }[]; ledgeThick: number; top: number; thick: number; walls: { x: number; w: number; top: number }[]; sea?: number } // sea: the calm water line (y), on a map with water
 
 export interface Source { img: Img; region: Uint8Array; ovAng: Float32Array; ovW: Float32Array; fmask: Float32Array; platMask: Float32Array }
 
@@ -297,12 +297,20 @@ export function compose(cfg: Painting, geo: ArenaGeo, W: number, H: number, seed
     pen.fillStyle = '#fff'; poly(pen, pennant);
   }
 
-  // --- the misty void below the stage ---
-  const vg = main.createLinearGradient(0, 860, 0, 1080);
-  vg.addColorStop(0, css(hex(cfg.void[0]), 0)); vg.addColorStop(1, css(hex(cfg.void[1]), 0.95));
-  main.fillStyle = vg; main.fillRect(0, 860, 1920, 220);
-  regFill([[0, 870], [1920, 870], [1920, 1080], [0, 1080]], REG.void);
-  soft(16, (c) => { for (let i = 0; i < 10; i++) { c.fillStyle = css(hex(cfg.mist), 0.4); c.beginPath(); c.ellipse(R.range(100, 1800), R.range(900, 1060), R.range(150, 380), R.range(14, 30), 0, 0, Math.PI * 2); c.fill(); } });
+  if (geo.sea !== undefined) { // --- a map on the water: the sea comes right up to the stage, darker as it gets deeper ---
+    const y0 = geo.sea, sg = main.createLinearGradient(0, y0, 0, 1080);
+    sg.addColorStop(0, cfg.void[0]); sg.addColorStop(1, cfg.void[1]);
+    main.fillStyle = sg; main.fillRect(0, y0, 1920, 1080 - y0);
+    main.strokeStyle = css(hex(cfg.mist), 0.45); main.lineWidth = 3;
+    for (let i = 0; i < 60; i++) { const x = R.range(0, 1920), y = R.range(y0 + 6, 1060), l = R.range(40, 140); main.beginPath(); main.moveTo(x, y); main.lineTo(x + l, y - 2); main.stroke(); }
+    regFill([[0, y0], [1920, y0], [1920, 1080], [0, 1080]], REG.void);
+  } else { // --- the misty void below the stage ---
+    const vg = main.createLinearGradient(0, 860, 0, 1080);
+    vg.addColorStop(0, css(hex(cfg.void[0]), 0)); vg.addColorStop(1, css(hex(cfg.void[1]), 0.95));
+    main.fillStyle = vg; main.fillRect(0, 860, 1920, 220);
+    regFill([[0, 870], [1920, 870], [1920, 1080], [0, 1080]], REG.void);
+    soft(16, (c) => { for (let i = 0; i < 10; i++) { c.fillStyle = css(hex(cfg.mist), 0.4); c.beginPath(); c.ellipse(R.range(100, 1800), R.range(900, 1060), R.range(150, 380), R.range(14, 30), 0, 0, Math.PI * 2); c.fill(); } });
+  }
 
   // --- the round's real ground: platforms, ledges and walls (sharp: the fighters stand on these) ---
   const pc = cfg.plat;

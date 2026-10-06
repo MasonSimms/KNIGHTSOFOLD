@@ -4,6 +4,7 @@ import { COLORS } from '../content/looks';
 import { createOilFilter, setOilScale } from './oilpaint';
 import { createBackdrops } from './painter/backdrops';
 import { BOT_GRAYS, drawRobotHead } from './robot';
+import { createSea } from './sea';
 import { CAPE, paintedCape, paintedFront, paintedShape, paintedSplats, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -208,7 +209,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     tintWash.clear().rect(0, 0, 1, 1).fill(st.tint);
     tintWash.alpha = st.tintAlpha;
     platform.clear();
-    for (const g of A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]) platform.rect(g.x, A.platformTop, g.w, A.platformThickness).fill(era.platform);
+    for (const g of A.boat ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]) platform.rect(g.x, A.platformTop, g.w, A.platformThickness).fill(era.platform);
     for (const l of A.ledges) platform.rect(l.x, A.platformTop - l.up, l.w, A.ledgeThick).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
     walls.clear();
     for (const w of wallsOf(A)) {
@@ -282,6 +283,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     r.age = 0;
     r.g.visible = true;
   };
+  const sea = createSea(ring); // the ship and the near water, on a map with a sea
+  actors.addChildAt(sea.hull, 0); // (the ship is the floor: behind everything in the play plane)
+  view.addChildAt(sea.water, view.getChildIndex(front)); // the water: in front of the play plane, behind the front plane
   const playerColor = (i: number) => (sim.looks[i]?.bot ? BOT_GRAYS[i % BOT_GRAYS.length] : COLORS[sim.looks[i]?.color ?? i % COLORS.length].hex); // each player's chosen colour (a bot is a shade of gray)
   const fighterColor = (f: Fighter) => (f.controlled ? playerColor(f.index) : T.colors.dummy); // the training dummy has its own colour
 
@@ -314,6 +318,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       propEntries.push({ p, k, painted, under });
     }
     for (const e of entries) { e.group.destroy({ children: true }); e.shade.destroy({ children: true }); }
+    sea.build(sim);
     // The front plane of this arena (looks only).
     for (const it of frontItems) it.s.destroy();
     frontItems.length = 0;
@@ -503,6 +508,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis + T.death.squashDrop * e.sq);
         e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis) * (1 + T.death.squashWide * e.sq), lerp(1, 0.97, e.vis) * (1 - T.death.squashFlat * e.sq));
       }
+      sea.draw(sim, alpha);
       app.render();
     },
   };

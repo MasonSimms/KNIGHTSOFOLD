@@ -21,7 +21,8 @@ describe('maps', () => {
       sim.fighters.forEach((f, i) => {
         const p = f.torso.body.translation(), why = `${players} players, fighter ${i}`;
         expect(f.hp, why).toBeGreaterThan(0);
-        expect(Math.abs(sim.arena.platformTop - T.stand.height - p.y), why).toBeLessThan(0.15); // still at standing height on the floor
+        const floor = sim.boat ? sim.boat.body.translation().y - T.boat.depth / 2 : sim.arena.platformTop; // (a ship's deck sits lower with people on it)
+        expect(Math.abs(floor - T.stand.height - p.y), why).toBeLessThan(0.15); // still at standing height on the floor
         expect(Math.abs(p.x - xs[i]), why).toBeLessThan(0.5);
       });
     }

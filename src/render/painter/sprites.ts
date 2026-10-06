@@ -190,3 +190,75 @@ export function paintedFront(kind: 'grass' | 'sign', greens: string[], K: Sprite
   cache.set(key, out);
   return out[0];
 }
+
+const SEA_PPM = 60; // texture pixels per metre for the ship and the water (big pictures: painted at a little under screen size)
+const rgb = (s: string) => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];
+
+/** Which colours a ship is painted in (the era painting's ground colours, and its hot accent for the pennant). */
+export interface HullPaint { face: string; dark: string; lip: string; lipdark: string; seam: string; hot: string }
+
+/**
+ * A ship seen from the side (Pirates: Ship Deck), painted like the rest: the hull below the deck (the same outline as its physics body:
+ * straight sides to just under the waterline, then in to the keel), the far rail behind the deck, and a mast with its furled sail,
+ * crow's nest and rigging. `w`, `depth` and `water` (the waterline below the deck) in metres. Returns the texture and where the hull's
+ * middle (its physics body) sits in it, as an anchor (0..1).
+ */
+export function paintedHull(w: number, depth: number, water: number, c: HullPaint, K: SpriteKnobs): { tex: Texture; ax: number; ay: number; ppm: number } {
+  const key = `hull|${w}|${depth}|${water}|${JSON.stringify(c)}|${JSON.stringify(K)}`, k = SEA_PPM, mastH = 5.2, up = mastH + 0.5, pad = 6;
+  const W = Math.ceil(w * k + 2 * pad), H = Math.ceil((up + depth) * k + 2 * pad), N = W * H;
+  const ax = (pad + (w / 2) * k) / W, ay = (pad + (up + depth / 2) * k) / H;
+  const hit = cache.get(key);
+  if (hit) return { tex: hit[0], ax, ay, ppm: k };
+  const X = (m: number) => pad + m * k, Y = (m: number) => pad + (up + m) * k; // metres along the deck from its left end; metres below the deck
+  const g = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
+  const poly = (pts: number[][], fill: string) => { g.fillStyle = fill; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.fill(); };
+  const mx = w * 0.46, side = water + 0.35;
+  // rigging, mast, yard, furled sail, crow's nest, pennant (above the deck, behind the fighters)
+  g.strokeStyle = '#3A2A1C'; g.lineWidth = 2;
+  for (const [x0, y0, x1, y1] of [[mx, -mastH, w * 0.06, -0.45], [mx, -mastH, w * 0.94, -0.45], [mx - 1.6, -mastH + 0.7, w * 0.2, -0.45], [mx + 1.6, -mastH + 0.7, w * 0.8, -0.45]]) { g.beginPath(); g.moveTo(X(x0), Y(y0)); g.lineTo(X(x1), Y(y1)); g.stroke(); }
+  poly([[mx - 0.09, -mastH], [mx + 0.09, -mastH], [mx + 0.11, 0], [mx - 0.11, 0]], '#4A3020');
+  poly([[mx - 1.7, -mastH + 0.64], [mx + 1.7, -mastH + 0.64], [mx + 1.7, -mastH + 0.76], [mx - 1.7, -mastH + 0.76]], '#4A3020');
+  g.fillStyle = '#E6D8B8'; g.beginPath(); g.ellipse(X(mx), Y(-mastH + 0.9), 1.55 * k, 0.2 * k, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#C8B48E'; g.beginPath(); g.ellipse(X(mx), Y(-mastH + 0.97), 1.4 * k, 0.1 * k, 0, 0, Math.PI); g.fill();
+  poly([[mx - 0.36, -mastH + 1.55], [mx + 0.36, -mastH + 1.55], [mx + 0.3, -mastH + 1.9], [mx - 0.3, -mastH + 1.9]], c.lipdark);
+  poly([[mx + 0.09, -mastH - 0.05], [mx + 0.95, -mastH + 0.12], [mx + 0.09, -mastH + 0.3]], c.hot);
+  // the far rail: a cap rail on posts, behind the deck
+  for (let x = 0.1; x < w; x += 0.38) poly([[x, -0.45], [x + 0.05, -0.45], [x + 0.05, 0], [x, 0]], c.lipdark);
+  poly([[0, -0.5], [w, -0.5], [w, -0.42], [0, -0.42]], c.lip);
+  // the hull: planks, a gold wale, gunports, a darker bottom below the waterline, the gunwale the fighters stand on
+  poly([[0, 0], [w, 0], [w, side], [w * 0.9, depth], [w * 0.08, depth], [0, side]], c.face);
+  g.save(); g.beginPath(); [[0, 0], [w, 0], [w, side], [w * 0.9, depth], [w * 0.08, depth], [0, side]].forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.clip();
+  g.fillStyle = c.dark; g.fillRect(0, Y(water - 0.05), W, H);
+  g.fillStyle = c.seam; for (let y = 0.22; y < depth; y += 0.22) g.fillRect(0, Y(y), W, 2);
+  g.fillStyle = '#B8893A'; g.fillRect(0, Y(0.14), W, 0.1 * k);
+  for (let x = 0.9; x < w - 0.5; x += 1.55) { poly([[x - 0.03, 0.33], [x + 0.31, 0.33], [x + 0.31, 0.63], [x - 0.03, 0.63]], c.lipdark); poly([[x, 0.36], [x + 0.28, 0.36], [x + 0.28, 0.6], [x, 0.6]], '#1A120C'); }
+  g.restore();
+  poly([[0, -0.03], [w, -0.03], [w, 0.07], [0, 0.07]], c.lip);
+  const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(53);
+  for (let i = 0; i < N; i++) {
+    alpha[i] = d[4 * i + 3] / 255;
+    for (let ch = 0; ch < 3; ch++) img.c[ch][i] = d[4 * i + ch] / 255;
+    const x = i % W, y = (i / W) | 0, mast = Math.abs(x - X(mx)) < 0.15 * k && y < Y(0) && y > Y(-mastH + 0.6);
+    ang[i] = (mast ? Math.PI / 2 : 0) + R.normal() * 0.04; // planks along their length, the mast up and down
+  }
+  const out = paintFlat(img, alpha, ang, 61, K, 1); // a ship lies still: one variant
+  cache.set(key, out);
+  return { tex: out[0], ax, ay, ppm: k };
+}
+
+/** The near water (in front of the play plane): `w` x `h` metres, light at the top to deep at the bottom, with light catching the swell. */
+export function paintedWater(w: number, h: number, top: string, deep: string, foam: string, K: SpriteKnobs): { tex: Texture; ppm: number } {
+  const key = `water|${w}|${h}|${top}|${deep}|${foam}|${JSON.stringify(K)}`, k = SEA_PPM * 0.6;
+  const hit = cache.get(key);
+  if (hit) return { tex: hit[0], ppm: k };
+  const W = Math.ceil(w * k), H = Math.ceil(h * k), N = W * H, R = makeRandom(67), a = rgb(top), b = rgb(deep), f = rgb(foam);
+  const img = newImg(W, H), alpha = new Float32Array(N).fill(1), ang = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const t = Math.min(1, ((i / W) | 0) / H * 1.4); for (let ch = 0; ch < 3; ch++) img.c[ch][i] = a[ch] + (b[ch] - a[ch]) * t; ang[i] = R.normal() * 0.05; }
+  for (let s = 0; s < 140; s++) { // streaks of light on the swell, more near the top
+    const y = Math.floor(H * R.range(0, 1) ** 1.8), x0 = Math.floor(R.range(-20, W)), len = Math.floor(R.range(20, 90)), th = R.range(1, 3), amt = R.range(0.25, 0.6) * (1 - y / H);
+    for (let dy = 0; dy < th; dy++) for (let x = Math.max(0, x0); x < Math.min(W, x0 + len); x++) { const i = (y + dy) * W + x; if (i < N) for (let ch = 0; ch < 3; ch++) img.c[ch][i] += (f[ch] - img.c[ch][i]) * amt; }
+  }
+  const out = paintFlat(img, alpha, ang, 71, K, 1);
+  cache.set(key, out);
+  return { tex: out[0], ppm: k };
+}

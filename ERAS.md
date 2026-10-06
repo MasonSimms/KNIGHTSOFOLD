@@ -82,7 +82,7 @@ Pickups: **Naginata** (very long, sweeping), **Tessen** (iron war fan: short, fa
 
 ## 7. Pirates (decided: normal era; water and boat physics)
 Pickups: **Flintlock Pistol** (clubbed with, or thrown), **Grappling Hook** (a hook and rope: hang it on something and swing).
-1. **Ship Deck**: the main set piece: a hull floating on the water that rocks as people jump, with mast, rigging and barrels on deck.
+1. **Ship Deck** (BUILT 2026-10-06, the era's main map): the main set piece: a hull floating on the water that rocks as people jump, with mast, rigging and barrels on deck. (Barrels not yet: the mast and rigging are painted, not physical.)
 2. **Ship to Ship**: two boats side by side joined by a gangplank (a plank prop). Cut the ropes and they drift apart.
 3. **Harbour Pier**: a wooden pier on posts over shallow water, with barrels and crates. A broken plank is a gap and a club.
 4. **Sinking Wreck**: a hull that slowly tilts and sinks as the round goes on. The high side is safe and moves.
@@ -137,7 +137,7 @@ Already chosen: **Fantasy Archers** (longbow-as-staff) and **Mobsters** (bat). E
 1. **Match schedule**: a pure function of the match seed (like eraFor now): 12 slots in chronological era order, each slot picks one arena at random from its era's 5 (a special occasionally swaps in at a slot). Replaces today's random era every round. (small, sim/era.ts and eras.ts; 5 fixed arenas per era, no more `alt` maps)
 2. **Weapon spawner with escalation**: weapons drop into the arena during a round, the rate rising over time, with each era's pickups (better ones) appearing later. A data table per era (spawn times, weights, rates in tuning). Replaces the round timer.
 3. **Cuttable ropes and chains**: BUILT for the bridge. Generalise it for the drawbridge, vines, chandeliers, cages, crane and rope bridges. Unlocks about 15 arenas.
-4. **Water and buoyancy**: the pirate slice, deterministic (waves from the frame counter). Unlocks Egypt barge, longship, ice floes, pirate arenas, paddy, river boat, waterfall.
+4. **Water and buoyancy** (BUILT 2026-10-06: sim/water.ts, arena.sea and arena.boat; the owner chose a short swim and a self-righting ship): the pirate slice, deterministic (waves from the frame counter). Unlocks Egypt barge, longship, ice floes, pirate arenas, paddy, river boat, waterfall.
 5. **Moving platforms**: train, tank, barge, plane wing, chariot, helicopter.
 6. **Hazard zones**: lava, tar, wind, barbed wire, ice (low friction), low gravity. Data-driven zones with one effect each.
 7. **New weapon behaviours**: shield (parry), thrown objects, grab at range (lasso, grapple), entangle (net). Each is a one-time engine feature, then data rows.

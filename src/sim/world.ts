@@ -11,6 +11,8 @@ import type { Weapon } from '../content/weapons';
 import { eraFor, mapFor, outfitsFor } from './era';
 import { Bot } from './bot';
 import { makeRng } from './rng';
+import { applyWater, buildBoat, surfaceY } from './water';
+import type { Boat } from './water';
 import type { Look } from '../content/looks';
 import { NEUTRAL } from './types';
 import type { PlayerInput, SimEvent } from './types';
@@ -72,6 +74,7 @@ export class Sim {
   map = 0; // which of the era's maps this round is on
   props: Part[] = []; // loose objects in the world (planks, logs...): anyone can pick them up
   private bridge: Part[] = []; // the planks of this round's bridge, in order
+  boat: Boat | null = null; // this round's ship, on a map with one (see water.ts)
   private cutLinks = new Set<unknown>(); // bridge joints already removed
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
   weapon: Weapon = { id: 'club', name: 'Club', ...T.stick }; // what everyone fights with this round (the era's weapon)
@@ -170,7 +173,8 @@ export class Sim {
     this.world.timestep = T.sim.dt;
     this.world.numSolverIterations = T.sim.solverIterations;
     this.world.numInternalPgsIterations = T.sim.pgsIterations;
-    const slabs = A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }];
+    const slabs = A.boat ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor)
+    this.boat = A.boat && A.sea ? buildBoat(this.world, A) : null;
     const grounds = slabs.map((g) => {
       const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop + A.platformThickness / 2));
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, A.platformThickness / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
@@ -328,6 +332,7 @@ export class Sim {
   step(inputs: PlayerInput[]): void {
     this.events.length = 0;
     this.frame++;
+    applyWater(this.arena, this.frame, this.fighters, this.props, this.boat);
 
     for (const f of this.fighters) {
       if (f.held) {
@@ -633,7 +638,7 @@ export class Sim {
             const ob = other.parent();
             const op = ob ? this.partByBody.get(ob.handle) : undefined;
             const third = op && op.owner !== v.index && op.owner !== v.thrownBy ? this.fighters[op.owner] : undefined;
-            if (!ob || (!ob.isFixed() && !third)) return;
+            if (!ob || (!this.solid(ob) && !third)) return;
             this.world.contactPair(col, other, (m) => {
               if (m.numSolverContacts() === 0) return;
               const n = m.normal(this.tmpN), pt = m.solverContactPoint(0, this.tmpP) ?? p.body.translation(), c = p.body.translation();
@@ -672,7 +677,7 @@ export class Sim {
         const head = col === v.headCollider || part.role === 'head';
         this.world.contactPairsWith(col, (other) => {
           const ob = other.parent();
-          if (v.slamBy < 0 || !ob || !ob.isFixed()) return;
+          if (v.slamBy < 0 || !ob || !this.solid(ob)) return;
           this.world.contactPair(col, other, (m) => {
             if (v.slamBy < 0 || m.numSolverContacts() === 0) return;
             const n = m.normal(this.tmpN), pt = m.solverContactPoint(0, this.tmpP) ?? part.body.translation(), c = part.body.translation();
@@ -698,6 +703,9 @@ export class Sim {
       }
     }
   }
+
+  /** The ground, a wall, or a ship's deck: what a body can be slammed into. */
+  private solid(b: RAPIER.RigidBody): boolean { return b.isFixed() || b === this.boat?.body; }
 
   /** A big hit knocks the fighter down: they tumble (spin in proportion to the blow, head swinging back from it) and lose control for a while. */
   private knockdown(v: Fighter, impact: number, nx: number): void {
@@ -791,6 +799,8 @@ export class Sim {
   }
 
   private snapshot(): void {
+    const b = this.boat;
+    if (b) { const t = b.body.translation(); b.px = b.cx; b.py = b.cy; b.pa = b.ca; b.cx = t.x; b.cy = t.y; b.ca = b.body.rotation(); }
     for (const p of this.props) { const t = p.body.translation(); p.px = p.cx; p.py = p.cy; p.pa = p.ca; p.cx = t.x; p.cy = t.y; p.ca = p.body.rotation(); }
     for (const f of this.fighters) {
       for (const p of f.parts) {
@@ -1013,6 +1023,7 @@ export class Sim {
     for (const f of this.fighters.slice()) {
       const t = f.torso.body.translation();
       if (!f.limp && (t.y > A.killY || t.x < -A.killXMargin || t.x > A.viewW + A.killXMargin)) this.kill(f, true);
+      else if (!f.limp && f.sinking && t.y > surfaceY(A, this.frame, t.x) + T.swim.drownDepth) this.kill(f, true); // went under: a knock-off
       if (!this.matchActive && f.limp && this.frame - f.deadAt >= T.respawn.frames) { this.respawn(f); this.events.push({ t: 'respawn', x: f.spawnX, y: f.spawnY, v: 0, owner: f.index, victim: -1 }); } // alone, you respawn; in a fight you stay down
     }
     if (this.matchActive) this.updateRound();

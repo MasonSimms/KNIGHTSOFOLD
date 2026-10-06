@@ -45,6 +45,8 @@ export const tuning = {
     ground: [] as { x: number; w: number }[], // separate ground slabs instead of one platform (empty = the one platform)
     bridge: null as null | { x0: number; x1: number; planks: number }, // a plank bridge across a gap in the ground
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
+    sea: null as null | { level: number }, // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
+    boat: false, // the main platform is a floating ship's deck instead of solid ground (needs a sea; see tuning.boat)
     // The front plane: things between us and the fighters (looks only: nobody can touch them). kind = grass or sign; x, y = where its base
     // sits (metres, the view is 24 x 13.5); scale = size; speed = m/s it slides across (a sign passing the train), wrapping round.
     front: [] as { kind: 'grass' | 'sign'; x: number; y: number; scale?: number; speed?: number }[],
@@ -441,6 +443,38 @@ export const tuning = {
     breakSpan: 1, // ...and this many planks either side of it
     shake: 0.03, // screen shake when a plank snaps
   },
+  water: {
+    // The sea (maps with arena.sea; see sim/water.ts). Everything in it floats: fighters, weapons, barrels, lost limbs, the dead.
+    // Waves come from the frame counter, so they are the same every time a round is played.
+    waves: [{ amp: 0.09, length: 7, period: 3.4 }, { amp: 0.04, length: 2.6, period: 1.8 }], // amp = height (m), length = crest to crest (m), period = seconds per wave
+    float: 2, // how strongly a fighter floats (1 = just stays level with the surface; more = bobs higher and comes back up faster after a dive)
+    propFloat: 2.2, // ...a weapon, barrel or plank
+    sinkFloat: 0.55, // ...a fighter whose swim has run out (below 1: they go under)
+    bodyHalf: 0.16, // how far below its middle a body part starts to be in the water (m): a softer number makes floating smoother
+    drag: 5, // how much the water slows things moving through it (per second): falling in from the deck you go about 0.9 m under
+    spinDrag: 3, // ...and slows their spinning
+  },
+  swim: {
+    // Short swim (owner): in the water you float and paddle (A/D) for a few seconds; Space kicks you up out of the water to climb back
+    // aboard. Stay in too long and you sink: going under is a knock-off.
+    frames: 300, // how long you can stay in the water (5 s; back on the deck it starts again)
+    wetAt: 0.35, // you are swimming when this much of your body is under the surface
+    kick: 0.95, // the kick out of the water, as a share of a normal jump (it has to lift you about 1.5 m: up the ship's side)
+    kickFrames: 30, // the shortest time between two kicks
+    drownDepth: 1.3, // sinking this far below the surface finishes you (m)
+  },
+  boat: {
+    // A floating ship (maps with arena.boat): the main platform is its deck. It tilts when people stand toward one end, bobs on the waves,
+    // always rolls back upright (it can not capsize) and drifts back to the middle.
+    mass: 160, // kg (a fighter is about 13): heavier = it sits steadier
+    depth: 1.6, // the hull from the deck down to the keel (m)
+    tilt: 0.09, // how far one fighter standing at the very end tips the deck (radians, 0.09 = 5 degrees): more = a livelier deck
+    roll: 0.35, // how much the deck follows the slope of the waves under it (0 = stays flat, 1 = rides every wave)
+    heaveDamping: 1.6, // how quickly bobbing up and down settles (per second)
+    rollDamping: 1.2, // how quickly rocking settles (per second)
+    home: 0.4, // how strongly it drifts back to the middle (per second squared, per metre away)
+    drift: 0.8, // how quickly sideways drifting settles (per second)
+  },
   knock: {
     // A BIG hit knocks the fighter down: they go limp, spin head over heels in proportion to the blow, cannot act, bounce off walls and the
     // floor, and then get up on their own as soon as they are calm and on the ground.
@@ -574,6 +608,7 @@ export const tuning = {
     oil: { enabled: false, radius: 3.5, relief: 0.13, stroke: 46 }, // radius = how far colour is blended (px at 1080p), relief = paint thickness lighting, stroke = brush length
     shadow: { alpha: 0.22, blur: 6, x: 0.05, y: 0.06 }, // the faint soft shadow that lifts each fighter off the map: strength, softness (px at 1080p), offset (m)
     front: { blur: 3.5 }, // how out of focus the front plane is (px at 1080p)
+    water: { alpha: 0.8, crestWidth: 0.06, crestAlpha: 0.55 }, // the near water: how much it hides what is under the surface (1 = all of it), and the light line along the top of the waves (m, 0..1)
     boilFps: 9, // how often the painted fighters' brush strokes change (the package: 3 painted variants at 8-10 fps)
     // The hot-colour cape (looks only): where it hangs from (metres from the torso's centre), and how the cloth moves.
     cape: { backX: 0.1, shoulderY: -0.24, gravity: 9, trail: 3, flutter: 2.5, flutterRate: 6, damping: 0.94 },

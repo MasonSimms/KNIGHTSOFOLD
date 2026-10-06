@@ -71,6 +71,10 @@ export interface Fighter {
   inBack: boolean; // currently on the background plane (collisions with fighters and weapons are off)
   prevDodge: boolean;
   stun: number;
+  wet: number; // how much of the body is under water (0..1; set by sim/water.ts each frame)
+  wetFrames: number; // frames spent swimming since last on a floor (tuning.swim.frames and you sink)
+  sinking: boolean; // the swim ran out: going under
+  swimKick: number; // frames until the next kick out of the water
   carried: number; // frames left of being held by someone (the holder renews it): you do not hold yourself up on your feet
   slamming: boolean; // holding someone, came off the ground and holding S: landing them hard is a slam (see tuning.slam)
   slamBy: number; // being slammed by this fighter (-1 = not)
@@ -244,7 +248,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, swimKick: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
@@ -776,7 +780,9 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // Held up by something that is not a floor under your hips (legs jammed in a gap, a fist hooked on an edge, someone's head, a body): after a
   // moment there going nowhere you can jump (owner: you should never get stuck). Going nowhere, not motionless: wedged in a gap you wiggle.
   const sp = body.translation();
-  if (grounded || Math.hypot(sp.x - f.stillX, sp.y - f.stillY) > M.stuckRange) { f.still = 0; f.stillX = sp.x; f.stillY = sp.y; } else f.still++;
+  const swimming = f.wet > T.swim.wetAt && !grounded; // in the water with no floor under you (see sim/water.ts)
+  if (f.swimKick > 0) f.swimKick--;
+  if (grounded || swimming || Math.hypot(sp.x - f.stillX, sp.y - f.stillY) > M.stuckRange) { f.still = 0; f.stillX = sp.x; f.stillY = sp.y; } else f.still++;
   if (grounded || f.still >= M.stuckFrames) f.coyote = M.coyoteFrames;
   else if (f.coyote > 0) f.coyote--;
   if (input.jump && !f.prevJump) f.jumpBuffer = M.jumpBufferFrames;
@@ -788,7 +794,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     if (f.tuck > 0) f.tuck--;
     // Coming down is quicker than going up (owner: the jump felt floaty): extra pull while you fall on your own. Not while knocked down,
     // flung, held or holding someone (carries and slams keep their own arcs), so big hits and throws still fly.
-    if (!grounded && f.knock === 0 && f.thrown === 0 && f.carried === 0 && !f.held && body.linvel(tmp).y > 0) shove(f, 0, (M.fallGravity - 1) * T.sim.gravity * fighterMass(f) * dt);
+    if (!grounded && !swimming && f.knock === 0 && f.thrown === 0 && f.carried === 0 && !f.held && body.linvel(tmp).y > 0) shove(f, 0, (M.fallGravity - 1) * T.sim.gravity * fighterMass(f) * dt);
     // Wall slide: in the air, pushing toward a wall, you slide down it slowly instead of dropping.
     if (!grounded && f.wall !== 0 && input.moveX * f.wall > 0.2) {
       for (const p of f.parts) {
@@ -807,7 +813,17 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     // (holding S in the air keeps your momentum: no steering, no braking. Owner: it lets you carry speed into a collision.)
     const dv = f.release > 0 || f.wallLock > 0 || (!grounded && input.crouch) ? 0 : clamp(input.moveX * M.moveSpeed * legMul * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
     shove(f, dv * fighterMass(f), 0);
-    if (f.jumpBuffer > 0 && f.coyote > 0) { // pressing a touch early, or a touch late after walking off a ledge, still jumps
+    if (swimming && f.jumpBuffer > 0 && f.swimKick === 0 && !f.sinking) { // a kick up out of the water (to climb back aboard)
+      for (const p of f.parts) {
+        if (p.role === 'stick' && !f.grip) continue;
+        const lv = p.body.linvel(tmp);
+        p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed * T.swim.kick }, true);
+      }
+      f.jumpBuffer = 0;
+      f.swimKick = T.swim.kickFrames;
+      const t = body.translation();
+      events.push({ t: 'jump', x: t.x, y: t.y, v: 0, owner: f.index, victim: -1 });
+    } else if (f.jumpBuffer > 0 && f.coyote > 0) { // pressing a touch early, or a touch late after walking off a ledge, still jumps
       const jumpSpeed = f.held ? T.slam.carryJumpSpeed : M.jumpSpeed; // someone in your hands weighs you down
       for (const p of f.parts) { // the whole body leaves the ground together
         if (p.role === 'stick' && !f.grip) continue;
@@ -823,7 +839,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       f.coyote = 0;
       const t = body.translation();
       events.push({ t: 'jump', x: t.x, y: t.y, v: 0, owner: f.index, victim: -1 });
-    } else if (f.jumpBuffer > 0 && !grounded && f.wallCoyote > 0) {
+    } else if (f.jumpBuffer > 0 && !grounded && !swimming && f.wallCoyote > 0) {
       // Wall jump: kicked away from the wall, up to the height of a normal jump.
       for (const p of f.parts) {
         if (p.role === 'stick' && !f.grip) continue;

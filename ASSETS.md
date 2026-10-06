@@ -14,6 +14,9 @@ Every asset's source and tool, for the Steam AI-content disclosure. Columns: fil
 ## Menu pictures (2026-10-05)
 No files: the gallery paintings, the portrait backgrounds and the portraits are painted at runtime by our own code (src/render/painter/, src/render/portrait.ts) from the era painting data, the same way as the backdrops. The museum wall, frames and lamps are CSS and a generated canvas texture (src/ui/menu.css, src/ui/menu.ts).
 
+## The ship and the sea (2026-10-06)
+No files: the Pirates ship (hull, rail, mast, sail, rigging, pennant) and the near water are drawn and then oil-painted at runtime by our own code (paintedHull and paintedWater in src/render/painter/sprites.ts), in the era painting's colours. Not AI-generated.
+
 ## AI-generated content
 None yet. Log tool, version, prompt and seed for every AI-generated image or sound.
 
