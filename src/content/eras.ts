@@ -82,7 +82,8 @@ export const eras: Era[] = [
     { name: 'Saloon', platformX: 2.5, platformW: 19, walls: [{ side: -1, up: 4.5, gap: 0 }, { side: 1, up: 4.5, gap: 0 }], noWeapons: true,
       ground: [{ x: 2.5, w: 7 }, { x: 9.5, w: 4, up: 1.1, thick: 2.3 }, { x: 13.5, w: 8 }], ledges: [{ x: 14.5, up: 2.6, w: 7 }], fightSpawnX: [6.67, 17.33, 8.8, 15.2],
       scenery: [{ kind: 'stool', x: 5.5, up: 0 }, { kind: 'stool', x: 8.0, up: 0 }, { kind: 'stool', x: 15.5, up: 0 }, { kind: 'stool', x: 18.0, up: 0 },
-        { kind: 'mug', x: 10.3, up: 1.1 }, { kind: 'mug', x: 11.5, up: 1.1 }, { kind: 'mug', x: 12.7, up: 1.1 }, { kind: 'mug', x: 19.5, up: 2.6 }] },
+        { kind: 'mug', x: 10.3, up: 1.1 }, { kind: 'mug', x: 11.5, up: 1.1 }, { kind: 'mug', x: 12.7, up: 1.1 }, { kind: 'mug', x: 19.5, up: 2.6 },
+        { kind: 'lantern', x: 6.0, up: 2.8 }, { kind: 'lantern', x: 11.5, up: 3.0 }] },
     // Water Tower (owner's list): on the round top of the town's water tower, with a narrow catwalk round it lower down; shoot the tank
     // and water jets out of the hole and shoves whoever it catches. Revolvers come as pickups.
     { name: 'Water Tower', wind: { base: 2, gust: 8, dir: 1 }, ground: [{ x: 5.0, w: 3.5, up: -1.6, thick: 0.15 }, { x: 8.5, w: 7.0, thick: 3.2 }, { x: 15.5, w: 3.5, up: -1.6, thick: 0.15 }], tower: { x: 8.5, w: 7.0 },

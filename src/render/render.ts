@@ -13,6 +13,7 @@ import { createMammoth } from './mammoth';
 import { createPassing } from './passing';
 import { createJets } from './jets';
 import { windAt } from '../sim/wind';
+import { createLight } from './light';
 import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -235,7 +236,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const backLayer = new Container(); // a dodging fighter is drawn here, behind everyone else
   const fighterLayer = new Container();
   const propLayer = new Container(); // planks, logs and other loose objects
-  actors.addChild(paintLayer, propLayer, backLayer, fighterLayer, splatLayer);
+  const ropes = new Graphics(); // what hangs from ropes (lanterns)
+  actors.addChild(paintLayer, ropes, propLayer, backLayer, fighterLayer, splatLayer);
   // The three planes (owner): background (the painted backdrop, blurred and hazed), the play plane (fighters, ground, props: sharp, each
   // fighter lifted off the map by a faint soft shadow) and, on some maps, a front plane between us and the fighters, slightly out of focus.
   const shadows = new Container(), shadowBlur = new BlurFilter({ strength: 4, quality: 2 });
@@ -247,7 +249,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   // A fast one is blurred along the way it moves (speed: and it hides the join).
   const rolling = [new Sprite(Texture.EMPTY), new Sprite(Texture.EMPTY)], backdrop = new Container(), rollBlur = new BlurFilter({ strength: 0, quality: 2 });
   backdrop.addChild(painted, ...rolling);
-  view.addChild(flat, backdrop, shadows, actors, front);
+  const lightLayer = new Container(); // the lights' glow and a room's darkness: over the background only (light never hides anyone)
+  view.addChild(flat, backdrop, lightLayer, shadows, actors, front);
+  const light = createLight(lightLayer);
 
 
   // Cheap global finish on top of everything (screen space).
@@ -380,6 +384,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     sea.build(sim);
     flames.build(sim);
     mammoth.build(sim);
+    light.build(sim);
     passing.build(sim, propLayer);
     // The front plane of this arena (looks only).
     for (const it of frontItems) it.s.destroy();
@@ -554,12 +559,14 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (it.speed) it.s.x = ((((it.x + it.speed * now + 2) % span) + span) % span) - 2;
         it.s.skew.x = -(wind * T.finish.wind.grass + Math.sin(now * 2.3 + it.x) * Math.abs(wind) * 0.006); // grass bends with the wind
       }
+      ropes.clear();
       for (const { p, k, painted: pp, under } of propEntries) {
         k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha));
         k.rotation = p.pa + wrap(p.ca - p.pa) * alpha;
         k.scale.x = p.flipped ? -1 : 1; // an empty gun is drawn turned round (held by the barrel)
         under.position.set(off * (Math.cos(k.rotation) + Math.sin(k.rotation)), off * (Math.cos(k.rotation) - Math.sin(k.rotation))); // world offset down-right
         for (const q of pp) updatePainted(q, k.rotation, variant);
+        if (p.hang && p.links?.length) { const h = (p.weapon?.thickness ?? 0.3) / 2; ropes.moveTo(p.hang.x, p.hang.y).lineTo(k.x + Math.sin(k.rotation) * h, k.y - Math.cos(k.rotation) * h).stroke({ width: 0.03, color: 0x2a1c12 }); } // a lantern's rope
       }
       shake *= Math.pow(T.shake.decayPerSecond, frameSeconds);
       for (const r of rings) {
@@ -588,8 +595,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         view.mask = zoomed ? box : null;
         box.visible = zoomed;
       }
+      light.draw(sim, now);
       for (const e of entries) {
         const { f, c } = e;
+        const so = light.shadowOf(lerp(f.torso.px, f.torso.cx, alpha), lerp(f.torso.py, f.torso.cy, alpha), SH); // the shadow falls away from the nearest light
         e.vis += ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds);
         if (e.crushed) e.sq = Math.min(1, e.sq + frameSeconds / T.death.squashSeconds);
         const tint = mix(0xffffff, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker (no damage tint: health stays hidden)
@@ -609,10 +618,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           u.rotation = k.rotation;
           for (const q of e.painted[i]) updatePainted(q, k.rotation, variant);
           const sh = e.soft[i];
-          sh.position.set(k.x + SH.x, k.y + SH.y);
+          sh.position.set(k.x + so.x, k.y + so.y);
           sh.rotation = k.rotation;
         });
-        e.shade.alpha = 1 - e.vis; // a fighter slipping into the background plane leaves the play plane's shadow behind
+        e.shade.alpha = (1 - e.vis) * so.a; // a fighter slipping into the background plane leaves the play plane's shadow behind
         for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
         const torso = c[0], tc = Math.cos(torso.rotation), ts = Math.sin(torso.rotation), cx = -f.side * T.finish.cape.backX, cy = T.finish.cape.shoulderY;
         stepCape(e.cape, torso.x + tc * cx - ts * cy, torso.y + ts * cx + tc * cy, f.side, frameSeconds, boil / T.finish.boilFps, variant, wind);

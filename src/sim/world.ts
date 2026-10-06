@@ -257,6 +257,11 @@ export class Sim {
     for (const sc of A.scenery) { // the map's breakable scenery: always there
       const spec = PROPS[sc.kind] ?? PROPS.crate;
       const p = createProp(this.world, sc.x, A.platformTop - sc.up - spec.thick / 2 - 0.01, 0, { kind: sc.kind, ...spec });
+      if (spec.hangs) { // a lantern: on a rope from a fixed point above it (it swings; cut, it falls)
+        const top = p.body.translation().y - spec.thick / 2 - spec.hangs, anchor = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(sc.x, top));
+        p.links = [this.world.createImpulseJoint(RAPIER.JointData.revolute({ x: 0, y: 0 }, { x: 0, y: -spec.thick / 2 - spec.hangs }), anchor, p.body, true)];
+        p.hang = { x: sc.x, y: top };
+      }
       this.props.push(p);
       this.partByBody.set(p.body.handle, p);
     }
@@ -682,7 +687,7 @@ export class Sim {
   /** An outstretched empty hand locks onto the first part of another fighter it touches (not a club, not the floppy second arm). */
   /** What an object is, if a hand can take it: a prop, a club nobody is holding, or a limb that has come off. */
   private itemOf(part: Part): Item | null {
-    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && part.body.isDynamic() && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
+    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && part.body.isDynamic() && !part.links?.length && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
     const g = this.fighters[part.owner];
     if (!g) return null;
     if (part.role === 'stick') return g.stick === part && !g.grip && g.dropCooldown <= 0 ? { kind: 'stick', from: g.index } : null;

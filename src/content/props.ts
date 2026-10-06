@@ -6,7 +6,7 @@ import type { GunSpec, Material } from './weapons';
 // weapons that spawn in as a round goes on: heavier or longer, hitting harder.
 /** breaks: scenery that breaks (owner: environments have destructible elements): how much it takes (bullets by calibre x 10, hard hits by
  *  impact) and the loose pieces it leaves (kinds in this list). */
-export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean }
+export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean; hangs?: number }
 
 /** The guns (owner: the revolver and the flintlock first). PLACEHOLDER numbers until the playtest. */
 const REVOLVER: GunSpec = { ammo: 6, cooldown: 14, speed: 70, calibre: 1, impact: 31, push: 9, recoil: 2.5, kick: 6 }; // 6 quick shots, each about half a full club hit
@@ -42,6 +42,9 @@ export const PROPS: Record<string, PropSpec> = {
   // a shop window (Main Street): a pane of glass held in its frame (it does not fall), that a body thrown into it, a punch, a club or a
   // bullet breaks (min: the smallest knock that counts); you go on through into the shop
   // the Saloon: a bar stool (a club) and a beer mug (throw it, or smash it on someone: it shatters on anything hard)
+  // a hanging lantern (a light: render/light.ts): it swings on its rope when bumped; shot, hit or knocked down it breaks and the light
+  // goes out (hangs: the rope's length, m)
+  lantern: { len: 0.24, thick: 0.34, mass: 0.8, material: 'light', box: true, breaks: { hp: 5, into: [], min: 6 }, shatters: true, hangs: 0.7 },
   stool: { len: 0.6, thick: 0.3, mass: 2.2, factor: 2.5, toughness: 3 },
   mug: { len: 0.22, thick: 0.16, mass: 0.5, factor: 2.2, material: 'light', shatters: true },
   pane: { len: 0.2, thick: 1.6, mass: 1, material: 'light', box: true, fixed: true, breaks: { hp: 8, into: [], min: 8 } },

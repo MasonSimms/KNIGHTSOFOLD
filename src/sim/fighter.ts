@@ -22,6 +22,7 @@ export interface Part {
   hp?: number; // breakable scenery: how much more it takes before it breaks (see props.ts breaks)
   crushAt?: number; // a heavy loose thing: the frame it may crush someone again
   back?: boolean; // stands a step behind the fighters (props.ts back): touches the ground and loose things only
+  hang?: { x: number; y: number }; // hangs on a rope from this point (a lantern)
   burning?: number; // wood on fire: frames it goes on burning (sim/fire.ts)
   owner: number;
   // interpolation poses (previous / current sim step) for the renderer

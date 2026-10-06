@@ -506,6 +506,17 @@ export const tuning = {
     kick: 0.6, // the kick out of it, as a share of a normal jump (weak: a pit's edge should be low)
     drownDepth: 1.1, // sinking this far below the surface finishes you (m)
   },
+  light: {
+    // Dynamic light (owner; render/light.ts): fires and lanterns light the scene and cast each fighter's shadow away from them, flickering
+    // with the flame; a lantern put out darkens the room (only the background: light never hides anyone). PLACEHOLDER numbers.
+    glow: 3.2, // how far a light's glow reaches (m)
+    glowAlpha: 0.32, // how bright it is
+    warm: 0xffb85c, // its colour
+    shadowLen: 0.35, // a fighter's shadow offset next to a light (m): it falls away from the light, shorter further off
+    reach: 7, // beyond this distance (m) a light no longer turns the shadow (the plain soft shadow below and to the right)
+    flicker: 0.18, // how much a flame flickers (share of its brightness)
+    dark: 0.45, // how dark the background gets with every lantern out (0 = no change)
+  },
   wind: {
     // Wind (sim/wind.ts; each map's own wind is its arena.wind). Owner: it moves the cosmetics a lot and play a little. PLACEHOLDER numbers.
     full: 12, // m/s: a strong gust (the pushes below are at this wind)
@@ -773,7 +784,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441 } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

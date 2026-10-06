@@ -48,3 +48,28 @@ describe('Water Tower', () => {
     expect(events.some((e) => e.t === 'fall' && e.victim === 1)).toBe(true);
   });
 });
+
+describe('Saloon lanterns', () => {
+  const SALOON = 1 + eras.find((e) => e.id === 'westerns')!.alt!.findIndex((a) => a.name === 'Saloon');
+  async function saloon() {
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'westerns'; sim.forceMap = SALOON; sim.reset();
+    return sim;
+  }
+  const lanterns = (sim: Sim) => sim.props.filter((p) => p.weapon?.id === 'lantern');
+  it('a lantern hangs on its rope (it cannot be taken down by hand)', async () => {
+    const sim = await saloon(), l = lanterns(sim)[0], y0 = l.body.translation().y;
+    for (let i = 0; i < 300; i++) sim.step([NEUTRAL, NEUTRAL]);
+    expect(lanterns(sim).length).toBe(2);
+    expect(Math.abs(l.body.translation().y - y0)).toBeLessThan(0.05);
+    expect((sim as unknown as { itemOf(p: unknown): unknown }).itemOf(l)).toBeNull();
+  });
+  it('cut from its rope, a lantern falls and smashes: that light is out', async () => {
+    const sim = await saloon(), l = lanterns(sim)[0];
+    sim.shootLoose(l, l.body.translation().x, l.body.translation().y, -1);
+    const events: SimEvent[] = [];
+    for (let i = 0; i < 120; i++) { sim.step([NEUTRAL, NEUTRAL]); events.push(...sim.events.map((e) => ({ ...e }))); }
+    expect(lanterns(sim).length).toBe(1);
+    expect(events.some((e) => e.t === 'shatter' && e.w === 'lantern')).toBe(true);
+  });
+});
