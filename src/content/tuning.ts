@@ -77,6 +77,8 @@ export const tuning = {
     jumpSpeed: 9.8, // about 2.2 m high, two body heights (was 8.5 = 1.6 m, too low to get onto a ledge you can walk under; 11.5 = 3 m was way too floaty)
     fallGravity: 1.6, // coming down you fall this many times faster than gravity alone (owner: floaty; Stick Fight jumps rise and drop quickly). 1 = a plain arc
     coyoteFrames: 6, // you can still jump this long after walking off a ledge
+    stuckFrames: 10, // hanging motionless off the ground this long (held up by something that is not a floor: jammed in a gap, hooked on an edge, on someone's head) lets you jump
+    stuckSpeed: 0.4, // m/s: ...motionless means slower than this
     jumpBufferFrames: 6, // a jump pressed this early before landing still happens
     jumpCut: 0.5, // letting go of jump early cuts the jump short by this much (1 = no cut)
     jumpCutMinSpeed: 2, // ...but only while still rising faster than this (m/s)

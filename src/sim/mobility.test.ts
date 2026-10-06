@@ -73,3 +73,22 @@ describe('body collisions', () => {
     expect(D.hp).toBe(hp0);
   });
 });
+
+describe('never stuck', () => {
+  it('a fighter jammed in a narrow gap (no floor under the hips) can still jump out', async () => {
+    const keep = { ground: T.arena.ground, ledges: T.arena.ledges };
+    T.arena.ground = [{ x: 5.25, w: 5.25 }, { x: 13.5, w: 5.25 }]; // a pit with a raised stepping stone: walking in jams your legs beside it
+    T.arena.ledges = [{ x: 11.125, up: 0.3, w: 1.75 }];
+    try {
+      const sim = await Sim.create(5);
+      const f = sim.fighters[0];
+      for (let i = 0; i < 200; i++) sim.step([idle({ moveX: 1 })]);
+      const x0 = f.torso.body.translation().x;
+      expect(f.grounded).toBe(false); // jammed: nothing under the hips
+      for (let i = 0; i < 60; i++) sim.step([idle({ moveX: 1, jump: i < 20 })]);
+      expect(f.torso.body.translation().x).toBeGreaterThan(x0 + 1); // out and on its way
+    } finally {
+      T.arena.ground = keep.ground; T.arena.ledges = keep.ledges;
+    }
+  });
+});
