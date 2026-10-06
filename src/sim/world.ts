@@ -403,14 +403,16 @@ export class Sim {
     }
   }
 
-  /** Someone close is winding up a weapon, lunging, punching or grabbing at this fighter (they brace with their free arm). */
-  private threatened(f: Fighter): boolean {
+  /** Someone close is winding up a weapon, lunging, punching or grabbing at this fighter (they brace with their free arm and lean away):
+   * the side they are on (+1 = toward +x, -1 = toward -x), or 0 for nobody. */
+  private threatened(f: Fighter): number {
     const t = f.torso.body.translation(), R = T.offArm.braceRange;
-    return this.fighters.some((g) => {
+    const g = this.fighters.find((g) => {
       if (g === f || g.limp || g.inBack || !(g.charge > 8 || g.release > 0 || g.punch > 0 || g.reaching)) return false;
       const u = g.torso.body.translation();
       return Math.abs(u.x - t.x) < R && Math.abs(u.y - t.y) < 1.5 && Math.sign(t.x - u.x) === g.side; // close, and facing this way
     });
+    return g ? -g.side : 0;
   }
 
   /** A body that runs into something fast (the floor, a wall) does not spring back off it (see tuning.land). */

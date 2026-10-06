@@ -583,8 +583,9 @@ function lungeAngle(side: number, aim: number, max: number): number {
 }
 
 /** One frame of control for one fighter: lean and balance, movement, arm pose, attacks. Runs before the physics step. */
-/** `threat`: someone close is winding up or swinging at this fighter (the free arm comes up to brace). */
-export function controlFighter(world: World, f: Fighter, input: PlayerInput, events: SimEvent[], threat = false): void {
+/** `threat`: the side (+1 / -1) of someone close winding up or swinging at this fighter, 0 for nobody (the free arm comes up to brace, the body
+ * leans away a little). */
+export function controlFighter(world: World, f: Fighter, input: PlayerInput, events: SimEvent[], threat = 0): void {
   const dt = T.sim.dt;
   const A = T.arm;
   const body = f.torso.body;
@@ -729,6 +730,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     if (charging) lean -= s * LN.chargeBack * (f.charge / C.maxFrames);
     if (f.release > 0) lean += s * LN.slamForward;
     if (punchPhase === 'strike') lean += s * LN.punchForward * f.punchPower;
+    if (threat && f.stun === 0 && !charging && f.release === 0 && f.punch === 0) lean -= threat * LN.flinch; // someone close attacks: lean away (not mid-attack yourself)
   }
   f.leanNow += (lean - f.leanNow) * Math.min(1, dt / LN.ease); // ease into a lean instead of snapping to it (owner: less flopping about)
   lean = f.leanNow;

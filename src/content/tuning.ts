@@ -106,6 +106,7 @@ export const tuning = {
     chargeBack: 0.35, // lean back while charging a club (anticipation)
     slamForward: 0.5, // throw the body forward during a lunge/slam
     punchForward: 0.35, // lean into the punch
+    flinch: 0.15, // lean away from someone close who is winding up, swinging or punching at you (with the free arm up to brace; 0 = off)
   },
   legs: {
     // Real physics legs: a thigh and a shin each, with motors at the hip and knee that try to hold a walking pose.

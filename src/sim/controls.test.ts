@@ -336,3 +336,17 @@ describe('walls: slide and jump', () => {
     expect(f().limp).toBe(false);
   });
 });
+
+describe('reacting to what is going on', () => {
+  it('someone close winding up at you: you lean away from them', async () => {
+    const sim = await Sim.create(5, 2, false);
+    for (let i = 0; i < 60; i++) sim.step([idle(), idle()]);
+    const [a, b] = sim.fighters, side = Math.sign(b.torso.body.translation().x - a.torso.body.translation().x), aim = side > 0 ? 0 : Math.PI;
+    for (let i = 0; i < 240 && Math.abs(b.torso.body.translation().x - a.torso.body.translation().x) > 1.8; i++) sim.step([idle({ moveX: side, aim }), idle()]);
+    for (let i = 0; i < 40; i++) sim.step([idle({ aim }), idle()]);
+    expect(Math.abs(b.torso.body.rotation())).toBeLessThan(0.05); // standing straight while nobody attacks
+    let away = 0;
+    for (let i = 0; i < 40; i++) { sim.step([idle({ attack: true, aim }), idle()]); away = Math.max(away, b.torso.body.rotation() * side); }
+    expect(away).toBeGreaterThan(T.lean.flinch * 0.6); // leaning away from them while they wind up
+  });
+});
