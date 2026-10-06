@@ -6,7 +6,7 @@ import type { GunSpec, Material } from './weapons';
 // weapons that spawn in as a round goes on: heavier or longer, hitting harder.
 /** breaks: scenery that breaks (owner: environments have destructible elements): how much it takes (bullets by calibre x 10, hard hits by
  *  impact) and the loose pieces it leaves (kinds in this list). */
-export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[] }; box?: boolean }
+export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[] }; box?: boolean; back?: boolean }
 
 /** The guns (owner: the revolver and the flintlock first). PLACEHOLDER numbers until the playtest. */
 const REVOLVER: GunSpec = { ammo: 6, cooldown: 14, speed: 70, calibre: 1, impact: 31, push: 9, recoil: 2.5, kick: 6 }; // 6 quick shots, each about half a full club hit
@@ -36,8 +36,8 @@ export const PROPS: Record<string, PropSpec> = {
   crowbar: { len: 0.8, thick: 0.05, mass: 1.2, factor: 2.5 }, 'lead-pipe': { len: 1.0, thick: 0.07, mass: 2.0, factor: 2.9 },
   // heavy stone blocks (len = width, thick = height): too heavy to lift (tuning.props.maxLift). Knocked off something, they crush whoever
   // they land on; lying about, they are cover. PLACEHOLDER sizes until the Standing Stones playtest.
-  upright: { len: 0.7, thick: 1.7, mass: 200, material: 'stone', box: true }, // a standing stone
-  capstone: { len: 2.0, thick: 0.45, mass: 60, material: 'stone', box: true }, // laid across two uprights
+  upright: { len: 0.6, thick: 1.6, mass: 60, material: 'stone', box: true, back: true }, // a standing stone: a step behind the fighters (it holds up a capstone; you walk in front of it)
+  capstone: { len: 3.0, thick: 0.45, mass: 30, material: 'stone', box: true }, // laid across two uprights: a body slammed into it (about 200 N s) brings it down
   boulder: { len: 0.7, thick: 0.6, mass: 40, material: 'stone', box: true },
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.

@@ -195,7 +195,7 @@ export class Sim {
     this.bridge = [];
     this.cutLinks.clear();
     this.brains = [null, null, null, null]; // bots start each round fresh (so a round can be replayed from its own start: see src/replay)
-    this.weapon = T.eras.changeGameplay ? weaponById(eraById(this.era).weapon) : { id: 'club', name: 'Club', ...T.stick };
+    this.weapon = T.eras.changeGameplay ? weaponById(this.arena.weapon || eraById(this.era).weapon) : { id: 'club', name: 'Club', ...T.stick };
     this.outfits = outfitsFor(this.seed, this.round);
     this.rng = makeRng(this.seed);
     this.frame = 0;
@@ -834,7 +834,7 @@ export class Sim {
   private resolveCrushes(): void {
     const P = T.props;
     for (const p of this.props) {
-      if (p.body.mass() < P.crushMass || (p.crushAt ?? 0) > this.frame || Math.hypot(p.vx, p.vy) < P.crushSpeed) continue;
+      if (p.body.mass() < P.crushMass || (p.crushAt ?? 0) > this.frame || Math.hypot(p.vx, p.vy) + Math.abs(p.w) * (p.weapon?.length ?? 1) / 2 < P.crushSpeed) continue; // (a tipping stone's end comes down faster than its middle)
       for (const col of p.colliders) this.world.contactPairsWith(col, (other) => {
         const vb = other.parent(), vp = vb && this.partByBody.get(vb.handle);
         const v = vp && vp.role !== 'prop' && vp.role !== 'stick' ? this.fighters[vp.owner] : undefined;

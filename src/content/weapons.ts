@@ -50,6 +50,7 @@ export const weapons: Weapon[] = [
   { id: 'axe', name: 'Battle Axe', length: 1.05, thickness: 0.1, mass: 1.6, gripFromEnd: 0.15, impactFactor: 2.6, material: 'metal' },
   { id: 'longsword', name: 'Longsword', length: 1.2, thickness: 0.08, mass: 1.1, gripFromEnd: 0.15, impactFactor: 2.4, material: 'metal' },
   { id: 'cutlass', name: 'Cutlass', length: 1.05, thickness: 0.08, mass: 0.9, gripFromEnd: 0.15, impactFactor: 2.3, material: 'metal' },
+  { id: 'stone-axe', name: 'Stone Axe', length: 1.0, thickness: 0.13, mass: 1.9, gripFromEnd: 0.15, impactFactor: 2.6, material: 'stone' }, // (a map's own weapon: Standing Stones)
 ];
 
 export const weaponById = (id: string): Weapon => weapons.find((w) => w.id === id) ?? weapons[0];

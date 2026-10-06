@@ -106,7 +106,7 @@ function meets(sim: Sim, u: Bullet, c: Collider): boolean {
   const body = c.parent();
   const part = body ? sim.partByBody.get(body.handle) : undefined;
   if (!part) return true; // the ground, a wall, the ship
-  if (part.role === 'prop') return true;
+  if (part.role === 'prop') return !part.back; // (a standing stone behind the fighters: the bullet passes in front of it)
   const f = sim.fighters[part.owner];
   if (!f) return true;
   if (part.owner === u.owner && !u.bounced) return false;

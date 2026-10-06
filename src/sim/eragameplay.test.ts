@@ -26,8 +26,8 @@ describe('era gameplay: weapon and arena', () => {
   it.each(eras.map((e) => e.id))('%s: the era\'s weapon is in every hand, and everyone starts on the platform', async (id) => {
     const era = eras.find((e) => e.id === id)!;
     const sim = await inEra(id);
-    const w = weaponById(era.weapon);
     const A = sim.arena;
+    const w = weaponById(A.weapon || era.weapon); // (a map can have its own: Standing Stones has stone axes)
     expect(sim.weapon.id).toBe(w.id);
     for (const f of sim.fighters) {
       expect(f.stick!.weapon!.id).toBe(w.id);

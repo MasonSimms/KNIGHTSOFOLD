@@ -17,6 +17,8 @@ describe('maps', () => {
       const sim = await Sim.create(5, players, dummy);
       sim.forceEra = era; sim.forceMap = map; sim.reset();
       const xs = sim.fighters.map((f) => f.torso.body.translation().x);
+      const sorted = [...xs].sort((a, b) => a - b);
+      for (let i = 1; i < sorted.length; i++) expect(sorted[i] - sorted[i - 1], 'start spots more than 2.2 m apart (at 2, the clubs start inside each other)').toBeGreaterThan(2.2);
       for (let i = 0; i < 120; i++) sim.step(sim.fighters.map(() => NEUTRAL));
       sim.fighters.forEach((f, i) => {
         const p = f.torso.body.translation(), why = `${players} players, fighter ${i}`;
@@ -54,11 +56,12 @@ describe('maps', () => {
       const x0 = slabs[0].x + 0.5, x1 = slabs[slabs.length - 1].x + slabs[slabs.length - 1].w - 1.0; // (to 1 m from the far end: some maps have a wall there)
       const f = sim.fighters[0], other = sim.fighters[1];
       setBackPlane(other, true); other.dodge = 1e9; // the other fighter steps aside (we pass through it)
-      if (!hop) for (const p of [...sim.props]) if (p.hp !== undefined) sim.removeBody(p, undefined); // walking checks the ground itself (a crate is shoved along until it jams: hop it)
+      if (!hop) for (const p of [...sim.props]) if (!p.links?.length) sim.removeBody(p, undefined); // walking checks the ground itself (a crate is shoved along until it jams, a standing stone is jumped)
       const t = f.torso.body.translation();
       for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + x0 - t.x, y: q.y }, true); }
       let n = 0;
-      const leap = () => { const x = f.torso.body.translation().x; return A.tar.some((p) => x > p.x - 0.6 && x < p.x + p.w); }; // a tar pit: a full jump from its edge
+      const block = (p: { back?: boolean; body: { mass(): number; translation(): { x: number; y: number } } }, x: number) => !p.back && p.body.mass() > T.props.maxLift && p.body.translation().y > A.platformTop - 1 && p.body.translation().x - x > 0 && p.body.translation().x - x < 1.2;
+      const leap = () => { const x = f.torso.body.translation().x; return A.tar.some((p) => x > p.x - 0.6 && x < p.x + p.w) || sim.props.some((p) => block(p, x)); }; // a tar pit or a standing stone: a full jump
       while (f.torso.body.translation().x < x1 && n++ < 240) sim.step([{ ...NEUTRAL, moveX: 1, jump: hop && (leap() ? !(f.grounded && f.prevJump && f.torso.body.linvel().y > -1) : f.grounded && n % 20 < 10) }, NEUTRAL]);
       expect(f.torso.body.translation().x, hop ? 'hopping' : 'walking').toBeGreaterThan(x1); // across in under 4 s (a straight run takes about 2)
       expect(f.limp).toBe(false);

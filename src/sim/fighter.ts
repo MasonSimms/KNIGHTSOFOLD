@@ -21,6 +21,7 @@ export interface Part {
   cracks?: number; // a wooden weapon: how much shooting it has taken (it snaps at its toughness)
   hp?: number; // breakable scenery: how much more it takes before it breaks (see props.ts breaks)
   crushAt?: number; // a heavy loose thing: the frame it may crush someone again
+  back?: boolean; // stands a step behind the fighters (props.ts back): touches the ground and loose things only
   burning?: number; // wood on fire: frames it goes on burning (sim/fire.ts)
   owner: number;
   // interpolation poses (previous / current sim step) for the renderer
@@ -151,7 +152,7 @@ export function ownerGroups(owner: number): number {
 export const worldGroups = ((GROUP_WORLD << 16) | 0xffff) >>> 0;
 export const terrainGroups = ((GROUP_TERRAIN << 16) | 0xffff) >>> 0;
 /** The background plane: touches the ground and loose things only, so it passes through every fighter and weapon. */
-const backGroups = ((0x8000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
+export const backGroups = ((0x8000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 /** The floppy second arm: touches the floor and walls only, never a fighter or a weapon. */
 const offGroups = ((0x4000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 
@@ -319,19 +320,19 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
 }
 
 /** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
-export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean }): Part {
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean }): Part {
   const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
   // A block (a stone, a crate, a pane of glass) or, by default, a rod (a plank, a club, a barrel on its side)
   const desc = spec.box ? RAPIER.ColliderDesc.cuboid(spec.len / 2, r) : RAPIER.ColliderDesc.capsule(hl, r).setRotation(Math.PI / 2);
-  const collider = world.createCollider(desc.setMass(spec.mass).setFriction(0.8).setRestitution(0.05).setCollisionGroups(worldGroups), body);
+  const collider = world.createCollider(desc.setMass(spec.mass).setFriction(0.8).setRestitution(0.05).setCollisionGroups(spec.back ? backGroups : worldGroups), body);
   const shapes: Shape[] = [spec.box ? { k: 'box', hw: spec.len / 2, hh: r, x: 0, y: 0, rot: 0 } : { k: 'cap', hl, r, x: 0, y: 0, rot: Math.PI / 2 }];
   if (spec.gun) shapes.push({ k: 'cap', hl: 0.04, r: 0.035, x: -spec.len / 2 + 0.08, y: 0.07, rot: 0 }); // (picture only) a gun's handle, hanging under the back of the barrel
   return {
     body, shapes, colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
     weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: Math.min(0.2, spec.len * 0.25), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun },
-    ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}),
+    ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}), ...(spec.back ? { back: true } : {}),
   };
 }
 

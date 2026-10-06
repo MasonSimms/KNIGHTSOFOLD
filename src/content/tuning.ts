@@ -49,6 +49,7 @@ export const tuning = {
     sea: null as null | { level: number }, // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
     boat: false, // the main platform is a floating ship's deck instead of solid ground (needs a sea; see tuning.boat)
     tar: [] as { x: number; w: number; level: number }[], // tar pits (see tuning.tar): from x, w wide (a gap in the ground), the surface `level` m below the platform top
+    weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
     fires: [] as { x: number; w: number; up: number }[], // fires (see tuning.fire): flames from x, w wide, on the ground (up = 0) or a ledge `up` m higher
     // The front plane: things between us and the fighters (looks only: nobody can touch them). kind = grass or sign; x, y = where its base
     // sits (metres, the view is 24 x 13.5); scale = size; speed = m/s it slides across (a sign passing the train), wrapping round.
@@ -437,8 +438,8 @@ export const tuning = {
     limbFactor: 1.6, // ...of a held limb (a leg, say)
     maxLift: 20, // kg: anything heavier (a standing stone) cannot be picked up; it can be pushed, knocked over and hidden behind
     crushMass: 25, // kg: a loose thing this heavy coming hard into someone crushes them...
-    crushSpeed: 3, // ...when it is moving at least this fast into them (m/s)
-    crushFactor: 7, // damage factor of a crush (a club is 2.2: a stone dropped from a ledge is a heavy blow)
+    crushSpeed: 2.5, // ...when it is moving at least this fast into them (m/s): a capstone dropping off its stones onto a head is about 3.5
+    crushFactor: 11, // damage factor of a crush (a club is 2.2): a capstone tipping onto a head is about a full club hit, a boulder dropped from a ledge kills
     crushCooldown: 20, // frames before the same thing can crush again
   },
   bridge: {
