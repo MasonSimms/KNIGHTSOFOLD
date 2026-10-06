@@ -308,12 +308,13 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     }
   };
   /** A hit: a subtle spray of the hurt player's paint, flung the way the blow went. */
+  let windNow = 0; // (the wind at the last drawn frame: paint flung in it lands downwind)
   const spray = (e: SimEvent, color: number) => {
     const P = T.splat.spray, k = Math.min(1, e.v / 100), a = sim.fighters[e.owner]?.torso, b = sim.fighters[e.victim]?.torso;
     const dir = a && b ? Math.atan2(b.cy - a.cy, b.cx - a.cx) : -Math.PI / 2;
     for (let i = 0, n = Math.round(lerpR(P.drops, k)); i < n; i++) {
       const d = lerpR(P.reach, Math.random()) * (0.5 + k), ang = dir + (Math.random() - 0.5) * 1.1;
-      splat(e.x + Math.cos(ang) * d, e.y + Math.sin(ang) * d, lerpR(P.size, Math.random()) * (0.6 + 0.6 * k), color, 0, P.alpha);
+      splat(e.x + Math.cos(ang) * d + windNow * T.finish.wind.spray * d * 10, e.y + Math.sin(ang) * d, lerpR(P.size, Math.random()) * (0.6 + 0.6 * k), color, 0, P.alpha);
     }
   };
   // Big-hit indicator rings (a small pool: nothing is allocated while playing).
@@ -541,6 +542,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       if (builtVersion !== sim.version) rebuild();
       boil += frameSeconds * T.finish.boilFps;
       const wind = windAt(sim.arena, sim.frame - 1 + alpha); // (sways capes, grass, smoke, flames, paint, trails)
+      windNow = wind;
       variant = Q.boil ? Math.floor(boil) % VARIANTS : 0;
       const off = T.finish.underOffset, SH = T.finish.shadow;
       shadowBlur.strength = SH.blur * px;
