@@ -581,27 +581,28 @@ export class Sim {
       if (holder) v.thrownBy = holder.index;
       if ((v.thrown <= 0 && !holder) || v.slamBy >= 0) continue;
       if (v.thrown > 0) v.thrown--;
-      if (v.slamWait > 0) { v.slamWait--; continue; }
+      if (v.slamWait > 0) v.slamWait--; else v.crashPeak = 0;
       if (v.limp) continue;
       for (const p of v.parts) {
         if (p.role === 'off' || (p.role === 'stick' && !v.grip)) continue;
         if (holder && v.thrown <= 0 && Math.cos(v.torso.body.rotation()) > 0.55 && (p.role === 'thigh' || p.role === 'shin')) continue; // held and set down on your feet is not a slam
         for (const col of p.colliders) {
           this.world.contactPairsWith(col, (other) => {
-            if (v.slamWait > 0) return;
             const ob = other.parent();
             const op = ob ? this.partByBody.get(ob.handle) : undefined;
             const third = op && op.owner !== v.index && op.owner !== v.thrownBy ? this.fighters[op.owner] : undefined;
             if (!ob || (!ob.isFixed() && !third)) return;
             this.world.contactPair(col, other, (m) => {
-              if (v.slamWait > 0 || m.numSolverContacts() === 0) return;
-              const n = m.normal(this.tmpN);
-              const crash = Math.abs((p.vx - (op?.vx ?? 0)) * n.x + (p.vy - (op?.vy ?? 0)) * n.y);
+              if (m.numSolverContacts() === 0) return;
+              const n = m.normal(this.tmpN), pt = m.solverContactPoint(0, this.tmpP) ?? p.body.translation(), c = p.body.translation();
+              // the speed of the spot that hits (a limb swung round comes down faster than its middle)
+              const crash = Math.abs((p.vx - p.w * (pt.y - c.y) - (op?.vx ?? 0)) * n.x + (p.vy + p.w * (pt.x - c.x) - (op?.vy ?? 0)) * n.y);
               const impact = impactValue(crash, G.slamFactor);
-              const dmg = damageFor(impact);
+              if (impact <= v.crashPeak) return; // (a body lands a limb at a time: only a harder moment of the same crash adds anything)
+              const dmg = damageFor(impact) - damageFor(v.crashPeak); // the hardest moment counts: a harder hit in the wait tops the damage up to it
               if (dmg <= 0) return;
+              v.crashPeak = impact;
               v.slamWait = G.slamCooldown;
-              const pt = m.solverContactPoint(0, this.tmpP) ?? p.body.translation();
               const cause: Cause = { how: 'slam', nx: n.x, ny: n.y };
               this.wound(v, dmg, impact, pt.x, pt.y, v.thrownBy, false, true, cause);
               if (third && !third.limp) this.wound(third, dmg, impact, pt.x, pt.y, v.thrownBy, false, true, cause);
@@ -621,8 +622,9 @@ export class Sim {
     for (const v of this.fighters) {
       if (v.slamBy < 0) continue;
       const g = this.fighters[v.slamBy];
-      if (!g || g.held !== v || !g.slamming || v.limp) { v.slamBy = -1; continue; }
-      for (const part of v.parts) for (const col of part.colliders) { // any part of them: in an arc it is often a shoulder or an arm that lands first
+      const going = !!g && g.held === v && g.slamming && !v.limp;
+      if (!going && v.slamWindow === 0) { v.slamBy = -1; continue; }
+      if (going) for (const part of v.parts) for (const col of part.colliders) { // any part of them: in an arc it is often a shoulder or an arm that lands first
         if (part.role === 'off' || (part.role === 'stick' && !v.grip)) continue;
         if (Math.cos(v.torso.body.rotation()) > 0.55 && (part.role === 'thigh' || part.role === 'shin')) continue; // landing them on their feet is not a slam
         const head = col === v.headCollider || part.role === 'head';
@@ -635,14 +637,22 @@ export class Sim {
             // the speed of the spot that hits (a head swung over in an arc comes down much faster than the middle of the body)
             const speed = Math.abs((part.vx - part.w * (pt.y - c.y)) * n.x + (part.vy + part.w * (pt.x - c.x)) * n.y);
             if (speed < S.minSpeed) return;
-            const dmg = damageFor(impactValue(speed, T.grab.slamFactor)) * S.bonus * (head ? T.combat.headMult : 1); // as hard as they really hit, like a throw, plus a little for doing it on purpose (and landed on their head: a head hit)
-            v.slamBy = -1;
-            g.slamming = false;
-            letGo(this.world, g, false, this.events);
-            g.bodyHitAt = this.frame + T.body.cooldown * 2; // landing on them straight after is not a second hit
-            this.wound(v, dmg, speed * S.impactFactor, pt.x, pt.y, g.index, head, true, { how: 'slam', nx: n.x, ny: n.y });
+            if (v.slamWindow === 0) v.slamWindow = S.scoreFrames; // touched down: the landing is scored over the next few frames
+            if (speed > (v.slamHit?.speed ?? 0)) v.slamHit = { speed, head, x: pt.x, y: pt.y, nx: n.x, ny: n.y };
           });
         });
+      }
+      if (v.slamWindow > 0 && --v.slamWindow === 0 && v.slamHit) { // the landing is over: its hardest moment counts
+        const h = v.slamHit;
+        const dmg = damageFor(impactValue(h.speed, T.grab.slamFactor)) * S.bonus * (h.head ? T.combat.headMult : 1); // as hard as they really hit, like a throw, plus a little for doing it on purpose (and landed on their head: a head hit)
+        v.slamBy = -1;
+        v.slamHit = null;
+        if (g) {
+          g.slamming = false;
+          if (g.held === v) letGo(this.world, g, false, this.events);
+          g.bodyHitAt = this.frame + T.body.cooldown * 2; // landing on them straight after is not a second hit
+        }
+        if (!v.limp) this.wound(v, dmg, h.speed * S.impactFactor, h.x, h.y, g?.index ?? -1, h.head, true, { how: 'slam', nx: h.nx, ny: h.ny });
       }
     }
   }

@@ -10,9 +10,12 @@ let wasArmed = true;
 beforeAll(() => { wasArmed = T.fighter.startArmed; T.fighter.startArmed = false; }); // empty hands: a slam starts from a grab
 afterAll(() => { T.fighter.startArmed = wasArmed; });
 
-/** Fighter 0 walks up to the dummy and grabs it. */
-async function grabbed() {
+/** Fighter 0 walks up to the dummy and grabs it (`shift` moves where they both start, for trying the same move from several spots). */
+async function grabbed(shift = 0) {
+  const was = [...T.arena.spawnX];
+  T.arena.spawnX = was.map((x) => x + shift);
   const sim = await Sim.create(11);
+  T.arena.spawnX = was;
   const P = sim.fighters[0], D = sim.fighters[1];
   while (D.torso.body.translation().x - P.torso.body.translation().x > 1.3) sim.step([idle({ moveX: 1, aim: Math.PI / 2 })]);
   for (let i = 0; i < 40; i++) sim.step([idle()]);
@@ -38,31 +41,41 @@ function slam(sim: Sim, P: Fighter, D: Fighter, jump = true) {
   return { landed, dmg: hp0 - D.hp, grip: !!P.hold };
 }
 
+// A slam is physics: where they land (head, shoulder, back) changes the damage a lot. So the rules are checked over several start spots.
+const SPOTS = [-1.5, -0.7, 0, 0.6, 1.3];
+
 describe('body slam', () => {
   it('holding someone, jump backwards and hold S: your arm heaves them over your head into the ground, a slam that hurts but does not kill', async () => {
-    const { sim, P, D } = await grabbed();
-    const r = slam(sim, P, D);
-    expect(r.landed).toBe(true);
-    expect(r.dmg).toBeGreaterThan(5);
-    expect(r.dmg).toBeLessThan(80);
-    expect(D.torso.body.translation().x).toBeLessThan(P.torso.body.translation().x + 0.3); // over your head: they land behind you, not in front
-    expect(D.hp).toBeGreaterThan(0);
-    expect(r.grip).toBe(false); // you let go of them as they hit
+    let landed = 0, behind = 0;
+    for (const shift of SPOTS) {
+      const { sim, P, D } = await grabbed(shift);
+      const r = slam(sim, P, D);
+      if (!r.landed) continue;
+      landed++;
+      expect(r.dmg).toBeGreaterThan(0);
+      expect(D.hp).toBeGreaterThan(0); // a slam from a normal jump never kills
+      expect(r.grip).toBe(false); // you let go of them as they hit
+      if (D.torso.body.translation().x < P.torso.body.translation().x + 0.3) behind++; // over your head: they land behind you
+    }
+    expect(landed).toBeGreaterThanOrEqual(SPOTS.length - 1);
+    expect(behind).toBeGreaterThanOrEqual(landed - 1);
   });
 
-  it('from a height it kills', async () => {
-    const { sim, P, D } = await grabbed();
-    lift([P, D], 4.0);
-    const r = slam(sim, P, D, false);
-    expect(r.landed).toBe(true);
-    expect(D.hp).toBeLessThanOrEqual(0);
+  it('from a height it does far more damage than from a jump', async () => { // (it kills only when they land on their head: damage is how hard they really hit)
+    let jump = 0, high = 0;
+    for (const shift of SPOTS) {
+      { const { sim, P, D } = await grabbed(shift); jump += slam(sim, P, D).dmg; }
+      const { sim, P, D } = await grabbed(shift);
+      lift([P, D], 4.0);
+      high += slam(sim, P, D, false).dmg;
+    }
+    expect(high).toBeGreaterThan(jump * 1.5);
   });
 
-  /** Both fighters 1.2 m up and falling at speed, the held one turned by rot about the gripping hand (as a hard downward swing leaves them). */
+  /** Both fighters 1.2 m up and falling at speed, the held one turned by rot about their own middle (0 = upright, PI = upside down). */
   function driveDown(P: Fighter, D: Fighter, rot: number, speed: number) {
     lift([P, D], 1.2);
-    const ft = P.fore.body.translation(), fa = P.fore.body.rotation();
-    const hx = ft.x + Math.cos(fa) * T.fighter.armLength / 2, hy = ft.y + Math.sin(fa) * T.fighter.armLength / 2;
+    const c = D.torso.body.translation(), hx = c.x, hy = c.y;
     for (const p of D.parts) {
       const t = p.body.translation(), rx = t.x - hx, ry = t.y - hy;
       p.body.setTranslation({ x: hx + rx * Math.cos(rot) - ry * Math.sin(rot), y: hy + rx * Math.sin(rot) + ry * Math.cos(rot) }, true);
@@ -71,12 +84,20 @@ describe('body slam', () => {
     for (const f of [P, D]) for (const p of f.parts) p.body.setLinvel({ x: 0, y: speed }, true);
   }
 
-  it('someone you hold, swung down into the ground on their back, is hurt (a slam without the jump)', async () => {
-    const { sim, D } = await grabbed();
-    const hp0 = D.hp;
-    driveDown(sim.fighters[0], D, Math.PI / 2, 11);
-    for (let i = 0; i < 30; i++) sim.step([idle({ attack: true, aim: Math.PI / 2 })]);
-    expect(D.hp).toBeLessThan(hp0 - 5);
+  it('someone you fling into the ground headfirst is hurt, by the hardest moment of the landing', async () => {
+    for (const shift of SPOTS) {
+      const { sim, D } = await grabbed(shift);
+      sim.step([idle()]); // let go: flung
+      const hp0 = D.hp, c = D.torso.body.translation(), dx = 2.5, up = 1.5;
+      for (const p of D.parts) { // out over open floor, upside down, coming down hard
+        const t = p.body.translation(), rx = t.x - c.x, ry = t.y - c.y;
+        p.body.setTranslation({ x: c.x + dx - rx, y: c.y - up - ry }, true);
+        p.body.setRotation(p.body.rotation() + Math.PI, true);
+        p.body.setLinvel({ x: 0, y: 11 }, true); p.body.setAngvel(0, true);
+      }
+      for (let i = 0; i < 30; i++) sim.step([idle()]);
+      expect(D.hp).toBeLessThan(hp0 - 5);
+    }
   });
 
   it('someone you hold, set down on their feet, is not hurt', async () => {

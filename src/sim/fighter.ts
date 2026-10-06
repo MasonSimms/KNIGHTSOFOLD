@@ -94,9 +94,13 @@ export interface Fighter {
   holdFrames: number; // how long the current grab has lasted
   thrownBy: number; // who flung this fighter (-1 = nobody)
   thrown: number; // frames left in which a hard crash hurts
-  slamWait: number; // frames before another crash can hurt
+  slamWait: number; // frames before another crash can hurt (unless it is harder than the one that started the wait: see crashPeak)
+  crashPeak: number; // the impact of the crash being waited out: a harder one in the wait tops the damage up to it
+  slamWindow: number; // frames left in which a slam that has touched down is still landing (its hardest moment counts)
+  slamHit: { speed: number; head: boolean; x: number; y: number; nx: number; ny: number } | null; // the hardest moment of that landing so far
   jumpBuffer: number; // frames a jump press is remembered (so pressing a touch early still jumps)
   coyote: number; // frames after leaving a ledge during which a jump still works
+  leanNow: number; // the lean the body is easing toward its wanted lean (radians; see tuning.lean.ease)
   still: number; // frames spent motionless off the ground (held up by something that is not a floor: see motion.stuckFrames)
   prevDrop: boolean;
   pickupRequest: boolean; // right-click with empty hands: the world looks for a loose weapon in reach
@@ -237,7 +241,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, still: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, leanNow: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -722,6 +726,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     if (f.release > 0) lean += s * LN.slamForward;
     if (punchPhase === 'strike') lean += s * LN.punchForward * f.punchPower;
   }
+  f.leanNow += (lean - f.leanNow) * Math.min(1, dt / LN.ease); // ease into a lean instead of snapping to it (owner: less flopping about)
+  lean = f.leanNow;
   // Near the bottom of a crouch you stop holding yourself upright, so you tip over the way you are leaning and lie down. Only on the ground
   // (owner: holding S in the air tipped you onto your side mid-jump, so you landed sideways and bounced).
   const tip = f.grounded ? smooth(T.crouch.tipStart, T.crouch.tipAt, f.crouch) : 0;

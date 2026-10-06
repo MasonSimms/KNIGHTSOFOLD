@@ -54,7 +54,7 @@ export const tuning = {
     startArmed: true, // false = you start with empty hands, to try the punch
     torsoRadius: 0.18,
     torsoMass: 6,
-    torsoInertia: 0.5, // extra resistance to turning (kg*m^2): higher = the body is harder to twist, by the arm, by hits, by anything
+    torsoInertia: 1.5, // extra resistance to turning (kg*m^2): higher = the body is harder to twist, by the arm, by hits, by anything (owner: less flopping; was 0.5: a swing or a hit spun the body about)
     headRadius: 0.17,
     headY: -0.55,
     headMass: 1,
@@ -91,9 +91,10 @@ export const tuning = {
   },
   lean: {
     // The body leans into where it is going, then springs back upright. Angles in radians (0.5 is about 30 degrees).
-    perSpeed: 0.06, // lean per m/s of walking speed
-    perAccel: 0.1, // lean while speeding up (forward) or braking (backward): the difference between wanted and actual speed
-    max: 0.7, // never lean further than this from walking
+    perSpeed: 0.03, // lean per m/s of walking speed (was 0.06)
+    perAccel: 0.05, // lean while speeding up (forward) or braking (backward): the difference between wanted and actual speed (was 0.1)
+    max: 0.35, // never lean further than this from walking (about 20 degrees; was 0.7, 40 degrees: the body whipped back and forth in a fight)
+    ease: 0.1, // seconds: the body eases into a new lean over about this long instead of snapping to it
     chargeBack: 0.35, // lean back while charging a club (anticipation)
     slamForward: 0.5, // throw the body forward during a lunge/slam
     punchForward: 0.35, // lean into the punch
@@ -204,9 +205,11 @@ export const tuning = {
     recoveryFrames: 6, // after coming back from a dodge you cannot start an attack for this long (0.1 s: short enough to punish a swing that missed you)
   },
   balance: {
-    kp: 800, // spring pulling the body upright
-    kd: 60, // damping on spin
-    maxTorque: 900,
+    // Keep kd / 60 / (the torso's turning inertia, about 0.26 + fighter.torsoInertia) under about 1: above it the damping overshoots every frame
+    // and the body rattles (at 0.5 inertia and kd 60 it was 1.31; with balance doubled on that body, 2.6, it shook itself to pieces).
+    kp: 1600, // spring pulling the body upright (was 800 on a lighter-turning body)
+    kd: 90, // damping on spin (was 60)
+    maxTorque: 1500, // (was 900)
     stunFactor: 0.25, // balance strength while stunned
   },
   rightUp: {
@@ -228,6 +231,7 @@ export const tuning = {
     bonus: 1.3, // a slam does this much more damage than a throw landing just as hard (owner: a little extra)
     carryJumpSpeed: 8.5, // jumping while holding someone: you both leave the ground this fast (m/s), lower than a free jump (motion.jumpSpeed): a body in your hands weighs you down
     minSpeed: 4, // m/s: their head or body must hit the ground at least this fast
+    scoreFrames: 4, // a body lands a limb at a time: the slam is scored over this many frames after it first touches down, and the hardest moment counts
     impactFactor: 3.5, // how hard it counts for knockdown, screen shake and paint (x the speed they hit at)
   },
 
