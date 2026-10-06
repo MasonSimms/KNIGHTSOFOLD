@@ -61,24 +61,22 @@ describe('the world is physics: a breakable bridge', () => {
     expect(planks(sim).filter(attached).length).toBeGreaterThan(3); // the rest of the bridge is still up
   });
 
-  it('someone slamming into the bridge with force breaks it there', async () => {
-    const { sim, step } = await onBridge();
-    const f = sim.fighters[0];
-    const target = planks(sim)[4].body.translation();
-    const dx0 = target.x - f.torso.body.translation().x;
-    for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + dx0, y: q.y - 2.0 }, true); p.body.setLinvel({ x: 0, y: 0 }, true); }
-    const seen: string[] = [];
-    for (let i = 0; i < 30; i++) { for (const p of f.parts) if (p.role !== 'stick') p.body.setLinvel({ x: 0, y: Math.max(p.body.linvel().y, 0) + 1.5 }, true); step(); seen.push(...sim.events.map((e) => e.t)); }
-    // a slow landing (a normal jump's speed) must not break it: that was the first half; now a hard slam
-    expect(planks(sim).every(attached) || seen.includes('cut')).toBe(true);
-    const g = sim.fighters[1];
-    const t2 = planks(sim)[2].body.translation();
-    const dx1 = t2.x - g.torso.body.translation().x;
-    for (const p of g.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + dx1, y: q.y - 2.0 }, true); p.body.setLinvel({ x: 0, y: 16 }, true); }
-    const events: string[] = [];
-    for (let i = 0; i < 20; i++) { step(); events.push(...sim.events.map((e) => e.t)); }
-    expect(events).toContain('cut');
-    expect(planks(sim).filter((p) => !attached(p)).length).toBeGreaterThanOrEqual(3);
+  it('someone slamming into the bridge with force breaks it there, but landing a jump on it does not', async () => {
+    /** Fighter 0 dropped onto plank k from `up` metres above, starting at `speed` m/s downward; the cut events and planks left attached. */
+    const drop = async (k: number, up: number, speed: number) => {
+      const { sim, step } = await onBridge();
+      const f = sim.fighters[0], t = planks(sim)[k].body.translation(), dx = t.x - f.torso.body.translation().x;
+      for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + dx, y: q.y - up }, true); p.body.setLinvel({ x: 0, y: speed }, true); }
+      const cuts: string[] = [];
+      for (let i = 0; i < 40; i++) { step(); cuts.push(...sim.events.filter((e) => e.t === 'cut').map((e) => e.t)); }
+      return { cuts, loose: planks(sim).filter((p) => !attached(p)).length };
+    };
+    for (const k of [2, 4]) {
+      expect((await drop(k, 2.5, 0)).cuts).toEqual([]); // falling from higher than a jump (lands at about 12.6 m/s): the bridge holds
+      const slam = await drop(k, 2, 16); // flung down hard: it breaks there
+      expect(slam.cuts).toContain('cut');
+      expect(slam.loose).toBeGreaterThanOrEqual(3);
+    }
   });
 
   it('a plank cut loose can be picked up and swung as a club', async () => {

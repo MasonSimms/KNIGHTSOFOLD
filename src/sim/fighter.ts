@@ -101,6 +101,8 @@ export interface Fighter {
   jumpBuffer: number; // frames a jump press is remembered (so pressing a touch early still jumps)
   coyote: number; // frames after leaving a ledge during which a jump still works
   leanNow: number; // the lean the body is easing toward its wanted lean (radians; see tuning.lean.ease)
+  landDip: number; // knees giving after a landing, in crouch units (0..1; see tuning.landDip)
+  fallVy: number; // how fast you were falling on the last frame in the air (m/s, + = down): how hard the landing is
   still: number; // frames spent motionless off the ground (held up by something that is not a floor: see motion.stuckFrames)
   prevDrop: boolean;
   pickupRequest: boolean; // right-click with empty hands: the world looks for a loose weapon in reach
@@ -241,7 +243,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, leanNow: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -523,7 +525,8 @@ const smooth = (a: number, b: number, x: number) => { const t = Math.max(0, Math
  */
 function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip: number): void {
   const S = T.stand, CR = T.crouch, LG = T.legs, dt = T.sim.dt;
-  const want = lerp(S.height, CR.lowHeight, f.crouch);
+  const low = Math.max(f.crouch, f.landDip); // crouching, or the knees giving after a landing
+  const want = lerp(S.height, CR.lowHeight, low);
   if (f.carried > 0) f.carried--;
   if (f.knock === 0 && f.carried === 0 && f.groundDist < want + S.reach) { // (a knocked-down fighter, or one being held, is not held up)
     const vy = f.torso.body.linvel(tmp).y; // + = falling
@@ -562,7 +565,7 @@ function standAndLegs(f: Fighter, grounded: boolean, vx: number, s: number, tip:
       u = sgn * LG.airSpread - clamp(vx * 0.05, 0.5);
       k = LG.airKnee;
     }
-    k += CR.kneeFold * f.crouch;
+    k += CR.kneeFold * low;
     // Relative to the body (balance keeps the body upright). Aiming at the world's "down" instead makes a planted foot twist the body over.
     l.hip.configureMotorPosition(-u, LG.hipStiffness * soft, LG.hipDamping);
     const limp = f.knock > 0 ? 1 - T.knock.legSoft : 1; // a knocked-down fighter's legs offer almost no resistance, so the tumble is free
@@ -751,6 +754,12 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // ---- movement and jumping ----
   senseContacts(world, f);
   const grounded = f.grounded;
+  { // landing: the knees give for a moment, deeper the harder you land, and you spring back up (owner: more fluid movement)
+    const LD = T.landDip;
+    if (!grounded) f.fallVy = Math.max(0, body.linvel(tmp).y);
+    else if (f.fallVy > 0) { f.landDip = Math.max(f.landDip, LD.depth * smooth(LD.minSpeed, LD.fullSpeed, f.fallVy)); f.fallVy = 0; }
+    f.landDip = Math.max(0, f.landDip - (LD.depth * dt) / LD.recover);
+  }
   const CR = T.crouch;
   const lostLegs = +f.legLost[0] + +f.legLost[1];
   const crouchHeld = f.controlled && (input.crouch || lostLegs === 2);

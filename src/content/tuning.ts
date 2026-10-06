@@ -89,6 +89,14 @@ export const tuning = {
     wallTuckFrames: 30, // after a wall jump the club is held up over the head this long (0.5 s), so it does not snag the platform edge on the way out
     wallLockFrames: 10, // after a wall jump, steering is switched off for this long so you do not drift back into the wall
   },
+  landDip: {
+    // Landing bends the knees for a moment, deeper the harder you land, then you spring back up (owner: more fluid movement, less stiff).
+    // Measured in crouch (0 = standing, 1 = lying): the hips drop and the knees fold as for a crouch, but the legs stay firm.
+    minSpeed: 2, // m/s: landing slower than this (a step down) does not dip
+    fullSpeed: 15, // m/s: landing this fast dips the full depth (a normal jump lands at about 12)
+    depth: 0.7, // the deepest dip (0 = off; 1 bounced back up)
+    recover: 0.35, // seconds to come back up from the deepest dip
+  },
   lean: {
     // The body leans into where it is going, then springs back upright. Angles in radians (0.5 is about 30 degrees).
     perSpeed: 0.03, // lean per m/s of walking speed (was 0.06)
