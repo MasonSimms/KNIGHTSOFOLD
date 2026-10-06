@@ -244,6 +244,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   }));
   vignette.alpha = T.finish.vignetteAlpha;
   app.stage.addChild(grain, tintWash, vignette);
+  const box = new Graphics(); // the picture's frame on screen: zoomed in, nothing may spill outside it
+  app.stage.addChild(box);
+  let zoom = 1, camX = A.viewW / 2, camY = A.viewH / 2; // the subtle camera (tuning.camera)
 
   // Splat decal pool (ring buffer: no allocation after start-up).
   // Painted paint: blobs with drips running down (white, tinted with the colour of whoever bled), soaked into the picture.
@@ -391,7 +394,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     },
     show(s: Sim) { sim = s; builtVersion = -1; paintedEra = ''; shownRound = -1; shake = 0; },
     /** Screen pixels -> world metres. */
-    toWorld(px: number, py: number) { return { x: (px - view.x) / scale, y: (py - view.y) / scale }; },
+    toWorld(px: number, py: number) { return { x: (px - view.x) / view.scale.x, y: (py - view.y) / view.scale.y }; },
     onEvent(e: SimEvent) {
       if (e.t === 'hit' || e.t === 'stomp') {
         const boost = e.head ? 1.5 : 1;
@@ -431,7 +434,6 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     },
     draw(alpha: number, frameSeconds: number) {
       scale = Math.min(app.screen.width / A.viewW, app.screen.height / A.viewH);
-      view.scale.set(scale);
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
       const px = app.screen.height / 1080;
@@ -476,7 +478,24 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         r.g.alpha = 1 - r.age;
       }
       const sx = (Math.random() - 0.5) * 2 * shake, sy = (Math.random() - 0.5) * 2 * shake;
-      view.position.set((app.screen.width - A.viewW * scale) / 2 + sx, (app.screen.height - A.viewH * scale) / 2 + sy);
+      { // the camera: two fighters left in a fight, it eases in a little on them
+        const C = T.camera, alive = sim.matchActive && !sim.roundOver ? sim.fighters.filter((f) => f.controlled && !f.limp && !sim.gone[f.index]) : [];
+        let tz = 1, tx = A.viewW / 2, ty = A.viewH / 2;
+        if (alive.length === 2) {
+          const [a, b] = alive.map((f) => f.torso), x0 = Math.min(a.cx, b.cx) - C.margin, x1 = Math.max(a.cx, b.cx) + C.margin, y0 = Math.min(a.cy, b.cy) - C.margin, y1 = Math.max(a.cy, b.cy) + C.margin;
+          tz = Math.max(1, Math.min(C.twoLeftZoom, A.viewW / (x1 - x0), A.viewH / (y1 - y0)));
+          tx = (x0 + x1) / 2; ty = (y0 + y1) / 2;
+        }
+        const k = 1 - Math.exp(-C.ease * frameSeconds);
+        zoom += (tz - zoom) * k; camX += (tx - camX) * k; camY += (ty - camY) * k;
+        const hw = A.viewW / (2 * zoom), hh = A.viewH / (2 * zoom), cx = Math.max(hw, Math.min(A.viewW - hw, camX)), cy = Math.max(hh, Math.min(A.viewH - hh, camY));
+        view.scale.set(scale * zoom);
+        view.position.set(app.screen.width / 2 - cx * scale * zoom + sx, app.screen.height / 2 - cy * scale * zoom + sy);
+        const zoomed = zoom > 1.001;
+        if (zoomed) box.clear().rect((app.screen.width - A.viewW * scale) / 2, (app.screen.height - A.viewH * scale) / 2, A.viewW * scale, A.viewH * scale).fill(0xffffff);
+        view.mask = zoomed ? box : null;
+        box.visible = zoomed;
+      }
       for (const e of entries) {
         const { f, c } = e;
         e.vis += ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds);

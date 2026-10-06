@@ -579,6 +579,13 @@ export const tuning = {
   respawn: {
     frames: 120,
   },
+  camera: {
+    // A very subtle moving camera (owner): when only two fighters are left in a fight it eases in a little on them. It never shows past
+    // the edge of the picture, and eases back out when the round is over. Practice (you and the dummy) never zooms.
+    twoLeftZoom: 1.1, // how much closer it gets (1 = no zoom; 1.1 = 10% closer)
+    margin: 3, // metres kept around the two of them (far apart, it zooms in less)
+    ease: 1.2, // how quickly it moves in and out (higher = quicker)
+  },
   shake: {
     minImpact: 45, // hits weaker than this do not shake the screen at all
     perImpact: 0.8, // pixels of shake per point of impact above that
