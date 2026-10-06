@@ -262,7 +262,7 @@ function frame(now: number) {
   const t0 = performance.now();
   for (let steps = 0; acc >= T.sim.dt && steps < T.sim.maxStepsPerFrame; steps++, acc -= T.sim.dt) {
     const p = view.fighters[mySlot].torso;
-    lastInput = readInput(toScreen(p.cx, p.cy), mode !== 'local');
+    lastInput = readInput(toScreen(p.cx, p.cy), mode !== 'local', 1 / (renderer.toWorld(1, 0).x - renderer.toWorld(0, 0).x));
     if (room) {
       const n = ++inputSeq;
       toServer.push({ at: now + lagMs, input: lastInput, n });

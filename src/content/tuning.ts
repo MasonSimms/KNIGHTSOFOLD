@@ -45,6 +45,7 @@ export const tuning = {
     ground: [] as { x: number; w: number }[], // separate ground slabs instead of one platform (empty = the one platform)
     bridge: null as null | { x0: number; x1: number; planks: number }, // a plank bridge across a gap in the ground
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
+    scenery: [] as { kind: string; x: number; up: number }[], // breakable scenery that belongs to the map (barrels, crates): always there, unlike the loose weapons (owner: environments have destructible elements)
     sea: null as null | { level: number }, // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
     boat: false, // the main platform is a floating ship's deck instead of solid ground (needs a sea; see tuning.boat)
     // The front plane: things between us and the fighters (looks only: nobody can touch them). kind = grass or sign; x, y = where its base
@@ -442,6 +443,20 @@ export const tuning = {
     slamSpeed: 8, // a body hitting a plank at least this fast (m/s) breaks the bridge there (the stand spring soaks up an ordinary jump's landing, so only a hard fall or a flung body gets this fast)
     breakSpan: 1, // ...and this many planks either side of it
     shake: 0.03, // screen shake when a plank snaps
+  },
+  guns: {
+    // Bullets (sim/guns.ts; each gun's own numbers are in content/props.ts). PLACEHOLDER numbers until the playtest.
+    maxFrames: 150, // a bullet flying this long (2.5 s) is gone
+    minSpeed: 8, // slower than this (slowed by the sea) it is gone
+    waterSlow: 0.8, // in the sea a bullet keeps this share of its speed each frame
+    blockPush: 0.3, // a weapon that blocks a bullet is pushed this share of the bullet's shove
+    woodToughness: 3, // a wooden thing with no toughness of its own snaps after this much shooting (calibres added up)
+    sceneryDamage: 12, // a bullet's damage to breakable scenery, per calibre (barrel 60, crate 45: see props.ts)
+    sceneryMinImpact: 30, // a club hit or a crash this hard (or harder) damages breakable scenery by its impact
+    minPiece: 0.18, // a snapped weapon's shortest half (m)
+    snapFling: 1.5, // how hard the loose half of a snapped weapon flies off
+    breakSpread: 3, // how fast the pieces of broken scenery fly apart (m/s)
+    steady: 0.15, // how quickly the hand steadies a gun on the aim (share of the error corrected each frame)
   },
   water: {
     // The sea (maps with arena.sea; see sim/water.ts). Everything in it floats: fighters, weapons, barrels, lost limbs, the dead.

@@ -7,11 +7,12 @@ export interface PlayerInput {
   crouch: boolean; // S / down: crouch (lower to the ground: higher jump, more swing momentum, ducks under swings)
   drop: boolean; // right-click: let go of the weapon (it keeps the speed of your swing, plus a small push)
   dodge: boolean; // press: slip into the background plane for a moment (long cooldown)
+  reach?: number; // how far the cursor is from the fighter (m): a gun shoots from its muzzle to exactly that point (none = along the aim: a stick)
 }
 
 export const NEUTRAL: PlayerInput = { moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false };
 
-export type EventType = 'hit' | 'jump' | 'punch' | 'dodge' | 'drop' | 'throw' | 'pickup' | 'disarm' | 'grab' | 'stomp' | 'parry' | 'respawn' | 'newround' | 'gone' | 'back' | 'explode' | 'crush' | 'dismember' | 'cut' | 'spawn' | 'crash' | 'round' | 'match' | 'die' | 'fall';
+export type EventType = 'hit' | 'jump' | 'punch' | 'dodge' | 'drop' | 'throw' | 'pickup' | 'disarm' | 'grab' | 'stomp' | 'parry' | 'respawn' | 'newround' | 'gone' | 'back' | 'explode' | 'crush' | 'dismember' | 'cut' | 'spawn' | 'crash' | 'round' | 'match' | 'die' | 'fall' | 'shot' | 'empty' | 'spark' | 'splinter' | 'impact' | 'snap' | 'break' | 'exit' | 'splash';
 
 // Sim -> render/audio messages. Cleared at the start of every sim step.
 export interface SimEvent {

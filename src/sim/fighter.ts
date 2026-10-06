@@ -1,7 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { Collider, ImpulseJoint, RevoluteImpulseJoint, RigidBody, World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
-import type { Weapon } from '../content/weapons';
+import type { GunSpec, Material, Weapon } from '../content/weapons';
 import type { PlayerInput, SimEvent } from './types';
 
 export type Shape =
@@ -15,6 +15,10 @@ export interface Part {
   role: 'torso' | 'upper' | 'fore' | 'stick' | 'head' | 'thigh' | 'shin' | 'off' | 'prop'; // 'off' = the floppy second arm; 'prop' = a loose object in the world (a plank, a log...)
   links?: ImpulseJoint[]; // a prop that is part of a structure (a bridge plank): the joints holding it
   weapon?: Weapon; // a club's own stats (so it keeps them when someone else picks it up)
+  ammo?: number; // a gun: shots left (they belong to the gun, whoever holds it)
+  flipped?: boolean; // an empty gun, turned round: held by the barrel as a club (to the physics it is the same rod: only the picture turns)
+  cracks?: number; // a wooden weapon: how much shooting it has taken (it snaps at its toughness)
+  hp?: number; // breakable scenery: how much more it takes before it breaks (see props.ts breaks)
   owner: number;
   // interpolation poses (previous / current sim step) for the renderer
   px: number; py: number; pa: number; cx: number; cy: number; ca: number;
@@ -120,6 +124,12 @@ export interface Fighter {
   pickupAim: number; // where the cursor pointed when they asked: the thing they aim at is the thing they pick up
   lostFrames: number; // how long this fighter's club has been lost in the void
   dropCooldown: number; // frames until a dropped club can be picked up again
+  trigger: boolean; // the attack button last frame (a gun fires on the press)
+  fireRequest: boolean; // pressed the trigger with a loaded gun: the world fires it this frame (sim/guns.ts)
+  gunCool: number; // frames until the gun can fire again
+  aim: number; // where the player is aiming (radians): a bullet flies exactly there
+  gunTrim: number; // how much the wrist corrects to hold a gun on the aim
+  reach: number; // how far away the cursor is (m; 0 = not known): the point a gun shoots at
   spawnX: number;
   spawnY: number;
 }
@@ -251,7 +261,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, swimKick: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -277,7 +287,8 @@ function attachStick(world: World, f: Fighter): void {
   const L = T.fighter.armLength;
   const W = stick.weapon ?? T.stick;
   const grip = W.length / 2 - W.gripFromEnd;
-  // Snap the stick into the hand, in line with the forearm, so the joint starts relaxed.
+  // Snap the stick into the hand, in line with the forearm, so the joint starts relaxed. (An empty gun, held by the barrel, is the same
+  // rod to the physics: only its picture is turned round. See Part.flipped.)
   const fore = f.fore.body;
   const a = fore.rotation();
   const c = Math.cos(a), s = Math.sin(a);
@@ -303,7 +314,7 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
 }
 
 /** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
-export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number }): Part {
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number } }): Part {
   const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
   const collider = world.createCollider(
@@ -311,7 +322,8 @@ export function createProp(world: World, x: number, y: number, angle: number, sp
   return {
     body, shapes: [{ k: 'cap', hl, r, x: 0, y: 0, rot: Math.PI / 2 }], colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
-    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: Math.min(0.2, spec.len * 0.25), impactFactor: spec.factor ?? T.props.factor },
+    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: Math.min(0.2, spec.len * 0.25), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun },
+    ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}),
   };
 }
 
@@ -676,9 +688,16 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
 
   const C = T.charge, K = T.punch, LN = T.lean;
   const armed = !!f.grip;
+  // A loaded gun in the hand: one click, one shot (the world fires it: sim/guns.ts); no wind-up, the barrel points at the aim.
+  const gun = armed && f.stick?.weapon?.gun && (f.stick.ammo ?? 0) > 0 && !f.stick.flipped ? f.stick.weapon.gun : null;
+  if (f.gunCool > 0) f.gunCool--;
+  if (gun && f.controlled && attack && !f.trigger && f.gunCool === 0) f.fireRequest = true;
+  f.trigger = input.attack;
+  f.aim = input.aim;
+  f.reach = input.reach ?? 0;
   const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
   // Facing follows the aim, but is locked for a whole attack (a charge and its lunge, or a punch) so the swing cannot turn around.
-  const facingLocked = f.controlled && (attack || f.charge > 0 || f.release > 0 || f.punch > 0);
+  const facingLocked = f.controlled && !gun && (attack || f.charge > 0 || f.release > 0 || f.punch > 0); // (a gun turns freely: you aim it)
   if (!facingLocked) {
     if (aimX > FLIP) f.side = 1;
     else if (aimX < -FLIP) f.side = -1;
@@ -686,7 +705,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const s = f.side;
 
   // ---- attack state ----
-  const charging = f.controlled && armed && attack && !f.throwPending; // hold to charge a club
+  const charging = f.controlled && armed && attack && !f.throwPending && !gun; // hold to charge a club
   let punchPhase: 'none' | 'strike' | 'recover' = 'none';
   let strikeStart = false;
   const G = T.grab;
@@ -919,7 +938,11 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   let U = aimR, E = 0, W = 0; // dummy: a straight arm hanging toward the aim
   let followAim = true;
   let gain = 1; // burst: stronger arm for a moment
-  if (armed) {
+  if (gun) { // a loaded gun: the arm straight out, the wrist lines the barrel up with the aim, and steadies it (trims out what the arm's weight leaves)
+    f.gunTrim = clamp(f.gunTrim + T.guns.steady * wrapAngle(input.aim - f.stick!.body.rotation()), 0.6);
+    U = aimR; E = 0; W = s * (wrapAngle(input.aim - f.fore.body.rotation()) + f.gunTrim);
+  } // a loaded gun: the arm straight out, and the wrist lines the barrel up with the aim (whatever the arm's sag)
+  else if (armed) {
     if (slamming) {
       E = P.slamElbow; W = P.slamWrist; // slam: arm swings down through the aim and straightens
       gain = f.releaseMul;

@@ -88,7 +88,7 @@ export function readPadInput(slot: number, pad: Gamepad): PlayerInput {
 
 /** Player 1. `fighter` = where the player is on screen (px); mouse aim is the angle from there to the cursor. `withPad` = the first
  * gamepad drives this player too (not in a local fight, where every gamepad has its own seat). */
-export function readInput(fighter: { x: number; y: number }, withPad = true): PlayerInput {
+export function readInput(fighter: { x: number; y: number }, withPad = true, pxPerMetre = 0): PlayerInput {
   let moveX = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
   const tapped = (...codes: string[]) => codes.map((c) => taps.delete(c)).some(Boolean); // a press that was over before this frame still counts
   let jump = keys.has('Space') || tapped('Space');
@@ -112,5 +112,6 @@ export function readInput(fighter: { x: number; y: number }, withPad = true): Pl
     padPrevDrop[0] = dropNow;
   }
   const aim = usePadAim ? padAim : Math.atan2(mouseY - fighter.y, mouseX - fighter.x);
-  return { moveX, jump, aim, attack, crouch, drop, dodge };
+  const reach = !usePadAim && pxPerMetre > 0 ? Math.hypot(mouseX - fighter.x, mouseY - fighter.y) / pxPerMetre : undefined; // (a stick has no distance)
+  return { moveX, jump, aim, attack, crouch, drop, dodge, ...(reach !== undefined ? { reach } : {}) };
 }

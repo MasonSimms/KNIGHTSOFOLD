@@ -12,6 +12,8 @@ import { eraFor, mapFor, outfitsFor } from './era';
 import { Bot } from './bot';
 import { makeRng } from './rng';
 import { applyWater, buildBoat, surfaceY } from './water';
+import { breakProp, damageScenery, fire, moveBullets, snapPart, spendShot } from './guns';
+import type { Bullet } from './guns';
 import type { Boat } from './water';
 import type { Look } from '../content/looks';
 import { NEUTRAL } from './types';
@@ -45,7 +47,7 @@ const decodeItem = (e: { v: number; victim: number }): Item => (e.v < 0 ? { kind
 /** What killed a fighter, so the death can be staged to fit (crushed, blown apart, a limb lost). */
 /** A training change at frame f: an item dropped in at (x, y), or (no item) the loose things cleared away. */
 export interface Edit { f: number; item?: string; x?: number; y?: number }
-export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam'; part?: Part; head?: boolean; nx: number; ny: number }
+export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam' | 'shot'; part?: Part; head?: boolean; nx: number; ny: number }
 
 export class Sim {
   frame = 0;
@@ -57,7 +59,9 @@ export class Sim {
   fighters: Fighter[] = [];
   world!: World;
   private rng: () => number;
-  private partByBody = new Map<number, Part>();
+  readonly partByBody = new Map<number, Part>(); // (guns.ts reads it too)
+  bullets: Bullet[] = []; // bullets in flight (sim/guns.ts)
+  nextBullet = 0;
   private seed: number;
   private tmpV = { x: 0, y: 0 };
   private tmpN = { x: 0, y: 0 };
@@ -185,6 +189,8 @@ export class Sim {
     this.lastImpact = 0;
     this.events.length = 0;
     this.edits = []; // (a new list: last round's recording keeps the old one)
+    this.bullets = [];
+    this.nextBullet = 0;
     this.partByBody.clear();
 
     const A = this.arena;
@@ -215,6 +221,12 @@ export class Sim {
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(l.w / 2, A.ledgeThick / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
     }
     const xs = (this.dummy ? A.spawnX : A.fightSpawnX).map(along);
+    for (const sc of A.scenery) { // the map's breakable scenery: always there
+      const spec = PROPS[sc.kind] ?? PROPS.crate;
+      const p = createProp(this.world, sc.x, A.platformTop - sc.up - spec.thick / 2 - 0.01, 0, { kind: sc.kind, ...spec });
+      this.props.push(p);
+      this.partByBody.set(p.body.handle, p);
+    }
     for (const pr of T.props.lying ? A.props : []) { // loose objects lying on the arena
       const spec = PROPS[pr.kind] ?? PROPS.plank;
       const p = createProp(this.world, pr.x, A.platformTop - pr.up - spec.thick / 2 - 0.01, 0, { kind: pr.kind, ...spec });
@@ -270,14 +282,52 @@ export class Sim {
     p.links = [];
   }
 
-  /** A club that hits a plank hard enough cuts it loose. */
+  /** A club that hits a plank hard enough cuts it loose; a hard enough hit (club or fist) damages breakable scenery. */
   private hitProp(att: Attacker, plank: Part, pt: { x: number; y: number }, n: { x: number; y: number }): void {
+    if (plank.hp !== undefined) { const c0 = this.contact(att.part, plank, pt, n); damageScenery(this, plank, impactValue(c0.closing, att.kind === 'stick' ? (att.part.weapon ?? T.stick).impactFactor : T.fist.impactFactor)); return; }
     if (att.kind !== 'stick' || !plank.links?.length) return;
     const c = this.contact(att.part, plank, pt, n);
     const impact = impactValue(c.closing, (att.part.weapon ?? T.stick).impactFactor);
     if (impact < T.bridge.cutImpact) return;
     this.ripFree(plank);
     this.events.push({ t: 'cut', x: pt.x, y: pt.y, v: impact, owner: att.part.owner, victim: -1 });
+  }
+
+  // ---- for guns.ts ----
+  /** Take a part out of the world for good (a snapped weapon, broken scenery): from the hand holding it, or from the loose things. */
+  removeBody(part: Part, holder: Fighter | undefined): void {
+    if (holder && holder.stick === part) {
+      if (holder.grip) { this.world.removeImpulseJoint(holder.grip, true); holder.grip = null; }
+      dropToWorld(holder);
+    } else {
+      const i = this.props.indexOf(part);
+      if (i >= 0) this.props.splice(i, 1);
+    }
+    this.partByBody.delete(part.body.handle);
+    this.world.removeRigidBody(part.body);
+  }
+  /** A light weapon shot out of the hand: it flies off with the bullet. */
+  disarmByShot(f: Fighter, ix: number, iy: number, owner: number): void {
+    if (!f.grip || !f.stick) return;
+    this.world.removeImpulseJoint(f.grip, true);
+    f.grip = null;
+    f.charge = 0; f.release = 0; f.throwPending = false;
+    f.dropCooldown = T.drop.pickupDelay;
+    f.stick.body.applyImpulse({ x: ix, y: iy }, true);
+    const t = f.stick.body.translation();
+    this.events.push({ t: 'disarm', x: t.x, y: t.y, v: Math.hypot(ix, iy), owner, victim: f.index });
+  }
+  /** A bridge plank (or anything held by joints) shot loose. */
+  shootLoose(part: Part, x: number, y: number, owner: number): void {
+    this.ripFree(part);
+    this.events.push({ t: 'cut', x, y, v: 0, owner, victim: -1 });
+  }
+  /** After a bullet hit a fighter: a hold breaks on a big one, a knockdown, or the end. */
+  afterShot(v: Fighter, impact: number, dx: number): void {
+    this.lastImpact = impact;
+    if (v.hold && impact >= T.grab.breakImpact) letGo(this.world, v, false, this.events);
+    if (v.hp <= 0) this.kill(v, false, impact, { how: 'shot', nx: dx, ny: 0 });
+    else this.knockdown(v, impact, dx);
   }
 
   /** Someone slamming into the bridge hard enough breaks it there (the planks around the impact come free). */
@@ -370,6 +420,7 @@ export class Sim {
       }
     }
 
+    for (const f of this.fighters) if (f.fireRequest) { f.fireRequest = false; if (!f.limp) fire(this, f); } // triggers pulled with a loaded gun
     for (const p of this.props) { const v = p.body.linvel(this.tmpV); p.vx = v.x; p.vy = v.y; p.w = p.body.angvel(); }
     this.spawnPickups();
     this.resolvePickups();
@@ -386,6 +437,7 @@ export class Sim {
     this.resolveCrashes();
     this.resolveSlams();
     this.resolveBodySlams();
+    moveBullets(this);
     this.checkDeaths();
     this.snapshot();
   }
@@ -431,6 +483,9 @@ export class Sim {
     else if (e.t === 'gone') { this.gone[e.owner] = true; if (f && !f.limp) this.kill(f, true); }
     else if (e.t === 'spawn') this.addProp(PROP_KINDS[e.v], e.x, e.y);
     else if (e.t === 'newround') { this.round++; this.build(); }
+    else if (e.t === 'shot') { if (f) spendShot(f); }
+    else if (e.t === 'snap') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) snapPart(this, p, e.v, h); }
+    else if (e.t === 'break') { const p = this.props[e.victim]; if (p) breakProp(this, p, false); }
   }
 
   /** How this round begins (a pure function of the seed and round): armed, clubs at fixed spots, or clubs from the sky. */
