@@ -16,6 +16,7 @@ export interface Snapshot {
   scores: number[];
   f: { hp: number; back: boolean; p: number[]; st?: number }[]; // per fighter: hp, on the background plane, x, y, angle for each part, and state flags (FREE: see fighterState)
   simFrame?: number; // the round's own frame (the waves follow it)
+  bl?: number[]; // bullets in flight: id, x, y, start x, start y, shooter for each (for drawing them)
   era: string;
   map: number;
   props: number[]; // x, y, angle of every loose prop (planks, logs...)
@@ -42,6 +43,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
     boat: sim.boat ? [r3(sim.boat.body.translation().x), r3(sim.boat.body.translation().y), r3(sim.boat.body.rotation())] : undefined,
     f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, st: fighterState(f), p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
     simFrame: sim.frame,
+    bl: sim.bullets.flatMap((u) => [u.id, r3(u.x), r3(u.y), r3(u.ox), r3(u.oy), u.owner]),
   };
 }
 
@@ -125,6 +127,15 @@ export class Mirror {
     }
     if (sim.boat && a.boat) { const bb = b.boat ?? a.boat; Object.assign(sim.boat, { px: a.boat[0], py: a.boat[1], pa: a.boat[2], cx: bb[0], cy: bb[1], ca: bb[2] }); }
     if (b.simFrame !== undefined) sim.frame = b.simFrame;
+    // Bullets: each one between where it was in the two snapshots (one new in the later one appears there).
+    sim.bullets.length = 0;
+    const bb = b.bl ?? [], ab = a.bl ?? [];
+    for (let k = 0; k < bb.length; k += 6) {
+      let j = -1;
+      for (let q = 0; q < ab.length; q += 6) if (ab[q] === bb[k]) { j = q; break; }
+      const x = bb[k + 1], y = bb[k + 2];
+      sim.bullets.push({ id: bb[k], x, y, px: j >= 0 ? ab[j + 1] : x, py: j >= 0 ? ab[j + 2] : y, vx: 0, vy: 0, ox: bb[k + 3], oy: bb[k + 4], owner: bb[k + 5], gun: '', calibre: 0, impact: 0, push: 0, age: 0, bounced: false, wet: false });
+    }
     sim.fighters.forEach((f, i) => {
       const pa = a.f[i]?.p, pb = b.f[i]?.p;
       if (!pa || pa.length !== f.parts.length * 3) { this.desyncs++; return; }

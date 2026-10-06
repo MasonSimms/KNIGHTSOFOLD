@@ -12,7 +12,7 @@ import { eraFor, mapFor, outfitsFor } from './era';
 import { Bot } from './bot';
 import { makeRng } from './rng';
 import { applyWater, buildBoat, surfaceY } from './water';
-import { breakProp, damageScenery, fire, moveBullets, snapPart, spendShot } from './guns';
+import { breakProp, damageScenery, fire, moveBullets, predictShot, snapPart, spendShot } from './guns';
 import type { Bullet } from './guns';
 import type { Boat } from './water';
 import type { Look } from '../content/looks';
@@ -447,12 +447,14 @@ export class Sim {
    * Everything else must already be set to follow the server (kinematic). Nothing is decided here (hits, deaths, pickups, rounds): the
    * server does that and says so; this only moves the body, so your own fighter answers your keys at once.
    */
-  predictStep(slot: number, input: PlayerInput): void {
+  predictStep(slot: number, input: PlayerInput): SimEvent[] {
     const f = this.fighters[slot];
-    if (!f || f.limp) return;
+    if (!f || f.limp) return [];
     applyWater(this.arena, this.frame, [f], [], null);
     controlFighter(this.world, f, input, this.predictEvents, 0);
     this.predictEvents.length = 0; // (no sounds or paint from a guess: the server's events bring those)
+    const shown: SimEvent[] = []; // ...except a shot of your own: its flash, bang and kick are at once (owner: instant feel)
+    if (f.fireRequest) { f.fireRequest = false; const e = predictShot(f); if (e) shown.push(e); }
     syncStickGroups(f);
     for (const p of f.parts) {
       const v = p.body.linvel(this.tmpV);
@@ -466,6 +468,7 @@ export class Sim {
       const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y), M = T.sim.maxPartSpeed;
       if (s > M) p.body.setLinvel({ x: (v.x / s) * M, y: (v.y / s) * M }, true);
     }
+    return shown;
   }
   private predictEvents: SimEvent[] = [];
 

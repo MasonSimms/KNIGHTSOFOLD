@@ -268,13 +268,13 @@ function frame(now: number) {
       const n = ++inputSeq;
       toServer.push({ at: now + lagMs, input: lastInput, n });
       while (toServer.length && toServer[0].at <= now) { const x = toServer.shift()!; room.setInput(0, x.input, x.n); }
-      predictor?.tick(lastInput, n, shownAlpha);
+      for (const e of predictor?.tick(lastInput, n, shownAlpha) ?? []) play(e);
       room.setInput(2, flail(sim.frame, 2)); room.setInput(3, flail(sim.frame, 3));
       const s = room.tick();
       if (s) toClient.push({ at: now + lagMs, s: JSON.parse(JSON.stringify(s)) }); // through the "wire"
       continue;
     }
-    if (net) { const n = ++inputSeq; net.send({ t: 'in', i: lastInput, n }); predictor?.tick(lastInput, n, shownAlpha); continue; } // online: the server runs the fight; we send our controls (and, predicting, move our own fighter at once)
+    if (net) { const n = ++inputSeq; net.send({ t: 'in', i: lastInput, n }); for (const e of predictor?.tick(lastInput, n, shownAlpha) ?? []) play(e); continue; } // online: the server runs the fight; we send our controls (and, predicting, move our own fighter at once)
     const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
     if (mode === 'local') for (let k = 0; k < devices.length; k++) { const d = devices[k]; inputs[k] = d === 'kb' ? lastInput : d === 'bot' ? NEUTRAL : padInput(k, d, pads); } // (a bot presses its own buttons inside the sim)
     else if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
@@ -300,7 +300,7 @@ function frame(now: number) {
     if (net && mirror.desyncs > desyncsSeen && now - resyncAt > 2000) { net.send({ t: 'resync' }); resyncAt = now; } // our copy went wrong: ask for all of it again
     desyncsSeen = mirror.desyncs;
     alpha = shownAlpha = shown.alpha;
-    for (const e of shown.events) play(e);
+    for (const e of shown.events) if (!(e.t === 'shot' && e.owner === mySlot && predictor?.active)) play(e); // (your own shot already flashed and banged when you clicked)
   }
   renderer.draw(alpha, ft / 1000, predictor?.active ? { slot: mySlot, alpha: acc / T.sim.dt } : undefined);
   updateHud(view);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { botLook } from '../content/looks';
 import { PROPS } from '../content/props';
 import { tuning as T } from '../content/tuning';
 import { Mirror } from '../net/snapshot';
@@ -141,6 +142,7 @@ describe('guns', () => {
       for (let i = 0; i < 30; i++) client.step([NEUTRAL, NEUTRAL]); // (the copy is built the same way; it is never stepped after this)
       for (const s2 of [server, client]) { arm(s2, 0, 'revolver'); arm(s2, 1, 'plank'); } // (the copy is given the same: online this comes from 'spawn' and 'pickup' events)
       const room = new Room(server), mirror = new Mirror(client, 0);
+      let seen = 0;
       for (const p of [...server.props]) void p;
       const at = server.fighters[0].torso.body.translation();
       for (const s2 of [server, client]) s2.spawnItem('crate', at.x + 3, at.y - 1);
@@ -149,12 +151,29 @@ describe('guns', () => {
         room.setInput(0, { ...NEUTRAL, aim: Math.atan2(b.y - a.y, b.x - a.x) + Math.sin(i / 30) * 0.2, attack: i % 25 < 2 });
         room.setInput(1, { ...NEUTRAL, aim: Math.PI, moveX: Math.sin(i / 50) });
         const snap = room.tick();
-        if (snap) { mirror.push(JSON.parse(JSON.stringify(snap))); mirror.show(snap.frame); }
+        if (snap) { mirror.push(JSON.parse(JSON.stringify(snap))); mirror.show(snap.frame); seen = Math.max(seen, client.bullets.length); }
       }
+      expect(seen).toBeGreaterThan(0); // the copy draws the bullets in flight
       expect(mirror.desyncs).toBe(0); // the copy kept every part: shots, snapped weapons and broken scenery replayed
       expect(client.props.length).toBe(server.props.length);
       return hashSim(server);
     };
     expect(await run()).toBe(await run());
   }, 60_000);
+
+  it('a bot with a gun keeps its distance, aims and shoots, and hits', async () => {
+    const sim = await Sim.create(12, 2, false);
+    sim.looks[0] = botLook();
+    sim.reset();
+    for (let i = 0; i < 30; i++) sim.step([NEUTRAL, NEUTRAL]);
+    arm(sim, 0, 'revolver');
+    let shots = 0, hits = 0;
+    for (let i = 0; i < 600 && sim.fighters[0].stick?.ammo; i++) {
+      sim.step([NEUTRAL, NEUTRAL]);
+      shots += sim.events.filter((e) => e.t === 'shot' && e.owner === 0).length;
+      hits += sim.events.filter((e) => e.t === 'hit' && e.how === 'shot' && e.owner === 0).length;
+    }
+    expect(shots).toBeGreaterThan(2);
+    expect(hits).toBeGreaterThan(0);
+  }, 30_000);
 });

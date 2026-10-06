@@ -7,6 +7,7 @@ import { createProp, dropToWorld, shove, takeIn } from './fighter';
 import type { Fighter, Part } from './fighter';
 import { surfaceY } from './water';
 import type { Sim } from './world';
+import type { SimEvent } from './types';
 
 // Guns and bullets (owner). A loaded gun fires one shot a click (fighter.ts sets fireRequest); a bullet is a fast, real shot that flies
 // through the world (a ray each frame, so it never skips through anything) and stops at the first thing it meets:
@@ -46,6 +47,20 @@ export function fire(sim: Sim, f: Fighter): void {
   sim.events.push({ t: 'shot', x: mx, y: my, v: a, owner: f.index, victim: -1, w: p.weapon!.id });
   spendShot(f);
   if (p.flipped) sim.events.push({ t: 'empty', x: mx, y: my, v: 0, owner: f.index, victim: -1, w: p.weapon!.id }); // the last one: a dry click, a puff, the gun turned round
+}
+
+/**
+ * Online prediction (the page's own fighter): the trigger pulled with a loaded gun shows at once: the gun kicks and the body is pushed back
+ * here, and the flash and bang play. No bullet and no shot used: those are the server's (it says so a moment later).
+ */
+export function predictShot(f: Fighter): SimEvent | null {
+  const p = f.stick, G = p?.weapon?.gun;
+  if (!p || !G || !f.grip || (p.ammo ?? 0) <= 0 || p.flipped) return null;
+  const b = p.body, t = b.translation(), g = b.rotation(), half = lenOf(p) / 2, c = Math.cos(f.aim), s = Math.sin(f.aim);
+  b.applyImpulse({ x: -c * G.recoil, y: -s * G.recoil }, true);
+  shove(f, -c * G.kick, -s * G.kick);
+  f.gunCool = G.cooldown;
+  return { t: 'shot', x: t.x + Math.cos(g) * half, y: t.y + Math.sin(g) * half, v: f.aim, owner: f.index, victim: -1, w: p.weapon!.id };
 }
 
 /** One shot used (the server's 'shot', or the online copy replaying it): the last one turns the gun round: an empty gun is a club. */

@@ -553,6 +553,9 @@ export const tuning = {
     stunFrames: 25,
   },
   bot: {
+    gunKeep: 3, // with a loaded gun: stay at least this far from the target (m)...
+    gunMax: 11, // ...and come closer if further than this
+    gunAimTol: 0.08, // fire when the aim is this close to the target (radians)
     // Computer players (owner: they play like a regular person; src/sim/bot.ts). They only press the buttons a player has. These make them
     // more or less human:
     reactFrames: [10, 16], // a new decision every this many frames (about a fifth of a second: a person's reaction time)

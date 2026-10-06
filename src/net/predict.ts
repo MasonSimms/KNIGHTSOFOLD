@@ -2,7 +2,7 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { RigidBody } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part } from '../sim/fighter';
-import type { PlayerInput } from '../sim/types';
+import type { PlayerInput, SimEvent } from '../sim/types';
 import type { Mirror, Snapshot } from './snapshot';
 
 // Prediction (owner: your own fighter answers your keys at once online, behind a switch). The page moves its own fighter with its own
@@ -26,10 +26,11 @@ export class Predictor {
   /** This page is moving its own fighter right now. */
   get active(): boolean { return this.on; }
 
-  /** One tick of your own buttons (input number n), moved at once. alpha: where the shown world is between its two snapshots. */
-  tick(input: PlayerInput, n: number, alpha: number): void {
+  /** One tick of your own buttons (input number n), moved at once. alpha: where the shown world is between its two snapshots.
+   *  Returns what to show at once (your own shot's flash and bang). */
+  tick(input: PlayerInput, n: number, alpha: number): SimEvent[] {
     const sim = this.mirror.sim, f = sim.fighters[this.slot];
-    if (!f || f.limp || (this.state & SERVER_ONLY)) { this.stop(); return; }
+    if (!f || f.limp || (this.state & SERVER_ONLY)) { this.stop(); return []; }
     if (!this.on) this.start(f, alpha);
     const mine = new Set(this.mine(f));
     // Other fighters (and their weapons) do not touch yours here: what happens when fighters meet (a body hit, a knock back, a grab) is the
@@ -43,11 +44,12 @@ export class Predictor {
     for (const p of sim.props) drive(p.body, p, alpha);
     if (sim.boat) follow(sim.boat.body, { px: sim.boat.px, py: sim.boat.py, pa: sim.boat.pa, cx: sim.boat.cx, cy: sim.boat.cy, ca: sim.boat.ca }, alpha);
     for (const p of mine) { if (!p.body.isDynamic()) p.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true); if (p.body.gravityScale() !== 1) p.body.setGravityScale(1, true); }
-    sim.predictStep(this.slot, input);
+    const shown = sim.predictStep(this.slot, input);
     for (const p of mine) { const t = p.body.translation(); p.px = p.cx; p.py = p.cy; p.pa = p.ca; p.cx = t.x; p.cy = t.y; p.ca = p.body.rotation(); }
     const t = f.torso.body.translation();
     this.hist.set(n, { x: t.x, y: t.y });
     if (this.hist.size > T.net.predict.history) this.hist.delete(this.hist.keys().next().value!);
+    return shown;
   }
 
   /** A snapshot from the server: what it says about you, and how far your guess was off. */

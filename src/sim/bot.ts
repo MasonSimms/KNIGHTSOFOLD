@@ -16,6 +16,7 @@ type Plan =
   | { kind: 'fetch'; part: Part } // walk to a loose weapon and pick it up
   | { kind: 'approach' }
   | { kind: 'swing'; charge: number } // hold to charge for `charge` frames, then let go
+  | { kind: 'shoot' } // a loaded gun: keep a little distance, aim, fire when the aim is on them
   | { kind: 'punch' }
   | { kind: 'backoff' } // after an attack: a step or two back out of reach, as people do
   | { kind: 'grab'; finish: 'fling' | 'toss' | 'slam' }
@@ -92,6 +93,13 @@ export class Bot {
       const blocker = out.moveX ? sim.fighters.find((g) => g !== me && g !== this.target && !g.limp && !g.inBack && Math.sign(g.torso.body.translation().x - p.x) === out.moveX && Math.abs(g.torso.body.translation().x - p.x) < B.personalSpace) : undefined;
       if (blocker) { this.target = blocker; const t = blocker.torso.body.translation(), v = blocker.torso.body.linvel(); this.seen = { x: t.x, y: t.y, vx: v.x, vy: v.y, at: now }; }
       if (dy < -B.climbHeight && Math.abs(dx) < 2.5 && me.grounded) this.hop(); // they are up on a ledge: jump after them
+    } else if (plan.kind === 'shoot') {
+      const G = T.bot;
+      out.moveX = Math.abs(dx) < G.gunKeep ? -Math.sign(dx) * 0.7 : Math.abs(dx) > G.gunMax ? Math.sign(dx) * 0.6 : 0; // not too close, not too far
+      const want = Math.atan2(look.y - p.y, look.x - p.x);
+      out.reach = Math.hypot(look.x - p.x, look.y - p.y);
+      if (Math.abs(wrap(want - this.aim)) < G.gunAimTol && me.gunCool === 0 && age % 6 < 2) out.attack = true; // squeeze off a shot when it is on them
+      if (!this.loaded(me) || age > 150) this.start({ kind: 'idle' }, now);
     } else if (plan.kind === 'swing') {
       out.moveX = Math.abs(dx) > 1.2 ? Math.sign(dx) * 0.6 : Math.abs(dx) < 0.7 ? -Math.sign(dx) * 0.8 : 0; // too close for a club: step back for room
       out.attack = age < plan.charge; // hold to charge, then let go: the lunge and the swing
@@ -161,6 +169,7 @@ export class Bot {
     }
     if (!this.target) { this.start({ kind: 'idle' }, now); return; }
     const dx = this.seen.x - p.x, dy = this.seen.y - p.y;
+    if (this.loaded(me)) { this.start({ kind: 'shoot' }, now, 30); return; } // a loaded gun: shoot (empty, it is a club: below)
     if (me.grip) {
       const reach = (me.stick?.weapon?.length ?? T.stick.length) + B.swingReach;
       if (Math.abs(dx) < reach && Math.abs(dy) < 1.6) {
@@ -186,6 +195,9 @@ export class Bot {
   }
 
   private hop(): void { this.jumpFrames = T.bot.jumpHold + 1; }
+
+  /** Holding a gun with shots left. */
+  private loaded(me: Fighter): boolean { return !!me.grip && !!me.stick?.weapon?.gun && (me.stick.ammo ?? 0) > 0 && !me.stick.flipped; }
 
   private start(plan: Plan, now: number, busy = 0): void { this.plan = plan; this.started = now; this.busyUntil = now + busy; }
 
