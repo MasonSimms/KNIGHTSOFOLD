@@ -15,6 +15,8 @@ import { applyWater, buildBoat, surfaceY } from './water';
 import { applyFire } from './fire';
 import { buildChase, loopFloor, stepChase } from './chase';
 import type { Chase } from './chase';
+import { buildTrain, stepTrain } from './train';
+import type { Passing } from './train';
 import { breakProp, damageScenery, fire, moveBullets, predictShot, snapPart, spendShot } from './guns';
 import type { Bullet } from './guns';
 import type { Boat } from './water';
@@ -83,6 +85,7 @@ export class Sim {
   private bridge: Part[] = []; // the planks of this round's bridge, in order
   boat: Boat | null = null; // this round's ship, on a map with one (see water.ts)
   chase: Chase | null = null; // this round's treadmill and mammoth, on the Mammoth Chase (see chase.ts)
+  passing: Passing[] = []; // the signs and tunnels coming past the train (see train.ts)
   private cutLinks = new Set<unknown>(); // bridge joints already removed
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
   weapon: Weapon = { id: 'club', name: 'Club', ...T.stick }; // what everyone fights with this round (the era's weapon)
@@ -224,6 +227,7 @@ export class Sim {
     });
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
     this.chase = A.chase ? buildChase(this) : null;
+    this.passing = A.train ? buildTrain(this) : [];
 
     // The map's side walls (if any): a backstop at an end, or a wall across a gap you can fall into and wall-jump out of.
     for (const w of wallsOf(A)) {
@@ -245,7 +249,7 @@ export class Sim {
       this.props.push(p);
       this.partByBody.set(p.body.handle, p);
     }
-    for (const pr of T.props.lying ? A.props : []) { // loose objects lying on the arena
+    for (const pr of T.props.lying && !A.noWeapons ? A.props : []) { // loose objects lying on the arena
       const spec = PROPS[pr.kind] ?? PROPS.plank;
       const p = createProp(this.world, pr.x, A.platformTop - pr.up - spec.thick / 2 - 0.01, 0, { kind: pr.kind, ...spec });
       this.props.push(p);
@@ -406,7 +410,7 @@ export class Sim {
   private spawn(index: number, x: number, player: boolean): Fighter {
     const y = this.arena.platformTop - T.stand.height - 0.02; // the hips at standing height
     const foe = this.dummy && index === 1; // the training partner: armed or not as the training menu says
-    const f = buildFighter(this.world, index, x, y, player, foe ? this.training.foeArmed : T.fighter.startArmed, this.weapon);
+    const f = buildFighter(this.world, index, x, y, player, !this.arena.noWeapons && (foe ? this.training.foeArmed : T.fighter.startArmed), this.weapon);
     for (const p of f.parts) this.partByBody.set(p.body.handle, p);
     return f;
   }
@@ -450,6 +454,7 @@ export class Sim {
     this.resolvePickups();
     this.keepWeaponsInPlay();
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
+    if (this.passing.length) stepTrain(this, this.passing);
     this.world.step();
     if (this.chase) stepChase(this, this.chase);
     this.capSpeeds();
@@ -549,7 +554,7 @@ export class Sim {
   /** Better weapons drop in during the round, faster and stronger as it goes on, at fixed spots or from the sky. */
   private spawnPickups(): void {
     const S = T.spawn, pickups = eraById(this.era).pickups;
-    if (!T.eras.changeGameplay || !T.spawn.enabled || !pickups?.length || this.frame < this.nextSpawn) return;
+    if (!T.eras.changeGameplay || !T.spawn.enabled || !pickups?.length || this.arena.noWeapons || this.frame < this.nextSpawn) return;
     this.nextSpawn = this.frame + Math.round(S.firstGap + (S.minGap - S.firstGap) * Math.min(1, this.frame / S.rampFrames));
     if (this.props.filter((p) => pickups.includes(p.weapon?.id ?? '')).length >= S.maxLoose) return;
     const strong = pickups.length > 1 && this.frame >= S.strongAfterFrames && this.rng() < S.strongChance;
@@ -859,7 +864,7 @@ export class Sim {
   }
 
   /** The ground, a wall, or a ship's deck: what a body can be slammed into. */
-  private solid(b: RAPIER.RigidBody): boolean { return b.isFixed() || b === this.boat?.body; }
+  private solid(b: RAPIER.RigidBody): boolean { return b.isFixed() || b.isKinematic() || b === this.boat?.body; } // (a sign or tunnel passing the train is a wall)
 
   /** A big hit knocks the fighter down: they tumble (spin in proportion to the blow, head swinging back from it) and lose control for a while. */
   private knockdown(v: Fighter, impact: number, nx: number): void {

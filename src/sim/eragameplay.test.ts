@@ -17,7 +17,7 @@ afterAll(() => { T.eras.changeGameplay = false; T.spawn.enabled = false; T.props
 
 async function inEra(id: string, players = 4) {
   const sim = await Sim.create(5, players, false);
-  sim.forceEra = id;
+  sim.forceEra = id; sim.forceMap = 0; // (each era's main map: its other maps are in maps.test.ts and their own tests)
   sim.reset();
   return sim;
 }

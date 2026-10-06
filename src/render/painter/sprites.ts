@@ -327,7 +327,7 @@ export function paintedBox(hw: number, hh: number, color: number, K: SpriteKnobs
   const key = `box|${hw.toFixed(3)}|${hh.toFixed(3)}|${color}|${JSON.stringify(K)}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const k = Math.min(PPM, 1200 / Math.max(hw, hh) / 2); // (a big block is painted a little coarser)
+  const k = Math.min(PPM, 600 / Math.max(hw, hh) / 2); // (a big block is painted coarser: a tunnel mouth is 9 m tall)
   const W = Math.ceil(2 * hw * k + 2 * PAD), H = Math.ceil(2 * hh * k + 2 * PAD), N = W * H, cx = W / 2, cy = H / 2;
   const base = [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255];
   const img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(color ^ Math.round(hw * 911 + hh * 77));

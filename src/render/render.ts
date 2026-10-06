@@ -10,6 +10,7 @@ import { createFx } from './fx';
 import { createFrame } from './frame';
 import { createFlames } from './flames';
 import { createMammoth } from './mammoth';
+import { createPassing } from './passing';
 import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -240,9 +241,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const front = new Container(), frontBlur = new BlurFilter({ strength: 3, quality: 3 });
   front.filters = [frontBlur];
   const frontItems: { s: Sprite; x: number; speed: number }[] = [];
-  // The Mammoth Chase: the painting slides by with the treadmill. After it, a mirrored copy and another copy, so the join never shows.
-  const rolling = [new Sprite(Texture.EMPTY), new Sprite(Texture.EMPTY)];
-  view.addChild(flat, painted, ...rolling, shadows, actors, front);
+  // A moving map (the Mammoth Chase, the Train): the painting slides by. After it, a mirrored copy and another copy, so the join never shows.
+  // A fast one is blurred along the way it moves (speed: and it hides the join).
+  const rolling = [new Sprite(Texture.EMPTY), new Sprite(Texture.EMPTY)], backdrop = new Container(), rollBlur = new BlurFilter({ strength: 0, quality: 2 });
+  backdrop.addChild(painted, ...rolling);
+  view.addChild(flat, backdrop, shadows, actors, front);
 
 
   // Cheap global finish on top of everything (screen space).
@@ -331,6 +334,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const fx = createFx(fxLayer, splatTexs);
   const flames = createFlames(fxLayer); // the arena's fires, and flames on whatever is burning
   const mammoth = createMammoth(propLayer);
+  const passing = createPassing(fxLayer); // signs and tunnels passing the train (in front of everyone)
   /** A weapon's or a thing's colour: a gun's metal, scenery's own wood, otherwise the stick colour. */
   const thingColor = (p: Part) => (p.weapon?.gun ? T.colors.gun : T.colors.things[p.weapon?.id ?? ''] ?? T.colors.stick);
   const sea = createSea(ring); // the ship and the near water, on a map with a sea
@@ -371,6 +375,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     sea.build(sim);
     flames.build(sim);
     mammoth.build(sim);
+    passing.build(sim, propLayer);
     // The front plane of this arena (looks only).
     for (const it of frontItems) it.s.destroy();
     frontItems.length = 0;
@@ -519,10 +524,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       if (tex && painted.texture !== tex) { painted.texture = tex; painted.width = A.viewW; painted.height = A.viewH; backdrops.prefetch(sim.upcoming().era, sim.upcoming().arena); }
       painted.visible = !!tex;
       flat.visible = !tex;
-      const ch = sim.arena.chase, W = A.viewW, roll = ch && tex ? ((((ch.speed * (sim.frame - 1 + alpha) * T.sim.dt) % (2 * W)) + 2 * W) % (2 * W)) : 0;
+      const speed = sim.arena.roll, W = A.viewW, roll = speed && tex ? ((((speed * (sim.frame - 1 + alpha) * T.sim.dt) % (2 * W)) + 2 * W) % (2 * W)) : 0;
       painted.x = -roll;
+      backdrop.filters = speed ? [rollBlur] : null;
+      rollBlur.strengthX = speed * T.finish.rollBlur * px; rollBlur.strengthY = 0;
       rolling.forEach((r, i) => {
-        r.visible = !!ch && !!tex;
+        r.visible = !!speed && !!tex;
         if (!r.visible) return;
         r.texture = tex!; r.height = A.viewH; r.width = W;
         if (i === 0) { r.scale.x = -Math.abs(r.scale.x); r.x = 2 * W - roll; } else r.x = 2 * W - roll; // (the mirrored copy reaches back from its right edge)
@@ -608,6 +615,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       fx.draw(sim, alpha, frameSeconds);
       flames.draw(sim, alpha, frameSeconds, variant);
       mammoth.draw(sim, alpha);
+      passing.draw(sim, alpha);
       const bx = (app.screen.width - A.viewW * scale) / 2, by = (app.screen.height - A.viewH * scale) / 2;
       frame.draw({ x: bx, y: by, w: A.viewW * scale, h: A.viewH * scale }, frameSeconds);
       if (target) { // into a painting (the museum): just the picture, cropped to its box

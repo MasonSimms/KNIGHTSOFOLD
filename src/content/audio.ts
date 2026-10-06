@@ -3,7 +3,7 @@
 
 /** The sound effects, by the game event that plays them. */
 export type SoundName = 'hit' | 'jump' | 'punch' | 'dodge' | 'drop' | 'throw' | 'disarm' | 'round' | 'parry' | 'crash' | 'cut' | 'stomp' | 'grab' | 'pickup' | 'die' | 'fall'
-  | 'shot' | 'bigshot' | 'empty' | 'spark' | 'splinter' | 'snap' | 'break' | 'impact' | 'splash' | 'ignite' | 'trample';
+  | 'shot' | 'bigshot' | 'empty' | 'spark' | 'splinter' | 'snap' | 'break' | 'impact' | 'splash' | 'ignite' | 'trample' | 'whistle';
 
 /**
  * Sound files (in public/audio/sfx/), and how much each one's pitch varies from play to play: a random amount with a normal distribution
@@ -15,7 +15,7 @@ export const SOUNDS: Record<SoundName, { file?: string; pitch: number; volume?: 
   disarm: { pitch: 0.03 }, round: { pitch: 0 }, parry: { pitch: 0.03 }, crash: { pitch: 0.03 }, cut: { pitch: 0.03 }, stomp: { pitch: 0.03 },
   grab: { pitch: 0.02 }, pickup: { pitch: 0.02 }, die: { pitch: 0.02 }, fall: { pitch: 0.02 },
   shot: { pitch: 0.05 }, bigshot: { pitch: 0.04 }, empty: { pitch: 0.03 }, spark: { pitch: 0.06 }, splinter: { pitch: 0.06 }, snap: { pitch: 0.04 },
-  break: { pitch: 0.04 }, impact: { pitch: 0.06 }, splash: { pitch: 0.05 }, ignite: { pitch: 0.06 }, trample: { pitch: 0.04 },
+  break: { pitch: 0.04 }, impact: { pitch: 0.06 }, splash: { pitch: 0.05 }, ignite: { pitch: 0.06 }, trample: { pitch: 0.04 }, whistle: { pitch: 0.02 },
 };
 
 /**

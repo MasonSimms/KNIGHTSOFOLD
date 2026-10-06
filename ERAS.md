@@ -95,10 +95,10 @@ Pickups: **Revolver**, **Lasso** (grab from a distance, needs the "grab at range
 The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not built yet: online comes first.
 1. **Main Street**: a dirt road with storefronts behind; players can get revolvers.
 2. **Rooftops**: on top of the town's buildings; falling off kills you (the gaps between roofs are the void). Players can get revolvers.
-3. **Train**: a moving train with NO weapons: throw other players into the obstacles, and avoid the wooden signs and tunnels that pass. (Needs: a moving map, passing obstacles that hit you: the front plane's passing sign was planned for this.)
+3. **Train**: a moving train with NO weapons: throw other players into the obstacles, and avoid the wooden signs and tunnels that pass. (Needs: a moving map, passing obstacles that hit you: the front plane's passing sign was planned for this.) **BUILT 2026-10-06** (westerns map 1): three boxcars, the land rushing past (motion-blurred), a sign and a tunnel mouth every 8 s with a whistle first.
 4. **Saloon Brawl**: a bar fight inside the saloon, with beer glasses and bar stools to throw.
 5. **Water Tower**: on top of a water tower.
-OPEN (ask the owner before building): does a revolver SHOOT here (the game has no guns yet: a new weapon kind, and it changes balance), or is it still clubbed and thrown as planned?
+Revolvers SHOOT (owner, 2026-10-06; built: see DECISIONS.md).
 
 ## 9. World War I
 Pickups: **Bayonet Rifle** (long, good lunge), **Stick Grenade** (thrown, goes off after a short time with a push, not a kill).

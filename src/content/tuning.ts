@@ -50,6 +50,9 @@ export const tuning = {
     boat: false, // the main platform is a floating ship's deck instead of solid ground (needs a sea; see tuning.boat)
     tar: [] as { x: number; w: number; level: number }[], // tar pits (see tuning.tar): from x, w wide (a gap in the ground), the surface `level` m below the platform top
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
+    roll: 0, // the painting slides by at this speed (m/s): a moving map (the train, the mammoth chase)
+    noWeapons: false, // nobody starts armed, nothing lies about and no pickups come (the train: fists and throws)
+    train: null as null | { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }, // a train map (see tuning.train): things pass at speed (m/s), each at its second `at` of every `cycle` seconds
     chase: null as null | { speed: number; mammothX: number; obstacles: string[]; gap: number }, // a treadmill map (see tuning.chase): the floor slides left at speed (m/s) toward a mammoth at mammothX; obstacles (props.ts kinds) ride in from the right, gap metres apart
     fires: [] as { x: number; w: number; up: number }[], // fires (see tuning.fire): flames from x, w wide, on the ground (up = 0) or a ledge `up` m higher
     // The front plane: things between us and the fighters (looks only: nobody can touch them). kind = grass or sign; x, y = where its base
@@ -499,6 +502,12 @@ export const tuning = {
     kick: 0.6, // the kick out of it, as a share of a normal jump (weak: a pit's edge should be low)
     drownDepth: 1.1, // sinking this far below the surface finishes you (m)
   },
+  train: {
+    // The Train (sim/train.ts; the map's own timetable is its arena.train). PLACEHOLDER numbers until the playtest.
+    signW: 1.2, signH: 0.45, signUp: 0.75, // a wooden sign: its size and how high its bottom is above the roof (m): jump it, or get down
+    tunnelW: 5, tunnelUp: 0.75, // a tunnel mouth: how long it is and how high its roof is above the train's (m): lie flat
+    whistle: 1.2, // the whistle blows this long before one comes into the picture (s)
+  },
   chase: {
     // The Mammoth Chase (sim/chase.ts; the map's own numbers are in its arena.chase). PLACEHOLDER numbers until the playtest.
     length: 3.2, height: 2.6, // the mammoth's size (m): touching it gets you tossed
@@ -591,6 +600,7 @@ export const tuning = {
   },
   bot: {
     mammothMargin: 2.5, // a bot runs away from the mammoth when it is this close (m)
+    duckAhead: 0.6, // a bot gets down this many seconds before a sign or tunnel reaches it
     gunKeep: 3, // with a loaded gun: stay at least this far from the target (m)...
     gunMax: 11, // ...and come closer if further than this
     gunAimTol: 0.08, // fire when the aim is this close to the target (radians)
@@ -705,6 +715,7 @@ export const tuning = {
     shadow: { alpha: 0.22, blur: 6, x: 0.05, y: 0.06 }, // the faint soft shadow that lifts each fighter off the map: strength, softness (px at 1080p), offset (m)
     front: { blur: 3.5 }, // how out of focus the front plane is (px at 1080p)
     water: { alpha: 0.8, crestWidth: 0.06, crestAlpha: 0.55 },
+    rollBlur: 2.5, // a moving map's painting is blurred along the way it moves: px (at 1080p) per m/s of speed
     tar: { alpha: 0.97, top: '#2b2017', deep: '#0b0806', sheen: '#7a6a58' }, // a tar pit: nearly opaque (whoever sinks is gone), dark, a dull sheen on top
     // Bullets (owner: moving white streaks with see-through trails that reach back past the shooter). m, 0..1, seconds.
     // The gold frame around the picture (render/frame.ts): its width (share of the picture's height), and the size of a hole (someone
@@ -736,7 +747,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62 } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

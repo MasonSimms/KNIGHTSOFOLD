@@ -49,7 +49,7 @@ describe('maps', () => {
 
   // Owner: you should never get stuck on a map. Walk (and hop) from one end of the ground to the other.
   it.each(maps)('%s map %i: you can walk and hop across it without getting stuck', async (era, map) => {
-    if (arenaFor(era, map).chase) return; // (a treadmill: you run to stand still; chase.test.ts)
+    if (arenaFor(era, map).chase || arenaFor(era, map).train) return; // (a treadmill: you run to stand still, chase.test.ts; the train sweeps you off, train.test.ts)
     for (const hop of arenaFor(era, map).tar.length ? [true] : [false, true]) { // (a tar pit is jumped: walking into it is the point)
       const sim = await Sim.create(5, 2, false);
       sim.forceEra = era; sim.forceMap = map; sim.reset();
