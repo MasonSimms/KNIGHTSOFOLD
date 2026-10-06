@@ -10,4 +10,9 @@ export const EYES = ['round', 'fierce', 'sleepy'] as const;
 export type Eyes = (typeof EYES)[number];
 export const EYE_NAMES: Record<Eyes, string> = { round: 'Round', fierce: 'Fierce', sleepy: 'Sleepy' };
 
-export interface Look { color: number; hat: Hat; eyes: Eyes; bot?: boolean } // color = index into COLORS; bot = a computer plays this seat (drawn as a gray robot)
+export interface Look { color: number; hat: Hat; eyes: Eyes; bot?: boolean } // color = index into COLORS; bot = a computer plays this seat (a gray robot: its colour is -1, it takes none)
+
+/** Bots (owner: shades of gray, a classic robot): one gray per seat, light to dark, so two bots never look the same. */
+export const BOT_GRAYS = [0xc9cdd1, 0x9ea4aa, 0x767c82, 0x575c61];
+/** A bot's look. */
+export const botLook = (): Look => ({ color: -1, hat: 'none', eyes: 'round', bot: true });

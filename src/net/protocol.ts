@@ -9,6 +9,7 @@ export type ClientMsg =
   | { t: 'rejoin'; code: string; token: string } // back after a dropped connection or a page reload: you get your own seat and score back
   | { t: 'look'; color: number; hat: string; eyes: string } // pick my colour (unique in the room), hat and eyes; allowed any time, in the lobby or in a fight
   | { t: 'ready'; ready: boolean } // lobby: I am ready (or not any more); the host can start once everyone is
+  | { t: 'bot'; at: number } // host only, in the lobby: put a bot in empty seat `at`, or take away the bot sitting there
   | { t: 'start' } // host only
   | { t: 'end' } // host only: back to the lobby
   | { t: 'in'; i: PlayerInput }; // my controls, sent every tick

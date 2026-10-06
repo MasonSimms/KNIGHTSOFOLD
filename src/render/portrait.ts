@@ -10,6 +10,7 @@ import type { Shape } from '../sim/fighter';
 import { paintPicture } from './painter/backdrops';
 import { paintedCape, PPM, VARIANTS } from './painter/sprites';
 import { addPainted, drawEyes, drawHat, drawShape, mix, UNDER, updatePainted } from './render';
+import { BOT_GRAYS, drawRobotHead } from './robot';
 import type { Painted } from './render';
 
 export const PORTRAIT = { w: 300, h: 380 }; // canvas pixels
@@ -26,7 +27,7 @@ export async function paintPortrait(look: Look, seat: number): Promise<HTMLCanva
   land ??= paintPicture(BACKGROUND, NO_GROUND, 640, 360);
   const [a, back] = await Promise.all([app, land]);
   const { w: W, h: H } = PORTRAIT, F = T.fighter, LG = T.legs, P = T.finish.paint, K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under };
-  const hex = COLORS[look.color]?.hex ?? COLORS[0].hex, limb = mix(hex, 0x000000, 0.18);
+  const hex = look.bot ? BOT_GRAYS[seat % BOT_GRAYS.length] : COLORS[look.color]?.hex ?? COLORS[0].hex, limb = mix(hex, 0x000000, 0.18);
 
   // The figure, in metres x Z around the hips, drawn at PPM pixels per unit: painted textures land 1:1 on the canvas.
   const stage = new Container(), fig = new Container(), under = new Container();
@@ -41,7 +42,7 @@ export async function paintPortrait(look: Look, seat: number): Promise<HTMLCanva
     [{ k: 'ball', r: F.fistRadius * 0.85, x: 0.05, y: -0.12 }, limb], [{ k: 'ball', r: F.fistRadius * 0.85, x: -0.03, y: -0.1 }, limb],
   ].map(([s, c]) => [z(s as Shape), c as number]);
   const capeTex = paintedCape(parseInt(paintingFor(BACKGROUND).hot.slice(1), 16), K), capes: Sprite[] = [];
-  for (const side of [-1, 1]) { // the cape hangs from both shoulders behind the body, like a cloak
+  for (const side of look.bot ? [] : [-1, 1]) { // the cape hangs from both shoulders behind the body, like a cloak (a robot has none)
     const c = new Sprite(capeTex[0]);
     c.anchor.set(0, 0.5);
     c.scale.set(Z / PPM);
@@ -57,7 +58,7 @@ export async function paintPortrait(look: Look, seat: number): Promise<HTMLCanva
     under.addChild(u);
     painted.push(addPainted(fig, s, color));
   }
-  const headY = F.headY * Z, hat = drawHat(look.hat, hex, F.headRadius * Z), eyes = drawEyes(F.headRadius * Z, look.eyes); // eyes over the hat, as in the fight
+  const headY = F.headY * Z, hat = look.bot ? null : drawHat(look.hat, hex, F.headRadius * Z), eyes = look.bot ? drawRobotHead(F.headRadius * Z, hex) : drawEyes(F.headRadius * Z, look.eyes); // eyes over the hat, as in the fight
   if (hat) { hat.position.set(0, headY); fig.addChild(hat); }
   eyes.position.set(0, headY);
   fig.addChild(eyes);

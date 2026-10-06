@@ -45,7 +45,8 @@ export function runLobby(url: string): Promise<{ client: NetClient; seed: number
       };
       const mine = () => last?.looks[last.you] ?? null;
       const allReady = (m: NonNullable<typeof last>) => m.looks.every((l, i) => !l || m.ready[i]);
-      const canStart = (m: NonNullable<typeof last>) => m.host && m.n >= MIN_PLAYERS && allReady(m);
+      const seated = (m: NonNullable<typeof last>) => m.looks.filter(Boolean).length; // people and bots
+      const canStart = (m: NonNullable<typeof last>) => m.host && seated(m) >= MIN_PLAYERS && allReady(m);
       const setReady = (on: boolean) => client.send({ t: 'ready', ready: on });
       const go = () => { if (last && canStart(last)) client.send({ t: 'start' }); };
       const change = (d: number) => { const l = mine(); if (l && last && !last.ready[last.you]) client.send({ t: 'look', ...step(l, row, d, takenBy(last.looks, last.you)) }); };
@@ -54,9 +55,9 @@ export function runLobby(url: string): Promise<{ client: NetClient; seed: number
         if (!m || !hall) return;
         hall.update({
           seats: Array.from({ length: MAX_PLAYERS }, (_, i) => { const l = m.looks[i]; return l ? { look: l, ready: m.ready[i], mine: i === m.you, row: i === m.you ? row : -1 } : null; }),
-          empty: 'Waiting for a friend', code: m.code,
+          empty: 'Waiting for a friend', code: m.code, bots: m.host,
           canStart: canStart(m), startLabel: m.host ? 'To Battle' : 'The host starts the fight',
-          note: problem || (m.n < MIN_PLAYERS ? 'Waiting for a friend to join' : !allReady(m) ? 'Waiting for everyone to be ready' : m.host ? '' : 'Waiting for the host'),
+          note: problem || (seated(m) < MIN_PLAYERS ? (m.host ? 'Waiting for a friend to join (or add a bot)' : 'Waiting for a friend to join') : !allReady(m) ? 'Waiting for everyone to be ready' : m.host ? '' : 'Waiting for the host'),
           hint: 'Gamepad: the stick picks and changes, A is ready, B takes it back. Keyboard: Enter. Mouse: click.',
         });
       };
@@ -92,6 +93,7 @@ export function runLobby(url: string): Promise<{ client: NetClient; seed: number
               look: (i, l) => { if (last && i === last.you) client.send({ t: 'look', ...l }); },
               ready: (i) => { if (last && i === last.you) setReady(!last.ready[i]); },
               join: () => {}, leave: home, back: home, start: go,
+              bot: (i) => client.send({ t: 'bot', at: i }),
             });
             addEventListener('keydown', onKey);
             menuPresses(); // (buttons already held are not presses)

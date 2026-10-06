@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
-import { COLORS, EYES, HATS } from '../src/content/looks';
+import { botLook, COLORS, EYES, HATS } from '../src/content/looks';
 import type { Look } from '../src/content/looks';
 import { cleanInput, EMPTY_MS, MAX_PLAYERS, MIN_PLAYERS, RESERVE_MS } from '../src/net/protocol';
 import type { ClientMsg, ServerMsg } from '../src/net/protocol';
@@ -14,8 +14,9 @@ import { Sim } from '../src/sim/world';
 const LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ'; // no I, L or O: they read as 1 and 0
 const DT = 1000 / 60;
 
-/** A player's place in a room. It outlives their connection: `ws` is null while they are away, and `token` is how they prove they are the same person. */
-interface Seat { token: string; ws: WebSocket | null; leftAt: number; look: Look; ready: boolean }
+/** A player's place in a room. It outlives their connection: `ws` is null while they are away, and `token` is how they prove they are the same person.
+ *  A bot's seat never has a connection: it is always ready, and a person who joins can take it. */
+interface Seat { token: string; ws: WebSocket | null; leftAt: number; look: Look; ready: boolean; bot?: boolean }
 
 class GameRoom {
   seats: (Seat | null)[] = []; // in a lobby: join order. In a fight: exactly MAX_PLAYERS entries, the index is the fighter number
@@ -44,6 +45,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     const used = new Set(r.seats.map((s) => s?.look.color));
     return { token: newToken(), ws: null, leftAt: 0, look: { color: COLORS.findIndex((_, i) => !used.has(i)), hat: 'none', eyes: 'round' }, ready: false };
   };
+  const botSeat = (): Seat => ({ token: newToken(), ws: null, leftAt: 0, look: botLook(), ready: true, bot: true });
   const applyLooks = (r: GameRoom) => { if (r.game) r.seats.forEach((s, i) => { if (s) r.game!.sim.looks[i] = { ...s.look }; }); };
 
   const lobby = (r: GameRoom) => {
@@ -62,10 +64,10 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
 
   function endGame(r: GameRoom, why: string) {
     r.game = null;
-    r.seats = r.present; // back to a lobby of whoever is still connected
-    for (const s of r.seats) if (s) s.ready = false;
+    r.seats = r.seats.filter((s): s is Seat => !!s && (!!s.ws || !!s.bot)); // back to a lobby of whoever is still connected (and the bots)
+    for (const s of r.seats) if (s) s.ready = !!s.bot;
     r.present.forEach((s) => send(s.ws, { t: 'over', why }));
-    if (!r.seats.length) rooms.delete(r.code); else lobby(r);
+    if (!r.present.length) rooms.delete(r.code); else lobby(r);
   }
 
   function leave(ws: WebSocket) {
@@ -80,7 +82,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       if (!r.present.length) r.emptySince = Date.now();
     } else {
       r.seats = r.seats.filter((s) => s !== seat);
-      if (!r.seats.length) rooms.delete(r.code); else lobby(r); // the next player in line becomes host
+      if (!r.present.length) rooms.delete(r.code); else lobby(r); // the next player in line becomes host (a room of only bots is gone)
     }
   }
 
@@ -112,15 +114,21 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       if (!r) return send(ws, { t: 'error', why: 'no room with that code' });
       const seat = newSeat(r);
       if (!r.game) {
-        if (r.seats.length >= MAX_PLAYERS) return send(ws, { t: 'error', why: 'that room is full' });
+        if (r.seats.length >= MAX_PLAYERS) { // full: a person takes a bot's place
+          const b = r.seats.findIndex((s) => s?.bot);
+          if (b < 0) return send(ws, { t: 'error', why: 'that room is full' });
+          r.seats.splice(b, 1);
+        }
         r.seats.push(seat);
         seatPlayer(r, ws, seat);
         return lobby(r);
       }
       // A fight is under way: take an empty seat (or one whose owner has been away too long). You appear at the start of the next round.
       const now = Date.now();
-      let slot = r.seats.findIndex((s) => !s || (!s.ws && now - s.leftAt > reserveMs));
+      let slot = r.seats.findIndex((s) => !s || (!s.bot && !s.ws && now - s.leftAt > reserveMs));
+      if (slot < 0) slot = r.seats.findIndex((s) => s?.bot); // no free seat: a bot gives its seat to a person (it leaves now, they appear next round)
       if (slot < 0) return send(ws, { t: 'error', why: 'that room is full' });
+      if (r.seats[slot]?.bot) r.game.room.removePlayer(slot);
       if (r.seats[slot]) r.game.room.sim.scores[slot] = 0; // someone else's old seat: a fresh score
       r.seats[slot] = seat;
       seatPlayer(r, ws, seat);
@@ -150,6 +158,12 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       if (!at || at.room.game) return;
       at.seat.ready = m.ready === true;
       lobby(at.room);
+    } else if (m.t === 'bot') {
+      if (!at || at.room.game || at.room.present[0] !== at.seat) return send(ws, { t: 'error', why: 'only the host can add bots' });
+      const r = at.room, i = Number(m.at);
+      if (r.seats[i]?.bot) r.seats.splice(i, 1); // take that bot away
+      else if (r.seats.length < MAX_PLAYERS) r.seats.push(botSeat()); // (lobby seats are in join order: the next one is the first empty seat)
+      lobby(r);
     } else if (m.t === 'start') {
       if (!at || at.room.game || at.room.present[0] !== at.seat) return send(ws, { t: 'error', why: 'only the host can start' });
       const r = at.room;

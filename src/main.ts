@@ -73,7 +73,8 @@ const view = mirror ? mirror.sim : sim; // what is drawn
 // a gamepad adds a player. Online has its own room screen.
 const testing = ['stress', 'slow', 'era', 'map', 'hats', 'colors', 'eyes', 'lag'].some((k) => query.has(k));
 let mode: 'auto' | 'training' | 'local' = testing || net ? 'auto' : 'training';
-let devices: Device[] = []; // a local fight: who drives each fighter (keyboard and mouse, or a gamepad)
+let devices: (Device | 'bot')[] = []; // a local fight: who drives each fighter (keyboard and mouse, a gamepad, or a bot that plays itself)
+let hallTraining = false; // the Hall was opened for Training (one player is enough, bots allowed)
 let paused = false, startHeld = false;
 const toServer: { at: number; input: PlayerInput }[] = [], toClient: { at: number; s: Snapshot }[] = [];
 
@@ -120,16 +121,16 @@ async function menu(screen: 'home' | 'hall') {
     if (screen === 'home') {
       const go = await runHome();
       if (go === 'online') { location.search = '?online'; return; } // online starts on a fresh page
-      if (go === 'play') { screen = 'hall'; continue; }
-      mode = 'training'; mySlot = 0; sim.setPlayers(1);
-      break;
+      hallTraining = go === 'training'; // (owner: Training goes through the same character screen, it just is not a live lobby)
+      screen = 'hall';
+      continue;
     }
-    const seats = await runHall();
+    const seats = await runHall(hallTraining);
     if (!seats) { screen = 'home'; continue; }
     mode = 'local'; devices = seats.map((s) => s.dev);
-    seats.forEach((s, i) => { sim.looks[i] = { ...s.look }; });
+    sim.looks = [0, 1, 2, 3].map((i) => ({ ...(seats[i]?.look ?? { color: i, hat: 'none' as const, eyes: 'round' as const }) })); // (an unseated look carries no bot over from last time)
     mySlot = Math.max(0, devices.indexOf('kb'));
-    sim.setPlayers(seats.length);
+    sim.setPlayers(seats.length); // one player: practice on the dummy; two or more (people or bots): a real fight
     break;
   }
   flushInput(); // (keys pressed in the menus do not reach the fight)
@@ -179,7 +180,7 @@ function frame(now: number) {
     }
     if (net) { net.send({ t: 'in', i: lastInput }); continue; } // online: the server runs the fight, we only send our controls
     const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
-    if (mode === 'local') for (let k = 0; k < devices.length; k++) { const d = devices[k]; inputs[k] = d === 'kb' ? lastInput : padInput(k, d, pads); }
+    if (mode === 'local') for (let k = 0; k < devices.length; k++) { const d = devices[k]; inputs[k] = d === 'kb' ? lastInput : d === 'bot' ? NEUTRAL : padInput(k, d, pads); } // (a bot presses its own buttons inside the sim)
     else if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
     sim.step(inputs);
     for (const e of sim.events) {

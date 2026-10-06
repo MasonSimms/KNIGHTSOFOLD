@@ -299,4 +299,30 @@ describe('room server', () => {
     b.send({ t: 'create' });
     expect((await b.wait('error')).why).toMatch(/full/);
   });
+
+  it('the host can seat bots: one person and bots can fight, a bot plays itself, and a friend who joins a full room takes the seat of a bot', async () => {
+    await boot();
+    const host = await connect(), friend = await connect();
+    host.send({ t: 'create' });
+    const { code } = await host.wait('lobby');
+    for (const at of [1, 2, 3]) { host.send({ t: 'bot', at }); await host.wait('lobby', (m) => !!m.looks[at]?.bot); } // a full room: you and three bots
+    host.send({ t: 'bot', at: 3 }); // ...take one away...
+    await host.wait('lobby', (m) => !m.looks[3]);
+    host.send({ t: 'bot', at: 3 }); // ...and put it back
+    const lob = await host.wait('lobby', (m) => !!m.looks[3]?.bot);
+    expect(lob.ready[1]).toBe(true); // a bot is always ready
+    expect(lob.n).toBe(1); // (and is not a connected player)
+    host.send({ t: 'ready', ready: true });
+    await host.wait('lobby', (m) => m.ready[0]);
+    host.send({ t: 'start' }); // one person and a bot are enough
+    await host.wait('start');
+    const x0 = (await host.wait('snap')).s.f[1].p[0];
+    await sleep(1500);
+    const snaps = host.msgs.filter((m): m is Extract<ServerMsg, { t: 'snap' }> => m.t === 'snap');
+    expect(Math.abs(snaps[snaps.length - 1].s.f[1].p[0] - x0)).toBeGreaterThan(0.5); // the bot went somewhere on its own
+    friend.send({ t: 'join', code });
+    const st = await friend.wait('start');
+    expect(st.you).toBeGreaterThanOrEqual(1); // a bot's seat (the room was full)
+    expect(st.queued).toBe(true); // in from the next round
+  });
 });

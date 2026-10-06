@@ -3,6 +3,7 @@ import { eraById } from '../content/eras';
 import { COLORS } from '../content/looks';
 import { createOilFilter, setOilScale } from './oilpaint';
 import { createBackdrops } from './painter/backdrops';
+import { BOT_GRAYS, drawRobotHead } from './robot';
 import { CAPE, paintedCape, paintedFront, paintedShape, paintedSplats, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -272,13 +273,13 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     r.age = 0;
     r.g.visible = true;
   };
-  const playerColor = (i: number) => COLORS[sim.looks[i]?.color ?? i % COLORS.length].hex; // each player's chosen colour
+  const playerColor = (i: number) => (sim.looks[i]?.bot ? BOT_GRAYS[i % BOT_GRAYS.length] : COLORS[sim.looks[i]?.color ?? i % COLORS.length].hex); // each player's chosen colour (a bot is a shade of gray)
   const fighterColor = (f: Fighter) => (f.controlled ? playerColor(f.index) : T.colors.dummy); // the training dummy has its own colour
 
   // Paint every lobby colour's body parts in idle moments after start-up, so picking a colour never stalls a round.
   const prewarm: (() => void)[] = [];
   const P0 = T.finish.paint, K0 = { relief: P0.relief, bristle: P0.bristle, jitter: P0.jitter, under: P0.under };
-  for (const { hex } of COLORS) for (const p of sim.fighters[0]?.parts ?? []) for (const s of p.shapes) {
+  for (const hex of [...COLORS.map((c) => c.hex), ...BOT_GRAYS]) for (const p of sim.fighters[0]?.parts ?? []) for (const s of p.shapes) {
     const col = p.role === 'stick' ? T.colors.stick : p.role === 'off' ? mix(hex, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(hex, 0x000000, 0.18) : hex;
     prewarm.push(() => paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0));
   }
@@ -327,6 +328,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const underAll = new Container();
       underAll.zIndex = -10;
       group.addChild(underAll);
+      const bot = f.controlled && !!sim.looks[f.index]?.bot; // a computer player: a gray robot, no hat, no cape
       const cape = makeCape(group, paintedCape(parseInt(paintingFor(sim.era).hot.slice(1), 16), { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under }));
       for (const p of f.parts as Part[]) {
         const k = new Container(), u = new Container();
@@ -342,16 +344,17 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         shadeC.addChild(sh);
         soft.push(sh);
         // The hat goes on the head: the head part once it has come off, otherwise the head ball on the torso.
-        const hat = f.controlled ? sim.looks[f.index]?.hat : undefined;
+        const hat = f.controlled && !bot ? sim.looks[f.index]?.hat : undefined;
         const onHead = p.role === 'head' || (p.role === 'torso' && !f.ragdolled);
         if (hat && onHead) {
           const h = drawHat(hat, color, T.fighter.headRadius);
           if (h) { h.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(h); }
         }
-        if (onHead) { const ey = drawEyes(T.fighter.headRadius, f.controlled ? sim.looks[f.index]?.eyes : 'round'); ey.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(ey); eyes.push(ey); }
+        if (onHead) { const ey = bot ? drawRobotHead(T.fighter.headRadius, base) : drawEyes(T.fighter.headRadius, f.controlled ? sim.looks[f.index]?.eyes : 'round'); ey.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(ey); eyes.push(ey); }
         group.addChild(k);
         c.push(k);
       }
+      if (bot) cape.rope.parent!.visible = false;
       fighterLayer.addChild(group);
       entries.push({ f, group, c, eyes, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
     }

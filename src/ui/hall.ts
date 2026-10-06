@@ -1,4 +1,4 @@
-import { COLORS, EYE_NAMES, EYES, HAT_NAMES, HATS } from '../content/looks';
+import { botLook, COLORS, EYE_NAMES, EYES, HAT_NAMES, HATS } from '../content/looks';
 import type { Hat, Look } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import { connectedPads, menuPresses } from '../input/input';
@@ -7,12 +7,14 @@ import { paintPortrait, PORTRAIT } from '../render/portrait';
 import { BACK, closeMenu, openMenu } from './menu';
 
 // The Hall of Champions: a painted portrait per seat with its hat, eyes and colour, a Ready button each, and To Battle.
-// The view (mountHall) is shared by the fight on this computer (runHall, below) and online (lobby.ts).
+// The view (mountHall) is shared by the fight on this computer (runHall, below) and online (lobby.ts). Seats can hold bots (gray robots that
+// play themselves): in Training, and online when the host adds them.
 
 /** One seat as drawn. `row` = where this seat's gamepad cursor is (0 hat, 1 eyes, 2 colour, 3 ready), -1 = none. */
 export interface HallSeat { look: Look; ready: boolean; mine: boolean; row: number }
-export interface HallModel { seats: (HallSeat | null)[]; empty: string; canStart: boolean; startLabel: string; note: string; hint: string; code?: string }
-export interface HallActions { look(i: number, l: Look): void; ready(i: number): void; join(i: number): void; leave(i: number): void; start(): void; back(): void }
+/** `bots` = this viewer may add a bot to an empty seat and take one away. */
+export interface HallModel { seats: (HallSeat | null)[]; empty: string; canStart: boolean; startLabel: string; note: string; hint: string; code?: string; bots?: boolean }
+export interface HallActions { look(i: number, l: Look): void; ready(i: number): void; join(i: number): void; leave(i: number): void; start(): void; back(): void; bot(i: number): void }
 export const ROWS = 4;
 
 const cycle = <V>(list: readonly V[], v: V, d: number): V => list[(list.indexOf(v) + d + list.length) % list.length];
@@ -48,6 +50,7 @@ export function mountHall(actions: HallActions) {
     if (act === 'back') actions.back();
     else if (act === 'start') actions.start();
     else if (act === 'join') actions.join(i);
+    else if (act === 'bot') { if (model.bots) actions.bot(i); }
     else if (!s?.mine) return;
     else if (act === 'leave') actions.leave(i);
     else if (act === 'ready') actions.ready(i);
@@ -56,7 +59,8 @@ export function mountHall(actions: HallActions) {
   };
 
   const seatHtml = (s: HallSeat | null, i: number, m: HallModel) => {
-    if (!s) return `<div class="seat empty"><div class="pic"><div class="lamp"></div><div class="frame"><div class="art" data-act="join" data-seat="${i}"><div class="join">${m.empty}</div></div></div></div></div>`;
+    if (!s) return `<div class="seat empty"><div class="pic"><div class="lamp"></div><div class="frame"><div class="art" data-act="join" data-seat="${i}"><div class="join">${m.empty}</div></div></div></div>${m.bots ? `<button class="readyb addbot" data-act="bot" data-seat="${i}">Add a bot</button>` : ''}</div>`;
+    if (s.look.bot) return `<div class="seat ready locked bot"><div class="pic lit"><div class="lamp"></div><div class="frame">${m.bots ? `<button class="leave" data-act="bot" data-seat="${i}" title="Take the bot away">&times;</button>` : ''}<div class="art"></div></div></div><div class="row"><span class="val">Bot</span></div><button class="readyb" disabled>Ready</button></div>`;
     const taken = takenBy(m.seats.map((x) => x?.look), i), d = `data-seat="${i}"`, sel = (r: number) => (s.row === r ? ' sel' : '');
     const picker = (act: string, icon: string, name: string, r: number) =>
       `<div class="row${sel(r)}">${icon}<button class="arw" data-act="${act}" data-d="-1" ${d}>&lsaquo;</button><span class="val">${name}</span><button class="arw" data-act="${act}" data-d="1" ${d}>&rsaquo;</button></div>`;
@@ -77,7 +81,7 @@ export function mountHall(actions: HallActions) {
       m.seats.forEach((s, i) => {
         if (!s) { keys[i] = ''; variants[i] = null; return; }
         arts[i].querySelector('.art')!.appendChild(shown[i]);
-        const key = `${s.look.color}|${s.look.hat}|${s.look.eyes}`;
+        const key = `${s.look.color}|${s.look.hat}|${s.look.eyes}|${!!s.look.bot}`;
         if (key !== keys[i]) { keys[i] = key; paintPortrait(s.look, i).then((v) => { if (keys[i] === key) { variants[i] = v; show(i); } }); }
       });
       $('.note').textContent = m.note;
@@ -93,23 +97,27 @@ export function mountHall(actions: HallActions) {
 // ---- The fight on this computer: keyboard + mouse is one player, every gamepad another. ----
 
 export type Device = 'kb' | number; // keyboard and mouse, or a gamepad (its index)
-interface Local { dev: Device; look: Look; ready: boolean; row: number }
+interface Local { dev: Device | 'bot'; look: Look; ready: boolean; row: number }
 const local: (Local | null)[] = [null, null, null, null]; // kept while the page is open: back from a fight, everyone is still seated
 const FIRST_HATS: Hat[] = ['helmet', 'crown', 'tophat', 'horns'];
 
-/** Resolves with the seated players (in seat order) when someone starts the fight, or null to go back home. */
-export function runHall(): Promise<{ dev: Device; look: Look }[] | null> {
+/**
+ * Resolves with the seated players (in seat order) when someone starts the fight, or null to go back home. Training (owner: through this same
+ * screen, just not a live lobby): one player is enough and empty seats can take bots; alone with no bots you practise on the dummy.
+ */
+export function runHall(training = false): Promise<{ dev: Device | 'bot'; look: Look }[] | null> {
   const live = () => new Set(connectedPads().map((p) => p.index));
   const pads = live();
-  local.forEach((s, i) => { if (s) { s.ready = false; s.row = 0; if (s.dev !== 'kb' && !pads.has(s.dev)) local[i] = null; } });
+  local.forEach((s, i) => { if (s) { s.ready = s.dev === 'bot'; s.row = 0; if ((s.dev === 'bot' && !training) || (s.dev !== 'kb' && s.dev !== 'bot' && !pads.has(s.dev))) local[i] = null; } }); // (bots stay seated in Training only)
   menuPresses(); // (buttons already held when the hall opens are not presses)
 
   return new Promise((resolve) => {
     let raf = 0, done = false;
     const seated = () => local.filter((s): s is Local => !!s);
+    const people = () => seated().filter((s) => s.dev !== 'bot');
     const taken = (i: number) => takenBy(local.map((s) => s?.look), i);
-    const canStart = () => seated().length >= 2 && seated().every((s) => s.ready);
-    const finish = (r: { dev: Device; look: Look }[] | null) => { done = true; cancelAnimationFrame(raf); removeEventListener('keydown', onKey); view.close(); resolve(r); };
+    const canStart = () => seated().length >= (training ? 1 : 2) && people().length >= 1 && seated().every((s) => s.ready);
+    const finish = (r: { dev: Device | 'bot'; look: Look }[] | null) => { done = true; cancelAnimationFrame(raf); removeEventListener('keydown', onKey); view.close(); resolve(r); };
     const start = () => { if (canStart()) finish(seated().map(({ dev, look }) => ({ dev, look: { ...look } }))); };
     const join = (dev: Device, at = local.findIndex((s) => !s)) => {
       if (at < 0 || local[at] || local.some((s) => s?.dev === dev)) return;
@@ -121,16 +129,18 @@ export function runHall(): Promise<{ dev: Device; look: Look }[] | null> {
       ready: (i) => { const s = local[i]; if (s) s.ready = !s.ready; draw(); },
       join: (i) => { join('kb', i); draw(); },
       leave: (i) => { local[i] = null; draw(); },
+      bot: (i) => { if (local[i]?.dev === 'bot') local[i] = null; else if (!local[i]) local[i] = { dev: 'bot', ready: true, row: -1, look: botLook() }; draw(); },
       start, back: () => finish(null),
     });
     const draw = () => {
       if (done) return;
-      const n = seated().length;
+      const n = seated().length, bots = n - people().length;
       view.update({
         seats: local.map((s) => s && { look: s.look, ready: s.ready, mine: true, row: s.dev === 'kb' ? -1 : s.row }),
         empty: local.some((s) => s?.dev === 'kb') ? 'Press A to join' : 'Press A to join, or click',
-        canStart: canStart(), startLabel: 'To Battle',
-        note: n < 2 ? 'Two or more knights are needed for a fight (alone? try Training)' : canStart() ? '' : 'Waiting for everyone to be ready',
+        canStart: canStart(), startLabel: training && !bots ? 'Practise' : 'To Battle', bots: training,
+        note: training ? (!people().length ? 'Join, then add bots to fight them, or practise alone on the dummy' : canStart() ? (bots ? '' : 'No bots: you practise on the dummy') : 'Ready up when you are set')
+          : n < 2 ? 'Two or more knights are needed for a fight (alone? try Training)' : canStart() ? '' : 'Waiting for everyone to be ready',
         hint: 'Gamepad: A joins, the stick picks and changes, A is ready, B goes back. Keyboard: Enter. Mouse: click.',
       });
     };
@@ -158,7 +168,7 @@ export function runHall(): Promise<{ dev: Device; look: Look }[] | null> {
       raf = requestAnimationFrame(tick);
       const presses = menuPresses(), now = live();
       let changed = presses.length > 0;
-      local.forEach((s, i) => { if (s && s.dev !== 'kb' && !now.has(s.dev)) { local[i] = null; changed = true; } }); // unplugged
+      local.forEach((s, i) => { if (s && typeof s.dev === 'number' && !now.has(s.dev)) { local[i] = null; changed = true; } }); // unplugged
       for (const p of presses) if (!done) press(p);
       if (changed) draw();
     };
