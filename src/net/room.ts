@@ -1,3 +1,4 @@
+import { tuning as T } from '../content/tuning';
 import type { PlayerInput, SimEvent } from '../sim/types';
 import { NEUTRAL } from '../sim/types';
 import type { Sim } from '../sim/world';
@@ -11,7 +12,7 @@ export class Room {
   private pending: SimEvent[] = [];
   private log: SimEvent[] = []; // structural events since the round began, so a late joiner can catch up
 
-  constructor(readonly sim: Sim, readonly snapEvery = 3) {
+  constructor(readonly sim: Sim, readonly snapEvery = T.net.snapEvery) {
     this.inputs = sim.fighters.map(() => NEUTRAL);
   }
 

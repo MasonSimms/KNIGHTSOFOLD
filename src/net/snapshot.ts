@@ -1,3 +1,4 @@
+import { tuning as T } from '../content/tuning';
 import type { SimEvent } from '../sim/types';
 import type { Look } from '../content/looks';
 import type { Sim } from '../sim/world';
@@ -44,7 +45,7 @@ export class Mirror {
   private lastLooks = '';
   private fresh = true; // nothing shown yet: the first snapshot says which round and era to build
 
-  constructor(readonly sim: Sim, readonly delay = 6) {}
+  constructor(readonly sim: Sim, readonly delay = T.net.blendTicks) {}
 
   push(s: Snapshot): void {
     if (this.fresh) { // a new client (or one that rejoined): build the round the server is in, with its era's weapon and arena

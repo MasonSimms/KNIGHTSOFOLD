@@ -493,6 +493,12 @@ export const tuning = {
     hopChance: 0.04, // share of decisions with a hop for no reason
     stuckFrames: 30, // lying down, or pushing to walk and getting nowhere, this long: it jumps out of it
   },
+  net: {
+    // Online (owner: cut the lag cheaply before trying prediction). From pressing a key to seeing your fighter move online takes your ping,
+    // plus a wait for the next snapshot, plus the blend buffer. A snapshot is about 1.3 KB: 60 a second is about 0.6 Mbit/s per player.
+    snapEvery: 1, // the server sends a snapshot every this many 60 Hz ticks (1 = 60 a second; was 3 = 20 a second)
+    blendTicks: 3, // your screen shows the world this many ticks behind the newest snapshot, to blend smoothly (3 = 50 ms; was 6 = 100 ms). Raise it if online play stutters on a shaky connection
+  },
   match: {
     // A fight: last fighter standing wins the round and scores a point. Dead fighters stay down until the round is over.
     resultFrames: 150, // how long the result is shown before the next round starts (2.5 s)
