@@ -222,6 +222,7 @@ export const tuning = {
     kd: 90, // damping on spin (was 60)
     maxTorque: 1500, // (was 900)
     stunFactor: 0.25, // balance strength while stunned
+    stunDamping: 0.75, // ...but this much of the spin damping stays (more than stunFactor: a dazed body sways back up instead of rocking)
   },
   rightUp: {
     // A body far from upright (after a knock, a landing, a tumble) turns smoothly back, instead of snapping. (W used to flip you; owner removed it.)

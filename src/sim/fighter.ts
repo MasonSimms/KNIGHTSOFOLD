@@ -741,8 +741,10 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     const w = body.angvel();
     body.setAngvel(w + clamp(clamp(-RU.gain * tilt, RU.max) - w, RU.accel * dt), true);
   } else {
-    // Lying down lets go of the upright spring but keeps the spin damping, so crawling does not roll you over.
-    const torque = clamp(-B.kp * (1 - tip) * wrapAngle(body.rotation() - lean) - B.kd * body.angvel(), B.maxTorque) * balance;
+    // Lying down lets go of the upright spring but keeps the spin damping, so crawling does not roll you over. Stunned, the spring is weak but
+    // most of the damping stays, so a dazed body sways slowly back up instead of rocking to and fro (owner: less flopping about).
+    const damp = balance > 0 && f.knock === 0 && f.stun > 0 ? B.stunDamping : balance;
+    const torque = clamp(-B.kp * (1 - tip) * wrapAngle(body.rotation() - lean) * balance - B.kd * body.angvel() * damp, B.maxTorque * damp);
     body.applyTorqueImpulse(torque * dt, true);
   }
 

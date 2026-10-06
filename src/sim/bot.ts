@@ -147,7 +147,7 @@ export class Bot {
     if (threat && me.dodgeCooldown === 0 && this.rng() < B.dodgeChance) { this.start({ kind: 'dodge' }, now); return; }
     // Empty-handed: a loose weapon nearer than the fight is worth fetching.
     const tx = this.target ? this.seen.x : p.x;
-    if (!me.grip) {
+    if (!me.grip && !me.armLost) { // (no arm: nothing to hold it with)
       const loose = this.looseWeapons(sim, me).sort((a, b) => Math.abs(a.body.translation().x - p.x) - Math.abs(b.body.translation().x - p.x))[0];
       if (loose && Math.abs(loose.body.translation().x - p.x) < Math.min(B.fetchRange, Math.abs(tx - p.x) + 1)) { this.start({ kind: 'fetch', part: loose }, now); return; }
     }
