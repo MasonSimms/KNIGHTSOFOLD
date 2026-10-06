@@ -77,8 +77,8 @@ export const tuning = {
     jumpSpeed: 9.8, // about 2.2 m high, two body heights (was 8.5 = 1.6 m, too low to get onto a ledge you can walk under; 11.5 = 3 m was way too floaty)
     fallGravity: 1.6, // coming down you fall this many times faster than gravity alone (owner: floaty; Stick Fight jumps rise and drop quickly). 1 = a plain arc
     coyoteFrames: 6, // you can still jump this long after walking off a ledge
-    stuckFrames: 10, // hanging motionless off the ground this long (held up by something that is not a floor: jammed in a gap, hooked on an edge, on someone's head) lets you jump
-    stuckSpeed: 0.4, // m/s: ...motionless means slower than this
+    stuckFrames: 20, // off the ground going nowhere this long (held up by something that is not a floor: jammed in a gap, hooked on an edge, on someone's head or a body) lets you jump (the top of a jump passes through 20 cm in under 15 frames, so no jumping twice in the air)
+    stuckRange: 0.2, // m: ...going nowhere means staying within this distance of one spot (wiggling in a gap counts)
     jumpBufferFrames: 6, // a jump pressed this early before landing still happens
     jumpCut: 0.5, // letting go of jump early cuts the jump short by this much (1 = no cut)
     jumpCutMinSpeed: 2, // ...but only while still rising faster than this (m/s)
@@ -517,6 +517,9 @@ export const tuning = {
     hesitate: 0.08, // share of decisions that are a moment of doing nothing
     hopChance: 0.04, // share of decisions with a hop for no reason
     stuckFrames: 30, // lying down, or pushing to walk and getting nowhere, this long: it jumps out of it
+    gapHop: 0.7, // m: walking toward a gap in the floor with more floor past it, it hops this close to the edge...
+    gapReach: 2.5, // ...if the far side is within this (m)
+    reachUp: 2.2, // m: it only goes for weapons at most this far above it (one jump up)
     backoffFrames: [8, 20], // after an attack it steps back for this many frames...
     backoffRange: 1.8, // ...to about this far from who it is fighting (m)
     personalSpace: 0.8, // m: someone else this close in its way becomes who it fights (it does not walk into them)

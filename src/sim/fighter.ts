@@ -103,7 +103,8 @@ export interface Fighter {
   leanNow: number; // the lean the body is easing toward its wanted lean (radians; see tuning.lean.ease)
   landDip: number; // knees giving after a landing, in crouch units (0..1; see tuning.landDip)
   fallVy: number; // how fast you were falling on the last frame in the air (m/s, + = down): how hard the landing is
-  still: number; // frames spent motionless off the ground (held up by something that is not a floor: see motion.stuckFrames)
+  still: number; // frames spent off the ground going nowhere (held up by something that is not a floor: see motion.stuckFrames)
+  stillX: number; stillY: number; // the spot it has not got away from
   prevDrop: boolean;
   pickupRequest: boolean; // right-click with empty hands: the world looks for a loose weapon in reach
   knock: number; // frames left of being knocked down by a big hit: limp, tumbling, no control (0 = not)
@@ -243,7 +244,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
+    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -769,10 +770,10 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   standAndLegs(f, grounded, vx, s, tip);
   const lungeMul = 1 + T.crouch.lungeBonus * f.crouch; // crouching loads more momentum into a lunge or punch
   const M = T.motion;
-  // Held up by something that is not a floor under your hips (legs jammed in a gap, a fist hooked on an edge, someone's head): after a
-  // moment of hanging there motionless you can jump (owner: you should never get stuck).
-  const sv = body.linvel(tmp);
-  f.still = !grounded && Math.abs(sv.x) < M.stuckSpeed && Math.abs(sv.y) < M.stuckSpeed ? f.still + 1 : 0;
+  // Held up by something that is not a floor under your hips (legs jammed in a gap, a fist hooked on an edge, someone's head, a body): after a
+  // moment there going nowhere you can jump (owner: you should never get stuck). Going nowhere, not motionless: wedged in a gap you wiggle.
+  const sp = body.translation();
+  if (grounded || Math.hypot(sp.x - f.stillX, sp.y - f.stillY) > M.stuckRange) { f.still = 0; f.stillX = sp.x; f.stillY = sp.y; } else f.still++;
   if (grounded || f.still >= M.stuckFrames) f.coyote = M.coyoteFrames;
   else if (f.coyote > 0) f.coyote--;
   if (input.jump && !f.prevJump) f.jumpBuffer = M.jumpBufferFrames;

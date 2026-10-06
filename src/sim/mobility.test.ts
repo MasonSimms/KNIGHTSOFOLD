@@ -92,3 +92,17 @@ describe('never stuck', () => {
     }
   });
 });
+
+describe('no jumping twice', () => {
+  it('pressing jump again at the top of a jump does nothing (being stuck lets you jump; the top of a jump is not being stuck)', async () => {
+    const top = async (mash: boolean) => {
+      const sim = await Sim.create(5);
+      for (let i = 0; i < 40; i++) sim.step([idle()]);
+      const f = sim.fighters[0], y0 = f.torso.body.translation().y;
+      let high = 0;
+      for (let i = 0; i < 90; i++) { sim.step([idle({ jump: i < 18 || (mash && i % 4 < 2) })]); high = Math.max(high, y0 - f.torso.body.translation().y); }
+      return high;
+    };
+    expect(await top(true)).toBeLessThan((await top(false)) + 0.05);
+  });
+});

@@ -48,6 +48,7 @@ export class Bot {
     // The stage floor: ground slabs (and a bridge across a gap) as spans; an end with a wall right at it is safe.
     const spans = (A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]).map((g) => [g.x, g.x + g.w]);
     if (A.bridge) spans.push([A.bridge.x0, A.bridge.x1]);
+    for (const l of A.ledges) if (l.up < 0.3) spans.push([l.x, l.x + l.w]); // a stepping stone level with the floor
     const lo = Math.min(...spans.map((s) => s[0])), hi = Math.max(...spans.map((s) => s[1]));
     const backstop = (side: number) => A.walls.some((w) => w.side === side && w.gap < 0.3);
     const offStage = (p.x < lo || p.x > hi) && p.y > A.platformTop - 2.5; // out past an end and not high up
@@ -122,11 +123,17 @@ export class Bot {
       if (near) out.moveX = Math.sign(p.x - near.torso.body.translation().x) || 1;
     }
 
-    // Lying down, or pushing to walk and getting nowhere (tangled up with someone's club): a person would jump out of it.
+    // Lying down, or pushing to walk and getting nowhere (tangled up with someone's club, wedged in a gap, propped up on a body): a person
+    // would jump out of it.
     const lying = Math.abs(wrap(me.torso.body.rotation())) > 1.1, going = Math.abs(me.torso.body.linvel().x) > 0.3;
-    this.stuck = (lying && me.grounded) || (out.moveX !== 0 && !going && me.grounded) ? this.stuck + 1 : 0;
+    this.stuck = (lying && me.grounded) || (out.moveX !== 0 && !going) ? this.stuck + 1 : 0;
     if (this.stuck > B.stuckFrames && this.jumpFrames === 0) { this.hop(); this.stuck = 0; }
 
+    // A gap in the floor ahead with more floor past it (a pit, a gap by a stepping stone): hop over it rather than walk in.
+    if (plan.kind !== 'recover' && me.grounded && out.moveX !== 0 && this.jumpFrames === 0) {
+      const here = spans.find((s) => p.x >= s[0] - 0.1 && p.x <= s[1] + 0.1), end = here && (out.moveX > 0 ? here[1] : here[0]);
+      if (end !== undefined && Math.abs(end - p.x) < B.gapHop && spans.some((s) => s !== here && (out.moveX > 0 ? s[0] > end - 0.1 && s[0] < end + B.gapReach : s[1] < end + 0.1 && s[1] > end - B.gapReach))) this.hop();
+    }
     // Never walk off an open edge by accident (people mostly don't).
     if (plan.kind !== 'recover' && me.grounded && ((out.moveX < 0 && p.x < lo + B.edgeMargin && !backstop(-1)) || (out.moveX > 0 && p.x > hi - B.edgeMargin && !backstop(1)))) out.moveX = 0;
 
@@ -186,7 +193,8 @@ export class Bot {
     const out: Part[] = [];
     for (const g of sim.fighters) if (g.stick && !g.grip && g.dropCooldown <= 0 && (g === me || g.stick.owner === g.index)) out.push(g.stick);
     for (const p of sim.props) if (!p.links?.length && p.body.translation().y < sim.arena.platformTop + 0.5) out.push(p);
-    return out;
+    const y = me.torso.body.translation().y;
+    return out.filter((w) => y - w.body.translation().y < T.bot.reachUp); // not up out of reach (on a high step)
   }
 
   /** Which way the nearer open edge is (-1 left, 1 right): where someone you hold should go. */
