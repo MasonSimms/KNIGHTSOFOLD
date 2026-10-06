@@ -29,7 +29,7 @@ function play(clip: Clip, sim: Sim) {
   let worst = 0;
   for (let at = first; at <= end; at += 0.7) {
     for (const e of m.show(at).events) seen.add(e.t);
-    const k = clip.snaps.findLastIndex((x) => x.frame <= at), A = clip.snaps[k], B = clip.snaps[k + 1] ?? A; // every body is where the clip says
+    const k = clip.snaps.reduce((best, x, n) => (x.frame <= at ? n : best), 0), A = clip.snaps[k], B = clip.snaps[k + 1] ?? A; // every body is where the clip says
     sim.fighters.forEach((f, i) => f.parts.forEach((q, j) => { // (between two frames, or already at the second: a part that jumped is not smeared across)
       const x0 = A.f[i].p[j * 3], x1 = B.f[i].p[j * 3];
       if (x0 !== undefined) worst = Math.max(worst, Math.min(Math.abs(q.px - x0), Math.abs(q.px - (x1 ?? x0))));
