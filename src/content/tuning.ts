@@ -657,7 +657,9 @@ export const tuning = {
     oil: { enabled: false, radius: 3.5, relief: 0.13, stroke: 46 }, // radius = how far colour is blended (px at 1080p), relief = paint thickness lighting, stroke = brush length
     shadow: { alpha: 0.22, blur: 6, x: 0.05, y: 0.06 }, // the faint soft shadow that lifts each fighter off the map: strength, softness (px at 1080p), offset (m)
     front: { blur: 3.5 }, // how out of focus the front plane is (px at 1080p)
-    water: { alpha: 0.8, crestWidth: 0.06, crestAlpha: 0.55 }, // the near water: how much it hides what is under the surface (1 = all of it), and the light line along the top of the waves (m, 0..1)
+    water: { alpha: 0.8, crestWidth: 0.06, crestAlpha: 0.55 },
+    // Bullets (owner: moving white streaks with see-through trails that reach back past the shooter). m, 0..1, seconds.
+    bullets: { streak: 0.7, streakWidth: 0.05, trailWidth: 0.05, trailAlpha: 0.35, tailBack: 1.5, trailFadeSeconds: 0.35, flashSeconds: 0.08, twirlSeconds: 0.35 }, // the near water: how much it hides what is under the surface (1 = all of it), and the light line along the top of the waves (m, 0..1)
     boilFps: 9, // how often the painted fighters' brush strokes change (the package: 3 painted variants at 8-10 fps)
     // The hot-colour cape (looks only): where it hangs from (metres from the torso's centre), and how the cloth moves.
     cape: { backX: 0.1, shoulderY: -0.24, gravity: 9, trail: 3, flutter: 2.5, flutterRate: 6, damping: 0.94 },
@@ -682,6 +684,8 @@ export const tuning = {
     platformEdge: 0x3a2618,
     outline: 0x3a2618,
     stick: 0x8c5a2f,
+    gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

@@ -319,8 +319,10 @@ export function createProp(world: World, x: number, y: number, angle: number, sp
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
   const collider = world.createCollider(
     RAPIER.ColliderDesc.capsule(hl, r).setRotation(Math.PI / 2).setMass(spec.mass).setFriction(0.8).setRestitution(0.05).setCollisionGroups(worldGroups), body);
+  const shapes: Shape[] = [{ k: 'cap', hl, r, x: 0, y: 0, rot: Math.PI / 2 }];
+  if (spec.gun) shapes.push({ k: 'cap', hl: 0.04, r: 0.035, x: -spec.len / 2 + 0.08, y: 0.07, rot: 0 }); // (picture only) a gun's handle, hanging under the back of the barrel
   return {
-    body, shapes: [{ k: 'cap', hl, r, x: 0, y: 0, rot: Math.PI / 2 }], colliders: [collider], role: 'prop', owner: -1,
+    body, shapes, colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
     weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: Math.min(0.2, spec.len * 0.25), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun },
     ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}),

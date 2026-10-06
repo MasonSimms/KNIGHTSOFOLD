@@ -5,6 +5,7 @@ import { createOilFilter, setOilScale } from './oilpaint';
 import { createBackdrops } from './painter/backdrops';
 import { BOT_GRAYS, drawRobotHead } from './robot';
 import { createSea } from './sea';
+import { createFx } from './fx';
 import { CAPE, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -314,6 +315,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     r.age = 0;
     r.g.visible = true;
   };
+  const fxLayer = new Container(); // gunfire: bullets and their trails, flashes, sparks, splinters, smoke
+  actors.addChild(fxLayer);
+  const fx = createFx(fxLayer, splatTexs);
+  /** A weapon's or a thing's colour: a gun's metal, scenery's own wood, otherwise the stick colour. */
+  const thingColor = (p: Part) => (p.weapon?.gun ? T.colors.gun : T.colors.things[p.weapon?.id ?? ''] ?? T.colors.stick);
   const sea = createSea(ring); // the ship and the near water, on a map with a sea
   actors.addChildAt(sea.hull, 0); // (the ship is the floor: behind everything in the play plane)
   view.addChildAt(sea.water, view.getChildIndex(front)); // the water: in front of the play plane, behind the front plane
@@ -344,7 +350,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const k = new Container(), under = new Graphics();
       for (const s of p.shapes) under.addChild(drawShape(s, UNDER));
       k.addChild(under);
-      const painted = p.shapes.map((s) => addPainted(k, s, T.colors.stick));
+      const painted = p.shapes.map((s, i) => addPainted(k, s, i > 0 && p.weapon?.gun ? T.colors.stick : thingColor(p)));
       propLayer.addChild(k);
       propEntries.push({ p, k, painted, under });
     }
@@ -378,9 +384,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       for (const p of f.parts as Part[]) {
         const k = new Container(), u = new Container();
         k.zIndex = p.role === 'off' ? -2 : p.role === 'stick' ? -0.5 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs; a held club is behind the hand and arm so it looks gripped
-        const color = p.role === 'stick' ? T.colors.stick : base;
+        const color = p.role === 'stick' ? thingColor(p) : base;
         const shade = p.role === 'off' ? mix(color, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(color, 0x000000, 0.18) : color;
-        painted.push(p.shapes.map((s) => addPainted(k, s, shade)));
+        painted.push(p.shapes.map((s, i) => addPainted(k, s, p.role === 'stick' && i > 0 && p.weapon?.gun ? T.colors.stick : shade)));
         for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
         underAll.addChild(u);
         under.push(u);
@@ -424,6 +430,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     /** Screen pixels -> world metres. */
     toWorld(px: number, py: number) { return { x: (px - view.x) / view.scale.x, y: (py - view.y) / view.scale.y }; },
     onEvent(e: SimEvent) {
+      fx.onEvent(e);
       if (e.t === 'hit' || e.t === 'stomp') {
         const boost = e.head ? 1.5 : 1;
         const big = e.v * boost - T.shake.minImpact; // only big hits shake the screen
@@ -454,6 +461,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (v) v.crushed = true;
         ring(e.x, e.y + 0.3, 0xcccccc);
         shake = Math.max(shake, T.death.shake);
+      } else if (e.t === 'splash') {
+        ring(e.x, e.y, 0xffffff);
       } else if (e.t === 'parry') {
         ring(e.x, e.y, 0x9fe8ff); // a bright double ring where a swing is blocked, and a little shake
         ring(e.x, e.y, 0xffffff);
@@ -475,6 +484,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         shownRound = sim.round;
         for (const s of splats) s.visible = false;
         for (const s of streaks) s.visible = false;
+        fx.clear();
         growing.length = 0; flying.length = 0;
       }
       for (let i = flying.length - 1; i >= 0; i--) { // streaks shooting across (fast, slowing as they land)
@@ -502,6 +512,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       for (const { p, k, painted: pp, under } of propEntries) {
         k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha));
         k.rotation = p.pa + wrap(p.ca - p.pa) * alpha;
+        k.scale.x = p.flipped ? -1 : 1; // an empty gun is drawn turned round (held by the barrel)
         under.position.set(off * (Math.cos(k.rotation) + Math.sin(k.rotation)), off * (Math.cos(k.rotation) - Math.sin(k.rotation))); // world offset down-right
         for (const q of pp) updatePainted(q, k.rotation, variant);
       }
@@ -545,7 +556,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         f.parts.forEach((p, i) => {
           const k = c[i];
           k.position.set(lerp(p.px, p.cx, a), lerp(p.py, p.cy, a));
-          k.rotation = p.pa + wrap(p.ca - p.pa) * a;
+          k.rotation = p.pa + wrap(p.ca - p.pa) * a + (p === f.stick ? fx.twirl(f.index) : 0); // (an emptied gun twirls round in the hand)
+          if (p.role === 'stick') k.scale.x = p.flipped ? -1 : 1;
           k.tint = tint;
           const u = e.under[i];
           u.position.set(k.x + off, k.y + off);
@@ -565,6 +577,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis) * (1 + T.death.squashWide * e.sq), lerp(1, 0.97, e.vis) * (1 - T.death.squashFlat * e.sq));
       }
       sea.draw(sim, alpha);
+      fx.draw(sim, alpha, frameSeconds);
       app.render();
     },
   };

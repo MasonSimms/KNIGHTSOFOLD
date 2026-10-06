@@ -90,4 +90,13 @@ export const sfx = {
   pickup() { play('pickup', (p) => tone('triangle', 300 * p, 520 * p, 0.07, 0.2)); },
   die() { play('die', (p) => tone('sawtooth', 330 * p, 90 * p, 0.35, 0.2)); }, // a short comic "wah"
   fall() { play('fall', (p) => tone('sine', 700 * p, 80 * p, 0.6, 0.3)); },
+  /** A shot: a revolver's crack, or (big = the flintlock) a deep boom. */
+  shot(big = false) { if (big) play('bigshot', (p) => { burst(0.3, 0.9); tone('sine', 120 * p, 40 * p, 0.35, 0.8); }); else play('shot', (p) => { burst(0.09, 0.8); tone('square', 900 * p, 200 * p, 0.05, 0.25); tone('sine', 200 * p, 70 * p, 0.12, 0.5); }); },
+  empty() { play('empty', (p) => { tone('square', 2200 * p, 1800 * p, 0.025, 0.25); setTimeout(() => tone('square', 1600 * p, 1300 * p, 0.02, 0.2), 60); }); }, // the dry click of a gun with nothing left
+  spark() { play('spark', (p) => { tone('triangle', 2600 * p, 1900 * p, 0.12, 0.3); burst(0.03, 0.2); }); }, // a ping off metal
+  splinter() { play('splinter', (p) => { burst(0.05, 0.35); tone('square', 380 * p, 220 * p, 0.04, 0.15); }); }, // wood cracking
+  snap() { play('snap', (p) => { burst(0.12, 0.6); tone('square', 260 * p, 90 * p, 0.12, 0.35); }); }, // wood breaking in two
+  break() { play('break', (p) => { burst(0.2, 0.6); tone('sine', 160 * p, 60 * p, 0.2, 0.5); }); }, // a barrel or crate falling apart
+  impact() { play('impact', (p) => { burst(0.04, 0.25); tone('sine', 300 * p, 120 * p, 0.05, 0.15); }); }, // a bullet into the ground
+  splash() { play('splash', (p) => { burst(0.25, 0.3); tone('sine', 500 * p, 200 * p, 0.15, 0.1); }); },
 };
