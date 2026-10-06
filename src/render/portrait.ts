@@ -21,11 +21,14 @@ const NO_GROUND = { slabs: [], ledges: [], ledgeThick: 0, top: 1080, thick: 0, w
 let app: Promise<Application> | null = null;
 let land: Promise<ImageBitmap | null> | null = null;
 
-/** The three painted variants of one player's portrait (seat picks the stretch of landscape behind them). */
-export async function paintPortrait(look: Look, seat: number): Promise<HTMLCanvasElement[]> {
+/**
+ * The three painted variants of one player's portrait (seat picks the stretch of landscape behind them). bare: the figure alone, no
+ * landscape or varnish (a bust to stand on a pedestal); crown: wearing the crown whatever their hat (a bot too).
+ */
+export async function paintPortrait(look: Look, seat: number, opts: { bare?: boolean; crown?: boolean } = {}): Promise<HTMLCanvasElement[]> {
   app ??= (async () => { const a = new Application(); await a.init({ width: PORTRAIT.w, height: PORTRAIT.h, backgroundAlpha: 0, antialias: true, preference: 'webgl' }); return a; })();
   land ??= paintPicture(BACKGROUND, NO_GROUND, 640, 360);
-  const [a, back] = await Promise.all([app, land]);
+  const [a, back] = await Promise.all([app, opts.bare ? null : land]);
   const { w: W, h: H } = PORTRAIT, F = T.fighter, LG = T.legs, P = T.finish.paint, K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under };
   const hex = look.bot ? BOT_GRAYS[seat % BOT_GRAYS.length] : COLORS[look.color]?.hex ?? COLORS[0].hex, limb = mix(hex, 0x000000, 0.18);
 
@@ -58,7 +61,7 @@ export async function paintPortrait(look: Look, seat: number): Promise<HTMLCanva
     under.addChild(u);
     painted.push(addPainted(fig, s, color));
   }
-  const headY = F.headY * Z, hat = look.bot ? null : drawHat(look.hat, hex, F.headRadius * Z), eyes = look.bot ? drawRobotHead(F.headRadius * Z, hex) : drawEyes(F.headRadius * Z, look.eyes); // eyes over the hat, as in the fight
+  const headY = F.headY * Z, hat = opts.crown ? drawHat('crown', hex, F.headRadius * Z) : look.bot ? null : drawHat(look.hat, hex, F.headRadius * Z), eyes = look.bot ? drawRobotHead(F.headRadius * Z, hex) : drawEyes(F.headRadius * Z, look.eyes); // eyes over the hat, as in the fight
   if (hat) { hat.position.set(0, headY); fig.addChild(hat); }
   eyes.position.set(0, headY);
   fig.addChild(eyes);
@@ -71,6 +74,7 @@ export async function paintPortrait(look: Look, seat: number): Promise<HTMLCanva
     const c = document.createElement('canvas');
     c.width = W; c.height = H;
     const ctx = c.getContext('2d')!;
+    if (opts.bare) { ctx.drawImage(fg, 0, 0, W, H); out.push(c); continue; }
     if (back) { // a portrait-shaped stretch of the landscape, a different one for each seat
       const sh = back.height, sw = (sh * W) / H, sx = [0.42, 0.12, 0.7, 0.28][seat % 4] * (back.width - sw);
       ctx.drawImage(back, sx, 0, sw, sh, 0, 0, W, H);

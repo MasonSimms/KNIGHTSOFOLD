@@ -1,6 +1,7 @@
 import type { Look } from '../content/looks';
 import type { PlayerInput } from '../sim/types';
 import type { Snapshot } from './snapshot';
+import type { Clip } from '../replay/tape';
 
 // Messages between a browser and the room server: one JSON object per WebSocket message.
 /** Bump when the messages change. A page and a server with different versions (or different gameplay numbers) refuse to play together:
@@ -27,6 +28,7 @@ export type ServerMsg =
   | { t: 'snap'; s: Snapshot }
   | { t: 'over'; why: string } // the host ended the fight (or everyone left): back to the menu
   | { t: 'pong'; n: number }
+  | { t: 'clip'; c: Clip } // the replay of the round just over: everyone watches it (about 5 s) before the next round
   | { t: 'error'; why: string; fatal?: boolean }; // fatal: this page cannot play here (an old version, the server restarting): the connection closes
 
 export const MAX_PLAYERS = 4;

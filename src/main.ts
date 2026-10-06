@@ -12,6 +12,8 @@ import type { Snapshot } from './net/snapshot';
 import { Room } from './net/room';
 import { Spotter } from './replay/highlights';
 import { Recorder } from './replay/recording';
+import { Tape } from './replay/tape';
+import { playClip } from './ui/replay';
 import { Sim } from './sim/world';
 import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
@@ -56,6 +58,7 @@ if (onlineParam !== null) {
     c.onMsg = (msg) => {
       if (msg.t === 'snap') m.push(msg.s);
       else if (msg.t === 'pong') { ping = performance.now() - msg.n; showPing(ping); }
+      else if (msg.t === 'clip') void replay(msg.c, performance.now());
       else if (msg.t === 'start') { mySlot = msg.you; if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
       else if (msg.t === 'over') void backToRoom(c); // the match is over (or the host ended it): back to the room's Hall, ready for a rematch
       else if (msg.t === 'error' && msg.fatal) { forgetSession(); alert(msg.why); location.href = location.pathname; }
@@ -111,7 +114,16 @@ function flail(frame: number, who: number): PlayerInput {
 const renderer = await createRenderer(view, document.body);
 applySettings(loadSettings(), renderer);
 // Every local round is recorded (the buttons pressed, a few hundred kilobytes) and the spotter picks out the moments worth seeing again.
-const recorder = new Recorder(), spotter = new Spotter();
+const recorder = new Recorder(), spotter = new Spotter(), tape = new Tape();
+let replaying = false; // an end-of-round replay is on screen (it draws itself)
+/** The round's best moment, then back to the fight (locally the fight waits; online it goes on and we catch up). */
+async function replay(clip: Parameters<typeof playClip>[0], arrived?: number) {
+  if (replaying) return;
+  replaying = true;
+  await playClip(clip, renderer, view, play, arrived);
+  last = performance.now(); acc = 0;
+  replaying = false;
+}
 
 /** The picture and the sound for what just happened in the fight. */
 function play(e: SimEvent) {
@@ -208,7 +220,7 @@ function padInput(slot: number, index: number, pads: Gamepad[]): PlayerInput {
 
 function frame(now: number) {
   requestAnimationFrame(frame);
-  if (paused) return;
+  if (paused || replaying) return;
   const ft = Math.min(now - last, 100); // clamp so a tab switch doesn't cause a huge catch-up
   last = now;
   acc += (ft / 1000) * speed;
@@ -259,6 +271,9 @@ function frame(now: number) {
     sim.step(inputs);
     spotter.feed(sim, recorder.current, sim.events);
     for (const e of sim.events) play(e);
+    tape.feed(sim);
+    const clip = tape.take();
+    if (clip) { void replay(clip); break; } // (the fight waits while it plays)
   }
   if (acc >= T.sim.dt) acc = 0; // too far behind: drop the backlog instead of spiralling
   simMsSum += performance.now() - t0;
@@ -312,4 +327,5 @@ if (mode === 'training') void menu('home');
 if (import.meta.env.DEV) (window as unknown as { sim: Sim }).sim = sim; // dev-only handle for console poking and browser tests
 if (import.meta.env.DEV) (window as unknown as { view: Sim; mirror: Mirror | null }).view = view; // (online: the copy that is drawn)
 if (import.meta.env.DEV) (window as unknown as { mirror: Mirror | null }).mirror = mirror;
+if (import.meta.env.DEV) Object.assign(window, { devTape: tape, devReplay: replay }); // (dev: cut and play an end-of-round replay from the console)
 if (import.meta.env.DEV) (window as unknown as { tuning: typeof tuning }).tuning = tuning; // dev-only: lets the browser console and tests flip settings

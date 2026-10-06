@@ -581,6 +581,15 @@ export const tuning = {
   respawn: {
     frames: 120,
   },
+  replay: {
+    // The end of every era (each round) replays its best moment (owner): a quick replay of about 5 s, slowed down a little, with what
+    // happened written over it. Online, the server sends it to everyone and waits for it before the next round.
+    enabled: true,
+    before: 150, // frames shown before the moment (2.5 s)
+    after: 60, // ...and after it (1 s)
+    speed: 0.7, // how fast it plays (0.7: 3.5 s of fight take 5 s)
+    keepSeconds: 90, // how much of a round is kept for it (a best moment earlier than this before the round ends is not shown)
+  },
   camera: {
     // A very subtle moving camera (owner): when only two fighters are left in a fight it eases in a little on them. It never shows past
     // the edge of the picture, and eases back out when the round is over. Practice (you and the dummy) never zooms.

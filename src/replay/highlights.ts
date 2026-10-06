@@ -8,8 +8,8 @@ import type { SimEvent } from '../sim/types';
 import type { Sim } from '../sim/world';
 import type { Recording } from './recording';
 
-export interface Moment {
-  rec: Recording;
+export interface Moment<R = Recording> {
+  rec: R; // the round it belongs to (a recording to play back; for the end-of-round replay, just which round)
   from: number; to: number; // frames of the recording to show
   at: number; // the frame it happens
   score: number; // how good a moment it is (bigger = better)
@@ -35,14 +35,14 @@ export function nameOf(sim: Sim, i: number): string {
   return COLORS[look?.color ?? i]?.name ?? `Player ${i + 1}`;
 }
 
-export class Spotter {
-  readonly moments: Moment[] = [];
+export class Spotter<R extends { era: string } = Recording> {
+  readonly moments: Moment<R>[] = [];
   private last = new Map<number, { owner: number; how: string; head: boolean; frame: number; impact: number }>(); // the last hit on each fighter
   private kills: { owner: number; frame: number }[] = [];
-  private rec: Recording | null = null;
+  private rec: R | null = null;
 
   /** Feed the events of one step (after sim.step), with the recording that step belongs to. */
-  feed(sim: Sim, rec: Recording | null, events: SimEvent[]): void {
+  feed(sim: Sim, rec: R | null, events: SimEvent[]): void {
     if (!rec) return;
     if (rec !== this.rec) { this.rec = rec; this.last.clear(); this.kills = []; } // a new round
     const now = sim.frame;
@@ -78,9 +78,9 @@ export class Spotter {
   }
 
   /** The best moments first. */
-  best(n = 10): Moment[] { return [...this.moments].sort((a, b) => b.score - a.score).slice(0, n); }
+  best(n = 10): Moment<R>[] { return [...this.moments].sort((a, b) => b.score - a.score).slice(0, n); }
 
-  private add(sim: Sim, rec: Recording, at: number, score: number, title: string): void {
+  private add(sim: Sim, rec: R, at: number, score: number, title: string): void {
     const prev = this.moments[this.moments.length - 1];
     if (prev && prev.rec === rec && at - prev.at <= H.merge) { // part of the same moment: one clip, the better title
       if (score > prev.score / 2) prev.title = score >= prev.score ? title : prev.title;
@@ -92,7 +92,7 @@ export class Spotter {
   }
 
   /** The winning blow: the last moment of this round (if it was just now, and the winner's) is worth more. */
-  private boostLast(rec: Recording, at: number, score: number, winner: string): void {
+  private boostLast(rec: R, at: number, score: number, winner: string): void {
     const prev = this.moments[this.moments.length - 1];
     if (!prev || prev.rec !== rec || at - prev.at > T.match.resultFrames || !prev.title.includes(winner)) return;
     prev.score += score;

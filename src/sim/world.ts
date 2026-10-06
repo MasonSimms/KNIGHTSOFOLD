@@ -86,6 +86,7 @@ export class Sim {
   roundOver = false;
   roundWinner = -1; // index of the winner of the round just finished, or -1 for a draw
   private roundOverAt = 0;
+  extraRoundPause = 0; // frames added to the pause between rounds (online: the server waits while everyone watches the round's replay)
   matchOver = false; // the last round is done and someone leads: the crown (tuning.match)
   matchWinner = -1;
   private matchOverAt = 0;
@@ -1051,7 +1052,7 @@ export class Sim {
   private updateRound(): void {
     if (this.matchOver) return;
     if (this.roundOver) {
-      if (this.frame - this.roundOverAt >= T.match.resultFrames) {
+      if (this.frame - this.roundOverAt >= T.match.resultFrames + this.extraRoundPause) {
         const scores = this.scores.slice(0, this.count), top = Math.max(...scores);
         if (this.round >= T.match.rounds && scores.filter((s) => s === top).length === 1) { // the last round, and one leads: the match is theirs
           this.matchOver = true;

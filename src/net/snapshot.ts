@@ -50,7 +50,7 @@ export class Mirror {
   private lastLooks = '';
   private fresh = true; // nothing shown yet: the first snapshot says which round and era to build
 
-  constructor(readonly sim: Sim, readonly delay = T.net.blendTicks) {}
+  constructor(readonly sim: Sim, readonly delay = T.net.blendTicks, readonly keep = 60) {} // keep: snapshots held (a replay clip holds all of its own)
 
   push(s: Snapshot): void {
     if (this.fresh) { // a new client (or one that rejoined): build the round the server is in, with its era's weapon and arena
@@ -58,7 +58,7 @@ export class Mirror {
       if (s.round !== this.sim.round || s.era !== this.sim.era) this.sim.buildRound(s.round, s.era);
     }
     if (s.frame > (this.snaps.at(-1)?.frame ?? -1)) this.snaps.push(s);
-    while (this.snaps.length > 60) { // only the last second is kept. A page that is not drawing (a hidden tab) still gets every snapshot:
+    while (this.snaps.length > this.keep) { // only the last second is kept. A page that is not drawing (a hidden tab) still gets every snapshot:
       const old = this.snaps.shift()!; // one it never showed still has its deaths and pickups made, or the copy would never match again
       if (old.frame <= this.applied) continue;
       for (const e of old.ev) if (STRUCTURAL.has(e.t)) this.sim.mirrorEvent(e);

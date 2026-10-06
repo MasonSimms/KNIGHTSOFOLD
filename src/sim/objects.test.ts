@@ -164,6 +164,7 @@ describe('the world is physics: a breakable bridge', () => {
     const server = await Sim.create(7, 4, false), client = await Sim.create(7, 4, false);
     for (const s of [server, client]) { s.forceEra = 'samurai'; s.forceMap = 1; s.reset(); }
     const room = new Room(server), mirror = new Mirror(client);
+    server.extraRoundPause = 0; // (no end-of-round replay wait: as many rounds as before in the same time)
     const inputs = fuzzer(33);
     const wire = (s: Snapshot): Snapshot => JSON.parse(JSON.stringify(s));
     let worst = 0, cuts = 0, pickups = 0;

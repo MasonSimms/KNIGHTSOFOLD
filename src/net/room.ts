@@ -2,6 +2,8 @@ import { tuning as T } from '../content/tuning';
 import type { PlayerInput, SimEvent } from '../sim/types';
 import { NEUTRAL } from '../sim/types';
 import type { Sim } from '../sim/world';
+import { Tape } from '../replay/tape';
+import type { Clip } from '../replay/tape';
 import { STRUCTURAL, takeSnapshot } from './snapshot';
 import type { Snapshot } from './snapshot';
 
@@ -13,11 +15,14 @@ export class Room {
   private acks: number[]; // the number of the input each player's fighter last moved by (the snapshot says it: prediction needs it)
   private pending: SimEvent[] = [];
   private log: SimEvent[] = []; // structural events since the round began, so a late joiner can catch up
+  private tape = new Tape(); // the round, for its end-of-round replay
 
   constructor(readonly sim: Sim, readonly snapEvery = T.net.snapEvery) {
     this.inputs = sim.fighters.map(() => NEUTRAL);
     this.queue = sim.fighters.map(() => []);
     this.acks = sim.fighters.map(() => 0);
+    // Everyone watches the round's replay (about 5 s) before the next round: the pause between rounds is that much longer.
+    sim.extraRoundPause = T.replay.enabled ? Math.max(0, T.replay.after + Tape.frames + 30 - T.match.resultFrames) : 0;
   }
 
   /** A player's next input (n counts them). One is used per tick; with none waiting the previous one is used again. Too many waiting
@@ -38,13 +43,17 @@ export class Room {
     this.queue.forEach((q, i) => { const x = q.shift(); if (x) { this.inputs[i] = x.i; this.acks[i] = x.n; } });
     this.sim.step(this.inputs);
     this.ticks++;
+    if (this.ticks % this.snapEvery !== 0) { this.tape.feed(this.sim); this.collect(); return null; }
     this.collect();
-    if (this.ticks % this.snapEvery !== 0) return null;
     const s = takeSnapshot(this.sim, this.ticks, this.pending);
     s.ack = this.acks.slice();
     this.pending = [];
+    this.tape.feed(this.sim, s);
     return s;
   }
+
+  /** The replay of the round just over, once it is ready (send it to everyone). */
+  takeClip(): Clip | null { return this.tape.take(); }
 
   /** A player left: their fighter dies now and they are out of every later round. */
   removePlayer(slot: number): void {

@@ -1,6 +1,7 @@
 /* The menus: a museum. Dark green painted wall, gilded frames lit by brass picture lamps, engraved gold lettering. */
+/* (the gold and cream are used over the fight too: scoreboard, podium, replay mark) */
+:root { --gold: #e3c375; --gold-dim: #a8925c; --cream: #efe3c2; --ink: #2a1d08; }
 #menu {
-  --gold: #e3c375; --gold-dim: #a8925c; --cream: #efe3c2; --ink: #2a1d08;
   position: fixed; inset: 0; z-index: 20; overflow: hidden auto; box-sizing: border-box; user-select: none; /* (no sideways scroll: the lamp light spills past the edges) */
   color: var(--cream); font: 18px/1.3 'Fell SC', Georgia, serif;
   background: var(--wall, none), radial-gradient(120% 95% at 50% 32%, #2b4838 0%, #1b3025 52%, #0c1611 100%);
@@ -180,15 +181,36 @@
 .prefs .about { min-height: 2.6em; margin-top: 6px; color: #9f9272; font-size: 13.5px; line-height: 1.35; font-style: italic; }
 .prefs .hint { margin-top: 16px; }
 
-/* The scoreboard's round counter, and the crown at the end of a match: a gilded plaque over the fight. */
-#score .round { color: var(--gold-dim); font-size: .8em; }
-#crown { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 6; display: none; min-width: min(420px, 90vw); padding: 18px 40px 20px;
-  text-align: center; background: rgba(8, 16, 12, .82); color: var(--cream); font-family: 'Fell SC', Georgia, serif;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, .6), inset 0 0 0 1px #5a3e10, inset 0 0 0 3px rgba(255, 236, 170, .3), inset 0 0 0 5px #7a5618; }
-#crown .crest { color: #f2c230; font-size: 64px; line-height: 1; text-shadow: 0 0 22px rgba(255, 200, 80, .45), 0 3px 6px #000; }
-#crown .who { margin-top: 4px; font-size: 52px; letter-spacing: .1em; text-shadow: 0 3px 8px #000; }
-#crown .takes { color: var(--gold); font-size: 22px; letter-spacing: .24em; }
-#crown ol { margin: 16px auto 0; padding: 0; max-width: 300px; list-style: none; border-top: 1px solid rgba(168, 146, 92, .35); }
-#crown li { display: flex; justify-content: space-between; padding: 5px 4px; border-bottom: 1px solid rgba(168, 146, 92, .2); font-size: 20px; letter-spacing: .06em; }
-#crown li b { color: var(--gold); font-weight: normal; }
-#crown .next { margin-top: 12px; color: var(--gold-dim); font-size: 14px; letter-spacing: .1em; }
+/* The scoreboard (no words): each player's colour and rounds won, then a pip for every round of the match. */
+#score .pl { margin: 0 .5em; }
+#score .pl b { margin-right: .18em; font-weight: normal; text-shadow: 0 0 6px rgba(0, 0, 0, .6); }
+#score .pips { display: inline-flex; gap: 5px; margin-left: 1.1em; vertical-align: middle; }
+#score .pips i { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--gold-dim); }
+#score .pips i.on { background: var(--gold-dim); }
+#score .pips i.now { background: var(--gold); box-shadow: 0 0 8px rgba(255, 210, 120, .7); }
+#score .pips i.tie { background: #c8282c; box-shadow: 0 0 8px rgba(200, 40, 44, .7); }
+
+/* The end of a match (no words): busts on stone pedestals, the winner crowned in the middle, highest, under a warm light; gold marks
+   on each pedestal for the rounds won. */
+#podium { position: fixed; inset: 0; z-index: 6; display: none; background: radial-gradient(ellipse at 50% 100%, rgba(10, 8, 4, .35), rgba(6, 5, 3, .82) 70%);
+  animation: podiumin .6s ease-out; }
+#podium .light { position: absolute; left: 50%; top: 0; bottom: 0; width: min(520px, 60vw); transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 30%, rgba(255, 214, 140, .32), rgba(255, 200, 110, 0) 62%); pointer-events: none; }
+#podium .stand { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); display: grid; grid-template-columns: repeat(5, min(190px, 18vw)); align-items: end; column-gap: 1.5vw; }
+#podium .place { grid-row: 1; display: flex; flex-direction: column; align-items: center; animation: risein .8s ease-out both; }
+#podium .place.r0 { animation-delay: .5s; }
+#podium .place.r1 { animation-delay: .25s; }
+#podium canvas { width: 82%; height: auto; margin-bottom: -6px; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .55)); }
+#podium .r0 canvas { width: 100%; filter: drop-shadow(0 0 18px rgba(255, 210, 120, .35)) drop-shadow(0 10px 12px rgba(0, 0, 0, .6)); }
+#podium .plinth { position: relative; width: 100%; background: linear-gradient(90deg, #4a463e, #8a8274 30%, #a49a88 48%, #6e685c 75%, #3e3a32);
+  box-shadow: inset 0 10px 0 -2px #b39a5c, inset 0 12px 0 -2px #5a4520, 0 -2px 0 #e3c375, 0 18px 40px rgba(0, 0, 0, .6); }
+#podium .r0 .plinth { box-shadow: inset 0 10px 0 -2px #e3c375, inset 0 12px 0 -2px #7a5618, 0 -2px 0 #f2d48a, 0 18px 40px rgba(0, 0, 0, .6); }
+#podium .marks { position: absolute; top: 26px; left: 10%; right: 10%; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+#podium .marks i { width: 11px; height: 11px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #f6dc94, #b38a35 70%); box-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
+@keyframes podiumin { from { opacity: 0; } to { opacity: 1; } }
+@keyframes risein { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+
+/* The end-of-round replay's mark (no words): a gold replay sign in the top left corner. */
+#replaymark { position: fixed; top: 52px; left: 22px; z-index: 6; display: none; color: var(--gold); font-size: 46px; line-height: 1;
+  text-shadow: 0 0 16px rgba(255, 200, 80, .4), 0 2px 6px #000; animation: replaypulse 1.2s ease-in-out infinite alternate; }
+@keyframes replaypulse { from { opacity: .55; } to { opacity: 1; } }

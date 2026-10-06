@@ -233,6 +233,8 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
         if (!s) continue;
         const msg = JSON.stringify({ t: 'snap', s });
         for (const p of r.present) if (p.ws!.readyState === WebSocket.OPEN && p.ws!.bufferedAmount < 1_000_000) p.ws!.send(msg); // a slow client just misses snapshots
+        const clip = r.game.room.takeClip();
+        if (clip) { const c = JSON.stringify({ t: 'clip', c: clip }); for (const p of r.present) if (p.ws!.readyState === WebSocket.OPEN) p.ws!.send(c); } // the round's replay (about 150 KB, once a round)
       }
     }
     for (const r of rooms.values()) if (r.game?.sim.matchOver && r.game.sim.matchFrames >= T.match.crownFrames) endGame(r, 'the match is over'); // the crown has been shown: back to the room
