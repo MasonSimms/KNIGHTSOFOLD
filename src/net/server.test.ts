@@ -55,11 +55,18 @@ async function lobbyOf(n: number, opts: ServerOptions = {}) {
   return { host, others, code };
 }
 
-/** A lobby of `n` where the host has pressed Start and everyone is in the fight. */
+/** Everyone in the lobby presses Ready. */
+async function readyAll(all: Client[]) {
+  all.forEach((c) => c.send({ t: 'ready', ready: true }));
+  await all[0].wait('lobby', (m) => m.ready.filter(Boolean).length === all.length);
+}
+
+/** A lobby of `n` where everyone is ready, the host has pressed Start and everyone is in the fight. */
 async function fightOf(n: number, opts: ServerOptions = {}) {
   const l = await lobbyOf(n, opts);
-  l.host.send({ t: 'start' });
   const all = [l.host, ...l.others];
+  await readyAll(all);
+  l.host.send({ t: 'start' });
   const starts = await Promise.all(all.map((c) => c.wait('start')));
   const game = server!.rooms.get(l.code)!.game!;
   return { ...l, all, starts, game, seed: starts[0].seed };
@@ -80,10 +87,14 @@ describe('room server', () => {
     expect((await host.wait('snap')).s.f.length).toBe(4);
   });
 
-  it('only the host can start, and not alone', async () => {
+  it('only the host can start, not alone, and not before everyone is ready', async () => {
     const { host, others } = await lobbyOf(2);
     others[0].send({ t: 'start' });
     expect((await others[0].wait('error')).why).toMatch(/host/);
+    host.send({ t: 'ready', ready: true });
+    await others[0].wait('lobby', (m) => m.ready[0]);
+    host.send({ t: 'start' });
+    expect((await host.wait('error')).why).toMatch(/ready/);
     const solo = await connect();
     solo.send({ t: 'create' });
     await solo.wait('lobby');
@@ -223,29 +234,34 @@ describe('room server', () => {
     expect(game.sim.scores[3]).toBe(0);
   });
 
-  it('players pick a colour and a hat: colours are unique in the room, junk is refused, and the choice reaches the fight', async () => {
+  it('players pick a colour, a hat and eyes: colours are unique in the room, junk is refused, and the choice reaches the fight', async () => {
     const { host, others, code } = await lobbyOf(2);
     expect((await host.wait('lobby', (m) => m.n === 2)).looks.map((l) => l?.color)).toEqual([0, 1]); // starting colours are the first free ones
-    host.send({ t: 'look', color: 5, hat: 'crown' });
+    host.send({ t: 'look', color: 5, hat: 'crown', eyes: 'sleepy' });
     const lob = await others[0].wait('lobby', (m) => m.looks[0]?.color === 5);
     expect(lob.looks[0]?.hat).toBe('crown');
+    expect(lob.looks[0]?.eyes).toBe('sleepy');
     others[0].clear();
-    others[0].send({ t: 'look', color: 5, hat: 'none' }); // taken
+    others[0].send({ t: 'look', color: 5, hat: 'none', eyes: 'round' }); // taken
     expect((await others[0].wait('error')).why).toMatch(/colour/);
     others[0].clear();
-    others[0].send({ t: 'look', color: 99, hat: 'none' });
+    others[0].send({ t: 'look', color: 99, hat: 'none', eyes: 'round' });
     expect((await others[0].wait('error')).why).toMatch(/not allowed/);
     others[0].clear();
-    others[0].send({ t: 'look', color: 2, hat: 'a hat that does not exist' });
+    others[0].send({ t: 'look', color: 2, hat: 'a hat that does not exist', eyes: 'round' });
     expect((await others[0].wait('error')).why).toMatch(/not allowed/);
-    others[0].send({ t: 'look', color: 6, hat: 'horns' });
+    others[0].clear();
+    others[0].send({ t: 'look', color: 2, hat: 'cap', eyes: 'googly' });
+    expect((await others[0].wait('error')).why).toMatch(/not allowed/);
+    others[0].send({ t: 'look', color: 6, hat: 'horns', eyes: 'fierce' });
+    await readyAll([host, ...others]);
     host.send({ t: 'start' });
     await host.wait('start');
     const sim = server!.rooms.get(code)!.game!.sim;
-    expect(sim.looks[0]).toEqual({ color: 5, hat: 'crown' });
-    expect(sim.looks[1]).toEqual({ color: 6, hat: 'horns' });
+    expect(sim.looks[0]).toEqual({ color: 5, hat: 'crown', eyes: 'sleepy' });
+    expect(sim.looks[1]).toEqual({ color: 6, hat: 'horns', eyes: 'fierce' });
     // and a change during the fight shows up in the snapshots everyone gets
-    others[0].send({ t: 'look', color: 7, hat: 'cap' });
+    others[0].send({ t: 'look', color: 7, hat: 'cap', eyes: 'round' });
     const snap = await host.wait('snap', (m) => m.s.looks[1].color === 7, 3000);
     expect(snap.s.looks[1].hat).toBe('cap');
     expect(snap.s.era.length).toBeGreaterThan(2);
@@ -266,11 +282,13 @@ describe('room server', () => {
     host.close();
     const lob = await others[0].wait('lobby', (m) => m.n === 2 && m.host);
     expect(lob.you).toBe(0);
+    await readyAll(others);
     others[0].send({ t: 'start' });
     await others[0].wait('start');
     others[0].send({ t: 'end' });
     await others[1].wait('over');
-    await others[1].wait('lobby', (m) => m.n === 2 && !m.host);
+    const back = await others[1].wait('lobby', (m) => m.n === 2 && !m.host);
+    expect(back.ready).toEqual([false, false]); // a new fight needs everyone to ready up again
   });
 
   it('the server limits how many rooms exist', async () => {

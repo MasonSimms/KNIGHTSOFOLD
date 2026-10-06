@@ -6,11 +6,14 @@
 <title>Knights of Old</title>
 <link rel="icon" href="data:," />
 <style>
+  @font-face { font-family: 'Fell SC'; src: url('/fonts/IMFellEnglishSC.ttf') format('truetype'); font-display: swap; } /* IM Fell English SC (SIL Open Font License, see public/fonts) */
   html, body { margin: 0; height: 100%; overflow: hidden; background: #141018; }
   #overlay { position: fixed; top: 8px; left: 8px; margin: 0; padding: 6px 8px; color: #9f9; background: rgba(0,0,0,.6);
              font: 12px/1.35 Consolas, monospace; pointer-events: none; white-space: pre; }
-  #score { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); font: bold 22px sans-serif; text-shadow: 0 2px 4px #000; pointer-events: none; white-space: nowrap; }
-  #banner { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); font: bold 46px sans-serif; text-shadow: 0 3px 8px #000; pointer-events: none; white-space: nowrap; }
+  #score { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); font: 27px 'Fell SC', Georgia, serif; letter-spacing: .08em; color: #e3c375;
+           text-shadow: 0 2px 2px #1a1206, 0 0 12px rgba(0,0,0,.7); pointer-events: none; white-space: nowrap; }
+  #banner { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); font: 58px 'Fell SC', Georgia, serif; letter-spacing: .1em;
+            text-shadow: 0 3px 0 #2a1d08, 0 5px 16px #000; pointer-events: none; white-space: nowrap; }
   #hint { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); color: #ddd; font: 13px sans-serif;
           background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 4px; pointer-events: none; }
 </style>
@@ -19,7 +22,7 @@
 <pre id="overlay"></pre>
 <div id="score"></div>
 <div id="banner"></div>
-<div id="hint">A D move &middot; Space jump &middot; Mouse aims &middot; left-click: club = hold to charge, release to lunge &middot; empty hands: tap = punch, hold = grab, let go to fling, jump and hold S to slam &middot; right-click drops the club (swing first to throw it) or picks it up &middot; Shift dodge &middot; S crouch &middot; hold toward a wall to slide, jump to wall-jump &middot; R reset &middot; F3 overlay</div>
+<div id="hint">A D move &middot; Space jump &middot; Mouse aims &middot; left-click: club = hold to charge, release to lunge &middot; empty hands: tap = punch, hold = grab, let go to fling, jump and hold S to slam &middot; right-click drops the club (swing first to throw it) or picks it up &middot; Shift dodge &middot; S crouch &middot; hold toward a wall to slide, jump to wall-jump &middot; R reset &middot; Esc menu &middot; F3 overlay</div>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

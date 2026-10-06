@@ -7,7 +7,12 @@ Every asset's source and tool, for the Steam AI-content disclosure. Columns: fil
 | (none yet) | | | Phase 1 draws shapes in code and synthesises placeholder sounds with WebAudio, so there are no asset files. |
 
 ## Fonts
-None yet. Use open-licence fonts (e.g. Google Fonts) and log them here.
+| Font | File | Source | Notes |
+|------|------|--------|-------|
+| IM Fell English SC | public/fonts/IMFellEnglishSC.ttf (184 KB) | By Igino Marini, SIL Open Font License 1.1 (licence text: public/fonts/OFL.txt). Downloaded 2026-10-05 from Google Fonts' official repository, github.com/google/fonts, folder ofl/imfellenglishsc. Not AI-generated. | Menus, scoreboard and round banner. |
+
+## Menu pictures (2026-10-05)
+No files: the gallery paintings, the portrait backgrounds and the portraits are painted at runtime by our own code (src/render/painter/, src/render/portrait.ts) from the era painting data, the same way as the backdrops. The museum wall, frames and lamps are CSS and a generated canvas texture (src/ui/menu.css, src/ui/menu.ts).
 
 ## AI-generated content
 None yet. Log tool, version, prompt and seed for every AI-generated image or sound.

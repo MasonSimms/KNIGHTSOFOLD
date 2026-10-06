@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
-import { COLORS, HATS } from '../src/content/looks';
+import { COLORS, EYES, HATS } from '../src/content/looks';
 import type { Look } from '../src/content/looks';
 import { cleanInput, EMPTY_MS, MAX_PLAYERS, MIN_PLAYERS, RESERVE_MS } from '../src/net/protocol';
 import type { ClientMsg, ServerMsg } from '../src/net/protocol';
@@ -15,7 +15,7 @@ const LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ'; // no I, L or O: they read as 1 and 0
 const DT = 1000 / 60;
 
 /** A player's place in a room. It outlives their connection: `ws` is null while they are away, and `token` is how they prove they are the same person. */
-interface Seat { token: string; ws: WebSocket | null; leftAt: number; look: Look }
+interface Seat { token: string; ws: WebSocket | null; leftAt: number; look: Look; ready: boolean }
 
 class GameRoom {
   seats: (Seat | null)[] = []; // in a lobby: join order. In a fight: exactly MAX_PLAYERS entries, the index is the fighter number
@@ -42,14 +42,14 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
   /** A new player's starting look: the first colour nobody in the room has. */
   const newSeat = (r: GameRoom): Seat => {
     const used = new Set(r.seats.map((s) => s?.look.color));
-    return { token: newToken(), ws: null, leftAt: 0, look: { color: COLORS.findIndex((_, i) => !used.has(i)), hat: 'none' } };
+    return { token: newToken(), ws: null, leftAt: 0, look: { color: COLORS.findIndex((_, i) => !used.has(i)), hat: 'none', eyes: 'round' }, ready: false };
   };
   const applyLooks = (r: GameRoom) => { if (r.game) r.seats.forEach((s, i) => { if (s) r.game!.sim.looks[i] = { ...s.look }; }); };
 
   const lobby = (r: GameRoom) => {
     const list = r.present;
-    const looks = r.seats.map((s) => s?.look ?? null);
-    list.forEach((s) => send(s.ws, { t: 'lobby', code: r.code, n: list.length, you: slotOf(r, s), host: s === list[0], token: s.token, looks }));
+    const looks = r.seats.map((s) => s?.look ?? null), ready = r.seats.map((s) => !!s?.ready);
+    list.forEach((s) => send(s.ws, { t: 'lobby', code: r.code, n: list.length, you: slotOf(r, s), host: s === list[0], token: s.token, looks, ready }));
   };
 
   /** Tell a player they are in the fight, with everything their client needs to build (or rebuild) its copy of it. */
@@ -63,6 +63,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
   function endGame(r: GameRoom, why: string) {
     r.game = null;
     r.seats = r.present; // back to a lobby of whoever is still connected
+    for (const s of r.seats) if (s) s.ready = false;
     r.present.forEach((s) => send(s.ws, { t: 'over', why }));
     if (!r.seats.length) rooms.delete(r.code); else lobby(r);
   }
@@ -139,22 +140,27 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       } else lobby(r);
     } else if (m.t === 'look') {
       if (!at) return;
-      const color = Number(m.color), hat = String(m.hat);
-      if (!Number.isInteger(color) || color < 0 || color >= COLORS.length || !(HATS as readonly string[]).includes(hat)) return send(ws, { t: 'error', why: 'that look is not allowed' });
+      const color = Number(m.color), hat = String(m.hat), eyes = String(m.eyes);
+      if (!Number.isInteger(color) || color < 0 || color >= COLORS.length || !(HATS as readonly string[]).includes(hat) || !(EYES as readonly string[]).includes(eyes)) return send(ws, { t: 'error', why: 'that look is not allowed' });
       if (at.room.seats.some((s) => s && s !== at.seat && s.look.color === color)) return send(ws, { t: 'error', why: 'someone already has that colour' });
-      at.seat.look = { color, hat: hat as Look['hat'] };
+      at.seat.look = { color, hat: hat as Look['hat'], eyes: eyes as Look['eyes'] };
       applyLooks(at.room);
       if (!at.room.game) lobby(at.room);
+    } else if (m.t === 'ready') {
+      if (!at || at.room.game) return;
+      at.seat.ready = m.ready === true;
+      lobby(at.room);
     } else if (m.t === 'start') {
       if (!at || at.room.game || at.room.present[0] !== at.seat) return send(ws, { t: 'error', why: 'only the host can start' });
       const r = at.room;
       if (r.seats.length < MIN_PLAYERS) return send(ws, { t: 'error', why: `need at least ${MIN_PLAYERS} players` });
+      if (r.seats.some((s) => s && !s.ready)) return send(ws, { t: 'error', why: 'not everyone is ready' });
       const seed = Math.floor(Math.random() * 2 ** 31);
       Sim.create(seed, MAX_PLAYERS, false).then((sim) => {
         if (r.game || !r.seats.length) return;
         while (r.seats.length < MAX_PLAYERS) r.seats.push(null);
         sim.gone = r.seats.map((s) => !s); // empty seats are parked from the first round
-        sim.looks = Array.from({ length: MAX_PLAYERS }, (_, i) => ({ ...(r.seats[i]?.look ?? { color: i, hat: 'none' as const }) }));
+        sim.looks = Array.from({ length: MAX_PLAYERS }, (_, i) => ({ ...(r.seats[i]?.look ?? { color: i, hat: 'none' as const, eyes: 'round' as const }) }));
         sim.reset();
         r.game = { room: new Room(sim), sim };
         seeds.set(r, seed);
