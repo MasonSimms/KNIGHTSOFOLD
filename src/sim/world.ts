@@ -311,7 +311,7 @@ export class Sim {
     for (const f of this.fighters) {
       if (f.held) {
         if (f.held.inBack) letGo(this.world, f, false, this.events); // a dodge slips out of a grab
-        else f.held.stun = Math.max(f.held.stun, 2); // being held: no walking, weak balance
+        else { f.held.stun = Math.max(f.held.stun, 2); f.held.carried = 2; } // being held: no walking, weak balance, not standing on your own feet (so you can be lifted and swung)
       }
     }
     for (const f of this.fighters) {
@@ -329,6 +329,7 @@ export class Sim {
     this.keepWeaponsInPlay();
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     this.world.step();
+    this.capSpeeds();
     this.absorbLandings();
     this.settlePlanes();
     this.resolveGrabs();
@@ -337,6 +338,7 @@ export class Sim {
     this.resolveBridge();
     this.resolveCrashes();
     this.resolveSlams();
+    this.resolveBodySlams();
     this.checkDeaths();
     this.snapshot();
   }
@@ -384,15 +386,27 @@ export class Sim {
     this.events.push({ t: 'spawn', x, y, v: PROP_KINDS.indexOf(kind), owner: -1, victim: -1 });
   }
 
+  /** Safety cap: no body part ever moves faster than sim.maxPartSpeed. Real play stays far below it; a rare solver blow-up (stiff joints and
+   *  overlapping bodies can launch a limb) is stopped here before it feeds on itself. */
+  private capSpeeds(): void {
+    const M = T.sim.maxPartSpeed;
+    for (const f of this.fighters) for (const p of f.parts) {
+      const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y);
+      if (s > M) p.body.setLinvel({ x: (v.x / s) * M, y: (v.y / s) * M }, true);
+    }
+  }
+
   /** A body that runs into something fast (the floor, a wall) does not spring back off it (see tuning.land). */
   private absorbLandings(): void {
     const L = T.land;
     for (const f of this.fighters) {
-      if (f.knock > 0) continue; // a knocked-down body may bounce about
+      if (f.knock > 0 || f.hold || f.carried > 0) continue; // a knocked-down body may bounce about; grabs move bodies on purpose
       // Sideways (walls) and up-down (floors) separately: a fast movement that the impact turned round is let back by at most maxRebound.
       const tv = f.torso.body.linvel(this.tmpV), cut = [0, 1].map((a) => {
         const before = this.preV[2 * f.index + a], after = a ? tv.y : tv.x;
-        return Math.abs(before) >= L.fallSpeed && after * Math.sign(before) < -L.maxRebound ? -after - Math.sign(before) * L.maxRebound : 0;
+        if (Math.abs(before) < L.fallSpeed || after * Math.sign(before) >= -L.maxRebound) return 0;
+        const c = -after - Math.sign(before) * L.maxRebound;
+        return Math.sign(c) * Math.min(Math.abs(c), L.maxCut); // (a bigger jump than any rebound is something else: leave it to the physics)
       });
       if (!cut[0] && !cut[1]) continue;
       for (const p of f.parts) {
@@ -489,6 +503,7 @@ export class Sim {
         this.world.contactPair(fist, other, (m) => {
           const p = !f.hold && m.numSolverContacts() > 0 && m.solverContactPoint(0, this.tmpP);
           if (!p) return;
+          if (Math.hypot(f.fore.vx - part.vx, f.fore.vy - part.vy) > T.grab.maxCatchSpeed) return; // too fast to catch (a joint snapping them together would tear the bodies apart)
           f.hold = grabJoint(this.world, f, part, p);
           f.held = victim;
           f.holdFrames = 0;
@@ -523,6 +538,7 @@ export class Sim {
             if (!vp || vp.owner === f.index || (vp.role !== 'torso' && vp.role !== 'thigh' && vp.role !== 'shin')) return;
             const victim = this.fighters[vp.owner];
             if (!victim || victim.limp || victim.inBack || this.detached(victim, vp)) return;
+            if (f.held === victim || victim.held === f) return; // a holder and the one they hold bump about: not an attack (slamming them into things is)
             this.world.contactPair(col, other, (m) => {
               if (this.frame < f.bodyHitAt || m.numSolverContacts() === 0) return;
               const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP;
@@ -551,12 +567,17 @@ export class Sim {
   private resolveSlams(): void {
     const G = T.grab;
     for (const v of this.fighters) {
-      if (v.thrown <= 0) continue;
-      v.thrown--;
+      // Flung, or still held and swung into something (owner: swinging someone into the ground or a wall is a body slam too). A jump
+      // slam (resolveBodySlams) is scored there instead.
+      const holder = this.fighters.find((g) => g.held === v);
+      if (holder) v.thrownBy = holder.index;
+      if ((v.thrown <= 0 && !holder) || v.slamBy >= 0) continue;
+      if (v.thrown > 0) v.thrown--;
       if (v.slamWait > 0) { v.slamWait--; continue; }
       if (v.limp) continue;
       for (const p of v.parts) {
         if (p.role === 'off' || (p.role === 'stick' && !v.grip)) continue;
+        if (holder && v.thrown <= 0 && Math.cos(v.torso.body.rotation()) > 0.55 && (p.role === 'thigh' || p.role === 'shin')) continue; // held and set down on your feet is not a slam
         for (const col of p.colliders) {
           this.world.contactPairsWith(col, (other) => {
             if (v.slamWait > 0) return;
@@ -579,6 +600,40 @@ export class Sim {
             });
           });
         }
+      }
+    }
+  }
+
+  /**
+   * A body slam lands (see tuning.slam): the held fighter's head or body hits the ground. The damage grows with how far they were driven
+   * down; a head that hits first counts as a head hit (the paint and sound of one).
+   */
+  private resolveBodySlams(): void {
+    const S = T.slam;
+    for (const v of this.fighters) {
+      if (v.slamBy < 0) continue;
+      const g = this.fighters[v.slamBy];
+      if (!g || g.held !== v || !g.slamming || v.limp) { v.slamBy = -1; continue; }
+      const hp = v.parts.find((p) => p.role === 'head');
+      const cols = hp ? [...v.torso.colliders, hp.colliders[0]] : v.torso.colliders;
+      for (const col of cols) {
+        const part = hp && col === hp.colliders[0] ? hp : v.torso, head = col === v.headCollider || part === hp;
+        this.world.contactPairsWith(col, (other) => {
+          const ob = other.parent();
+          if (v.slamBy < 0 || !ob || !ob.isFixed()) return;
+          this.world.contactPair(col, other, (m) => {
+            if (v.slamBy < 0 || m.numSolverContacts() === 0) return;
+            const n = m.normal(this.tmpN), speed = Math.abs(part.vx * n.x + part.vy * n.y);
+            if (speed < S.minSpeed) return;
+            const drop = Math.max(0, v.torso.body.translation().y - v.slamTop), dmg = S.damage + drop * S.damagePerMetre;
+            const pt = m.solverContactPoint(0, this.tmpP) ?? v.torso.body.translation();
+            v.slamBy = -1;
+            g.slamming = false;
+            letGo(this.world, g, false, this.events);
+            g.bodyHitAt = this.frame + T.body.cooldown * 2; // landing on them straight after is not a second hit
+            this.wound(v, dmg, speed * S.impactFactor, pt.x, pt.y, g.index, head, true, { how: 'slam', nx: n.x, ny: n.y });
+          });
+        });
       }
     }
   }
@@ -707,6 +762,7 @@ export class Sim {
                 return;
               }
               const victim = this.fighters[victimPart.owner];
+              if (att.kind === 'fist' && f.held === victim) return; // the hand holding someone is not punching them
               const head = !!victim && !!victim.headCollider && other.handle === victim.headCollider.handle;
               this.hit(f, att, victim, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN), head);
             });
@@ -825,6 +881,7 @@ export class Sim {
     f.deadAt = this.frame;
     f.dropCooldown = 0; // the club they were holding can be taken straight away
     for (const g of this.fighters) if (g.held === f) letGo(this.world, g, false, this.events); // nobody keeps hold of a falling ragdoll
+    if (f.hold) letGo(this.world, f, false, this.events); // and the dead let go of whoever they were holding
     if (f.inBack) setBackPlane(f, false);
     if (f.grip) { this.world.removeImpulseJoint(f.grip, true); f.grip = null; }
     for (const p of ragdoll(this.world, f, this.rng)) this.partByBody.set(p.body.handle, p);

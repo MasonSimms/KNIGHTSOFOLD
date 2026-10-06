@@ -21,18 +21,18 @@ async function twoFighters() {
   return sim;
 }
 
-describe('flip', () => {
-  it('holding flip spins you forward in the air, and you are put right side up smoothly after landing', async () => {
+describe('righting', () => {
+  it('a body tipped over in the air is put right side up smoothly after landing', async () => {
     const sim = await twoFighters();
     const P = sim.fighters[0];
     sim.step([idle({ jump: true })]);
-    let turned = 0, prev = P.torso.body.rotation();
-    for (let i = 0; i < 40; i++) {
-      sim.step([idle({ flip: true })]);
-      const r = P.torso.body.rotation();
-      turned += Math.atan2(Math.sin(r - prev), Math.cos(r - prev)); prev = r; // wrapped, so spins past half a turn count
+    for (let i = 0; i < 6; i++) sim.step([idle()]);
+    const c = P.torso.body.translation();
+    for (const p of P.parts) { // tip the whole body over (upside down, a little past) in the air
+      const t = p.body.translation(), rx = t.x - c.x, ry = t.y - c.y, a = 2.6;
+      p.body.setTranslation({ x: c.x + rx * Math.cos(a) - ry * Math.sin(a), y: c.y + rx * Math.sin(a) + ry * Math.cos(a) }, true);
+      p.body.setRotation(p.body.rotation() + a, true);
     }
-    expect(turned).toBeGreaterThan(3.5); // nearly a full turn, the way the fighter faces (right = positive)
     let maxStep = 0, last = P.torso.body.rotation();
     for (let i = 0; i < 120; i++) {
       sim.step([idle()]);

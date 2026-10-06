@@ -38,7 +38,7 @@ export function connectedPads(): Gamepad[] {
 }
 
 // Gamepad buttons (standard layout): A jump, B or left bumper dodge, right trigger or right bumper attack,
-// left stick moves, right stick aims, stick down or d-pad down crouches, stick up or d-pad up flips, X drops or picks up a weapon.
+// left stick moves, right stick aims, stick down or d-pad down crouches, X drops or picks up a weapon.
 const padPrevDrop: boolean[] = [];
 const padAimBySlot: number[] = [];
 
@@ -56,7 +56,6 @@ export function readPadInput(slot: number, pad: Gamepad): PlayerInput {
     aim: padAimBySlot[slot],
     attack: !!pad.buttons[7]?.pressed || !!pad.buttons[5]?.pressed,
     crouch: (pad.axes[1] ?? 0) > 0.6 || !!pad.buttons[13]?.pressed,
-    flip: (pad.axes[1] ?? 0) < -0.6 || !!pad.buttons[12]?.pressed,
     drop,
     dodge: !!pad.buttons[1]?.pressed || !!pad.buttons[4]?.pressed,
   };
@@ -67,7 +66,6 @@ export function readInput(fighter: { x: number; y: number }): PlayerInput {
   let moveX = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
   const tapped = (...codes: string[]) => codes.map((c) => taps.delete(c)).some(Boolean); // a press that was over before this frame still counts
   let jump = keys.has('Space') || tapped('Space');
-  let flip = keys.has('KeyW') || keys.has('ArrowUp'); // hold W: forward rotation in the air
   let attack = mouseDown;
   let crouch = keys.has('KeyS') || keys.has('ArrowDown');
   let drop = dropTap; // a right-click press counts even if it was over before this frame
@@ -82,12 +80,11 @@ export function readInput(fighter: { x: number; y: number }): PlayerInput {
     jump = jump || !!pad.buttons[0]?.pressed;
     attack = attack || !!pad.buttons[7]?.pressed || !!pad.buttons[5]?.pressed; // right trigger / right bumper
     crouch = crouch || (pad.axes[1] ?? 0) > 0.6 || !!pad.buttons[13]?.pressed; // stick down / d-pad down
-    flip = flip || (pad.axes[1] ?? 0) < -0.6 || !!pad.buttons[12]?.pressed; // stick up / d-pad up
     dodge = dodge || !!pad.buttons[1]?.pressed || !!pad.buttons[4]?.pressed; // B / left bumper
     const dropNow = !!pad.buttons[2]?.pressed; // X
     drop = drop || (dropNow && !padPrevDrop[0]);
     padPrevDrop[0] = dropNow;
   }
   const aim = usePadAim ? padAim : Math.atan2(mouseY - fighter.y, mouseX - fighter.x);
-  return { moveX, jump, aim, attack, crouch, flip, drop, dodge };
+  return { moveX, jump, aim, attack, crouch, drop, dodge };
 }
