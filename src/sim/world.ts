@@ -594,7 +594,7 @@ export class Sim {
               const head = !!victim.headCollider && other.handle === victim.headCollider.handle;
               const k = knockbackFor(impact) * B.knockbackMul;
               shove(victim, c.nx * k, c.ny * k);
-              if (stomp) this.events.push({ t: 'stomp', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head }); // an ordinary slam is announced as a 'hit' by wound()
+              if (stomp) this.events.push({ t: 'stomp', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head, how: 'stomp', d: dmg * (head ? T.combat.headMult : 1) }); // an ordinary slam is announced as a 'hit' by wound()
               this.wound(victim, dmg * (head ? T.combat.headMult : 1), impact, pt.x, pt.y, f.index, head, !stomp, { how: stomp ? 'stomp' : 'body', nx: c.nx, ny: c.ny });
             });
           });
@@ -744,7 +744,7 @@ export class Sim {
     victim.hp -= dmg;
     victim.stun = T.combat.stunFrames;
     if (victim.hold && impact >= T.grab.breakImpact) letGo(this.world, victim, false, this.events); // a good hit makes a grabber let go
-    if (announce) this.events.push({ t: 'hit', x, y, v: impact, owner, victim: victim.index, head });
+    if (announce) this.events.push({ t: 'hit', x, y, v: impact, owner, victim: victim.index, head, how: cause?.how, d: dmg });
     if (victim.hp <= 0) this.kill(victim, false, impact, cause);
     else if (cause) this.knockdown(victim, impact, cause.nx);
   }
@@ -922,7 +922,7 @@ export class Sim {
     if (!killing) this.knockdown(victim, impact, nx);
     // A hit tips the victim backward (head swings away from the blow) a little: smooth and funny, not a random flip.
     victim.torso.body.applyTorqueImpulse(-Math.sign(nx || 1) * impact * T.combat.spinScale * (0.8 + 0.4 * this.rng()), true);
-    this.events.push({ t: 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head });
+    this.events.push({ t: 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head, how: att.kind === 'stick' ? 'club' : 'fist', w: att.kind === 'stick' ? att.part.weapon?.id : undefined, d: dmg });
     if (maiming && !killing) this.maim(victim, vp, nx, ny);
     if (killing) this.kill(victim, false, impact, { how: att.kind === 'stick' ? 'club' : 'fist', part: vp, head, nx, ny });
   }

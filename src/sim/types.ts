@@ -22,4 +22,7 @@ export interface SimEvent {
   owner: number; // who caused it (attacker / the one who jumped / died)
   victim: number;
   head?: boolean; // a 'hit' that landed on the head
+  how?: string; // a 'hit': what did it (club, fist, slam, stomp, body)
+  w?: string; // a club 'hit': which weapon (an id from weapons.ts or props.ts)
+  d?: number; // a 'hit': the hidden damage it did
 }
