@@ -20,19 +20,19 @@ export function runHome(): Promise<HomeChoice> {
   const root = openMenu('gallery', html);
   root.querySelectorAll('canvas').forEach((c, i) => hangPicture(c, PICS[i].era, PICS[i].w, PICS[i].h));
   const go = [...root.querySelectorAll<HTMLElement>('[data-go]')]; // online, play, training: left to right
-  let focus = 1, raf = 0;
+  let focus = -1, raf = 0; // every lamp is off until you point at a picture (owner); a key or the gamepad starts on Play
   const light = () => go.forEach((el, i) => el.classList.toggle('lit', i === focus));
   light();
   menuPresses(); // (buttons already held when the screen opens are not presses)
 
   return new Promise((resolve) => {
     const pick = (el: HTMLElement) => { cancelAnimationFrame(raf); removeEventListener('keydown', onKey); closeMenu(); resolve(el.dataset.go as HomeChoice); };
-    const move = (d: number) => { focus = Math.max(0, Math.min(go.length - 1, focus + d)); light(); };
-    go.forEach((el, i) => { el.onmouseenter = () => { focus = i; light(); }; el.onclick = () => pick(el); });
+    const move = (d: number) => { focus = focus < 0 ? 1 : Math.max(0, Math.min(go.length - 1, focus + d)); light(); };
+    go.forEach((el, i) => { el.onmouseenter = () => { focus = i; light(); }; el.onmouseleave = () => { focus = -1; light(); }; el.onclick = () => pick(el); });
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'ArrowLeft' || e.code === 'ArrowUp') move(-1);
       else if (e.code === 'ArrowRight' || e.code === 'ArrowDown') move(1);
-      else if (e.code === 'Enter' || e.code === 'Space') pick(go[focus]);
+      else if (e.code === 'Enter' || e.code === 'Space') pick(go[Math.max(0, focus < 0 ? 1 : focus)]);
     };
     addEventListener('keydown', onKey);
     const tick = () => {
@@ -40,7 +40,7 @@ export function runHome(): Promise<HomeChoice> {
       for (const p of menuPresses()) {
         if (p.b === 'left' || p.b === 'up') move(-1);
         else if (p.b === 'right' || p.b === 'down') move(1);
-        else if (p.b === 'a' || p.b === 'start') return pick(go[focus]);
+        else if (p.b === 'a' || p.b === 'start') return pick(go[focus < 0 ? 1 : focus]);
       }
     };
     tick();
