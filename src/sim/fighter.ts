@@ -612,7 +612,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   f.prevDodge = input.dodge;
   if (f.chargeLocked && !input.attack) f.chargeLocked = false;
-  const attack = input.attack && !f.chargeLocked && !f.inBack && f.attackLock === 0 && !f.armLost && f.knock === 0; // no attacking from the background plane, or without an arm
+  let attack = input.attack && !f.chargeLocked && !f.inBack && f.attackLock === 0 && !f.armLost && f.knock === 0; // no attacking from the background plane, or without an arm
 
   // ---- right-click: with a club in your hand it lets go (the club keeps the speed of your swing plus a small push, so swing first,
   // then drop it to throw it); with empty hands it picks your club up again if it is within reach ----
@@ -642,6 +642,13 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       f.stick.body.setLinvel({ x: sv.x + Math.cos(input.aim) * T.drop.push, y: sv.y + Math.sin(input.aim) * T.drop.push }, true);
       f.dropCooldown = T.drop.pickupDelay;
       events.push({ t: 'drop', x: st.x, y: st.y, v: 0, owner: f.index, victim: -1 });
+    } else if (f.hold && f.held) {
+      // Right-click while holding someone (owner): a short toss along your aim, on top of whatever your swing gave them. Let go of the
+      // button and press again to grab again.
+      const v = f.held, m = fighterMass(v);
+      shove(v, Math.cos(input.aim) * T.grab.toss * m, Math.sin(input.aim) * T.grab.toss * m);
+      letGo(world, f, true, events);
+      f.chargeLocked = true; attack = false; f.charge = 0; // (this frame too: no grabbing them straight back)
     } else if (!f.grip) {
       f.pickupRequest = !f.armLost; // right-click with empty hands: the world picks up what you are aiming at, within reach (needs an arm)
       f.pickupAim = input.aim;

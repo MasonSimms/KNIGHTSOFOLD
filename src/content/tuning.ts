@@ -322,6 +322,7 @@ export const tuning = {
     maxFrames: 150, // a grab gives out after this long (2.5 s) and they drop out of your hands (no fling)
     holdFrames: 8, // hold the button this long (0.13 s) and it is a grab, not a punch
     armMul: 1.8, // how much stronger your arm is while reaching or holding someone (was 4: a body whirled like nothing; now the other fighter has real weight but can still be swung and thrown)
+    toss: 5, // m/s: right-click while holding someone tosses them this much along your aim, on top of your swing (owner: a short toss)
     fling: 1, // the flung fighter's speed is multiplied by this when you let go (1 = only the swing itself)
     maxFling: 12, // m/s: nobody leaves your hands faster than this
     maxCatchSpeed: 10, // m/s: a hand cannot lock onto someone flying past faster than this (relative to the hand)

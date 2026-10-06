@@ -140,6 +140,26 @@ describe('charge, punch and throw (the newer controls)', () => {
     }
   });
 
+  it('right-click while holding someone tosses them along your aim, and you do not grab them straight back', async () => {
+    const T = (await import('../content/tuning')).tuning;
+    const was = T.fighter.startArmed;
+    T.fighter.startArmed = false;
+    try {
+      const { sim, D, P } = await unarmedFace();
+      for (let i = 0; i < 40 && !P().hold; i++) sim.step([idle({ attack: true, moveX: 0.5 })]);
+      for (let i = 0; i < 10; i++) sim.step([idle({ attack: true })]); // holding still
+      const x0 = D().torso.body.translation().x;
+      sim.step([idle({ attack: true, drop: true, aim: -0.4 })]); // right-click, aiming forward and a little up
+      expect(P().hold).toBeNull();
+      expect(D().torso.body.linvel().x).toBeGreaterThan(T.grab.toss * 0.6);
+      for (let i = 0; i < 20; i++) sim.step([idle({ attack: true })]); // still holding left-click
+      expect(P().hold).toBeNull(); // no instant regrab
+      expect(D().torso.body.translation().x).toBeGreaterThan(x0 + 0.5);
+    } finally {
+      T.fighter.startArmed = was;
+    }
+  });
+
   it('a grab gives out after its time limit, and you must press again to regrab', async () => {
     const T = (await import('../content/tuning')).tuning;
     const was = T.fighter.startArmed;
