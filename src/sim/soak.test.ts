@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { eras } from '../content/eras';
+import { botLook } from '../content/looks';
+import { tuning as T } from '../content/tuning';
 import { fuzzer } from './fuzz';
 import { makeRng } from './rng';
 import { hashSim } from './hash';
@@ -72,4 +75,36 @@ describe('soak: random 4-player fights', () => {
     const a = await fight(9, 4, 3000), b = await fight(9, 4, 3000);
     expect(a.hash).toBe(b.hash);
   }, 60_000);
+});
+
+describe('soak: every map with everything on', () => {
+  // As the playtest plays: the eras' own maps, weapons arriving, props lying about, mixed starts. Two button-mashers and two bots per map.
+  it('every map: stays finite and in bounds, and no bot gets stuck in one spot for 4 seconds', async () => {
+    const was = { g: T.eras.changeGameplay, s: T.spawn.enabled, m: T.eras.mixStarts, l: T.props.lying };
+    T.eras.changeGameplay = true; T.spawn.enabled = true; T.eras.mixStarts = true; T.props.lying = true;
+    try {
+      let seed = 100;
+      for (const era of eras) for (let map = 0; map <= (era.alt?.length ?? 0); map++, seed++) {
+        const sim = await Sim.create(seed, 4, false);
+        sim.forceEra = era.id; sim.forceMap = map;
+        sim.looks[2] = botLook(); sim.looks[3] = botLook();
+        sim.reset();
+        const inputs = fuzzer(seed), at = sim.fighters.map((f) => f.torso.body.translation()), since = [0, 0, 0, 0];
+        let problem: string | null = null, round = sim.round, stuck = 0;
+        for (let i = 0; i < 900 && !problem; i++) {
+          sim.step(inputs(4));
+          problem = finiteAndInBounds(sim, i);
+          if (sim.round !== round) { round = sim.round; since.fill(0); }
+          for (const k of [2, 3]) { // the bots (the mashers may stand about: their buttons are random)
+            const f = sim.fighters[k], t = f.torso.body.translation();
+            if (f.limp || sim.roundOver || Math.hypot(t.x - at[k].x, t.y - at[k].y) > 0.3) { at[k] = t; since[k] = 0; } else stuck = Math.max(stuck, ++since[k]);
+          }
+        }
+        expect(problem, `${era.id} map ${map}`).toBeNull();
+        expect(stuck, `${era.id} map ${map}: a bot stuck`).toBeLessThan(4 * 60);
+      }
+    } finally {
+      T.eras.changeGameplay = was.g; T.spawn.enabled = was.s; T.eras.mixStarts = was.m; T.props.lying = was.l;
+    }
+  }, 300_000);
 });
