@@ -13,7 +13,7 @@ export const DEF_DEG = [-9, 0, 4, -40, -80, 0, 8, 0]; // default brush direction
 export const DEF_STD = [9, 5, 6, 45, 18, 5, 8, 0]; // ...and how much it wanders
 
 /** The round's solid ground, in design px: slabs of the main platform, floating ledges (y = top), and the two walls. */
-export interface ArenaGeo { slabs: { x: number; w: number }[]; ledges: { x: number; y: number; w: number }[]; top: number; thick: number; walls: { x: number; w: number }[]; wallTop: number }
+export interface ArenaGeo { slabs: { x: number; w: number }[]; ledges: { x: number; y: number; w: number }[]; ledgeThick: number; top: number; thick: number; walls: { x: number; w: number }[]; wallTop: number }
 
 export interface Source { img: Img; region: Uint8Array; ovAng: Float32Array; ovW: Float32Array; fmask: Float32Array; platMask: Float32Array }
 
@@ -324,7 +324,7 @@ export function compose(cfg: Painting, geo: ArenaGeo, W: number, H: number, seed
     regFill([[w.x - 4, geo.wallTop - 6], [w.x + w.w + 4, geo.wallTop - 6], [w.x + w.w + 4, 1080], [w.x - 4, 1080]], REG.stone);
   }
   for (const s of geo.slabs) slab(s.x, s.x + s.w, geo.top, geo.thick);
-  for (const l of geo.ledges) slab(l.x, l.x + l.w, l.y, 30);
+  for (const l of geo.ledges) slab(l.x, l.x + l.w, l.y, geo.ledgeThick);
 
   if (cfg.extra?.includes('rain')) { main.strokeStyle = 'rgba(217,230,242,0.22)'; main.lineWidth = 2; for (let i = 0; i < 260; i++) { const x = R.range(0, 1920), y = R.range(0, 1080), L = R.range(40, 90); main.beginPath(); main.moveTo(x, y); main.lineTo(x - L * 0.18, y + L); main.stroke(); } }
   if (cfg.extra?.includes('snow')) { main.fillStyle = 'rgba(245,248,250,0.7)'; for (let i = 0; i < 220; i++) { main.beginPath(); main.arc(R.range(0, 1920), R.range(0, 1000), R.range(2, 5), 0, Math.PI * 2); main.fill(); } }

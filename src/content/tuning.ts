@@ -11,29 +11,40 @@ export const tuning = {
     pgsIterations: 4,
   },
   arena: {
-    viewW: 19.2, // visible area, 1 m = 100 px at 1920x1080
-    viewH: 10.8,
-    platformX: 4.2,
-    platformW: 10.8,
-    platformTop: 7.4,
+    // How much of the world the camera shows (owner: fighters sized like Stick Fight's, about 8-9% of the screen height, so the maps feel
+    // open). 24 x 13.5 = 80 px per metre at 1920x1080: a fighter is 1.16 m, 8.6% of the height. (Was 19.2 x 10.8: 10.7%, everything felt
+    // cramped.) Zooming means moving every arena position too (era maps in eras.ts are in these metres).
+    viewW: 24,
+    viewH: 13.5,
+    platformX: 5.25,
+    platformW: 13.5,
+    platformTop: 9.25,
     platformThickness: 1.2,
     friction: 0.8,
-    killY: 13, // below this is the void: instant kill
-    killXMargin: 4, // metres past either screen edge
+    killY: 15, // below this is the void: instant kill (just under the bottom of the screen)
+    killXMargin: 2, // metres past either screen edge
+    // Floating ledges must never be in the way (owner: no getting stuck or interrupted by platforms, and room to swing, like SpiderHeck).
+    // Every ledge's underside is at least ledgeHeadroom above whatever is under it, so you walk AND swing a weapon straight up under it,
+    // and every ledge is low enough for a full jump to get onto it from somewhere. The maps test checks every era's map against both.
+    ledgeThick: 0.3, // how thick a floating ledge is
+    ledgeHeadroom: 2.5, // an era weapon swung straight up reaches 2.2-2.7 m above the floor (a fighter is 1.16 m tall)
     weaponRule: 'start' as 'start' | 'sky' | 'spots', // how weapons reach fighters: 'start' = everyone starts armed, 'sky' = clubs rain from above, 'spots' = clubs lie at fixed spots
     weaponSpots: [0.42, 0.58, 0.34, 0.66], // where along the platform (0 = left end, 1 = right end) the clubs lie in the 'spots' rule
     weaponReturnFrames: 120, // a weapon lost in the void comes back from the sky after this long (2 s)
-    wallGap: 1.3, // metres between each platform end and its wall: a fighter knocked off the end falls into the gap and can wall-jump out
-    wallThickness: 0.5,
-    wallTop: 3.2, // how high the walls reach (the platform top is at 7.4)
-    spawnX: [7, 11.5, 5.5, 13.5], // playing alone: fighter 0 = you, 1 = the training dummy, 2 and 3 = extra fighters (stress test)
-    fightSpawnX: [6.2, 13.0, 8.6, 10.6], // a real fight of 2-4 players: where each one starts
+    // Side walls (owner: no high pillars at the sides, the map should feel open like Stick Fight's). Off: a fighter knocked off an end falls
+    // into the void (you can still slide down the platform's side and jump off it). true = the old tall walls with a gap, to compare.
+    walls: false,
+    wallGap: 1.6, // metres between each platform end and its wall: a fighter knocked off the end falls into the gap and can wall-jump out
+    wallThickness: 0.6,
+    wallTop: 4.0, // how high the walls reach (the platform top is at 9.25)
+    spawnX: [9.75, 14.25, 8.25, 16.25], // playing alone: fighter 0 = you, 1 = the training dummy (4.5 m apart, as before the zoom), 2 and 3 = extra fighters (stress test)
+    fightSpawnX: [7.75, 16.25, 10.75, 13.25], // a real fight of 2-4 players: where each one starts
     ledges: [] as { x: number; up: number; w: number }[], // floating platforms (an era's arena can add them)
     ground: [] as { x: number; w: number }[], // separate ground slabs instead of one platform (empty = the one platform)
     bridge: null as null | { x0: number; x1: number; planks: number }, // a plank bridge across a gap in the ground
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
     // The front plane: things between us and the fighters (looks only: nobody can touch them). kind = grass or sign; x, y = where its base
-    // sits (metres, the view is 19.2 x 10.8); scale = size; speed = m/s it slides across (a sign passing the train), wrapping round.
+    // sits (metres, the view is 24 x 13.5); scale = size; speed = m/s it slides across (a sign passing the train), wrapping round.
     front: [] as { kind: 'grass' | 'sign'; x: number; y: number; scale?: number; speed?: number }[],
   },
   fighter: {
@@ -61,14 +72,14 @@ export const tuning = {
     moveSpeed: 6.05, // was 5.5 (+10%)
     groundAccel: 26, // lower = more slide and momentum, higher = snappier
     airAccel: 14,
-    jumpSpeed: 8.5, // about 1.6 m high: clears a standing fighter with room to spare
+    jumpSpeed: 11.5, // about 3 m high, 2.6 body heights (owner: Stick Fight style; was 8.5 = 1.6 m, too low to get onto any ledge you could also walk and swing under). Lower it and the maps test names the ledges that went out of reach
     coyoteFrames: 6, // you can still jump this long after walking off a ledge
     jumpBufferFrames: 6, // a jump pressed this early before landing still happens
     jumpCut: 0.5, // letting go of jump early cuts the jump short by this much (1 = no cut)
     jumpCutMinSpeed: 2, // ...but only while still rising faster than this (m/s)
     wallSlideSpeed: 1.5, // fall speed while sliding down a wall you are pushing toward (m/s)
     wallJumpX: 6.5, // speed kicked away from the wall (m/s)
-    wallJumpY: 10, // upward speed of a wall jump (same height as a normal jump)
+    wallJumpY: 10, // upward speed of a wall jump (a bit lower than a normal jump)
     wallCoyoteFrames: 6, // a wall jump still works this long after leaving the wall
     wallTuckFrames: 30, // after a wall jump the club is held up over the head this long (0.5 s), so it does not snag the platform edge on the way out
     wallLockFrames: 10, // after a wall jump, steering is switched off for this long so you do not drift back into the wall
@@ -211,11 +222,11 @@ export const tuning = {
     turnAccel: 240, // ...and reached this quickly (rad/s^2: a sudden spin would tear the grab apart)
     under: [0.25, 0.9], // where they are brought to: metres in front of and below your body
     steer: 10, // 1/s: how quickly they are brought there...
-    steerAccel: 300, // ...changing their speed by at most this much (m/s^2: 5 m/s a frame)
+    steerAccel: 600, // ...changing their speed by at most this much (m/s^2: 10 m/s a frame; at 300 the victim often stayed above you, so you landed first and the slam fizzled)
     armGain: 0.3, // while slamming your grabbing arm is this soft (x its normal strength): the slam moves them and the arm follows
     damage: 15, // hidden HP for any slam that lands...
     damagePerMetre: 32, // ...plus this per metre their body dropped from the top of the slam (a slam from a jump: about 35-40; a drop of about 2.6 m or more: a kill)
-    carryJump: 1, // jumping while holding someone lifts them with you (x your jump speed)
+    carryJumpSpeed: 8.5, // jumping while holding someone: you both leave the ground this fast (m/s), lower than a free jump (motion.jumpSpeed): a body in your hands weighs you down. The slams were tuned with 8.5
     swingDrive: 40, // m/s^2: someone you hold who is already coming down (a downward swing, a drop) is pulled down this much harder, so swinging them into the ground hits hard
     swingMin: 1.5, // m/s: ...once they are coming down at least this fast
     minSpeed: 4, // m/s: their head must hit the ground at least this fast
@@ -224,7 +235,8 @@ export const tuning = {
   body: {
     // Body collisions: a fighter moving much faster than the one they hit deals damage by closing speed x factor (through the usual damage
     // curve). Landing on top of someone from above is a stomp: bigger damage and a 'stomp' event (for the special animation later).
-    minSpeed: 5, // the faster fighter must be moving at least this fast (m/s) at the contact
+    minSpeed: 7, // the faster fighter must be moving at least this fast (m/s) at the contact (above walking speed: walking into someone never hurts; a lunge is about 8)
+    stompMinSpeed: 5, // ...or this fast when landing on someone from above
     ratio: 1.6, // ...and this many times faster than the one they hit (so two people running into each other is harmless)
     factor: 1.6, // damage factor for an ordinary body slam
     stompFactor: 3.2, // damage factor for landing on someone

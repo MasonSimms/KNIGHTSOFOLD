@@ -2,7 +2,7 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
-import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, worldGroups } from './fighter';
+import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, syncStickGroups, terrainGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { eraById } from '../content/eras';
 import { PROPS, PROP_KINDS } from '../content/props';
@@ -30,6 +30,9 @@ export function arenaFor(eraId: string, map: number): Arena {
   const over: Partial<Arena> = T.eras.changeGameplay ? (map > 0 && era.alt ? era.alt[map - 1] : era.arena) as Partial<Arena> : {};
   return { ...T.arena, ...over } as Arena;
 }
+
+/** The centres of the arena's two side walls (none when walls are off). */
+export const wallXs = (A: Arena): number[] => (A.walls ? [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2] : []);
 
 /** Something a fighter can pick up. */
 type Item = { kind: 'stick'; from: number } | { kind: 'prop'; index: number } | { kind: 'limb'; from: number; k: number };
@@ -153,23 +156,23 @@ export class Sim {
     const slabs = A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }];
     const grounds = slabs.map((g) => {
       const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop + A.platformThickness / 2));
-      this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, A.platformThickness / 2).setFriction(A.friction).setCollisionGroups(worldGroups), body);
+      this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, A.platformThickness / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
       return { ...g, body };
     });
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
 
-    // A tall wall stands outside each platform end, with a gap: a fighter knocked off an end falls into the gap and can wall-jump out.
+    // With walls on, a tall wall stands outside each platform end, with a gap: a fighter knocked off an end falls into the gap and can wall-jump out.
     const wallH = (A.killY + 2 - A.wallTop) / 2;
-    for (const cx of [A.platformX - A.wallGap - A.wallThickness / 2, A.platformX + A.platformW + A.wallGap + A.wallThickness / 2]) {
+    for (const cx of wallXs(A)) {
       const wall = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(cx, A.wallTop + wallH));
-      this.world.createCollider(RAPIER.ColliderDesc.cuboid(A.wallThickness / 2, wallH).setFriction(0.05).setCollisionGroups(worldGroups), wall);
+      this.world.createCollider(RAPIER.ColliderDesc.cuboid(A.wallThickness / 2, wallH).setFriction(0.05).setCollisionGroups(terrainGroups), wall);
     }
 
     // Where each fighter starts, kept in the same place along the platform whatever the era's layout (the standard arena maps to itself).
     const along = (x: number) => A.platformX + ((x - T.arena.platformX) / T.arena.platformW) * A.platformW;
     for (const l of A.ledges) { // floating platforms
-      const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(l.x + l.w / 2, A.platformTop - l.up + 0.15));
-      this.world.createCollider(RAPIER.ColliderDesc.cuboid(l.w / 2, 0.15).setFriction(A.friction).setCollisionGroups(worldGroups), body);
+      const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(l.x + l.w / 2, A.platformTop - l.up + A.ledgeThick / 2));
+      this.world.createCollider(RAPIER.ColliderDesc.cuboid(l.w / 2, A.ledgeThick / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
     }
     const xs = (this.dummy ? A.spawnX : A.fightSpawnX).map(along);
     for (const pr of T.props.lying ? A.props : []) { // loose objects lying on the arena
@@ -316,6 +319,7 @@ export class Sim {
     }
     for (const f of this.fighters) {
       controlFighter(this.world, f, f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events);
+      syncStickGroups(f);
       for (const p of f.parts) {
         let v = p.body.linvel(this.tmpV);
         if (v.y > T.sim.maxFallSpeed) { p.body.setLinvel({ x: v.x, y: T.sim.maxFallSpeed }, true); v = p.body.linvel(this.tmpV); }
@@ -543,10 +547,11 @@ export class Sim {
               if (this.frame < f.bodyHitAt || m.numSolverContacts() === 0) return;
               const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP;
               const c = this.contact(p, vp, pt, m.normal(this.tmpN));
-              if (c.closing <= 0 || c.sa < B.minSpeed || c.sa < c.sb * B.ratio) return; // only a much faster fighter hurts
+              if (c.closing <= 0 || c.sa < c.sb * B.ratio) return; // only a much faster fighter hurts
               const vt = victim.torso.body.translation();
               const fromAbove = c.ny > 1 - B.stompAngle && pt.y < vt.y; // contact along the vertical, with the attacker higher up and coming down
               const stomp = fromAbove && p.vy > 0;
+              if (c.sa < (stomp ? B.stompMinSpeed : B.minSpeed)) return;
               const impact = impactValue(c.closing, stomp ? B.stompFactor : B.factor);
               const dmg = damageFor(impact);
               if (dmg <= 0) return;

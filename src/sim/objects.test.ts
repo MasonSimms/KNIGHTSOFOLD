@@ -50,7 +50,11 @@ describe('the world is physics: a breakable bridge', () => {
     expect(seen).not.toContain('cut');
     expect(attached(target)).toBe(true);
     const t2 = target.body.translation();
-    club.setTranslation({ x: t2.x, y: t2.y - 0.9 }, true); club.setRotation(0, true); club.setLinvel({ x: 0, y: 17 }, true); // a hard one
+    // A hard one. (Lifted clear for a frame first: a body teleported off a contact keeps it for a step. And 12 m/s, not faster: a thin club
+    // much faster than that can pass through a plank in one physics step, which is luck, not the cutting rule tested here.)
+    club.setTranslation({ x: t2.x, y: t2.y - 0.9 }, true); club.setRotation(0, true); club.setLinvel({ x: 0, y: 0 }, true);
+    step();
+    club.setLinvel({ x: 0, y: 12 }, true);
     for (let i = 0; i < 15; i++) { step(); seen.push(...sim.events.map((e) => e.t)); }
     expect(seen).toContain('cut');
     expect(attached(target)).toBe(false);

@@ -109,17 +109,28 @@ export interface Fighter {
   spawnY: number;
 }
 
-export const GROUP_WORLD = 1;
+export const GROUP_WORLD = 1; // loose things in the world: bridge planks, props, dropped weapons
+/** The fixed scenery: the ground, ledges and walls. A weapon in a hand passes through it (owner: platforms must never block a swing, as in
+ * Stick Fight and SpiderHeck; a held club also used to hook a ledge and leave you hanging from it). */
+const GROUP_TERRAIN = 0x2000;
 /** Rapier groups: high 16 bits = membership, low 16 = filter. Fighters ignore their own parts, hit everything else. */
 export function ownerGroups(owner: number): number {
   const mem = 1 << (owner + 1);
   return ((mem << 16) | (0xffff & ~mem)) >>> 0;
 }
 export const worldGroups = ((GROUP_WORLD << 16) | 0xffff) >>> 0;
-/** The background plane: touches the ground only, so it passes through every fighter and weapon. */
-const backGroups = ((0x8000 << 16) | GROUP_WORLD) >>> 0;
+export const terrainGroups = ((GROUP_TERRAIN << 16) | 0xffff) >>> 0;
+/** The background plane: touches the ground and loose things only, so it passes through every fighter and weapon. */
+const backGroups = ((0x8000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 /** The floppy second arm: touches the floor and walls only, never a fighter or a weapon. */
-const offGroups = ((0x4000 << 16) | GROUP_WORLD) >>> 0;
+const offGroups = ((0x4000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
+
+/** A weapon in a hand passes through the scenery; a loose one (dropped, knocked out of a hand) lands on it like anything else. Every frame. */
+export function syncStickGroups(f: Fighter): void {
+  if (!f.stick) return;
+  const g = ((f.inBack ? backGroups : ownerGroups(f.index)) & ~(f.grip ? GROUP_TERRAIN : 0)) >>> 0;
+  for (const c of f.stick.colliders) if (c.collisionGroups() !== g) c.setCollisionGroups(g);
+}
 
 /** Move a whole fighter (body, arm, club) between the normal plane and the background plane. */
 export function setBackPlane(f: Fighter, back: boolean): void {
@@ -457,7 +468,7 @@ export function wrapAngle(a: number): number {
 const tmpC = { x: 0, y: 0 };
 const ray = new RAPIER.Ray({ x: 0, y: 0 }, { x: 0, y: 1 });
 /** Part of the world (the ground, a wall, a bridge plank, a loose log): what you can stand on or slide down. Fighters and the clubs they hold are not. */
-export const isWorld = (c: Collider) => ((c.collisionGroups() >>> 16) & GROUP_WORLD) !== 0;
+export const isWorld = (c: Collider) => ((c.collisionGroups() >>> 16) & (GROUP_WORLD | GROUP_TERRAIN)) !== 0;
 
 /**
  * What the body is touching. The floor: a ray straight down from the hips (it also feeds the stand spring), or a foot on it.
@@ -772,15 +783,16 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     const dv = f.release > 0 || f.wallLock > 0 || (!grounded && input.crouch) ? 0 : clamp(input.moveX * M.moveSpeed * legMul * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
     shove(f, dv * fighterMass(f), 0);
     if (f.jumpBuffer > 0 && f.coyote > 0) { // pressing a touch early, or a touch late after walking off a ledge, still jumps
+      const jumpSpeed = f.held ? T.slam.carryJumpSpeed : M.jumpSpeed; // someone in your hands weighs you down
       for (const p of f.parts) { // the whole body leaves the ground together
         if (p.role === 'stick' && !f.grip) continue;
         const lv = p.body.linvel(tmp);
-        p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed * [1, T.maim.oneLegJump, 0][lostLegs] * (1 + T.crouch.jumpBonus * f.crouch) }, true); // a jump from a crouch goes a little higher; missing legs jump lower
+        p.body.setLinvel({ x: lv.x, y: -jumpSpeed * [1, T.maim.oneLegJump, 0][lostLegs] * (1 + T.crouch.jumpBonus * f.crouch) }, true); // a jump from a crouch goes a little higher; missing legs jump lower
       }
       if (f.held) for (const p of f.held.parts) { // whoever you are holding comes up with you (they are in your hands)
         if (p.role === 'stick' && !f.held.grip) continue;
         const lv = p.body.linvel(tmp);
-        p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed * T.slam.carryJump }, true);
+        p.body.setLinvel({ x: lv.x, y: -jumpSpeed }, true);
       }
       f.jumpBuffer = 0;
       f.coyote = 0;

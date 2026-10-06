@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { tuning as T } from '../content/tuning';
 import type { PlayerInput } from './types';
 import { Sim } from './world';
 
@@ -277,11 +278,13 @@ describe('crouch and the dodge recovery', () => {
 });
 
 describe('walls: slide and jump', () => {
+  beforeAll(() => { T.arena.walls = true; }); // (the game has no side walls now: tuning.arena.walls)
+  afterAll(() => { T.arena.walls = false; });
   async function fallIntoTheGap() {
     const sim = await settled(0);
     const f = () => sim.fighters[0];
     let n = 0;
-    while (f().torso.body.translation().x > 3.9 && n++ < 200) sim.step([idle({ moveX: -1 })]); // walk off the left end
+    while (f().torso.body.translation().x > T.arena.platformX - 0.3 && n++ < 200) sim.step([idle({ moveX: -1 })]); // walk off the left end
     return { sim, f };
   }
 
@@ -305,7 +308,7 @@ describe('walls: slide and jump', () => {
       if (jump) jumped = true;
       sim.step([idle({ moveX: jumped ? 1 : -1, jump })]);
       if (jump) expect(f().torso.body.linvel().x).toBeGreaterThan(4); // kicked away from the wall
-      if (jumped && f().grounded && f().torso.body.translation().x > 4.3) back = true;
+      if (jumped && f().grounded && f().torso.body.translation().x > T.arena.platformX + 0.1) back = true;
     }
     expect(jumped).toBe(true);
     expect(back).toBe(true);

@@ -3,6 +3,7 @@
 import { Texture } from 'pixi.js';
 import { eraById } from '../../content/eras';
 import { tuning as T } from '../../content/tuning';
+import { wallXs } from '../../sim/world';
 import type { Arena } from '../../sim/world';
 import type { PaintKnobs } from './bake';
 import type { ArenaGeo } from './scene';
@@ -10,11 +11,11 @@ import type { BakeRequest, BakeResult } from './worker';
 
 const KEEP = 4; // painted backdrops kept (each is a texture of about 3.5 MB)
 
-/** The solid ground of an arena in design px (1920 x 1080 = the view at 100 px per metre). */
+/** The solid ground of an arena in design px (1920 x 1080 = the whole view). */
 export function geoOf(A: Arena): ArenaGeo {
-  const s = 100, slabs = (A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]).map((g) => ({ x: g.x * s, w: g.w * s }));
-  const walls = [A.platformX - A.wallGap - A.wallThickness, A.platformX + A.platformW + A.wallGap].map((x) => ({ x: x * s, w: A.wallThickness * s }));
-  return { slabs, ledges: A.ledges.map((l) => ({ x: l.x * s, y: (A.platformTop - l.up) * s, w: l.w * s })), top: A.platformTop * s, thick: A.platformThickness * s, walls, wallTop: A.wallTop * s };
+  const s = 1920 / A.viewW, slabs = (A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]).map((g) => ({ x: g.x * s, w: g.w * s }));
+  const walls = wallXs(A).map((cx) => ({ x: (cx - A.wallThickness / 2) * s, w: A.wallThickness * s }));
+  return { slabs, ledges: A.ledges.map((l) => ({ x: l.x * s, y: (A.platformTop - l.up) * s, w: l.w * s })), ledgeThick: A.ledgeThick * s, top: A.platformTop * s, thick: A.platformThickness * s, walls, wallTop: A.wallTop * s };
 }
 
 export function createBackdrops() {

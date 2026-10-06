@@ -70,7 +70,9 @@ describe('knockdown: a big hit sends them tumbling, and they get up by themselve
   });
 
   it('a knocked-down fighter that slams into a wall crashes: it bounces back and tumbles again', async () => {
+    T.arena.walls = true; // (the game has no side walls now: tuning.arena.walls)
     const sim = await setup();
+    T.arena.walls = false;
     const f = sim.fighters[0];
     (sim as unknown as { knockdown(v: unknown, i: number, nx: number): void }).knockdown(f, 60, 1);
     const wallX = T.arena.platformX - T.arena.wallGap; // the wall beside the platform end (the gap's far side)

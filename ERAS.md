@@ -26,6 +26,8 @@ Planning only, nothing here is built yet (except where marked BUILT). Everything
 | 11 | Modern Warfare | 2020 | Riot Baton | BUILT (placeholder) |
 | 12 | Space Age | 2300 | Energy Staff | BUILT (placeholder) |
 
+Rule for every map (owner, 2026-10-05, Stick Fight and SpiderHeck): open, no tall side walls, and platforms never in the way. A floating ledge leaves at least 2.5 m under it (room to walk AND swing a weapon), and a jump gets you onto it from somewhere; weapons in a hand pass through the scenery. The maps test checks every map (ideas below with ceilings or low overhangs, like the Bunker Walkway, break this rule and need rethinking).
+
 Rule of thumb for weapons: signature weapons are long-melee "clubs" like the current engine. Pickups are where new behaviour comes in (a shield that parries, something thrown, a grappling tool), and each one needs an engine feature, listed in "What the engine needs".
 
 ---
@@ -40,7 +42,7 @@ Pickups: **Stone Hammer** (very heavy, slow, huge impact), **Mammoth Tusk** (lon
 
 ## 2. Ancient Egypt
 Pickups: **Was Sceptre** (long staff), **Golden Flail** (a chain with a weight: swings wildly, hits hard).
-1. **Pyramid Steps** BUILT (first version: five floating steps up from both ends to a top in the middle): a staircase of ledges, so the high ground matters.
+1. **Pyramid Steps** BUILT (three floating steps: one 2.8 m up at each end and a top 5.2 m up in the middle): a staircase of ledges, so the high ground matters.
 2. **Nile Barge**: a barge floating on the river (reuses the pirate water tech): rocks when people run to one side.
 3. **Toppling Obelisk**: a tall stone obelisk that, if hit hard at its base, falls across the gap as a bridge (or onto someone).
 4. **Sandstorm Temple**: pillars you can break into rubble; wind pushes everyone sideways in gusts.

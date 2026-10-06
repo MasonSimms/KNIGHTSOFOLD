@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { tuning as T } from '../content/tuning';
 import type { PlayerInput } from './types';
 import { Sim } from './world';
 import type { Fighter } from './fighter';
@@ -62,11 +63,13 @@ describe('body collisions', () => {
   });
 
   it('two fighters walking into each other do not hurt', async () => {
+    T.fighter.startArmed = false; // bodies only (a club carried at walking speed can land a small hit of its own)
     const sim = await twoFighters();
+    T.fighter.startArmed = true;
     const P = sim.fighters[0], D = sim.fighters[1];
     const hp0 = D.hp;
     for (let i = 0; i < 120; i++) sim.step([idle({ moveX: 1, aim: Math.PI / 2 })]);
-    expect(P.torso.body.translation().x).toBeGreaterThan(9); // really walked into it
+    expect(P.torso.body.translation().x).toBeGreaterThan(T.arena.spawnX[1] - 1.5); // really walked into it
     expect(D.hp).toBe(hp0);
   });
 });
