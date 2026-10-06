@@ -17,6 +17,7 @@ type Plan =
   | { kind: 'approach' }
   | { kind: 'swing'; charge: number } // hold to charge for `charge` frames, then let go
   | { kind: 'punch' }
+  | { kind: 'backoff' } // after an attack: a step or two back out of reach, as people do
   | { kind: 'grab'; finish: 'fling' | 'toss' | 'slam' }
   | { kind: 'dodge' };
 
@@ -85,16 +86,20 @@ export class Bot {
       if (me.grip || age > 180) this.start({ kind: 'idle' }, now);
     } else if (plan.kind === 'approach') {
       out.moveX = Math.abs(dx) > 0.8 ? Math.sign(dx) : 0;
+      // do not walk into someone it is not fighting: wait for a gap (a person steps round a scrum, not through it)
+      if (out.moveX && sim.fighters.some((g) => g !== me && g !== this.target && !g.limp && Math.sign(g.torso.body.translation().x - p.x) === out.moveX && Math.abs(g.torso.body.translation().x - p.x) < B.personalSpace)) out.moveX = 0;
       if (dy < -B.climbHeight && Math.abs(dx) < 2.5 && me.grounded) this.hop(); // they are up on a ledge: jump after them
     } else if (plan.kind === 'swing') {
       out.moveX = Math.abs(dx) > 1.2 ? Math.sign(dx) * 0.6 : Math.abs(dx) < 0.7 ? -Math.sign(dx) * 0.8 : 0; // too close for a club: step back for room
       out.attack = age < plan.charge; // hold to charge, then let go: the lunge and the swing
       if (age === plan.charge - 1 && this.rng() < B.throwChance) out.drop = true; // now and then: let it fly
-      if (age > plan.charge + 20) this.start({ kind: 'idle' }, now);
+      if (age > plan.charge + 20) this.backOff(now);
     } else if (plan.kind === 'punch') {
       out.attack = age < 2;
       out.moveX = Math.sign(dx) * 0.4;
-      if (age > 14) this.start({ kind: 'idle' }, now);
+      if (age > 14) this.backOff(now);
+    } else if (plan.kind === 'backoff') {
+      out.moveX = Math.abs(dx) < B.backoffRange ? -Math.sign(dx) : 0;
     } else if (plan.kind === 'grab') {
       out.attack = age < 110; // hold on (let go to fling)
       if (!me.hold) { out.moveX = Math.sign(dx) * 0.6; if (age > 30) out.attack = false; } // still reaching for them
@@ -163,6 +168,12 @@ export class Bot {
     }
     this.start({ kind: 'approach' }, now);
     if (this.rng() < B.hopChance && me.grounded) this.hop(); // a hop for no reason, as people do
+  }
+
+  /** After an attack: step back out of reach for a moment (people do not stand in each other's faces). */
+  private backOff(now: number): void {
+    const B = T.bot;
+    this.start({ kind: 'backoff' }, now, B.backoffFrames[0] + Math.floor(this.rng() * (B.backoffFrames[1] - B.backoffFrames[0] + 1)));
   }
 
   private hop(): void { this.jumpFrames = T.bot.jumpHold + 1; }
