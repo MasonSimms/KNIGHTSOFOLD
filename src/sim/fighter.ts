@@ -69,10 +69,9 @@ export interface Fighter {
   prevDodge: boolean;
   stun: number;
   carried: number; // frames left of being held by someone (the holder renews it): you do not hold yourself up on your feet
-  slamming: boolean; // holding someone, came off the ground and holding S: driving them into the floor (see tuning.slam)
-  slamSpeed: number; // while slamming: the speed you and they are falling at, at least (it grows like a fall with the slam drive added)
+  slamming: boolean; // holding someone, came off the ground and holding S: landing them hard is a slam (see tuning.slam)
   slamBy: number; // being slammed by this fighter (-1 = not)
-  slamTop: number; // the highest this fighter's body got during the slam (y; smaller = higher)
+  slamArc: number; // while slamming: where the grabbing arm is sweeping to (radians, as if facing right: 0 = forward, -PI/2 = up)
   deadAt: number;
   charge: number; // frames the attack button has been held (armed)
   punch: number; // 0 = not punching, otherwise frames since the punch started (unarmed)
@@ -234,7 +233,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamSpeed: 0, slamBy: -1, slamTop: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, jumpBuffer: 0, coyote: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0,
@@ -687,39 +686,15 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   if (f.hold && !(attack && f.controlled)) letGo(world, f, true, events); // let go of the button: fling them
   const grabbing = f.reaching || !!f.hold;
-  // ---- body slam: holding someone, off the ground, holding S (once started it lasts while you keep holding S, even if you land first) ----
+  // ---- body slam (owner): holding someone, off the ground, holding S: a suplex. Nothing steers them; your grabbing arm gets strong and
+  // sweeps up over your head toward your back (see the arm pose below), and they go over in that arc through the grip. If they hit the
+  // ground hard while you still hold S (even after you land), it is a slam, scored in world.ts (resolveBodySlams). ----
   const wasSlamming = f.slamming;
   f.slamming = !!f.hold && !!f.held && f.controlled && input.crouch && f.stun === 0 && f.holdFrames >= T.slam.settleFrames && (f.slamming || !f.grounded);
   if (f.slamming && f.held) {
-    const SL = T.slam, v = f.held, vb = v.torso.body, vy0 = vb.translation().y;
-    if (!wasSlamming) f.slamSpeed = Math.max(0, body.linvel(tmp).y);
-    f.slamSpeed = Math.min(T.sim.maxFallSpeed, f.slamSpeed + (T.sim.gravity + SL.drive) * dt);
-    if (v.slamBy !== f.index) { v.slamBy = f.index; v.slamTop = vy0; }
-    v.slamTop = Math.min(v.slamTop, vy0);
-    // Steered, not left to the arm (it cannot whirl a whole body): they are turned head-down, brought under you, and you take them down with
-    // you (both fall at least slamSpeed).
-    const w = vb.angvel();
-    vb.setAngvel(w + clamp(clamp(SL.turnGain * wrapAngle(Math.PI - vb.rotation()), SL.turnMax) - w, SL.turnAccel * dt), true);
-    const bt = body.translation(), ex = bt.x + s * SL.under[0] - vb.translation().x, ey = bt.y + SL.under[1] - vy0;
-    const vt = vb.linvel(tmp), dvx = clamp(ex * SL.steer - vt.x, SL.steerAccel * dt), dvy = clamp(Math.max(f.slamSpeed, f.slamSpeed + ey * SL.steer) - vt.y, SL.steerAccel * dt);
-    for (const p of v.parts) {
-      if (p.role === 'stick' && !v.grip) continue;
-      const lv = p.body.linvel(tmp);
-      p.body.setLinvel({ x: lv.x + dvx, y: lv.y + dvy }, true);
-    }
-    for (const p of f.parts) {
-      if (p.role === 'stick' && !f.grip) continue;
-      const lv = p.body.linvel(tmp);
-      if (lv.y < f.slamSpeed) p.body.setLinvel({ x: lv.x, y: f.slamSpeed }, true);
-    }
-  } else if (f.hold && f.held && f.grounded && f.held.torso.body.linvel(tmp).y > T.slam.swingMin) {
-    // Swinging someone you hold downward from the ground: gravity helps you bring them down hard (owner: swinging them into the ground is a
-    // slam too). (In the air, holding S is the slam.)
-    for (const p of f.held.parts) {
-      if (p.role === 'stick' && !f.held.grip) continue;
-      const lv = p.body.linvel(tmp);
-      p.body.setLinvel({ x: lv.x, y: lv.y + T.slam.swingDrive * dt }, true);
-    }
+    f.held.slamBy = f.index;
+    if (!wasSlamming) { const r = wrapAngle(f.upper.body.rotation()); f.slamArc = s > 0 ? r : wrapAngle(Math.PI - r); } // from where the arm is now...
+    f.slamArc = Math.max(T.slam.sweepTo, f.slamArc - T.slam.sweepRate * dt); // ...up over your head toward your back
   }
   if (f.punch > 0) {
     const t = f.punch;
@@ -909,7 +884,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       followAim = c < 0.5;
     }
   } else if (f.controlled) {
-    if (grabbing) { E = 0; gain = f.slamming ? T.slam.armGain : G.armMul; if (f.slamming) U = Math.PI / 2; } // grab: arm straight out along the aim, strong enough to swing a body (slamming: straight down, and soft: the slam moves them, the arm follows)
+    if (grabbing) { E = 0; gain = G.armMul; if (f.slamming) { U = f.slamArc; followAim = false; if (f.slamArc > T.slam.sweepTo) gain = T.slam.armMul; } } // grab: arm straight out along the aim, strong enough to swing a body (slamming: it heaves them over your head)
     else if (punchPhase === 'strike') { E = 0; gain = 1 + (K.torqueMul - 1) * f.punchPower; } // arm whips straight out along the aim
     else { U = aimR + K.guardUpper * guardBend; E = K.guardElbow * guardBend; } // guard: fist up in front
   }

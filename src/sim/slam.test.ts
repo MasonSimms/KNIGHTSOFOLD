@@ -25,26 +25,27 @@ function lift(fs: Fighter[], dy: number) {
   for (const f of fs) for (const p of f.parts) { const t = p.body.translation(); p.body.setTranslation({ x: t.x, y: t.y - dy }, true); p.body.setLinvel({ x: 0, y: 0 }, true); }
 }
 
-/** Jump (still holding the grab), then hold S until the slam lands; returns the damage done and whether a slam happened. */
+/** Jump backwards (still holding the grab) and hold S until the slam lands; returns the damage done and whether a slam happened. */
 function slam(sim: Sim, P: Fighter, D: Fighter, jump = true) {
   const hp0 = D.hp;
   let landed = false;
-  sim.step([idle({ attack: true, jump })]);
-  for (let i = 0; i < 6; i++) sim.step([idle({ attack: true })]);
+  sim.step([idle({ attack: true, jump, moveX: -1 })]);
+  for (let i = 0; i < 2; i++) sim.step([idle({ attack: true, jump, moveX: -1 })]);
   for (let i = 0; i < 120 && !landed; i++) {
-    sim.step([idle({ attack: true, crouch: true })]);
+    sim.step([idle({ attack: true, crouch: true, jump: jump && i < 12, moveX: i < 12 ? -1 : 0 })]);
     if (sim.events.some((e) => e.t === 'hit' && e.victim === D.index)) landed = true;
   }
   return { landed, dmg: hp0 - D.hp, grip: !!P.hold };
 }
 
 describe('body slam', () => {
-  it('holding someone, jump and hold S: their head is driven into the ground for good damage, but it does not kill', async () => {
+  it('holding someone, jump backwards and hold S: your arm heaves them over your head into the ground, a slam that hurts but does not kill', async () => {
     const { sim, P, D } = await grabbed();
     const r = slam(sim, P, D);
     expect(r.landed).toBe(true);
-    expect(r.dmg).toBeGreaterThan(25);
+    expect(r.dmg).toBeGreaterThan(5);
     expect(r.dmg).toBeLessThan(80);
+    expect(D.torso.body.translation().x).toBeLessThan(P.torso.body.translation().x + 0.3); // over your head: they land behind you, not in front
     expect(D.hp).toBeGreaterThan(0);
     expect(r.grip).toBe(false); // you let go of them as they hit
   });

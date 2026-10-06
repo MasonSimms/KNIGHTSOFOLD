@@ -215,26 +215,20 @@ export const tuning = {
     from: 0.7, // radians of tilt (40 degrees) beyond which the smooth righting takes over from normal balance
   },
   slam: {
-    // BODY SLAM (owner): holding someone (left-click held), jump and hold S. Your arm drives them straight down, they are turned head-first
-    // and you both fall faster. When their head hits the ground, the damage depends on how far they were driven down: a slam from a
-    // normal jump does good damage but does not kill; from a height it does. Then you let go of them and they are knocked down.
-    drive: 30, // m/s^2: while slamming you both fall at least as fast as a fall with this much extra pull (gravity is 22)
+    // BODY SLAM (owner): holding someone (left-click held), jump (backwards, or any way) and hold S: a suplex. Nothing steers them: your
+    // grabbing arm gets stronger and sweeps up over your head toward your back, and they go over through the grip. If their head or body
+    // hits the ground hard while you still hold S (even after you land), it is a slam: damage as for a throw that hard (grab.slamFactor)
+    // times the bonus, they are knocked down, and you let go.
     settleFrames: 6, // a slam can only start once you have held them this long (a brand-new grab is still settling)
-    turnGain: 10, // turning them head-down: 1/s per radian still to go...
-    turnMax: 14, // ...capped at this many rad/s...
-    turnAccel: 240, // ...and reached this quickly (rad/s^2: a sudden spin would tear the grab apart)
-    under: [0.25, 0.9], // where they are brought to: metres in front of and below your body
-    steer: 10, // 1/s: how quickly they are brought there...
-    steerAccel: 600, // ...changing their speed by at most this much (m/s^2: 10 m/s a frame; at 300 the victim often stayed above you, so you landed first and the slam fizzled)
-    armGain: 0.3, // while slamming your grabbing arm is this soft (x its normal strength): the slam moves them and the arm follows
-    damage: 15, // hidden HP for any slam that lands...
-    damagePerMetre: 32, // ...plus this per metre their body dropped from the top of the slam (a slam from a jump: about 35-40; a drop of about 2.6 m or more: a kill)
-    carryJumpSpeed: 8.5, // jumping while holding someone: you both leave the ground this fast (m/s), lower than a free jump (motion.jumpSpeed): a body in your hands weighs you down. The slams were tuned with 8.5
-    swingDrive: 40, // m/s^2: someone you hold who is already coming down (a downward swing, a drop) is pulled down this much harder, so swinging them into the ground hits hard
-    swingMin: 1.5, // m/s: ...once they are coming down at least this fast
-    minSpeed: 4, // m/s: their head must hit the ground at least this fast
-    impactFactor: 3.5, // how hard it counts for knockdown, screen shake and paint (x the head's speed)
+    armMul: 4, // how much stronger your grabbing arm is during the heave (a normal grab: grab.armMul)
+    sweepRate: 6, // rad/s: how fast the arm sweeps over the top (half a turn in about half a second). Measured over 30 slams: 5-6 land every one, usually about 20 damage, up to 45-60, never a kill from a normal jump; 9 was harder but missed more
+    sweepTo: -4.5, // where the sweep ends (radians, as if facing right: -1.57 = straight up, -3.14 = straight back): behind you and a little down
+    bonus: 1.3, // a slam does this much more damage than a throw landing just as hard (owner: a little extra)
+    carryJumpSpeed: 8.5, // jumping while holding someone: you both leave the ground this fast (m/s), lower than a free jump (motion.jumpSpeed): a body in your hands weighs you down
+    minSpeed: 4, // m/s: their head or body must hit the ground at least this fast
+    impactFactor: 3.5, // how hard it counts for knockdown, screen shake and paint (x the speed they hit at)
   },
+
   body: {
     // Body collisions: a fighter moving much faster than the one they hit deals damage by closing speed x factor (through the usual damage
     // curve). Landing on top of someone from above is a stomp: bigger damage and a 'stomp' event (for the special animation later).

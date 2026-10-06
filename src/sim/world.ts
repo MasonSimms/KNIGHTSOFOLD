@@ -610,8 +610,8 @@ export class Sim {
   }
 
   /**
-   * A body slam lands (see tuning.slam): the held fighter's head or body hits the ground. The damage grows with how far they were driven
-   * down; a head that hits first counts as a head hit (the paint and sound of one).
+   * A body slam lands (see tuning.slam): the held fighter's head or body hits the ground. The damage grows with how hard it hits; a head
+   * that hits first counts as a head hit (the paint and sound of one).
    */
   private resolveBodySlams(): void {
     const S = T.slam;
@@ -619,19 +619,20 @@ export class Sim {
       if (v.slamBy < 0) continue;
       const g = this.fighters[v.slamBy];
       if (!g || g.held !== v || !g.slamming || v.limp) { v.slamBy = -1; continue; }
-      const hp = v.parts.find((p) => p.role === 'head');
-      const cols = hp ? [...v.torso.colliders, hp.colliders[0]] : v.torso.colliders;
-      for (const col of cols) {
-        const part = hp && col === hp.colliders[0] ? hp : v.torso, head = col === v.headCollider || part === hp;
+      for (const part of v.parts) for (const col of part.colliders) { // any part of them: in an arc it is often a shoulder or an arm that lands first
+        if (part.role === 'off' || (part.role === 'stick' && !v.grip)) continue;
+        if (Math.cos(v.torso.body.rotation()) > 0.55 && (part.role === 'thigh' || part.role === 'shin')) continue; // landing them on their feet is not a slam
+        const head = col === v.headCollider || part.role === 'head';
         this.world.contactPairsWith(col, (other) => {
           const ob = other.parent();
           if (v.slamBy < 0 || !ob || !ob.isFixed()) return;
           this.world.contactPair(col, other, (m) => {
             if (v.slamBy < 0 || m.numSolverContacts() === 0) return;
-            const n = m.normal(this.tmpN), speed = Math.abs(part.vx * n.x + part.vy * n.y);
+            const n = m.normal(this.tmpN), pt = m.solverContactPoint(0, this.tmpP) ?? part.body.translation(), c = part.body.translation();
+            // the speed of the spot that hits (a head swung over in an arc comes down much faster than the middle of the body)
+            const speed = Math.abs((part.vx - part.w * (pt.y - c.y)) * n.x + (part.vy + part.w * (pt.x - c.x)) * n.y);
             if (speed < S.minSpeed) return;
-            const drop = Math.max(0, v.torso.body.translation().y - v.slamTop), dmg = S.damage + drop * S.damagePerMetre;
-            const pt = m.solverContactPoint(0, this.tmpP) ?? v.torso.body.translation();
+            const dmg = damageFor(impactValue(speed, T.grab.slamFactor)) * S.bonus * (head ? T.combat.headMult : 1); // as hard as they really hit, like a throw, plus a little for doing it on purpose (and landed on their head: a head hit)
             v.slamBy = -1;
             g.slamming = false;
             letGo(this.world, g, false, this.events);
