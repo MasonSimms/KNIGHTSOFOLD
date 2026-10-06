@@ -580,7 +580,8 @@ function lungeAngle(side: number, aim: number, max: number): number {
 }
 
 /** One frame of control for one fighter: lean and balance, movement, arm pose, attacks. Runs before the physics step. */
-export function controlFighter(world: World, f: Fighter, input: PlayerInput, events: SimEvent[]): void {
+/** `threat`: someone close is winding up or swinging at this fighter (the free arm comes up to brace). */
+export function controlFighter(world: World, f: Fighter, input: PlayerInput, events: SimEvent[], threat = false): void {
   const dt = T.sim.dt;
   const A = T.arm;
   const body = f.torso.body;
@@ -946,11 +947,26 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   }
   }
 
-  // The second arm joins punches and grabs (for show: it only ever touches the floor and walls); otherwise it just flops.
+  // The second arm joins punches and grabs (for show: it only ever touches the floor and walls); otherwise it moves with what the fighter is
+  // doing: a guard, a runner's swing, out for balance in the air, a counterweight for a swing, a brace when someone close attacks. Limp
+  // when knocked down or stunned, so hits still look like hits.
   const OH = T.offArm;
+  const vxNow = body.linvel(tmp).x, run = Math.min(1, Math.abs(vxNow) / 3);
+  const pose: number[] | null = f.knock > 0 || f.stun > 0 || f.carried > 0 || !f.controlled ? null
+    : threat ? OH.brace
+    : f.release > 0 ? OH.lunge
+    : armed && f.charge > 0 ? OH.charge
+    : !f.grounded ? OH.air
+    : run > 0.3 ? [Math.PI / 2 + OH.run * run * Math.sin(f.gait), OH.runElbow]
+    : armed ? OH.rest : OH.guard;
   if (!armed && f.controlled && (grabbing || f.punch > 0)) {
     f.offShoulder.configureMotorPosition(wrapAngle(mirror(aimR + OH.trail) - tr), OH.stiffness, OH.poseDamping);
     f.offElbow.configureMotorPosition(f.punch > 0 && punchPhase === 'recover' ? s * K.guardElbow : 0, OH.stiffness, OH.poseDamping);
+    f.offShoulder.setMotorMaxForce(OH.maxTorque);
+    f.offElbow.setMotorMaxForce(OH.maxTorque);
+  } else if (pose) {
+    f.offShoulder.configureMotorPosition(wrapAngle(mirror(pose[0]) - tr), OH.softness, OH.poseDamping);
+    f.offElbow.configureMotorPosition(s * pose[1], OH.softness, OH.poseDamping);
     f.offShoulder.setMotorMaxForce(OH.maxTorque);
     f.offElbow.setMotorMaxForce(OH.maxTorque);
   } else {

@@ -321,7 +321,7 @@ export class Sim {
     }
     for (const f of this.fighters) {
       const bot = f.controlled && this.looks[f.index]?.bot ? (this.brains[f.index] ??= new Bot(this.seed * 7919 + f.index * 104729 + 1)) : null; // a computer player presses its own buttons
-      controlFighter(this.world, f, bot ? bot.think(this, f) : f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events);
+      controlFighter(this.world, f, bot ? bot.think(this, f) : f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events, this.threatened(f));
       syncStickGroups(f);
       for (const p of f.parts) {
         let v = p.body.linvel(this.tmpV);
@@ -401,6 +401,16 @@ export class Sim {
       const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y);
       if (s > M) p.body.setLinvel({ x: (v.x / s) * M, y: (v.y / s) * M }, true);
     }
+  }
+
+  /** Someone close is winding up a weapon, lunging, punching or grabbing at this fighter (they brace with their free arm). */
+  private threatened(f: Fighter): boolean {
+    const t = f.torso.body.translation(), R = T.offArm.braceRange;
+    return this.fighters.some((g) => {
+      if (g === f || g.limp || g.inBack || !(g.charge > 8 || g.release > 0 || g.punch > 0 || g.reaching)) return false;
+      const u = g.torso.body.translation();
+      return Math.abs(u.x - t.x) < R && Math.abs(u.y - t.y) < 1.5 && Math.sign(t.x - u.x) === g.side; // close, and facing this way
+    });
   }
 
   /** A body that runs into something fast (the floor, a wall) does not spring back off it (see tuning.land). */

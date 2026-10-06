@@ -143,14 +143,25 @@ export const tuning = {
     maxCut: 12, // m/s: never takes away more than this (real rebounds from the joints are under 10)
   },
   offArm: {
-    // The second arm: pure decoration. It hangs off the shoulder and flops with your motion; it only touches the floor and walls.
+    // The second arm: for show (it only touches the floor and walls). It used to just flop; now it moves with what the fighter is doing
+    // (owner: more fluid, reacting to what is going on). Poses are [upper arm, elbow] in radians as if facing right: the upper arm from
+    // straight forward (PI/2 = hanging down, smaller = forward and up), the elbow bend (negative = forearm folds up). Limp when knocked down or stunned.
     mass: 0.25, // each part (light, so it barely tugs the body)
-    damping: 0.4, // joint friction: lower = floppier
-    // In punches and grabs it joins in (for show: it still touches nothing but the floor and walls):
-    stiffness: 60, // how firmly it holds its pose
+    damping: 0.4, // joint friction when limp: lower = floppier
+    stiffness: 60, // how firmly it holds a punch or grab pose
     poseDamping: 6,
     maxTorque: 40,
-    trail: 0.35, // radians it lags behind the main arm, so the two arms look like two arms
+    trail: 0.35, // radians it lags behind the main arm in punches and grabs, so the two arms look like two arms
+    softness: 25, // how firmly it holds its other poses (lower than stiffness: it still sways with the body)
+    guard: [1.25, -1.9], // empty-handed, standing: fist up by the chest
+    rest: [1.35, -0.6], // holding a weapon, standing: the free hand a little forward, elbow soft
+    run: 0.7, // running: it swings this far either way, against the legs...
+    runElbow: -1.3, // ...with the elbow bent like a runner's
+    air: [-0.4, -0.7], // in the air: up and out for balance
+    charge: [0.35, -0.3], // winding up a club: reached forward as a counterweight
+    lunge: [2.4, -0.3], // lunging and swinging: thrown back
+    brace: [-0.7, -1.8], // someone close is winding up or swinging: forearm up across the face
+    braceRange: 2.5, // m: how close an attacker must be to brace against them
   },
   ragdoll: {
     // On death the head comes off onto a floppy neck and the legs go limp.
