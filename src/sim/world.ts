@@ -41,6 +41,8 @@ const itemCode = (i: Item): number => (i.kind === 'stick' ? -1 : i.kind === 'pro
 const decodeItem = (e: { v: number; victim: number }): Item => (e.v < 0 ? { kind: 'stick', from: e.victim } : e.v < 1000 ? { kind: 'prop', index: e.v - 100 } : { kind: 'limb', from: Math.floor((e.v - 1000) / 10), k: (e.v - 1000) % 10 });
 
 /** What killed a fighter, so the death can be staged to fit (crushed, blown apart, a limb lost). */
+/** A training change at frame f: an item dropped in at (x, y), or (no item) the loose things cleared away. */
+export interface Edit { f: number; item?: string; x?: number; y?: number }
 export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam'; part?: Part; head?: boolean; nx: number; ny: number }
 
 export class Sim {
@@ -48,6 +50,8 @@ export class Sim {
   version = 0; // bumps whenever bodies are rebuilt, so the renderer knows to rebuild its sprites
   lastImpact = 0;
   events: SimEvent[] = [];
+  /** Changes made from outside the fight this round (training drops and clears), with the frame: a replay makes them again. */
+  edits: Edit[] = [];
   fighters: Fighter[] = [];
   world!: World;
   private rng: () => number;
@@ -158,6 +162,7 @@ export class Sim {
     this.nextSpawn = T.spawn.firstGap;
     this.lastImpact = 0;
     this.events.length = 0;
+    this.edits = []; // (a new list: last round's recording keeps the old one)
     this.partByBody.clear();
 
     const A = this.arena;
@@ -391,10 +396,11 @@ export class Sim {
   }
 
   /** Training: drop a weapon or pickup (an id from content/props.ts ITEMS) in at a point. */
-  spawnItem(kind: string, x: number, y: number): void { this.addProp(kind, x, y); }
+  spawnItem(kind: string, x: number, y: number): void { this.edits.push({ f: this.frame, item: kind, x, y }); this.addProp(kind, x, y); }
 
   /** Training: take every loose weapon and object off the map (a bridge keeps its planks; clubs dropped by fighters stay). */
   clearLoose(): void {
+    this.edits.push({ f: this.frame });
     for (const p of this.props.filter((q) => !this.bridge.includes(q))) {
       this.partByBody.delete(p.body.handle);
       this.world.removeRigidBody(p.body);

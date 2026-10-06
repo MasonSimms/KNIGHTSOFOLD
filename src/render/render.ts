@@ -164,6 +164,15 @@ interface Entry {
   sq: number; // how flat (0..1, eases toward 1 once crushed)
 }
 
+/** Graphics quality levels. High = everything; Medium = no extra resolution on high-density screens; Low = for slower computers. */
+export type Quality = 'high' | 'medium' | 'low';
+const QUALITY: Record<Quality, { maxResolution: number; paintWidth: number; boil: boolean; shadows: boolean; blur: boolean; grain: boolean }> = {
+  high: { maxResolution: 3, paintWidth: 1280, boil: true, shadows: true, blur: true, grain: true },
+  medium: { maxResolution: 1, paintWidth: 1280, boil: true, shadows: true, blur: true, grain: true },
+  low: { maxResolution: 0.75, paintWidth: 960, boil: false, shadows: false, blur: false, grain: false },
+};
+let Q = QUALITY.high;
+
 export async function createRenderer(sim: Sim, host: HTMLElement) {
   const app = new Application();
   await app.init({ resizeTo: window, background: T.colors.void, antialias: true, autoDensity: true, resolution: window.devicePixelRatio });
@@ -362,6 +371,20 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   }
 
   return {
+    /** The picture itself (a highlight can be saved as a video from it). */
+    canvas: app.canvas,
+    /** Draw another copy of the game from now on (a replay), or the live one again. The picture starts clean. */
+    /** Graphics quality (the settings screen): how much the picture asks of the computer. */
+    setQuality(level: Quality) {
+      Q = QUALITY[level];
+      T.finish.paint.width = Q.paintWidth; // (a new width paints the backdrops again, once, and keeps them)
+      app.renderer.resolution = Math.min(window.devicePixelRatio, Q.maxResolution);
+      app.renderer.resize(app.screen.width, app.screen.height);
+      front.filters = Q.blur ? [frontBlur] : null;
+      grain.visible = Q.grain;
+      builtVersion = -1; // (repaint everything)
+    },
+    show(s: Sim) { sim = s; builtVersion = -1; paintedEra = ''; shownRound = -1; shake = 0; },
     /** Screen pixels -> world metres. */
     toWorld(px: number, py: number) { return { x: (px - view.x) / scale, y: (py - view.y) / scale }; },
     onEvent(e: SimEvent) {
@@ -425,10 +448,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       flat.visible = !tex;
       if (builtVersion !== sim.version) rebuild();
       boil += frameSeconds * T.finish.boilFps;
-      variant = Math.floor(boil) % VARIANTS;
+      variant = Q.boil ? Math.floor(boil) % VARIANTS : 0;
       const off = T.finish.underOffset, SH = T.finish.shadow;
       shadowBlur.strength = SH.blur * px;
       shadows.alpha = SH.alpha;
+      shadows.visible = Q.shadows;
       frontBlur.strength = T.finish.front.blur * px;
       const span = A.viewW + 4, now = boil / T.finish.boilFps; // a moving front item slides across and comes round again
       for (const it of frontItems) if (it.speed) it.s.x = ((((it.x + it.speed * now + 2) % span) + span) % span) - 2;
@@ -454,7 +478,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (e.crushed) e.sq = Math.min(1, e.sq + frameSeconds / T.death.squashSeconds);
         const tint = mix(0xffffff, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker (no damage tint: health stays hidden)
         e.blur.strength = e.vis * T.dodge.visualBlur * px;
-        e.group.filters = e.vis > 0.02 ? [e.blur] : null; // no filter cost unless they are dodging
+        e.group.filters = Q.blur && e.vis > 0.02 ? [e.blur] : null; // no filter cost unless they are dodging
         const layer = f.inBack ? backLayer : fighterLayer;
         if (e.group.parent !== layer) layer.addChild(e.group);
         f.parts.forEach((p, i) => {

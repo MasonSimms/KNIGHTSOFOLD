@@ -36,6 +36,21 @@ describe('replays', () => {
       }
     }
   }, 120_000);
+
+  it('weapons dropped in and cleared from the training panel are in the replay', async () => {
+    const sim = await Sim.create(5, 1, true);
+    const rec = new Recorder();
+    const step = () => { const inputs = [NEUTRAL, NEUTRAL]; rec.before(sim, inputs); sim.step(inputs); };
+    for (let i = 0; i < 30; i++) step();
+    sim.spawnItem('katana', 3, 2); sim.spawnItem('axe', -3, 2); // (as the panel does, between frames)
+    for (let i = 0; i < 60; i++) step();
+    sim.clearLoose();
+    sim.spawnItem('log', 0, 1);
+    for (let i = 0; i < 60; i++) step();
+    const copy = await rebuild(rec.current!);
+    stepTo(copy, rec.current!, sim.frame);
+    expect(hashSim(copy)).toBe(hashSim(sim));
+  }, 60_000);
 });
 
 describe('highlights', () => {

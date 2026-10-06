@@ -2,6 +2,9 @@ import { tuning as T } from '../content/tuning';
 
 // Placeholder sounds synthesised with WebAudio (no asset files). Real licensed SFX come in the art/audio phase.
 let ctx: AudioContext | null = null;
+let effects = 1; // the player's volume settings (master x sound effects), 0..1
+/** The settings screen's volumes: master and sound effects (music has its own when there is music). */
+export function setVolumes(master: number, sfx: number): void { effects = master * sfx; }
 let noise: AudioBuffer | null = null;
 
 /** Browsers only allow audio after a user gesture; call this from a click or key press. */
@@ -21,7 +24,7 @@ function tone(type: OscillatorType, from: number, to: number, len: number, vol: 
   o.type = type;
   o.frequency.setValueAtTime(from, t);
   o.frequency.exponentialRampToValueAtTime(to, t + len);
-  g.gain.setValueAtTime(vol * T.audio.master, t);
+  g.gain.setValueAtTime(vol * T.audio.master * effects, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + len);
   o.connect(g).connect(ctx.destination);
   o.start(t);
@@ -32,7 +35,7 @@ function burst(len: number, vol: number): void {
   if (!ctx || !noise) return;
   const s = ctx.createBufferSource(), g = ctx.createGain(), t = ctx.currentTime;
   s.buffer = noise;
-  g.gain.setValueAtTime(vol * T.audio.master, t);
+  g.gain.setValueAtTime(vol * T.audio.master * effects, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + len);
   s.connect(g).connect(ctx.destination);
   s.start(t);

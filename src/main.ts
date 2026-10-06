@@ -5,18 +5,22 @@ import { tuning } from './content/tuning';
 import { connectedPads, flushInput, readInput, readPadInput, wasPressed } from './input/input';
 import { createRenderer } from './render/render';
 import { NEUTRAL } from './sim/types';
-import type { PlayerInput } from './sim/types';
+import type { PlayerInput, SimEvent } from './sim/types';
 import { NetClient, serverUrl } from './net/client';
 import { Mirror } from './net/snapshot';
 import type { Snapshot } from './net/snapshot';
 import { Room } from './net/room';
+import { Spotter } from './replay/highlights';
+import { Recorder } from './replay/recording';
 import { Sim } from './sim/world';
 import { runHall } from './ui/hall';
+import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
 import { runHome } from './ui/home';
 import { updateHud } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
+import { applySettings, loadSettings, runSettings } from './ui/settings';
 import { applyTraining, leaveTraining, loadTraining, runTraining } from './ui/training';
 
 const T = tuning;
@@ -86,6 +90,16 @@ function flail(frame: number, who: number): PlayerInput {
   return { moveX: Math.sin(t * 0.7), jump: frame % (90 + who * 17) === 0, aim: Math.sin(t) * 3, attack: frame % 120 < 30, drop: false, crouch: false, dodge: frame % 400 === 150 + who * 20 };
 }
 const renderer = await createRenderer(view, document.body);
+applySettings(loadSettings(), renderer);
+// Every local round is recorded (the buttons pressed, a few hundred kilobytes) and the spotter picks out the moments worth seeing again.
+const recorder = new Recorder(), spotter = new Spotter();
+
+/** The picture and the sound for what just happened in the fight. */
+function play(e: SimEvent) {
+  renderer.onEvent(e);
+  if (e.t === 'hit') sfx.hit(e.v, !!e.head);
+  else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.(); // some events (respawn, new round) have no sound
+}
 
 addEventListener('pointerdown', unlockAudio);
 addEventListener('keydown', unlockAudio);
@@ -124,6 +138,8 @@ async function menu(screen: 'home' | 'hall') {
     if (screen === 'home') {
       const go = await runHome();
       if (go === 'online') { location.search = '?online'; return; } // online starts on a fresh page
+      if (go === 'settings') { await runSettings(renderer); continue; }
+      if (go === 'highlights') { await highlights(); continue; }
       hallTraining = go === 'training'; // (owner: Training goes through the same character screen, it just is not a live lobby)
       screen = 'hall';
       continue;
@@ -152,6 +168,16 @@ async function trainingMenu() {
   last = performance.now(); acc = 0;
   if (r === 'leave') { void menu('home'); return; }
   paused = false;
+}
+
+/** The highlights gallery over the paused fight (H during a fight, or from the home screen). */
+async function highlights() {
+  const was = paused;
+  paused = true;
+  await runHighlights({ moments: () => spotter.best(10), renderer, live: view, onEvent: play });
+  flushInput();
+  last = performance.now(); acc = 0;
+  paused = was;
 }
 
 /** A gamepad's controls for fighter `slot` (a gamepad that was unplugged stands still). */
@@ -185,6 +211,7 @@ function frame(now: number) {
   const backNow = pads.some((p) => !!p.buttons[8]?.pressed), drill = wasPressed('Tab') || (backNow && !backHeld);
   backHeld = backNow;
   if (drill && mode === 'local' && hallTraining) { void trainingMenu(); return; }
+  if (wasPressed('KeyH') && !net && !room) { void highlights(); return; } // (online, the fight cannot wait for you)
 
   const t0 = performance.now();
   for (let steps = 0; acc >= T.sim.dt && steps < T.sim.maxStepsPerFrame; steps++, acc -= T.sim.dt) {
@@ -202,12 +229,10 @@ function frame(now: number) {
     const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
     if (mode === 'local') for (let k = 0; k < devices.length; k++) { const d = devices[k]; inputs[k] = d === 'kb' ? lastInput : d === 'bot' ? NEUTRAL : padInput(k, d, pads); } // (a bot presses its own buttons inside the sim)
     else if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
+    recorder.before(sim, inputs);
     sim.step(inputs);
-    for (const e of sim.events) {
-      renderer.onEvent(e);
-      if (e.t === 'hit') sfx.hit(e.v, !!e.head);
-      else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.(); // some events (respawn, new round) have no sound
-    }
+    spotter.feed(sim, recorder.current, sim.events);
+    for (const e of sim.events) play(e);
   }
   if (acc >= T.sim.dt) acc = 0; // too far behind: drop the backlog instead of spiralling
   simMsSum += performance.now() - t0;
@@ -217,11 +242,7 @@ function frame(now: number) {
     while (toClient.length && toClient[0].at <= now) mirror.push(toClient.shift()!.s);
     const shown = mirror.update(ft / 1000);
     alpha = shown.alpha;
-    for (const e of shown.events) {
-      renderer.onEvent(e);
-      if (e.t === 'hit') sfx.hit(e.v, !!e.head);
-      else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.();
-    }
+    for (const e of shown.events) play(e);
   }
   renderer.draw(alpha, ft / 1000);
   updateHud(view);

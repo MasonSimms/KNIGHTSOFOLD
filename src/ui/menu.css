@@ -145,3 +145,30 @@
 .drill .act.gold { background: linear-gradient(#ecce7c, #b38a35); color: var(--ink); border-color: #f5dc92; box-shadow: 0 0 22px rgba(240, 200, 110, .25); }
 .drill .act.gold:hover, .drill .act.gold.sel { color: var(--ink); }
 .drill .hint { margin-top: 10px; }
+
+/* Highlights: the session's best moments hung as paintings of their era, what happened engraved underneath. */
+.reel { min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 3vh 4vw 2.5vh; }
+.reel .clips { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 3vh 3vw; width: 100%; max-width: 1400px; margin-top: 1vh; }
+.reel .art { aspect-ratio: 16 / 9; }
+.reel .pic .lamp { margin-top: 18px; }
+.reel .pic::before { top: -150px; }
+.reel .label { margin-top: 12px; font-size: 18px; letter-spacing: .06em; text-align: center; line-height: 1.25; }
+.reel .sub { font-size: 13px; text-align: center; }
+.clipacts { position: relative; z-index: 1; display: flex; gap: 6px; margin-top: 7px; opacity: .55; transition: opacity .3s; }
+.lit .clipacts, .clipacts:hover { opacity: 1; }
+.clipacts button, .openfile { padding: 4px 10px; border: 1px solid #6a5a34; background: rgba(0, 0, 0, .3); color: var(--gold-dim); font-size: 13px; letter-spacing: .06em; }
+.clipacts button:hover, .openfile:hover { border-color: var(--gold); color: var(--gold); }
+.openfile { margin-top: 14px; padding: 8px 22px; font-size: 15px; letter-spacing: .12em; }
+.reel .note.empty { margin-top: 18vh; max-width: 30em; font-size: 20px; color: #a8987a; }
+
+/* Settings: a ledger on the wall, with the Hall's arrow rows. */
+.prefs-wall { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 4vh 4vw; }
+.prefs { width: min(560px, 100%); padding: 22px 34px 20px; background: rgba(8, 16, 12, .45);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .55), inset 0 0 0 1px #5a3e10, inset 0 0 0 3px rgba(255, 236, 170, .3), inset 0 0 0 5px #7a5618; }
+.prefs .plaque { display: block; width: fit-content; margin: 0 auto 8px; font-size: 22px; letter-spacing: .24em; }
+.prefs h3 { margin: 18px 0 0; padding-bottom: 3px; border-bottom: 1px solid rgba(168, 146, 92, .32); color: var(--gold-dim);
+  font-size: 14px; font-weight: normal; letter-spacing: .22em; text-transform: uppercase; }
+.prefs .row { margin-top: 9px; }
+.prefs .row .name { width: 10em; flex: none; color: #d8c89c; font-size: 16px; }
+.prefs .about { min-height: 2.6em; margin-top: 6px; color: #9f9272; font-size: 13.5px; line-height: 1.35; font-style: italic; }
+.prefs .hint { margin-top: 16px; }

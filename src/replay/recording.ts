@@ -6,6 +6,7 @@ import { tuning } from '../content/tuning';
 import type { Look } from '../content/looks';
 import type { PlayerInput } from '../sim/types';
 import { Sim } from '../sim/world';
+import type { Edit } from '../sim/world';
 
 export interface Recording {
   v: 1;
@@ -14,12 +15,13 @@ export interface Recording {
   looks: Look[]; gone: boolean[]; training: Sim['training']; // who was there
   tuning: string; // fingerprint of every gameplay number: a replay made with other numbers would not play the same
   inputs: PlayerInput[][]; // the buttons each fighter pressed, frame by frame
+  edits?: Edit[]; // things dropped in or cleared from the training panel (the sim's own list for the round)
 }
 
-/** A short fingerprint of the tuning (FNV-1a of its JSON). */
+/** A short fingerprint of the gameplay tuning (FNV-1a of its JSON; the look of the picture, `finish`, is left out: graphics quality changes it). */
 export function tuningFingerprint(): string {
   let h = 0x811c9dc5;
-  for (const ch of JSON.stringify(tuning)) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  for (const ch of JSON.stringify(tuning, (k, v) => (k === 'finish' ? undefined : v))) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
   return h.toString(16);
 }
 
@@ -40,6 +42,7 @@ export class Recorder {
     this.current = {
       v: 1, seed: sim.matchSeed, count: sim.fighters.length, dummy: sim.practising, round: sim.round, era: sim.era, map: sim.map,
       looks: sim.looks.map((l) => ({ ...l })), gone: [...sim.gone], training: { ...sim.training }, tuning: tuningFingerprint(), inputs: [],
+      edits: sim.edits,
     };
   }
 }
@@ -57,5 +60,15 @@ export async function rebuild(r: Recording): Promise<Sim> {
 
 /** Play a recording forward to `frame` (as fast as the computer can: nothing is drawn). */
 export function stepTo(sim: Sim, r: Recording, frame: number): void {
-  while (sim.frame < frame && sim.frame < r.inputs.length) sim.step(r.inputs[sim.frame]);
+  while (sim.frame < frame && sim.frame < r.inputs.length) stepOnce(sim, r);
+}
+
+/** One recorded frame: the training changes made just before it, then everyone's buttons. */
+export function stepOnce(sim: Sim, r: Recording): void {
+  for (const e of r.edits ?? []) {
+    if (e.f !== sim.frame) continue;
+    if (e.item) sim.spawnItem(e.item, e.x!, e.y!);
+    else sim.clearLoose();
+  }
+  sim.step(r.inputs[sim.frame]);
 }
