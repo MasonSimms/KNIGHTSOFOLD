@@ -17,6 +17,8 @@ import { buildChase, loopFloor, stepChase } from './chase';
 import type { Chase } from './chase';
 import { buildTrain, stepTrain } from './train';
 import type { Passing } from './train';
+import { applyJets } from './tower';
+import type { Jet } from './tower';
 import { breakProp, damageScenery, fire, moveBullets, predictShot, shatter, snapPart, spendShot } from './guns';
 import type { Bullet } from './guns';
 import type { Boat } from './water';
@@ -92,6 +94,7 @@ export class Sim {
   boat: Boat | null = null; // this round's ship, on a map with one (see water.ts)
   chase: Chase | null = null; // this round's treadmill and mammoth, on the Mammoth Chase (see chase.ts)
   passing: Passing[] = []; // the signs and tunnels coming past the train (see train.ts)
+  jets: Jet[] = []; // water leaking from the water tower's tank (see tower.ts)
   private cutLinks = new Set<unknown>(); // bridge joints already removed
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
   weapon: Weapon = { id: 'club', name: 'Club', ...T.stick }; // what everyone fights with this round (the era's weapon)
@@ -234,6 +237,7 @@ export class Sim {
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
     this.chase = A.chase ? buildChase(this) : null;
     this.passing = A.train ? buildTrain(this) : [];
+    this.jets = [];
 
     // The map's side walls (if any): a backstop at an end, or a wall across a gap you can fall into and wall-jump out of.
     for (const w of wallsOf(A)) {
@@ -476,6 +480,7 @@ export class Sim {
     this.resolveCrushes();
     this.shatterMugs();
     moveBullets(this);
+    applyJets(this);
     applyFire(this);
     this.checkDeaths();
     this.snapshot();

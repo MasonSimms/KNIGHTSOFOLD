@@ -102,5 +102,6 @@ export const sfx = {
   trample() { play('trample', (p) => { tone('sawtooth', 300 * p, 560 * p, 0.25, 0.25); setTimeout(() => tone('sawtooth', 560 * p, 380 * p, 0.35, 0.2), 220); burst(0.2, 0.4); }); }, // the mammoth trumpets as it tosses you
   whistle() { play('whistle', (p) => { tone('triangle', 520 * p, 500 * p, 0.7, 0.18); tone('triangle', 650 * p, 625 * p, 0.7, 0.15); tone('triangle', 780 * p, 750 * p, 0.7, 0.12); }); }, // the train's steam whistle: something is coming
   shatter() { play('shatter', (p) => { burst(0.35, 0.5); tone('triangle', 3200 * p, 2400 * p, 0.2, 0.15); setTimeout(() => tone('triangle', 4100 * p, 3000 * p, 0.15, 0.1), 50); }); }, // a window breaking
+  leak() { play('leak', (p) => { burst(0.6, 0.3); tone('sine', 900 * p, 700 * p, 0.3, 0.06); }); }, // a bullet through the water tower: a gush
   ignite() { play('ignite', (p) => { burst(0.35, 0.35); tone('sawtooth', 90 * p, 160 * p, 0.3, 0.12); }); }, // a whoomph as something catches fire
 };

@@ -6,6 +6,7 @@ import { damageFor } from './combat';
 import { createProp, dropToWorld, shove, takeIn } from './fighter';
 import type { Fighter, Part } from './fighter';
 import { surfaceY } from './water';
+import { leak } from './tower';
 import type { Sim } from './world';
 import type { SimEvent } from './types';
 
@@ -118,7 +119,7 @@ function strike(sim: Sim, u: Bullet, c: Collider, dx: number, dy: number, nx: nu
   const G = T.guns, body = c.parent()!, part = sim.partByBody.get(body.handle), at = { x: u.x, y: u.y };
   const push = (k: number) => body.applyImpulseAtPoint({ x: dx * u.push * k, y: dy * u.push * k }, at, true);
   const ev = (t: 'spark' | 'splinter' | 'impact', victim = -1) => sim.events.push({ t, x: u.x, y: u.y, v: Math.atan2(ny, nx), owner: u.owner, victim });
-  if (!part) { ev('impact'); return 'stop'; } // the ground or a wall: a puff of dust
+  if (!part) { leak(sim, u.x, u.y, nx); ev('impact'); return 'stop'; } // the ground or a wall: a puff of dust (the water tower's tank: a leak)
   const holder = part.owner >= 0 && part.role !== 'prop' ? sim.fighters[part.owner] : undefined;
   if (part.role === 'stick' && holder && holder.grip && holder.stick === part) { // a weapon in someone's hand
     const m = part.weapon?.material ?? 'wood';

@@ -11,6 +11,7 @@ import { createFrame } from './frame';
 import { createFlames } from './flames';
 import { createMammoth } from './mammoth';
 import { createPassing } from './passing';
+import { createJets } from './jets';
 import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -335,6 +336,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const flames = createFlames(fxLayer); // the arena's fires, and flames on whatever is burning
   const mammoth = createMammoth(propLayer);
   const passing = createPassing(fxLayer); // signs and tunnels passing the train (in front of everyone)
+  const jets = createJets(fxLayer); // water leaking from the water tower
   /** A weapon's or a thing's colour: a gun's metal, scenery's own wood, otherwise the stick colour. */
   const thingColor = (p: Part) => (p.weapon?.gun ? T.colors.gun : T.colors.things[p.weapon?.id ?? ''] ?? T.colors.stick);
   const sea = createSea(ring); // the ship and the near water, on a map with a sea
@@ -617,6 +619,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       flames.draw(sim, alpha, frameSeconds, variant);
       mammoth.draw(sim, alpha);
       passing.draw(sim, alpha);
+      jets.draw(sim, frameSeconds);
       const bx = (app.screen.width - A.viewW * scale) / 2, by = (app.screen.height - A.viewH * scale) / 2;
       frame.draw({ x: bx, y: by, w: A.viewW * scale, h: A.viewH * scale }, frameSeconds);
       if (target) { // into a painting (the museum): just the picture, cropped to its box

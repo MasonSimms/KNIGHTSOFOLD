@@ -97,7 +97,7 @@ The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not
 2. **Rooftops**: on top of the town's buildings; falling off kills you (the gaps between roofs are the void). Players can get revolvers. **BUILT 2026-10-06** (westerns map 3): five roofs at different heights, 1.2 m alleys.
 3. **Train**: a moving train with NO weapons: throw other players into the obstacles, and avoid the wooden signs and tunnels that pass. (Needs: a moving map, passing obstacles that hit you: the front plane's passing sign was planned for this.) **BUILT 2026-10-06** (westerns map 1): three boxcars, the land rushing past (motion-blurred), a sign and a tunnel mouth every 8 s with a whistle first.
 4. **Saloon Brawl**: a bar fight inside the saloon, with beer glasses and bar stools to throw. **BUILT 2026-10-06** (westerns map 4): walls both sides, a bar counter to jump onto, a balcony from it, four stools, four mugs that shatter; fists, stools and mugs only.
-5. **Water Tower**: on top of a water tower.
+5. **Water Tower**: on top of a water tower. **BUILT 2026-10-06** (westerns map 5): the tank top with a narrow catwalk each side 1.6 m below; shoot the tank's side and water jets out for 4 s, blasting whoever it catches off balance and off the catwalk.
 Revolvers SHOOT (owner, 2026-10-06; built: see DECISIONS.md).
 
 ## 9. World War I

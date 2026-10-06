@@ -51,6 +51,7 @@ export const tuning = {
     tar: [] as { x: number; w: number; level: number }[], // tar pits (see tuning.tar): from x, w wide (a gap in the ground), the surface `level` m below the platform top
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
     roll: 0, // the painting slides by at this speed (m/s): a moving map (the train, the mammoth chase)
+    tower: null as null | { x: number; w: number }, // a water tower's tank (see tuning.tower): from x, w wide, its top at the platform top: shoot its side and it leaks
     noWeapons: false, // nobody starts armed, nothing lies about and no pickups come (the train: fists and throws)
     train: null as null | { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }, // a train map (see tuning.train): things pass at speed (m/s), each at its second `at` of every `cycle` seconds
     chase: null as null | { speed: number; mammothX: number; obstacles: string[]; gap: number }, // a treadmill map (see tuning.chase): the floor slides left at speed (m/s) toward a mammoth at mammothX; obstacles (props.ts kinds) ride in from the right, gap metres apart
@@ -504,6 +505,18 @@ export const tuning = {
     kick: 0.6, // the kick out of it, as a share of a normal jump (weak: a pit's edge should be low)
     drownDepth: 1.1, // sinking this far below the surface finishes you (m)
   },
+  tower: {
+    // The Water Tower (sim/tower.ts): a bullet through the tank's side springs a leak; the jet shoves whatever it catches. PLACEHOLDER numbers.
+    rim: 0.25, // a hole must be at least this far below the tank's top (m)
+    jetFrames: 240, // how long a jet runs (4 s)
+    fadeFrames: 60, // it weakens over its last second
+    jetSpeed: 7, // how fast the water leaves the hole (m/s): the arc
+    reach: 4, // how far out it shoves (m)
+    width: 0.35, // how thick the jet is (m)
+    push: 110, // how hard it shoves near the hole (m/s per second; 22 is gravity; standing firm you brake at 26): a blast
+    maxJets: 6,
+    stagger: 12, // caught in it, you are off balance this many frames (no braking): it carries you
+  },
   train: {
     // The Train (sim/train.ts; the map's own timetable is its arena.train). PLACEHOLDER numbers until the playtest.
     signW: 1.2, signH: 0.45, signUp: 0.75, // a wooden sign: its size and how high its bottom is above the roof (m): jump it, or get down
@@ -717,6 +730,7 @@ export const tuning = {
     shadow: { alpha: 0.22, blur: 6, x: 0.05, y: 0.06 }, // the faint soft shadow that lifts each fighter off the map: strength, softness (px at 1080p), offset (m)
     front: { blur: 3.5 }, // how out of focus the front plane is (px at 1080p)
     water: { alpha: 0.8, crestWidth: 0.06, crestAlpha: 0.55 },
+    jet: { width: 0.26, color: 0xcfe4ee, alpha: 0.85 }, // a water tower leak: how thick, its colour, how see-through
     glassAlpha: 0.4, // how much a shop window hides what is behind it
     rollBlur: 2.5, // a moving map's painting is blurred along the way it moves: px (at 1080p) per m/s of speed
     tar: { alpha: 0.97, top: '#2b2017', deep: '#0b0806', sheen: '#7a6a58' }, // a tar pit: nearly opaque (whoever sinks is gone), dark, a dull sheen on top

@@ -23,6 +23,7 @@ export interface EraArena {
   train?: { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }; // a train map (see tuning.arena.train)
   roll?: number; // the painting slides by (m/s)
   noWeapons?: boolean; // fists and throws only
+  tower?: { x: number; w: number }; // a water tower's tank (see tuning.arena.tower)
 }
 
 /** How the whole picture is painted in this era (each one overrides tuning.finish.style): blur = background softness, haze = background fading into the air, grain = canvas weave, tint/tintAlpha = colour wash. */
@@ -80,7 +81,11 @@ export const eras: Era[] = [
     { name: 'Saloon', platformX: 2.5, platformW: 19, walls: [{ side: -1, up: 4.5, gap: 0 }, { side: 1, up: 4.5, gap: 0 }], noWeapons: true,
       ground: [{ x: 2.5, w: 7 }, { x: 9.5, w: 4, up: 1.1, thick: 2.3 }, { x: 13.5, w: 8 }], ledges: [{ x: 14.5, up: 2.6, w: 7 }], fightSpawnX: [6.67, 17.33, 8.8, 15.2],
       scenery: [{ kind: 'stool', x: 5.5, up: 0 }, { kind: 'stool', x: 8.0, up: 0 }, { kind: 'stool', x: 15.5, up: 0 }, { kind: 'stool', x: 18.0, up: 0 },
-        { kind: 'mug', x: 10.3, up: 1.1 }, { kind: 'mug', x: 11.5, up: 1.1 }, { kind: 'mug', x: 12.7, up: 1.1 }, { kind: 'mug', x: 19.5, up: 2.6 }] }], outfits: ['sheriff', 'outlaw', 'gambler', 'rancher'] },
+        { kind: 'mug', x: 10.3, up: 1.1 }, { kind: 'mug', x: 11.5, up: 1.1 }, { kind: 'mug', x: 12.7, up: 1.1 }, { kind: 'mug', x: 19.5, up: 2.6 }] },
+    // Water Tower (owner's list): on the round top of the town's water tower, with a narrow catwalk round it lower down; shoot the tank
+    // and water jets out of the hole and shoves whoever it catches. Revolvers come as pickups.
+    { name: 'Water Tower', ground: [{ x: 5.0, w: 3.5, up: -1.6, thick: 0.15 }, { x: 8.5, w: 7.0, thick: 3.2 }, { x: 15.5, w: 3.5, up: -1.6, thick: 0.15 }], tower: { x: 8.5, w: 7.0 },
+      fightSpawnX: [6.5, 17.5, 10.25, 13.75], spawnX: [10.25, 13.75, 6.5, 17.5] }], outfits: ['sheriff', 'outlaw', 'gambler', 'rancher'] },
   { id: 'ww1', name: 'World War I', special: false, pickups: ['grenade', 'bayonet-rifle'], style: { grain: 0.05 }, sky: 0x7b8576, platform: 0x5a5444, wall: 0x45463c, weapon: 'shovel', arena: { ledges: [/* islands out past each end of the ground, over the void */ { x: 2.25, up: 0.6, w: 2.0 }, { x: 19.75, up: 0.6, w: 2.0 }] }, outfits: ['infantry', 'officer', 'medic', 'trench raider'] },
   { id: 'vietnam', name: 'Vietnam', special: false, pickups: ['bamboo-stick', 'bayonet-knife'], sky: 0x5f8a5a, platform: 0x6a5a3c, wall: 0x4a5a3c, weapon: 'machete', arena: { platformW: 12.5, ledges: [{ x: 11.25, up: 1.8, w: 2.0 }], front: [{ kind: 'grass', x: 1.25, y: 13.75, scale: 3.0 }, { kind: 'grass', x: 4.0, y: 13.9, scale: 2.1 }, { kind: 'grass', x: 22.25, y: 13.8, scale: 2.75 }] }, outfits: ['jungle grunt', 'scout', 'radioman', 'tunnel rat'] },
   { id: 'modern', name: 'Modern Warfare', special: false, pickups: ['combat-knife', 'riot-shield'], sky: 0x7a8794, platform: 0x585d63, wall: 0x42474c, weapon: 'baton', arena: { platformX: 6.0, platformW: 12.0, walls: [/* a building across the alley */ { side: 1, up: 3.0, gap: 1.4 }], ledges: [{ x: 10.75, up: 1.8, w: 2.5 }] }, outfits: ['rifleman', 'sniper', 'operator', 'engineer'] },

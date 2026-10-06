@@ -21,6 +21,7 @@ export interface Snapshot {
   map: number;
   props: number[]; // x, y, angle of every loose prop (planks, logs...)
   pf?: number[]; // which loose props are on fire (their places in the list)
+  jt?: number[]; // water tower leaks: x, y, direction, frames left for each
   boat?: number[]; // x, y, angle of the ship, on a map with one
   ack?: number[]; // per player: the number of their last input this tick used
   outfits: number[];
@@ -46,6 +47,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
     f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, st: fighterState(f), p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
     simFrame: sim.frame,
     pf: sim.props.flatMap((p, i) => (p.burning ? [i] : [])),
+    jt: sim.jets.flatMap((j) => [r3(j.x), r3(j.y), j.dir, j.left]),
     bl: sim.bullets.flatMap((u) => [u.id, r3(u.x), r3(u.y), r3(u.ox), r3(u.oy), u.owner]),
   };
 }
@@ -131,6 +133,7 @@ export class Mirror {
     }
     if (sim.boat && a.boat) { const bb = b.boat ?? a.boat; Object.assign(sim.boat, { px: a.boat[0], py: a.boat[1], pa: a.boat[2], cx: bb[0], cy: bb[1], ca: bb[2] }); }
     if (b.simFrame !== undefined) sim.frame = b.simFrame;
+    sim.jets = []; for (let k = 0, jt = a.jt ?? []; k < jt.length; k += 4) sim.jets.push({ x: jt[k], y: jt[k + 1], dir: jt[k + 2], left: jt[k + 3] });
     // Bullets: each one between where it was in the two snapshots (one new in the later one appears there).
     sim.bullets.length = 0;
     const bb = b.bl ?? [], ab = a.bl ?? [];
