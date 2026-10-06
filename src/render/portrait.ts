@@ -38,7 +38,7 @@ export async function paintPortrait(look: Look, seat: number, opts: { bare?: boo
   fig.position.set(W / 2, H - 6);
   stage.addChild(fig);
   fig.addChild(under);
-  const z = (s: Shape): Shape => (s.k === 'ball' ? { ...s, r: s.r * Z, x: s.x * Z, y: s.y * Z } : { ...s, r: s.r * Z, hl: s.hl * Z, x: s.x * Z, y: s.y * Z });
+  const z = (s: Shape): Shape => (s.k === 'ball' ? { ...s, r: s.r * Z, x: s.x * Z, y: s.y * Z } : s.k === 'box' ? { ...s, hw: s.hw * Z, hh: s.hh * Z, x: s.x * Z, y: s.y * Z } : { ...s, r: s.r * Z, hl: s.hl * Z, x: s.x * Z, y: s.y * Z });
   const parts: [Shape, number][] = [ // body, head, and the hands folded in front (the arms are lost in the pose, as in the old portraits)
     [{ k: 'cap', r: F.torsoRadius, hl: LG.torsoHalf, x: 0, y: LG.torsoY, rot: 0 }, hex],
     [{ k: 'ball', r: F.headRadius, x: 0, y: F.headY }, hex],

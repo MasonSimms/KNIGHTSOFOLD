@@ -54,6 +54,7 @@ describe('maps', () => {
       const x0 = slabs[0].x + 0.5, x1 = slabs[slabs.length - 1].x + slabs[slabs.length - 1].w - 1.0; // (to 1 m from the far end: some maps have a wall there)
       const f = sim.fighters[0], other = sim.fighters[1];
       setBackPlane(other, true); other.dodge = 1e9; // the other fighter steps aside (we pass through it)
+      if (!hop) for (const p of [...sim.props]) if (p.hp !== undefined) sim.removeBody(p, undefined); // walking checks the ground itself (a crate is shoved along until it jams: hop it)
       const t = f.torso.body.translation();
       for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + x0 - t.x, y: q.y }, true); }
       let n = 0;

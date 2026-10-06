@@ -6,7 +6,8 @@ import type { PlayerInput, SimEvent } from './types';
 
 export type Shape =
   | { k: 'ball'; r: number; x: number; y: number }
-  | { k: 'cap'; hl: number; r: number; x: number; y: number; rot: number }; // capsule long axis = local Y before rot
+  | { k: 'cap'; hl: number; r: number; x: number; y: number; rot: number } // capsule long axis = local Y before rot
+  | { k: 'box'; hw: number; hh: number; x: number; y: number; rot: number }; // a block: half its width (local x) and half its height
 
 export interface Part {
   body: RigidBody;
@@ -19,6 +20,7 @@ export interface Part {
   flipped?: boolean; // an empty gun, turned round: held by the barrel as a club (to the physics it is the same rod: only the picture turns)
   cracks?: number; // a wooden weapon: how much shooting it has taken (it snaps at its toughness)
   hp?: number; // breakable scenery: how much more it takes before it breaks (see props.ts breaks)
+  crushAt?: number; // a heavy loose thing: the frame it may crush someone again
   owner: number;
   // interpolation poses (previous / current sim step) for the renderer
   px: number; py: number; pa: number; cx: number; cy: number; ca: number;
@@ -179,7 +181,7 @@ function addPart(
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
   };
   for (const d of defs) {
-    const desc = d.s.k === 'ball' ? RAPIER.ColliderDesc.ball(d.s.r) : RAPIER.ColliderDesc.capsule(d.s.hl, d.s.r).setRotation(d.s.rot);
+    const desc = d.s.k === 'ball' ? RAPIER.ColliderDesc.ball(d.s.r) : d.s.k === 'box' ? RAPIER.ColliderDesc.cuboid(d.s.hw, d.s.hh).setRotation(d.s.rot) : RAPIER.ColliderDesc.capsule(d.s.hl, d.s.r).setRotation(d.s.rot);
     desc.setTranslation(d.s.x, d.s.y).setMass(d.mass).setFriction(T.fighter.friction)
       .setRestitution(T.fighter.restitution).setCollisionGroups(ownerGroups(owner));
     const collider = world.createCollider(desc, body);
@@ -314,12 +316,13 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
 }
 
 /** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
-export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number } }): Part {
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean }): Part {
   const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
-  const collider = world.createCollider(
-    RAPIER.ColliderDesc.capsule(hl, r).setRotation(Math.PI / 2).setMass(spec.mass).setFriction(0.8).setRestitution(0.05).setCollisionGroups(worldGroups), body);
-  const shapes: Shape[] = [{ k: 'cap', hl, r, x: 0, y: 0, rot: Math.PI / 2 }];
+  // A block (a stone, a crate, a pane of glass) or, by default, a rod (a plank, a club, a barrel on its side)
+  const desc = spec.box ? RAPIER.ColliderDesc.cuboid(spec.len / 2, r) : RAPIER.ColliderDesc.capsule(hl, r).setRotation(Math.PI / 2);
+  const collider = world.createCollider(desc.setMass(spec.mass).setFriction(0.8).setRestitution(0.05).setCollisionGroups(worldGroups), body);
+  const shapes: Shape[] = [spec.box ? { k: 'box', hw: spec.len / 2, hh: r, x: 0, y: 0, rot: 0 } : { k: 'cap', hl, r, x: 0, y: 0, rot: Math.PI / 2 }];
   if (spec.gun) shapes.push({ k: 'cap', hl: 0.04, r: 0.035, x: -spec.len / 2 + 0.08, y: 0.07, rot: 0 }); // (picture only) a gun's handle, hanging under the back of the barrel
   return {
     body, shapes, colliders: [collider], role: 'prop', owner: -1,

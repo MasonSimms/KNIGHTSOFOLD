@@ -129,7 +129,7 @@ function strike(sim: Sim, u: Bullet, c: Collider, dx: number, dy: number, nx: nu
       push(G.blockPush); ev('spark', holder.index);
       return 'on';
     }
-    if (m === 'metal') { push(G.blockPush); ev('spark', holder.index); return 'stop'; }
+    if (m === 'metal' || m === 'stone') { push(G.blockPush); ev('spark', holder.index); return 'stop'; }
     if (m === 'light') { sim.disarmByShot(holder, dx * u.push, dy * u.push, u.owner); return 'stop'; } // knocked out of the hand
     push(G.blockPush); // wood: it takes the bullet, and cracks
     crack(sim, part, u, holder);

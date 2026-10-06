@@ -8,7 +8,7 @@ import { BOT_GRAYS, drawRobotHead } from './robot';
 import { createSea } from './sea';
 import { createFx } from './fx';
 import { createFrame } from './frame';
-import { CAPE, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
+import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
 import { tuning as T } from '../content/tuning';
@@ -72,11 +72,12 @@ export function drawEyes(headR: number, eyes: Eyes = 'round'): Container {
 export function drawShape(s: Shape, color: number): Graphics {
   const g = new Graphics();
   if (s.k === 'ball') g.circle(0, 0, s.r * BIG);
+  else if (s.k === 'box') g.rect(-s.hw * BIG, -s.hh * BIG, s.hw * 2 * BIG, s.hh * 2 * BIG);
   else g.roundRect(-s.r * BIG, -(s.hl + s.r) * BIG, s.r * 2 * BIG, (s.hl + s.r) * 2 * BIG, s.r * BIG);
   g.fill(color);
   g.scale.set(1 / BIG);
   g.position.set(s.x, s.y);
-  if (s.k === 'cap') g.rotation = s.rot;
+  if (s.k !== 'ball') g.rotation = s.rot;
   return g;
 }
 
@@ -89,13 +90,14 @@ export const UNDER = 0x1a120d; // the dark underpaint showing at the lower right
 export interface Painted { s: Shape; tex: Texture[]; a: Sprite; b: Sprite | null }
 export function addPainted(parent: Container, s: Shape, color: number): Painted {
   const P = T.finish.paint;
-  const tex = paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, color, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+  const K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under };
+  const tex = s.k === 'box' ? paintedBox(s.hw, s.hh, color, K) : paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, color, K);
   const mk = (mirror: boolean) => {
     const sp = new Sprite(tex[0]);
     sp.anchor.set(0.5);
     sp.scale.set((mirror ? -1 : 1) / PPM, 1 / PPM);
     sp.position.set(s.x, s.y);
-    if (s.k === 'cap') sp.rotation = s.rot;
+    if (s.k !== 'ball') sp.rotation = s.rot;
     parent.addChild(sp);
     return sp;
   };
@@ -336,7 +338,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const P0 = T.finish.paint, K0 = { relief: P0.relief, bristle: P0.bristle, jitter: P0.jitter, under: P0.under };
   for (const hex of [...COLORS.map((c) => c.hex), ...BOT_GRAYS]) for (const p of sim.fighters[0]?.parts ?? []) for (const s of p.shapes) {
     const col = p.role === 'stick' ? T.colors.stick : p.role === 'off' ? mix(hex, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(hex, 0x000000, 0.18) : hex;
-    prewarm.push(() => paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0));
+    if (s.k !== 'box') prewarm.push(() => paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0));
   }
   const idle = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 50));
   const warmNext = () => { const job = prewarm.shift(); if (job) { job(); idle(warmNext); } };

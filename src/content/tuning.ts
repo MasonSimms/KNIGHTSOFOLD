@@ -433,6 +433,11 @@ export const tuning = {
     lying: true, // the loose planks, logs and bones an era leaves lying on its map (owner: on for the playtest; false = off; bridges keep their planks)
     factor: 2.0, // damage factor of a held prop
     limbFactor: 1.6, // ...of a held limb (a leg, say)
+    maxLift: 20, // kg: anything heavier (a standing stone) cannot be picked up; it can be pushed, knocked over and hidden behind
+    crushMass: 25, // kg: a loose thing this heavy coming hard into someone crushes them...
+    crushSpeed: 3, // ...when it is moving at least this fast into them (m/s)
+    crushFactor: 7, // damage factor of a crush (a club is 2.2: a stone dropped from a ledge is a heavy blow)
+    crushCooldown: 20, // frames before the same thing can crush again
   },
   bridge: {
     // A bridge is a chain of planks: it can be cut, it snaps if someone slams into it, and every plank that comes free is a club.
@@ -697,7 +702,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232 } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

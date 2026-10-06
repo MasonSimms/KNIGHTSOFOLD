@@ -18,7 +18,7 @@ export interface Weapon {
  * but cracks, and snaps in two after enough shooting; light things (knives, fans, bamboo) are knocked out of your hand. 'shield' (later
  * eras) sends the bullet back the way it came: it can then hit anyone, the shooter too.
  */
-export type Material = 'metal' | 'wood' | 'light' | 'shield';
+export type Material = 'metal' | 'wood' | 'light' | 'shield' | 'stone';
 
 /**
  * A gun (owner): one click is one shot; limited ammo, no reloading; the ammo belongs to the gun. Empty, it is turned round and held by the

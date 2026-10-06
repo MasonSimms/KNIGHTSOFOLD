@@ -6,7 +6,7 @@ import type { GunSpec, Material } from './weapons';
 // weapons that spawn in as a round goes on: heavier or longer, hitting harder.
 /** breaks: scenery that breaks (owner: environments have destructible elements): how much it takes (bullets by calibre x 10, hard hits by
  *  impact) and the loose pieces it leaves (kinds in this list). */
-export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[] } }
+export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[] }; box?: boolean }
 
 /** The guns (owner: the revolver and the flintlock first). PLACEHOLDER numbers until the playtest. */
 const REVOLVER: GunSpec = { ammo: 6, cooldown: 14, speed: 70, calibre: 1, impact: 31, push: 9, recoil: 2.5, kick: 6 }; // 6 quick shots, each about half a full club hit
@@ -17,7 +17,7 @@ export const PROPS: Record<string, PropSpec> = {
   bone: { len: 0.7, thick: 0.1, mass: 0.5, toughness: 2 },
   // breakable scenery: it splits into loose pieces when shot or hit hard enough
   barrel: { len: 0.7, thick: 0.5, mass: 6, factor: 2.6, breaks: { hp: 60, into: ['stave', 'stave', 'stave'] } },
-  crate: { len: 0.6, thick: 0.55, mass: 5, factor: 2.6, breaks: { hp: 45, into: ['plank', 'plank', 'stave'] } },
+  crate: { len: 0.6, thick: 0.55, mass: 5, factor: 2.6, breaks: { hp: 45, into: ['plank', 'plank', 'stave'] }, box: true },
   stave: { len: 0.6, thick: 0.08, mass: 0.5, toughness: 2 }, // a barrel stave or crate slat: a little club
   // era pickups (PLACEHOLDER numbers, all to be tuned by playtest)
   'stone-hammer': { len: 0.8, thick: 0.2, mass: 3.0, factor: 2.9 }, tusk: { len: 1.3, thick: 0.1, mass: 1.2, factor: 2.4 },
@@ -34,6 +34,11 @@ export const PROPS: Record<string, PropSpec> = {
   'plasma-blade': { len: 0.7, thick: 0.05, mass: 0.6, factor: 3.2 }, 'gravity-hammer': { len: 1.0, thick: 0.2, mass: 2.8, factor: 3.0 },
   'wizard-staff': { len: 1.5, thick: 0.06, mass: 0.8, factor: 2.4 }, 'war-hammer': { len: 1.0, thick: 0.14, mass: 2.4, factor: 3.0 },
   crowbar: { len: 0.8, thick: 0.05, mass: 1.2, factor: 2.5 }, 'lead-pipe': { len: 1.0, thick: 0.07, mass: 2.0, factor: 2.9 },
+  // heavy stone blocks (len = width, thick = height): too heavy to lift (tuning.props.maxLift). Knocked off something, they crush whoever
+  // they land on; lying about, they are cover. PLACEHOLDER sizes until the Standing Stones playtest.
+  upright: { len: 0.7, thick: 1.7, mass: 200, material: 'stone', box: true }, // a standing stone
+  capstone: { len: 2.0, thick: 0.45, mass: 60, material: 'stone', box: true }, // laid across two uprights
+  boulder: { len: 0.7, thick: 0.6, mass: 40, material: 'stone', box: true },
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 for (const id of ['stone-hammer', 'sceptre', 'flail', 'trident', 'chain-mace', 'great-axe', 'mace', 'iron-fan', 'pickaxe', 'grenade', 'plasma-blade', 'gravity-hammer', 'war-hammer', 'crowbar', 'lead-pipe', 'riot-shield']) PROPS[id].material = 'metal';

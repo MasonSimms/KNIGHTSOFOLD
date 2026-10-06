@@ -47,7 +47,7 @@ const decodeItem = (e: { v: number; victim: number }): Item => (e.v < 0 ? { kind
 /** What killed a fighter, so the death can be staged to fit (crushed, blown apart, a limb lost). */
 /** A training change at frame f: an item dropped in at (x, y), or (no item) the loose things cleared away. */
 export interface Edit { f: number; item?: string; x?: number; y?: number }
-export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam' | 'shot'; part?: Part; head?: boolean; nx: number; ny: number }
+export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam' | 'shot' | 'crush'; part?: Part; head?: boolean; nx: number; ny: number }
 
 export class Sim {
   frame = 0;
@@ -450,6 +450,7 @@ export class Sim {
     this.resolveCrashes();
     this.resolveSlams();
     this.resolveBodySlams();
+    this.resolveCrushes();
     moveBullets(this);
     this.checkDeaths();
     this.snapshot();
@@ -647,7 +648,7 @@ export class Sim {
   /** An outstretched empty hand locks onto the first part of another fighter it touches (not a club, not the floppy second arm). */
   /** What an object is, if a hand can take it: a prop, a club nobody is holding, or a limb that has come off. */
   private itemOf(part: Part): Item | null {
-    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 ? { kind: 'prop', index: i } : null; }
+    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
     const g = this.fighters[part.owner];
     if (!g) return null;
     if (part.role === 'stick') return g.stick === part && !g.grip && g.dropCooldown <= 0 ? { kind: 'stick', from: g.index } : null;
@@ -818,6 +819,28 @@ export class Sim {
         }
         if (!v.limp) this.wound(v, dmg, h.speed * S.impactFactor, h.x, h.y, g?.index ?? -1, h.head, true, { how: 'slam', nx: h.nx, ny: h.ny });
       }
+    }
+  }
+
+  /** A heavy loose thing (a standing stone's capstone, a block knocked off a ledge) coming hard into a fighter crushes them: faster = worse. */
+  private resolveCrushes(): void {
+    const P = T.props;
+    for (const p of this.props) {
+      if (p.body.mass() < P.crushMass || (p.crushAt ?? 0) > this.frame || Math.hypot(p.vx, p.vy) < P.crushSpeed) continue;
+      for (const col of p.colliders) this.world.contactPairsWith(col, (other) => {
+        const vb = other.parent(), vp = vb && this.partByBody.get(vb.handle);
+        const v = vp && vp.role !== 'prop' && vp.role !== 'stick' ? this.fighters[vp.owner] : undefined;
+        if (!vp || !v || v.limp || v.inBack || this.detached(v, vp) || (p.crushAt ?? 0) > this.frame) return;
+        this.world.contactPair(col, other, (m) => {
+          if (m.numSolverContacts() === 0) return;
+          const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP, c = this.contact(p, vp, pt, m.normal(this.tmpN));
+          if (c.closing < P.crushSpeed) return;
+          const impact = impactValue(c.closing, P.crushFactor);
+          p.crushAt = this.frame + P.crushCooldown;
+          shove(v, c.nx * knockbackFor(impact), c.ny * knockbackFor(impact));
+          this.wound(v, damageFor(impact), impact, pt.x, pt.y, -1, vp.role === 'head', true, { how: 'crush', nx: c.nx, ny: c.ny });
+        });
+      });
     }
   }
 
@@ -1095,7 +1118,7 @@ export class Sim {
         p.body.setAngvel((this.rng() - 0.5) * 2 * D.explodeSpin, true);
       }
       this.events.push({ t: 'explode', x: t.x, y: t.y, v: impact, owner: f.index, victim: f.index });
-    } else if ((c.how === 'stomp' || c.how === 'slam') && impact >= D.crushImpact) {
+    } else if ((c.how === 'stomp' || c.how === 'slam' || c.how === 'crush') && impact >= D.crushImpact) {
       this.events.push({ t: 'crush', x: t.x, y: t.y, v: impact, owner: f.index, victim: f.index });
     } else if (c.how === 'club' && c.head && impact >= T.maim.impact) {
       const head = f.parts.find((p) => p.role === 'head'); // a huge killing blow to the head takes it off

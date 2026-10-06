@@ -321,3 +321,27 @@ export function paintedMoulding(K: SpriteKnobs, w = 256, h = 28): Texture {
   cache.set(key, out);
   return out[0];
 }
+
+/** A painted block (a stone, a crate, a pane, a sign): flat-lit, its upper-left edges catching the light and its lower-right ones in shade, strokes along its length. */
+export function paintedBox(hw: number, hh: number, color: number, K: SpriteKnobs): Texture[] {
+  const key = `box|${hw.toFixed(3)}|${hh.toFixed(3)}|${color}|${JSON.stringify(K)}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const k = Math.min(PPM, 1200 / Math.max(hw, hh) / 2); // (a big block is painted a little coarser)
+  const W = Math.ceil(2 * hw * k + 2 * PAD), H = Math.ceil(2 * hh * k + 2 * PAD), N = W * H, cx = W / 2, cy = H / 2;
+  const base = [((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255];
+  const img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(color ^ Math.round(hw * 911 + hh * 77));
+  const bevel = Math.max(2, Math.min(hw, hh) * k * 0.18);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, u = Math.abs(x + 0.5 - cx) - hw * k, v = Math.abs(y + 0.5 - cy) - hh * k;
+    alpha[i] = Math.min(1, Math.max(0, 0.5 - Math.max(u, v)));
+    const left = Math.max(0, 1 - (x - PAD) / bevel), top = Math.max(0, 1 - (y - PAD) / bevel), right = Math.max(0, 1 - (W - PAD - x) / bevel), bottom = Math.max(0, 1 - (H - PAD - y) / bevel);
+    const light = 0.92 + 0.28 * Math.max(left, top) - 0.32 * Math.max(right, bottom) + R.range(-0.03, 0.03);
+    for (let c = 0; c < 3; c++) img.c[c][i] = Math.min(1, base[c] * light);
+    ang[i] = (hw >= hh ? 0 : Math.PI / 2) + R.normal() * 0.04;
+  }
+  const out = paintFlat(img, alpha, ang, (color & 0xffff) + Math.round(hw * 13), K, 1); // (a block lies still: one variant, used for every boil frame)
+  const all = [out[0], out[0], out[0]];
+  cache.set(key, all);
+  return all;
+}
