@@ -36,11 +36,11 @@ Pickups: **Stone Hammer** (very heavy, slow, huge impact), **Mammoth Tusk** (lon
 2. **Mammoth Ribcage**: the ribs are the platforms and are loose bones you can pull free and swing.
 3. **Boulder Slope**: sloped ground with a big boulder that rolls down. Push it, ride it, or hit people with it.
 4. **Volcano Rim**: floating basalt slabs over lava, with falling rocks now and then. Lava is the knockoff.
-5. **Vine Ravine**: a hanging log bridge on vines over a gorge. Cut the vines and it swings down (like the samurai bridge).
+5. **Vine Ravine** BUILT (first version: the samurai bridge with six logs, which you cut or break; no vines yet): a hanging log bridge on vines over a gorge. Cut the vines and it swings down (like the samurai bridge).
 
 ## 2. Ancient Egypt
 Pickups: **Was Sceptre** (long staff), **Golden Flail** (a chain with a weight: swings wildly, hits hard).
-1. **Pyramid Steps**: a staircase of ledges, so the high ground matters.
+1. **Pyramid Steps** BUILT (first version: five floating steps up from both ends to a top in the middle): a staircase of ledges, so the high ground matters.
 2. **Nile Barge**: a barge floating on the river (reuses the pirate water tech): rocks when people run to one side.
 3. **Toppling Obelisk**: a tall stone obelisk that, if hit hard at its base, falls across the gap as a bridge (or onto someone).
 4. **Sandstorm Temple**: pillars you can break into rubble; wind pushes everyone sideways in gusts.
@@ -51,7 +51,7 @@ Pickups: **Trident** (long reach, prod), **Net** (thrown to tangle; needs the "e
 1. **Colosseum Floor**: trapdoors that open on a timer under the sand.
 2. **Chariot Track**: a runaway chariot crosses now and then and flattens or launches anyone in the way (the knockoff is the track edge).
 3. **Portcullis Gate**: a heavy gate you can cut loose to drop between fighters.
-4. **Lion's Pit**: ledges over a pit. The fall is the knockoff and the crowd edge shows paint.
+4. **Lion's Pit** BUILT (first version: two floors, a pit with one stepping stone level with the floor; no crowd yet): ledges over a pit. The fall is the knockoff and the crowd edge shows paint.
 5. **Aqueduct Bridge**: a stone bridge of arches. Hard slams break an arch, a gap opens, and the water falls through.
 
 ## 4. Vikings
