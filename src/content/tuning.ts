@@ -471,6 +471,28 @@ export const tuning = {
     hitCooldown: 20, // frames before the same weapon can hit again
     stunFrames: 25,
   },
+  bot: {
+    // Computer players (owner: they play like a regular person; src/sim/bot.ts). They only press the buttons a player has. These make them
+    // more or less human:
+    reactFrames: [10, 16], // a new decision every this many frames (about a fifth of a second: a person's reaction time)
+    turnRate: 14, // rad/s: how fast its "mouse hand" can swing the aim round
+    aimWobble: 0.25, // radians: how far off its aim can be (a fresh error with every decision)
+    edgeMargin: 1.0, // m: it does not walk closer than this to an open edge
+    climbHeight: 1.0, // m: someone this much higher is up on a ledge: it jumps after them
+    jumpHold: 18, // frames it holds jump (the full height)
+    swingReach: 0.6, // m beyond its weapon's length at which it starts a swing
+    charge: [8, 30], // frames it charges a swing (from a quick jab to a full charge)
+    throwChance: 0.06, // a charged swing is let fly instead
+    closeRange: 0.95, // m: empty-handed, this close it punches or grabs
+    grabChance: 0.4, // ...grabs instead of punching
+    slamChance: 0.35, // a grab ends in a slam (jump back and hold S)...
+    tossChance: 0.25, // ...or a right-click toss (otherwise it swings them up and flings them)
+    dodgeChance: 0.3, // someone close winding up a big swing: it dodges this often
+    fetchRange: 7, // m: empty-handed, it goes for a loose weapon this close (if it is nearer than the fight)
+    hesitate: 0.08, // share of decisions that are a moment of doing nothing
+    hopChance: 0.04, // share of decisions with a hop for no reason
+    stuckFrames: 30, // lying down, or pushing to walk and getting nowhere, this long: it jumps out of it
+  },
   match: {
     // A fight: last fighter standing wins the round and scores a point. Dead fighters stay down until the round is over.
     resultFrames: 150, // how long the result is shown before the next round starts (2.5 s)

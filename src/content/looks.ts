@@ -10,4 +10,4 @@ export const EYES = ['round', 'fierce', 'sleepy'] as const;
 export type Eyes = (typeof EYES)[number];
 export const EYE_NAMES: Record<Eyes, string> = { round: 'Round', fierce: 'Fierce', sleepy: 'Sleepy' };
 
-export interface Look { color: number; hat: Hat; eyes: Eyes } // color = index into COLORS
+export interface Look { color: number; hat: Hat; eyes: Eyes; bot?: boolean } // color = index into COLORS; bot = a computer plays this seat (drawn as a gray robot)

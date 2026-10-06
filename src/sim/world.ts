@@ -9,6 +9,7 @@ import { PROPS, PROP_KINDS } from '../content/props';
 import { weaponById } from '../content/weapons';
 import type { Weapon } from '../content/weapons';
 import { eraFor, mapFor, outfitsFor } from './era';
+import { Bot } from './bot';
 import { makeRng } from './rng';
 import type { Look } from '../content/looks';
 import { NEUTRAL } from './types';
@@ -68,6 +69,7 @@ export class Sim {
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
   weapon: Weapon = { id: 'club', name: 'Club', ...T.stick }; // what everyone fights with this round (the era's weapon)
   private arenaCache: { key: string; arena: Arena } | null = null;
+  private brains: (Bot | null)[] = [null, null, null, null]; // the computer players (a seat whose look says bot), made when first needed
   looks: Look[] = [0, 1, 2, 3].map((color) => ({ color, hat: 'none' as const, eyes: 'round' as const })); // each player's colour, hat and eyes (looks only: nothing in the physics reads them)
   gone = [false, false, false, false]; // players who left (online): dead this round, and parked out of sight in later rounds
   round = 1;
@@ -318,7 +320,8 @@ export class Sim {
       }
     }
     for (const f of this.fighters) {
-      controlFighter(this.world, f, f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events);
+      const bot = f.controlled && this.looks[f.index]?.bot ? (this.brains[f.index] ??= new Bot(this.seed * 7919 + f.index * 104729 + 1)) : null; // a computer player presses its own buttons
+      controlFighter(this.world, f, bot ? bot.think(this, f) : f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events);
       syncStickGroups(f);
       for (const p of f.parts) {
         let v = p.body.linvel(this.tmpV);
