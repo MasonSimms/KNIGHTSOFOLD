@@ -9,7 +9,7 @@ import type { Sim } from '../sim/world';
 // Pools made once (nothing is allocated while playing).
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-interface Trail { id: number; ox: number; oy: number; x: number; y: number; fade: number } // fade: 1 while flying, falling to 0 after
+interface Trail { id: number; ox: number; oy: number; x: number; y: number; fade: number; drift: number } // fade: 1 while flying, falling to 0 after; drift: how far the wind has carried it (m)
 interface Bit { g: Graphics; x: number; y: number; vx: number; vy: number; spin: number; life: number; max: number; fall: boolean }
 interface Puff { s: Sprite; x: number; y: number; vy: number; life: number; max: number; size: number; a: number }
 
@@ -63,7 +63,7 @@ export function createFx(layer: Container, puffTex: Texture[]) {
       }
     },
     /** Each frame: the bullets (between the last two frames), their trails, and every bit and puff. */
-    draw(sim: Sim, alpha: number, seconds: number) {
+    draw(sim: Sim, alpha: number, seconds: number, wind = 0) {
       const B = T.finish.bullets;
       // trails: one per bullet in flight; a bullet that is gone leaves its trail fading where it ended
       const live = new Set<number>();
@@ -71,18 +71,19 @@ export function createFx(layer: Container, puffTex: Texture[]) {
         live.add(u.id);
         const x = lerp(u.px, u.x, alpha), y = lerp(u.py, u.y, alpha);
         const t = trailList.find((q) => q.id === u.id);
-        if (t) { t.x = x; t.y = y; } else trailList.push({ id: u.id, ox: u.ox, oy: u.oy, x, y, fade: 1 });
+        if (t) { t.x = x; t.y = y; } else trailList.push({ id: u.id, ox: u.ox, oy: u.oy, x, y, fade: 1, drift: 0 });
       }
       trails.clear();
       for (let i = trailList.length - 1; i >= 0; i--) {
         const q = trailList[i];
         if (!live.has(q.id)) q.fade -= seconds / B.trailFadeSeconds;
+        q.drift += wind * T.finish.wind.trail * seconds * 10; // the wind carries the trail off (its old end most)
         if (q.fade <= 0) { trailList.splice(i, 1); continue; }
         const dx = q.x - q.ox, dy = q.y - q.oy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
         const tx = q.ox - ux * B.tailBack, ty = q.oy - uy * B.tailBack, n = 8; // the trail reaches back past the shooter
         for (let k = 0; k < n; k++) { // fading in from the tail to the bullet
           const a0 = k / n, a1 = (k + 1) / n;
-          trails.moveTo(lerp(tx, q.x, a0), lerp(ty, q.y, a0)).lineTo(lerp(tx, q.x, a1), lerp(ty, q.y, a1)).stroke({ width: B.trailWidth, color: 0xffffff, alpha: B.trailAlpha * a1 * q.fade, cap: 'butt' });
+          trails.moveTo(lerp(tx, q.x, a0) + q.drift * (1 - a0), lerp(ty, q.y, a0)).lineTo(lerp(tx, q.x, a1) + q.drift * (1 - a1), lerp(ty, q.y, a1)).stroke({ width: B.trailWidth, color: 0xffffff, alpha: B.trailAlpha * a1 * q.fade, cap: 'butt' });
         }
         if (live.has(q.id)) { // the bullet itself: a bright white streak with a soft glow
           const s = Math.min(B.streak, d);
@@ -114,6 +115,7 @@ export function createFx(layer: Container, puffTex: Texture[]) {
         if (p.life <= 0) { p.s.visible = false; continue; }
         const k = 1 - p.life / p.max;
         p.y += p.vy * seconds;
+        p.x += wind * T.finish.wind.smoke * seconds * 10; // smoke blows away downwind
         p.s.position.set(p.x, p.y);
         p.s.scale.set((p.size * (0.6 + k)) / 100);
         p.s.alpha = (1 - k) * p.a;

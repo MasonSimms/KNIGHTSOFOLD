@@ -84,7 +84,8 @@ export interface Fighter {
   sinking: boolean; // the swim ran out: going under
   tar: boolean; // the liquid you are in is tar (sim/water.ts): slow, a weak kick
   burning: number; // frames you go on burning (sim/fire.ts)
-  belt: number; // how fast the floor under you moves (m/s; a treadmill: sim/chase.ts)
+  belt: number; // how fast what you move against moves (m/s): a treadmill floor (sim/chase.ts), or in the air the wind's drift
+  drift: number; // how fast the wind carries a fighter in the air (m/s; sim/wind.ts)
   swimKick: number; // frames until the next kick out of the water
   carried: number; // frames left of being held by someone (the holder renews it): you do not hold yourself up on your feet
   slamming: boolean; // holding someone, came off the ground and holding S: landing them hard is a slam (see tuning.slam)
@@ -265,7 +266,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, swimKick: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, drift: 0, swimKick: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
@@ -759,7 +760,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
 
   // ---- lean and balance: the body leans into where it is going (and winds back before a lunge or punch), then springs upright ----
   const B = T.balance;
-  const vx = body.linvel(tmp).x - f.belt; // on a moving floor (the Mammoth Chase), you walk on the floor, not on the world
+  const vx = body.linvel(tmp).x - f.belt; // on a moving floor (the Mammoth Chase) you walk on the floor, not on the world; in the air, in the wind
   let lean = 0;
   if (f.controlled) {
     const want = input.moveX * T.motion.moveSpeed;
@@ -793,7 +794,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // ---- movement and jumping ----
   senseContacts(world, f);
   const grounded = f.grounded;
-  f.belt = grounded && f.groundBody?.isKinematic() ? f.groundBody.linvel().x : 0; // (read now: the floor of last frame may have been broken since)
+  f.belt = !grounded ? f.drift : f.groundBody?.isKinematic() ? f.groundBody.linvel().x : 0; // (read now: the floor of last frame may have been broken since; in the air, the wind)
   { // landing: the knees give for a moment, deeper the harder you land, and you spring back up (owner: more fluid movement)
     const LD = T.landDip;
     if (!grounded) f.fallVy = Math.max(0, body.linvel(tmp).y);

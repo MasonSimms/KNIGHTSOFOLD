@@ -18,6 +18,7 @@ import type { Chase } from './chase';
 import { buildTrain, stepTrain } from './train';
 import type { Passing } from './train';
 import { applyJets } from './tower';
+import { applyWind } from './wind';
 import type { Jet } from './tower';
 import { breakProp, damageScenery, fire, moveBullets, predictShot, shatter, snapPart, spendShot } from './guns';
 import type { Bullet } from './guns';
@@ -465,6 +466,7 @@ export class Sim {
     this.keepWeaponsInPlay();
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     if (this.passing.length) stepTrain(this, this.passing);
+    applyWind(this);
     this.world.step();
     if (this.chase) stepChase(this, this.chase);
     this.capSpeeds();

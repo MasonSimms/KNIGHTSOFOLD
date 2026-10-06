@@ -3,6 +3,7 @@ import { eras } from '../content/eras';
 import { tuning as T } from '../content/tuning';
 import { setBackPlane } from './fighter';
 import { hashSim } from './hash';
+import { windAt } from './wind';
 import { NEUTRAL } from './types';
 import type { PlayerInput, SimEvent } from './types';
 import { Sim } from './world';
@@ -56,5 +57,21 @@ describe('Train', () => {
       hashes.push(hashSim(sim));
     }
     expect(hashes[0]).toBe(hashes[1]);
+  });
+});
+
+describe('wind', () => {
+  it('the headwind blows a fighter in the air back a little (standing, your feet hold you); it gusts, the same every time', async () => {
+    const sim = await train(), f = sim.fighters[0];
+    const t = f.torso.body.translation(), x0 = t.x;
+    for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x, y: q.y - 6 }, true); p.body.setLinvel({ x: 0, y: 0 }, true); }
+    run(sim, 30); // (half a second of falling: still in the air)
+    const drift = f.torso.body.translation().x - x0;
+    expect(drift).toBeLessThan(-0.02); // blown back (the train's wind blows toward -x)
+    expect(drift).toBeGreaterThan(-0.6); // ...only a little
+    const w = [0, 100, 200, 300].map((k) => windAt(sim.arena, k));
+    expect(new Set(w.map((x) => x.toFixed(3))).size).toBeGreaterThan(1); // gusting
+    expect(w.every((x) => x < 0)).toBe(true);
+    expect(windAt(sim.arena, 123)).toBe(windAt(sim.arena, 123));
   });
 });

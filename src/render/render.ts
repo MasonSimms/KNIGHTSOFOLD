@@ -12,6 +12,7 @@ import { createFlames } from './flames';
 import { createMammoth } from './mammoth';
 import { createPassing } from './passing';
 import { createJets } from './jets';
+import { windAt } from '../sim/wind';
 import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
 import type { Eyes, Hat } from '../content/looks';
@@ -131,14 +132,14 @@ function makeCape(parent: Container, tex: Texture[]): Cape {
   return { rope, pts, x: z(), y: z(), px: z(), py: z(), tex, live: false };
 }
 /** Cloth: each point keeps its momentum, falls, trails a little behind the way the fighter faces, flutters, and keeps its distance. */
-function stepCape(c: Cape, ax: number, ay: number, side: number, dt: number, time: number, variant: number): void {
+function stepCape(c: Cape, ax: number, ay: number, side: number, dt: number, time: number, variant: number, wind = 0): void {
   const seg = CAPE.length / (CAPE_LINKS - 1), C = T.finish.cape;
   if (!c.live) { for (let i = 0; i < CAPE_LINKS; i++) { c.x[i] = c.px[i] = ax; c.y[i] = c.py[i] = ay + i * seg; } c.live = true; }
   const h = Math.min(dt, 1 / 30);
   for (let i = 1; i < CAPE_LINKS; i++) {
     const vx = (c.x[i] - c.px[i]) * C.damping, vy = (c.y[i] - c.py[i]) * C.damping;
     c.px[i] = c.x[i]; c.py[i] = c.y[i];
-    c.x[i] += vx + (-side * C.trail + Math.sin(time * C.flutterRate + i * 0.9) * C.flutter) * h * h;
+    c.x[i] += vx + (-side * C.trail + Math.sin(time * C.flutterRate + i * 0.9) * C.flutter * (1 + Math.abs(wind) * 0.15) + wind * T.finish.wind.cape) * h * h; // (the wind blows it out and makes it flap)
     c.y[i] += vy + (C.gravity + Math.cos(time * C.flutterRate * 0.7 + i) * C.flutter * 0.5) * h * h;
   }
   c.x[0] = c.px[0] = ax; c.y[0] = c.py[0] = ay;
@@ -539,6 +540,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       });
       if (builtVersion !== sim.version) rebuild();
       boil += frameSeconds * T.finish.boilFps;
+      const wind = windAt(sim.arena, sim.frame - 1 + alpha); // (sways capes, grass, smoke, flames, paint, trails)
       variant = Q.boil ? Math.floor(boil) % VARIANTS : 0;
       const off = T.finish.underOffset, SH = T.finish.shadow;
       shadowBlur.strength = SH.blur * px;
@@ -546,7 +548,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       shadows.visible = Q.shadows;
       frontBlur.strength = T.finish.front.blur * px;
       const span = A.viewW + 4, now = boil / T.finish.boilFps; // a moving front item slides across and comes round again
-      for (const it of frontItems) if (it.speed) it.s.x = ((((it.x + it.speed * now + 2) % span) + span) % span) - 2;
+      for (const it of frontItems) {
+        if (it.speed) it.s.x = ((((it.x + it.speed * now + 2) % span) + span) % span) - 2;
+        it.s.skew.x = -(wind * T.finish.wind.grass + Math.sin(now * 2.3 + it.x) * Math.abs(wind) * 0.006); // grass bends with the wind
+      }
       for (const { p, k, painted: pp, under } of propEntries) {
         k.position.set(lerp(p.px, p.cx, alpha), lerp(p.py, p.cy, alpha));
         k.rotation = p.pa + wrap(p.ca - p.pa) * alpha;
@@ -608,18 +613,18 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         e.shade.alpha = 1 - e.vis; // a fighter slipping into the background plane leaves the play plane's shadow behind
         for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
         const torso = c[0], tc = Math.cos(torso.rotation), ts = Math.sin(torso.rotation), cx = -f.side * T.finish.cape.backX, cy = T.finish.cape.shoulderY;
-        stepCape(e.cape, torso.x + tc * cx - ts * cy, torso.y + ts * cx + tc * cy, f.side, frameSeconds, boil / T.finish.boilFps, variant);
+        stepCape(e.cape, torso.x + tc * cx - ts * cy, torso.y + ts * cx + tc * cy, f.side, frameSeconds, boil / T.finish.boilFps, variant, wind);
         // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.
         e.group.pivot.set(torso.x, torso.y);
         e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis + T.death.squashDrop * e.sq);
         e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis) * (1 + T.death.squashWide * e.sq), lerp(1, 0.97, e.vis) * (1 - T.death.squashFlat * e.sq));
       }
       sea.draw(sim, alpha);
-      fx.draw(sim, alpha, frameSeconds);
-      flames.draw(sim, alpha, frameSeconds, variant);
+      fx.draw(sim, alpha, frameSeconds, wind);
+      flames.draw(sim, alpha, frameSeconds, variant, wind);
       mammoth.draw(sim, alpha);
       passing.draw(sim, alpha);
-      jets.draw(sim, frameSeconds);
+      jets.draw(sim, frameSeconds, wind);
       const bx = (app.screen.width - A.viewW * scale) / 2, by = (app.screen.height - A.viewH * scale) / 2;
       frame.draw({ x: bx, y: by, w: A.viewW * scale, h: A.viewH * scale }, frameSeconds);
       if (target) { // into a painting (the museum): just the picture, cropped to its box

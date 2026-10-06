@@ -24,6 +24,7 @@ export interface EraArena {
   roll?: number; // the painting slides by (m/s)
   noWeapons?: boolean; // fists and throws only
   tower?: { x: number; w: number }; // a water tower's tank (see tuning.arena.tower)
+  wind?: { base: number; gust: number; dir: -1 | 1 }; // a windy map (see tuning.arena.wind)
 }
 
 /** How the whole picture is painted in this era (each one overrides tuning.finish.style): blur = background softness, haze = background fading into the air, grain = canvas weave, tint/tintAlpha = colour wash. */
@@ -66,7 +67,7 @@ export const eras: Era[] = [
   { id: 'westerns', name: 'The Wild West', special: false, pickups: ['revolver', 'pickaxe'], sky: 0xc9915a, platform: 0x8a6240, wall: 0x6a4a34, weapon: 'rifle', arena: { walls: [/* the saloon wall */ { side: 1, up: 3.0, gap: 0 }], ledges: [{ x: 10.6, up: 1.8, w: 2.8 }], props: [{ kind: 'plank', x: 8.75, up: 0 }], scenery: [{ kind: 'barrel', x: 6.0, up: 0 }, { kind: 'crate', x: 18.0, up: 0 }] }, alt: [
     // The Train (owner's list): on the roofs of a moving train, no weapons; signs and tunnel mouths come at you (a whistle first): get
     // down or be swept off; throw people into them
-    { name: 'Train', ground: [{ x: 1.0, w: 6.5 }, { x: 8.75, w: 6.5 }, { x: 16.5, w: 6.5 }], platformThickness: 2.2, fightSpawnX: [4.0, 20.0, 10.5, 13.5], noWeapons: true, roll: 10,
+    { name: 'Train', wind: { base: 6, gust: 6, dir: -1 }, ground: [{ x: 1.0, w: 6.5 }, { x: 8.75, w: 6.5 }, { x: 16.5, w: 6.5 }], platformThickness: 2.2, fightSpawnX: [4.0, 20.0, 10.5, 13.5], noWeapons: true, roll: 10,
       train: { speed: 10, cycle: 8, passing: [{ kind: 'sign', at: 3 }, { kind: 'tunnel', at: 7 }] } },
     // Main Street (owner's list, with shop windows): the street between two shops; each shop's window is real glass you can be thrown
     // through (or punch or shoot out) into the shop. The shop roofs and the porch roof in the middle are ledges. Barrels; revolvers.
@@ -74,7 +75,7 @@ export const eras: Era[] = [
       ledges: [{ x: 1.5, up: 1.9, w: 4.5 }, { x: 10.5, up: 1.9, w: 3.0 }, { x: 18.0, up: 1.9, w: 4.5 }], fightSpawnX: [9.43, 14.57, 11.2, 12.8],
       scenery: [{ kind: 'pane', x: 5.95, up: 0 }, { kind: 'pane', x: 18.05, up: 0 }, { kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] },
     // Rooftops (owner's list): across the town's roofs at different heights; the alleys between them are the void. Revolvers.
-    { name: 'Rooftops', platformThickness: 6, ground: [{ x: 0.4, w: 4.0 }, { x: 5.6, w: 3.8, up: 1.0 }, { x: 10.6, w: 3.8, up: 0.4 }, { x: 15.6, w: 3.8, up: 1.2 }, { x: 20.6, w: 3.2, up: 0.2 }],
+    { name: 'Rooftops', wind: { base: 1, gust: 7, dir: -1 }, platformThickness: 6, ground: [{ x: 0.4, w: 4.0 }, { x: 5.6, w: 3.8, up: 1.0 }, { x: 10.6, w: 3.8, up: 0.4 }, { x: 15.6, w: 3.8, up: 1.2 }, { x: 20.6, w: 3.2, up: 0.2 }],
       fightSpawnX: [2.4, 22.2, 7.5, 17.5], spawnX: [7.5, 12.5, 2.4, 17.5] },
     // Saloon Brawl (owner's list): a bar fight indoors (walls both sides): the bar counter to stand on, a balcony above (from the
     // counter), bar stools to swing and beer mugs to throw or smash over heads. Fists, stools and mugs only.
@@ -84,7 +85,7 @@ export const eras: Era[] = [
         { kind: 'mug', x: 10.3, up: 1.1 }, { kind: 'mug', x: 11.5, up: 1.1 }, { kind: 'mug', x: 12.7, up: 1.1 }, { kind: 'mug', x: 19.5, up: 2.6 }] },
     // Water Tower (owner's list): on the round top of the town's water tower, with a narrow catwalk round it lower down; shoot the tank
     // and water jets out of the hole and shoves whoever it catches. Revolvers come as pickups.
-    { name: 'Water Tower', ground: [{ x: 5.0, w: 3.5, up: -1.6, thick: 0.15 }, { x: 8.5, w: 7.0, thick: 3.2 }, { x: 15.5, w: 3.5, up: -1.6, thick: 0.15 }], tower: { x: 8.5, w: 7.0 },
+    { name: 'Water Tower', wind: { base: 2, gust: 8, dir: 1 }, ground: [{ x: 5.0, w: 3.5, up: -1.6, thick: 0.15 }, { x: 8.5, w: 7.0, thick: 3.2 }, { x: 15.5, w: 3.5, up: -1.6, thick: 0.15 }], tower: { x: 8.5, w: 7.0 },
       fightSpawnX: [6.5, 17.5, 10.25, 13.75], spawnX: [10.25, 13.75, 6.5, 17.5] }], outfits: ['sheriff', 'outlaw', 'gambler', 'rancher'] },
   { id: 'ww1', name: 'World War I', special: false, pickups: ['grenade', 'bayonet-rifle'], style: { grain: 0.05 }, sky: 0x7b8576, platform: 0x5a5444, wall: 0x45463c, weapon: 'shovel', arena: { ledges: [/* islands out past each end of the ground, over the void */ { x: 2.25, up: 0.6, w: 2.0 }, { x: 19.75, up: 0.6, w: 2.0 }] }, outfits: ['infantry', 'officer', 'medic', 'trench raider'] },
   { id: 'vietnam', name: 'Vietnam', special: false, pickups: ['bamboo-stick', 'bayonet-knife'], sky: 0x5f8a5a, platform: 0x6a5a3c, wall: 0x4a5a3c, weapon: 'machete', arena: { platformW: 12.5, ledges: [{ x: 11.25, up: 1.8, w: 2.0 }], front: [{ kind: 'grass', x: 1.25, y: 13.75, scale: 3.0 }, { kind: 'grass', x: 4.0, y: 13.9, scale: 2.1 }, { kind: 'grass', x: 22.25, y: 13.8, scale: 2.75 }] }, outfits: ['jungle grunt', 'scout', 'radioman', 'tunnel rat'] },

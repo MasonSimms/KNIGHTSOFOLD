@@ -47,15 +47,16 @@ export function createFlames(layer: Container) {
         }
       }
     },
-    draw(sim: Sim, alpha: number, seconds: number, variant: number) {
+    draw(sim: Sim, alpha: number, seconds: number, variant: number, wind = 0) {
+      const lean = Math.max(-0.6, Math.min(0.6, wind * T.finish.wind.flame)); // flames lean with the wind
       time += seconds;
-      for (const b of bed) { b.s.texture = tex[variant % tex.length]; b.s.scale.set(b.h * (0.9 + 0.1 * flick(b.f * 0.7, b.ph)) / PPM, b.h * flick(b.f, b.ph) / PPM); }
+      for (const b of bed) { b.s.rotation = lean * (0.8 + 0.2 * flick(b.f, b.ph)); b.s.texture = tex[variant % tex.length]; b.s.scale.set(b.h * (0.9 + 0.1 * flick(b.f * 0.7, b.ph)) / PPM, b.h * flick(b.f, b.ph) / PPM); }
       let n = 0;
       const on = (p: Part, size: number, along = 0) => { // a small flame on a burning part, at `along` metres from its middle
         if (!tex.length) tex = paintedFlame(K());
         const x = lerp(p.px, p.cx, alpha), y = lerp(p.py, p.cy, alpha), a = p.pa + (p.ca - p.pa) * alpha;
         const s = flame(n++);
-        s.visible = true; s.texture = tex[(variant + n) % tex.length];
+        s.visible = true; s.texture = tex[(variant + n) % tex.length]; s.rotation = lean;
         s.position.set(x + Math.cos(a) * along, y + Math.sin(a) * along + 0.05);
         s.scale.set(size / PPM, (size * flick(8 + n, n)) / PPM);
       };
