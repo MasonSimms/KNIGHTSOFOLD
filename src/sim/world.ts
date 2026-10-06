@@ -153,6 +153,19 @@ export class Sim {
   /** How long the crown has been showing (0 until the match is over). */
   get matchFrames(): number { return this.matchOver ? this.frame - this.matchOverAt : 0; }
 
+  /** Frames since the round was won (0 while it is being fought). */
+  get roundFrames(): number { return this.roundOver ? this.frame - this.roundOverAt : 0; }
+
+  /** The round just won ends the match (the last round, and one player leads): no next era, the podium. */
+  get endsMatch(): boolean {
+    if (!this.roundOver || !this.matchActive) return false;
+    const scores = this.scores.slice(0, this.count), top = Math.max(...scores);
+    return this.round >= T.match.rounds && scores.filter((s) => s === top).length === 1;
+  }
+
+  /** The pause after a round is over now (on this computer the museum between eras took its time): the next step starts the next round. */
+  finishRoundPause(): void { if (this.roundOver) this.roundOverAt = this.frame - T.match.resultFrames - this.extraRoundPause; }
+
   /** The tie-break rounds after the last round of the match (the top score was shared). */
   get tieBreak(): boolean { return this.round > T.match.rounds; }
 
@@ -1138,8 +1151,8 @@ export class Sim {
     if (this.matchOver) return;
     if (this.roundOver) {
       if (this.frame - this.roundOverAt >= T.match.resultFrames + this.extraRoundPause) {
-        const scores = this.scores.slice(0, this.count), top = Math.max(...scores);
-        if (this.round >= T.match.rounds && scores.filter((s) => s === top).length === 1) { // the last round, and one leads: the match is theirs
+        if (this.endsMatch) { // the last round, and one leads: the match is theirs
+          const scores = this.scores.slice(0, this.count), top = Math.max(...scores);
           this.matchOver = true;
           this.matchWinner = scores.indexOf(top);
           this.matchOverAt = this.frame;

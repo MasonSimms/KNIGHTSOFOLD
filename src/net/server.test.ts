@@ -161,6 +161,7 @@ describe('room server', () => {
 
   it('newcomers fill the empty seats, a fifth is refused, and everyone is alive together once the round turns over', async () => {
     const { code, game } = await fightOf(2);
+    game.sim.extraRoundPause = 0; // (no museum between eras here: this is about seats)
     for (const slot of [2, 3]) {
       const c = await connect();
       c.send({ t: 'join', code });
@@ -381,6 +382,7 @@ describe('room server', () => {
     T.match.rounds = 2; T.match.crownFrames = 30; // (a short match; set before the server starts: its version check includes them)
     try {
       const { host, others, game, seed, all } = await fightOf(2);
+      game.sim.extraRoundPause = 0; // (no museum between eras here: this is about the match)
       for (let round = 1; round <= 2; round++) {
         while (game.sim.round < round) await sleep(20);
         kill(game.sim, 1); // the host wins every round

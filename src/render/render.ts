@@ -1,4 +1,5 @@
 import { Application, BlurFilter, Container, Graphics, MeshRope, Point, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
+import type { RenderTexture } from 'pixi.js';
 import { eraById } from '../content/eras';
 import { COLORS } from '../content/looks';
 import { createOilFilter, setOilScale } from './oilpaint';
@@ -183,7 +184,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   app.ticker.stop(); // main.ts owns the loop and calls draw()
 
   const view = new Container(); // metres -> pixels, letterboxed, shaken
-  app.stage.addChild(view);
+  const game = new Container(); // everything the fight draws (the museum between eras draws it into a painting instead)
+  app.stage.addChild(game);
+  game.addChild(view);
   const actors = new Container(); // fighters, props and paint: the live oil filter covers these (the backdrop is already painted)
   const O = T.finish.oil, oil = createOilFilter(O.radius, O.relief, O.stroke);
   if (O.enabled && !location.search.includes('nooil')) actors.filters = [oil];
@@ -245,10 +248,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     ctx.fillRect(0, 0, 256, 256);
   }));
   vignette.alpha = T.finish.vignetteAlpha;
-  app.stage.addChild(grain, tintWash, vignette);
+  game.addChild(grain, tintWash, vignette);
   const box = new Graphics(); // the picture's frame on screen: zoomed in, nothing may spill outside it
-  app.stage.addChild(box);
-  const frame = createFrame(app.stage, { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under }); // the gold frame, over everything (screen space)
+  game.addChild(box);
+  const frame = createFrame(game, { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under }); // the gold frame, over everything (screen space)
   let zoom = 1, camX = A.viewW / 2, camY = A.viewH / 2; // the subtle camera (tuning.camera)
 
   // Splat decal pool (ring buffer: no allocation after start-up).
@@ -417,6 +420,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   return {
     /** The picture itself (a highlight can be saved as a video from it). */
     canvas: app.canvas,
+    /** For the museum between eras: the app, what the fight draws, and where its picture is on screen. */
+    app, game,
+    box() { const s = Math.min(app.screen.width / A.viewW, app.screen.height / A.viewH); return { x: (app.screen.width - A.viewW * s) / 2, y: (app.screen.height - A.viewH * s) / 2, w: A.viewW * s, h: A.viewH * s }; },
     /** Draw another copy of the game from now on (a replay), or the live one again. The picture starts clean. */
     /** Graphics quality (the settings screen): how much the picture asks of the computer. */
     setQuality(level: Quality) {
@@ -473,7 +479,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
     },
     /** Draw the world between its last two states (alpha). own: online prediction moves your fighter on its own ticks (its own alpha). */
-    draw(alpha: number, frameSeconds: number, own?: { slot: number; alpha: number }) {
+    draw(alpha: number, frameSeconds: number, own?: { slot: number; alpha: number }, target?: RenderTexture) {
       scale = Math.min(app.screen.width / A.viewW, app.screen.height / A.viewH);
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
@@ -582,8 +588,16 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
       sea.draw(sim, alpha);
       fx.draw(sim, alpha, frameSeconds);
-      frame.draw({ x: (app.screen.width - A.viewW * scale) / 2, y: (app.screen.height - A.viewH * scale) / 2, w: A.viewW * scale, h: A.viewH * scale }, frameSeconds);
-      app.render();
+      const bx = (app.screen.width - A.viewW * scale) / 2, by = (app.screen.height - A.viewH * scale) / 2;
+      frame.draw({ x: bx, y: by, w: A.viewW * scale, h: A.viewH * scale }, frameSeconds);
+      if (target) { // into a painting (the museum): just the picture, cropped to its box
+        const was = game.visible;
+        game.visible = true;
+        game.position.set(-bx, -by);
+        app.renderer.render({ container: game, target, clear: true });
+        game.position.set(0, 0);
+        game.visible = was;
+      } else app.render();
     },
   };
 }

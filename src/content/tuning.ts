@@ -601,12 +601,18 @@ export const tuning = {
   respawn: {
     frames: 120,
   },
+  transition: {
+    // Between eras (owner): half a second after the last elimination the picture freezes; the camera pulls back until it is a painting
+    // on the museum wall; the round's best moment replays in it; the camera slides along the wall to the next painting (the next arena,
+    // everyone at their starting spots) and goes into it. Seconds, and the painting's size on the wall (share of the screen).
+    freezeFrames: 30, zoomOut: 1.2, slide: 1.3, zoomIn: 1.0, size: 0.55, gap: 0.35,
+  },
   replay: {
     // The end of every era (each round) replays its best moment (owner): a quick replay of about 5 s, slowed down a little, with what
     // happened written over it. Online, the server sends it to everyone and waits for it before the next round.
     enabled: true,
     before: 150, // frames shown before the moment (2.5 s)
-    after: 60, // ...and after it (1 s)
+    after: 30, // ...and after it (0.5 s: the picture freezes then)
     speed: 0.7, // how fast it plays (0.7: 3.5 s of fight take 5 s)
     keepSeconds: 90, // how much of a round is kept for it (a best moment earlier than this before the round ends is not shown)
   },

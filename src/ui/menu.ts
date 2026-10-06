@@ -25,8 +25,14 @@ export function hangPicture(canvas: HTMLCanvasElement, era: string, w: number, h
 }
 
 /** The wall is painted too: soft horizontal brush strokes, lighter and darker, on a tile that repeats without seams. */
-function paintWall(): string {
+function paintWall(): string { return wallTile().toDataURL(); }
+
+/** The wall's brush strokes (a 512 px tile that wraps; laid over the wall's dark green). The fight's museum (era changes) uses it too. */
+let tile: HTMLCanvasElement | null = null;
+export function wallTile(): HTMLCanvasElement {
+  if (tile) return tile;
   const S = 512, c = document.createElement('canvas');
+  tile = c;
   c.width = c.height = S;
   const g = c.getContext('2d')!;
   g.lineCap = 'round';
@@ -38,5 +44,5 @@ function paintWall(): string {
       g.beginPath(); g.moveTo(x + dx, y + dy); g.quadraticCurveTo(x + dx + L / 2, y + dy + bend, x + dx + L, y + dy + bend * 0.6); g.stroke();
     }
   }
-  return c.toDataURL();
+  return c;
 }

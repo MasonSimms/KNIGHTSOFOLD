@@ -17,6 +17,8 @@ import { Spotter } from './replay/highlights';
 import { Recorder } from './replay/recording';
 import { Tape } from './replay/tape';
 import { playClip } from './ui/replay';
+import { createMuseum } from './render/museum';
+import type { Clip } from './replay/tape';
 import { Sim } from './sim/world';
 import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
@@ -62,7 +64,7 @@ if (onlineParam !== null) {
     c.onMsg = (msg) => {
       if (msg.t === 'snap') { m.push(msg.s); predictor?.reconcile(msg.s); }
       else if (msg.t === 'pong') { ping = performance.now() - msg.n; showPing(ping); }
-      else if (msg.t === 'clip') void replay(msg.c, performance.now());
+      else if (msg.t === 'clip') { pendingClip = msg.c; clipAt = performance.now(); } // the round's best moment: it plays in the museum
       else if (msg.t === 'start') { mySlot = msg.you; if (predictor) { predictor.stop(); predictor.slot = msg.you; } if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
       else if (msg.t === 'over') void backToRoom(c); // the match is over (or the host ended it): back to the room's Hall, ready for a rematch
       else if (msg.t === 'error' && msg.fatal) { forgetSession(); alert(msg.why); location.href = location.pathname; }
@@ -86,6 +88,7 @@ if (onlineParam !== null) {
     c.onMsg = null; // (the room's messages wait for the Hall to pick them up)
     paused = true;
     notice('');
+    museum.close();
     const r = await runLobby(url, c);
     mySlot = r.you; isHost = r.host;
     if (predictor) { predictor.stop(); predictor.slot = r.you; }
@@ -121,14 +124,52 @@ const renderer = await createRenderer(view, document.body);
 applySettings(loadSettings(), renderer);
 // Every local round is recorded (the buttons pressed, a few hundred kilobytes) and the spotter picks out the moments worth seeing again.
 const recorder = new Recorder(), spotter = new Spotter(), tape = new Tape();
-let replaying = false; // an end-of-round replay is on screen (it draws itself)
-/** The round's best moment, then back to the fight (locally the fight waits; online it goes on and we catch up). */
-async function replay(clip: Parameters<typeof playClip>[0], arrived?: number) {
+const museum = createMuseum(renderer);
+let replaying = false; // the museum between eras is on screen (it draws itself; locally the fight waits, online it goes on and we catch up)
+let pendingClip: Clip | null = null, clipAt = 0, roundSeenAt = 0, lastAlpha = 1;
+
+/**
+ * Between eras (owner): the frozen end of the round becomes a painting on the museum wall, the round's best moment replays in it, then the
+ * camera slides to the next painting (the next arena, everyone at their starting spots) and goes in. After the last round it stays on the
+ * painting and the podium comes up instead.
+ */
+async function eraChange() {
   if (replaying) return;
   replaying = true;
-  await playClip(clip, renderer, view, play, arrived);
-  last = performance.now(); acc = 0;
-  replaying = false;
+  const now = museum.newCanvas();
+  renderer.draw(lastAlpha, 0, undefined, now); // the freeze
+  museum.hangNow(now);
+  await museum.pullBack();
+  for (let i = 0; i < 90 && net && !pendingClip; i++) await new Promise((ok) => setTimeout(ok, 20)); // (online: the server's clip is on its way)
+  const clip = pendingClip;
+  pendingClip = null;
+  if (clip) await playClip(clip, renderer, view, play, net ? clipAt : undefined, (a, dt) => { renderer.draw(a, dt, undefined, now); museum.render(); });
+  if (view.endsMatch) { // the last round: no next era; the podium comes up over the wall (the museum closes when everyone goes back to the Hall)
+    if (!net && !room) sim.finishRoundPause();
+    replaying = false; last = performance.now(); acc = 0;
+    return;
+  }
+  const next = museum.newCanvas();
+  await drawNextRound(next);
+  museum.hangNext(next);
+  await museum.slide();
+  await museum.zoomIn();
+  if (!net && !room) sim.finishRoundPause(); // (here the next round starts now; online the server has been waiting the same time)
+  museum.close();
+  replaying = false; last = performance.now(); acc = 0;
+}
+
+/** The next era's painting: its arena with everyone at their starting spots, drawn from a copy of the next round (nothing runs in it). */
+async function drawNextRound(target: ReturnType<typeof museum.newCanvas>) {
+  const up = view.upcoming(), pv = await Sim.create(view.matchSeed, view.fighters.length, view.practising);
+  pv.looks = view.looks.map((l) => ({ ...l }));
+  pv.gone = [...view.gone];
+  pv.forceMap = view.forceMap; pv.forceEra = view.forceEra;
+  pv.buildRound(view.round + 1, up.era);
+  renderer.show(pv);
+  renderer.draw(1, 0, undefined, target);
+  renderer.show(view);
+  pv.world.free();
 }
 
 const excitement = new Excitement(); // how exciting the fight is: the music follows it
@@ -284,11 +325,13 @@ function frame(now: number) {
     for (const e of sim.events) play(e);
     tape.feed(sim);
     const clip = tape.take();
-    if (clip) { void replay(clip); break; } // (the fight waits while it plays)
+    if (clip) pendingClip = clip;
+    if (sim.matchActive && sim.roundOver && !sim.matchOver && sim.roundFrames >= T.transition.freezeFrames) { void eraChange(); break; } // half a second after the last one fell: the museum (the fight waits)
   }
   if (acc >= T.sim.dt) acc = 0; // too far behind: drop the backlog instead of spiralling
   simMsSum += performance.now() - t0;
   if (!net && !room && sim.matchOver && sim.matchFrames >= T.match.crownFrames) { // the crown has been shown: back to the Hall, everyone still seated
+    museum.close();
     if (mode === 'local') { void menu('hall'); return; }
     sim.reseed(Math.floor(Math.random() * 2 ** 31)); // (testing links: straight into the next match)
   }
@@ -301,7 +344,10 @@ function frame(now: number) {
     desyncsSeen = mirror.desyncs;
     alpha = shownAlpha = shown.alpha;
     for (const e of shown.events) if (!(e.t === 'shot' && e.owner === mySlot && predictor?.active)) play(e); // (your own shot already flashed and banged when you clicked)
+    if (shown.events.some((e) => e.t === 'round') && view.matchActive) roundSeenAt = now; // online: the round is won; the museum in half a second
+    if (roundSeenAt && now - roundSeenAt >= (T.transition.freezeFrames / 60) * 1000) { roundSeenAt = 0; lastAlpha = alpha; void eraChange(); }
   }
+  lastAlpha = alpha;
   renderer.draw(alpha, ft / 1000, predictor?.active ? { slot: mySlot, alpha: acc / T.sim.dt } : undefined);
   updateHud(view);
   { // the music: the era's instruments in a fight, swelling with the excitement (how much is happening, how much everyone moves)
@@ -344,5 +390,5 @@ if (mode === 'training') void menu('home');
 if (import.meta.env.DEV) (window as unknown as { sim: Sim }).sim = sim; // dev-only handle for console poking and browser tests
 if (import.meta.env.DEV) (window as unknown as { view: Sim; mirror: Mirror | null }).view = view; // (online: the copy that is drawn)
 if (import.meta.env.DEV) (window as unknown as { mirror: Mirror | null }).mirror = mirror;
-if (import.meta.env.DEV) Object.assign(window, { devTape: tape, devReplay: replay, devPlay: play }); // (dev: cut and play an end-of-round replay from the console)
+if (import.meta.env.DEV) Object.assign(window, { devTape: tape, devPlay: play, devEraChange: (c?: Clip) => { if (c) pendingClip = c; return eraChange(); } }); // (dev: the museum between eras, and effects, from the console)
 if (import.meta.env.DEV) (window as unknown as { tuning: typeof tuning }).tuning = tuning; // dev-only: lets the browser console and tests flip settings

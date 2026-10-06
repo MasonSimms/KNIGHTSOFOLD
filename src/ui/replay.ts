@@ -16,7 +16,7 @@ const showMark = (on: boolean) => {
 };
 
 /** Play a clip, then show `live` again. Online, `arrived` = when it came: a clip the page could not start in time (a hidden tab) is skipped. */
-export async function playClip(clip: Clip, renderer: Renderer, live: Sim, onEvent: (e: SimEvent) => void, arrived?: number): Promise<void> {
+export async function playClip(clip: Clip, renderer: Renderer, live: Sim, onEvent: (e: SimEvent) => void, arrived?: number, draw: (alpha: number, seconds: number) => void = renderer.draw): Promise<void> {
   const sim = await Sim.create(clip.seed, clip.count, clip.dummy);
   sim.looks = clip.looks.map((l) => ({ ...l }));
   sim.forceMap = clip.map;
@@ -43,7 +43,7 @@ export async function playClip(clip: Clip, renderer: Renderer, live: Sim, onEven
       try {
         const shown = m.show(at);
         for (const e of shown.events) onEvent(e);
-        renderer.draw(shown.alpha, dt * T.replay.speed);
+        draw(shown.alpha, dt * T.replay.speed);
       } catch (err) { console.warn('replay stopped:', err); stop = true; } // (never leave the game stuck on a replay)
       if (at >= end) hold -= dt;
       if (stop || hold <= 0) { removeEventListener('keydown', onKey, true); done(); return; }

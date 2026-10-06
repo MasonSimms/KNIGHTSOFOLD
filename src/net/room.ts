@@ -21,8 +21,10 @@ export class Room {
     this.inputs = sim.fighters.map(() => NEUTRAL);
     this.queue = sim.fighters.map(() => []);
     this.acks = sim.fighters.map(() => 0);
-    // Everyone watches the round's replay (about 5 s) before the next round: the pause between rounds is that much longer.
-    sim.extraRoundPause = T.replay.enabled ? Math.max(0, T.replay.after + Tape.frames + 30 - T.match.resultFrames) : 0;
+    // Between rounds everyone sees the museum: the freeze, the camera pulling back, the replay in the painting, the slide to the next
+    // painting and into it (render/museum.ts). The next round waits for all of it.
+    const X = T.transition;
+    sim.extraRoundPause = Math.max(0, X.freezeFrames + Math.ceil((X.zoomOut + X.slide + X.zoomIn) * 60) + (T.replay.enabled ? Tape.frames : 0) + 20 - T.match.resultFrames);
   }
 
   /** A player's next input (n counts them). One is used per tick; with none waiting the previous one is used again. Too many waiting
