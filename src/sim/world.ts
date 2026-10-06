@@ -125,6 +125,9 @@ export class Sim {
     this.eraOverride = null;
   }
 
+  /** The seed the match was made with (replays need it). */
+  get matchSeed(): number { return this.seed; }
+
   /** Practising alone (with the training dummy or a training bot): no rounds. */
   get practising(): boolean { return this.dummy; }
 
@@ -147,6 +150,7 @@ export class Sim {
     this.props = [];
     this.bridge = [];
     this.cutLinks.clear();
+    this.brains = [null, null, null, null]; // bots start each round fresh (so a round can be replayed from its own start: see src/replay)
     this.weapon = T.eras.changeGameplay ? weaponById(eraById(this.era).weapon) : { id: 'club', name: 'Club', ...T.stick };
     this.outfits = outfitsFor(this.seed, this.round);
     this.rng = makeRng(this.seed);
@@ -327,7 +331,7 @@ export class Sim {
       }
     }
     for (const f of this.fighters) {
-      const bot = f.controlled && this.looks[f.index]?.bot ? (this.brains[f.index] ??= new Bot(this.seed * 7919 + f.index * 104729 + 1)) : null; // a computer player presses its own buttons
+      const bot = f.controlled && this.looks[f.index]?.bot ? (this.brains[f.index] ??= new Bot(this.seed * 7919 + f.index * 104729 + this.round * 7 + 1)) : null; // a computer player presses its own buttons
       controlFighter(this.world, f, bot ? bot.think(this, f) : f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events, this.threatened(f));
       syncStickGroups(f);
       for (const p of f.parts) {
