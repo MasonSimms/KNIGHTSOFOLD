@@ -350,3 +350,26 @@ describe('reacting to what is going on', () => {
     expect(away).toBeGreaterThan(T.lean.flinch * 0.6); // leaning away from them while they wind up
   });
 });
+
+describe('holding S in the air (owner: always possible, with a weapon too)', () => {
+  it.each([true, false])('armed %s: you turn flat in the air, upright again when you let go, and land lying down if you hold on', async (armed) => {
+    const sim = await settled(0);
+    const f = sim.fighters[0];
+    if (!armed) { sim.step([idle({ drop: true })]); for (let i = 0; i < 30; i++) sim.step([idle()]); }
+    expect(!!f.grip).toBe(armed);
+    const tilt = () => Math.abs(Math.atan2(Math.sin(f.torso.body.rotation()), Math.cos(f.torso.body.rotation())));
+    sim.step([idle({ jump: true })]);
+    for (let i = 0; i < 6; i++) sim.step([idle({ jump: true })]); // up
+    for (let i = 0; i < 16; i++) sim.step([idle({ jump: true, crouch: true })]); // hold S in the air
+    expect(f.grounded).toBe(false);
+    expect(tilt()).toBeGreaterThan(1.2); // flat (about 70 degrees or more)
+    for (let i = 0; i < 25; i++) sim.step([idle()]); // let go
+    expect(tilt()).toBeLessThan(0.5); // upright again
+    for (let i = 0; i < 60; i++) sim.step([idle()]);
+    sim.step([idle({ jump: true })]);
+    for (let i = 0; i < 90; i++) sim.step([idle({ crouch: i > 6 })]); // jump, then hold S all the way down
+    expect(f.grounded || f.crouch === 1).toBe(true);
+    expect(f.crouch).toBe(1); // lying down
+    expect(tilt()).toBeGreaterThan(1.0);
+  });
+});

@@ -93,6 +93,7 @@ export interface Fighter {
   swimKick: number; // frames until the next kick out of the water
   carried: number; // frames left of being held by someone (the holder renews it): you do not hold yourself up on your feet
   slamming: boolean; // holding someone, came off the ground and holding S: landing them hard is a slam (see tuning.slam)
+  dove: boolean; // last frame: holding S in the air, turned flat (see tuning.dive)
   slamBy: number; // being slammed by this fighter (-1 = not)
   slamArc: number; // while slamming: where the grabbing arm is sweeping to (radians, as if facing right: 0 = forward, -PI/2 = up)
   deadAt: number;
@@ -278,7 +279,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, drift: 0, swimKick: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, drift: 0, swimKick: 0, carried: 0, slamming: false, dove: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
@@ -800,9 +801,16 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const tip = f.grounded ? smooth(T.crouch.tipStart, T.crouch.tipAt, f.crouch) : 0;
   const balance = f.slamBy >= 0 || f.carried > 0 ? 0 : f.knock > 0 ? T.knock.balance : f.stun > 0 ? B.stunFactor : 1; // (held or being slammed: no keeping your balance)
   // Lying down lets go of the upright spring but keeps the spin damping, so crawling does not roll you over.
-  const RU = T.rightUp;
+  const RU = T.rightUp, DV = T.dive;
   const tilt = wrapAngle(body.rotation());
-  if (tip === 0 && Math.abs(tilt) > RU.from && f.stun === 0) {
+  // Holding S in the air (owner, 2026-10-07: always possible, with a weapon too): you turn flat, head first the way you face, to dive, to
+  // pass under something, or to come down flat on someone (landing on them is a stomp, world.ts). Let go and you turn upright again; land
+  // still holding it and you are lying down. Not while you hold someone: that is the suplex (slam, above).
+  f.dove = f.controlled && !f.grounded && input.crouch && !f.hold && f.stun === 0 && f.knock === 0 && f.carried === 0 && f.slamBy < 0;
+  if (f.dove) {
+    const w = body.angvel();
+    body.setAngvel(w + clamp(clamp(DV.gain * wrapAngle(s * DV.angle - tilt), DV.max) - w, DV.accel * dt), true);
+  } else if (tip === 0 && Math.abs(tilt) > RU.from && f.stun === 0) {
     // Far from upright (after a knock, a landing, a tumble): turn back smoothly at a capped rate instead of a hard spring.
     const w = body.angvel();
     body.setAngvel(w + clamp(clamp(-RU.gain * tilt, RU.max) - w, RU.accel * dt), true);
@@ -827,6 +835,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const CR = T.crouch;
   const lostLegs = +f.legLost[0] + +f.legLost[1];
   const crouchHeld = f.controlled && (input.crouch || lostLegs === 2);
+  if (grounded && f.dove && crouchHeld) f.crouch = 1; // (down flat from a dive: lying at once, not stood up and laid down again)
   f.crouch = crouchHeld ? (grounded ? Math.min(1, f.crouch + CR.downRate) : f.crouch) : Math.max(0, f.crouch - CR.upRate); // you only go lower on the ground (in the air S keeps your momentum)
   standAndLegs(f, grounded, vx, s, tip);
   const lungeMul = 1 + T.crouch.lungeBonus * f.crouch; // crouching loads more momentum into a lunge or punch

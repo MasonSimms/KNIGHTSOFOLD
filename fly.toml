@@ -12,6 +12,14 @@ primary_region = "iad"
   # 2026-10-07). UDP works only on a dedicated IPv4, not the shared one or IPv6. Change both if the address ever changes.
   RTC_PORT = "7777"
   RTC_PUBLIC_IP = "169.155.52.222"
+  # The server's own log, on the volume below (fly logs keeps only the last 100 lines). Read it with:
+  # fly ssh console --app knightsofold -C "tail -n 3000 /data/server.log"
+  LOG_FILE = "/data/server.log"
+
+# A 1 GB disk that outlasts restarts (owner, 2026-10-07; about 15 cents a month): the log above.
+[mounts]
+  source = "logs"
+  destination = "/data"
 
 [http_service]
   internal_port = 8080

@@ -253,6 +253,13 @@ export const tuning = {
     stunFactor: 0.25, // balance strength while stunned
     stunDamping: 0.75, // ...but this much of the spin damping stays (more than stunFactor: a dazed body sways back up instead of rocking)
   },
+  dive: {
+    // Holding S in the air (owner, 2026-10-07): the body turns flat, head first the way you face; let go and it turns upright again.
+    angle: 1.5, // radians from upright it turns to (1.57 = exactly flat)
+    gain: 9, // 1/s: turn rate per radian still to go
+    max: 9, // rad/s cap on that turn (flat in about a fifth of a second)
+    accel: 70, // rad/s^2
+  },
   rightUp: {
     // A body far from upright (after a knock, a landing, a tumble) turns smoothly back, instead of snapping. (W used to flip you; owner removed it.)
     gain: 7, // 1/s: turn rate per radian of tilt

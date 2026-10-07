@@ -10,7 +10,7 @@ import type { ClientMsg, ServerMsg } from '../src/net/protocol';
 import { Room } from '../src/net/room';
 import { Sim } from '../src/sim/world';
 import { tuning as T } from '../src/content/tuning';
-import { existsSync } from 'node:fs';
+import { appendFileSync, existsSync, renameSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { siteHandler } from './site';
 import { fastLanes } from './fast';
@@ -328,6 +328,19 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
 // Started directly (node dist-server/index.js): listen on $PORT.
 if (process.argv[1] && /dist-server[\\/]index\.js$/.test(process.argv[1])) {
   const page = fileURLToPath(new URL('../dist', import.meta.url)); // the built game page next to the server (npm run build)
+  // Its own log on a disk that lasts (LOG_FILE, on Fly.io a volume: fly logs keeps only the last 100 lines, so a playtest night's
+  // connection reports would be gone by the morning). Every line also still goes to fly logs. At 20 MB the file starts again (one old one kept).
+  const logFile = process.env.LOG_FILE;
+  if (logFile) {
+    const out = console.log;
+    console.log = (...a: unknown[]) => {
+      out(...a);
+      try {
+        if (existsSync(logFile) && statSync(logFile).size > 20_000_000) renameSync(logFile, `${logFile}.1`);
+        appendFileSync(logFile, `${new Date().toISOString()} ${a.map(String).join(' ')}\n`);
+      } catch { /* the disk is not there: fly logs still has it */ }
+    };
+  }
   const s = await startServer(Number(process.env.PORT) || 8080, { maxRooms: Number(process.env.MAX_ROOMS) || 20, site: existsSync(page) ? page : undefined, fastPort: Number(process.env.RTC_PORT) || 7777, publicIp: process.env.RTC_PUBLIC_IP || undefined });
   console.log(`Knights of Old room server listening on port ${s.port}${existsSync(page) ? ' (and serving the game page)' : ''}`);
   // Stopped (a new version going up, or the host stopping an idle machine): tell everyone, then go.

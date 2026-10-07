@@ -38,7 +38,9 @@ up anyway: anyone in a fight is told to make a new room in a minute.
 ## Checking on it
 
 - `https://knightsofold.fly.dev/health` says `ok`, how many rooms are open and how many are in a fight.
-- `fly logs` shows what the server is doing; `fly status` whether it is awake. During a fight, every 30 s, one line per player: `net ABCD seat 1: ping 45 ms (worst 80), buffer 3.6 ticks, stalls 0, ... | its inputs: ...` (a high ping or many stalls: that player's connection), and once a minute `server: ... the loop ran up to N ms late`: over 50 ms, often, means the server itself fell behind (on Fly.io, most likely its shared CPU being held back) and everyone stuttered.
+- `fly logs` shows what the server is doing, but only its last 100 lines. The whole history (a playtest night's connection reports) is kept in
+  `/data/server.log` on a 1 GB volume (2026-10-07): `fly ssh console --app knightsofold -C "tail -n 3000 /data/server.log"` (the machine must be
+  awake: open the game page first, or `fly machine start`). `fly status` says whether it is awake. During a fight, every 30 s, one line per player: `net ABCD seat 1: ping 45 ms (worst 80), buffer 3.6 ticks, stalls 0, ... | its inputs: ...` (a high ping or many stalls: that player's connection), and once a minute `server: ... the loop ran up to N ms late`: over 50 ms, often, means the server itself fell behind (on Fly.io, most likely its shared CPU being held back) and everyone stuttered.
 - One 4-player room costs roughly 10% of one small CPU core; this machine holds about 5-6 rooms at once (`MAX_ROOMS` in `fly.toml`).
 
 ## On your own computer (no internet needed)
