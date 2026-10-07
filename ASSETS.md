@@ -17,6 +17,9 @@ No files: the gallery paintings, the portrait backgrounds and the portraits are 
 ## The ship and the sea (2026-10-06)
 No files: the Pirates ship (hull, rail, mast, sail, rigging, pennant) and the near water are drawn and then oil-painted at runtime by our own code (paintedHull and paintedWater in src/render/painter/sprites.ts), in the era painting's colours. Not AI-generated.
 
+## Hats, hairstyles and eyes (2026-10-06)
+No files: the 12 hats and 7 hairstyles are drawn and then oil-painted at runtime by our own code (paintedHat and paintedStrip in src/render/painter/sprites.ts; what sways is moved by src/render/dangle.ts), and the 10 eye styles are vector shapes (drawEyes in src/render/render.ts). Designed from the owner's Looks v1 catalogue (art-guide/looks-v1.png and LOOKS_HANDOFF.md, from the owner's design window: direction only, not shipped). No image or sound is AI-generated; the code was written with Claude.
+
 ## AI-generated content
 None yet. Log tool, version, prompt and seed for every AI-generated image or sound.
 
