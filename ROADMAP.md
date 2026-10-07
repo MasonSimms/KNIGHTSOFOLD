@@ -36,7 +36,7 @@ Date (owner, 2026-10-06): Sunday 2026-10-11. Building does not pause for it.
 
 ## Next: weapons, then the showcase eras (owner, 2026-10-06; full order in DECISIONS.md)
 
-Weapons first: real painted shapes for every weapon, then the grappling hook, then chain weapons. Then Pirates' 4 other arenas,
+Weapons first: real painted shapes for every weapon, then the grappling hook, then chain weapons. Then Pirates' 4 other arenas (built 2026-10-07),
 the round-break screens, and costumes for the showcase eras (Wild West, Cavemen, Pirates: final paint by 2026-11-01).
 
 ## The demo
