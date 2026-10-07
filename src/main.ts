@@ -166,7 +166,7 @@ async function eraChange() {
   replaying = true;
   const now = museum.newCanvas();
   renderer.draw(lastAlpha, 0, undefined, now); // the freeze
-  museum.hangNow(now);
+  museum.hangNow(now, view.era);
   await museum.pullBack();
   for (let i = 0; i < 90 && net && !pendingClip; i++) await new Promise((ok) => setTimeout(ok, 20)); // (online: the server's clip is on its way)
   const clip = pendingClip;
@@ -179,7 +179,7 @@ async function eraChange() {
   }
   const next = museum.newCanvas();
   await drawNextRound(next);
-  museum.hangNext(next);
+  museum.hangNext(next, view.upcoming().era);
   clearBanner();
   await museum.slide();
   await museum.zoomIn();

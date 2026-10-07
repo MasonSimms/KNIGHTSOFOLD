@@ -69,3 +69,10 @@ const P: Record<string, Painting> = {
 };
 
 export const paintingFor = (eraId: string): Painting => P[eraId] ?? P.medieval;
+
+/** The date on each painting's placard in the museum between eras (owner: the era's name and its date, nothing else). */
+const DATES: Record<string, string> = {
+  caveman: 'Prehistory', egypt: 'c. 2500 BC', gladiators: 'c. AD 100', vikings: 'c. 900', medieval: 'c. 1300', samurai: 'c. 1550', pirates: 'c. 1715',
+  westerns: 'c. 1870', ww1: '1916', vietnam: '1968', modern: '2020', scifi: '2300', fantasy: 'Once upon a time', mobsters: '1929',
+};
+export const dateOf = (eraId: string): string => DATES[eraId] ?? '';
