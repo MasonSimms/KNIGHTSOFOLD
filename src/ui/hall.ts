@@ -108,7 +108,7 @@ export function mountHall(actions: HallActions) {
 export type Device = 'kb' | number; // keyboard and mouse, or a gamepad (its index)
 interface Local { dev: Device | 'bot'; look: Look; ready: boolean; row: number }
 const local: (Local | null)[] = [null, null, null, null]; // kept while the page is open: back from a fight, everyone is still seated
-const FIRST_HATS: Hat[] = ['helmet', 'crown', 'tophat', 'horns'];
+const FIRST_HATS: Hat[] = ['helmet', 'crown', 'plumed', 'horns'];
 
 /**
  * Resolves with the seated players (in seat order) when someone starts the fight, or null to go back home. Training (owner: through this same

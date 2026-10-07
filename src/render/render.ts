@@ -39,14 +39,9 @@ const BIG = 100;
 export function drawHat(hat: Hat, tint: number, headR: number): Graphics | null {
   if (hat === 'none') return null;
   const g = new Graphics(), r = headR * BIG;
-  const dark = mix(tint, 0x000000, 0.3);
-  if (hat === 'cap') { g.arc(0, -r * 0.2, r * 1.02, Math.PI, 0).fill(dark); g.rect(-r * 0.2, -r * 0.35, r * 1.5, r * 0.28).fill(dark); }
-  else if (hat === 'tophat') { g.rect(-r * 1.2, -r * 0.95, r * 2.4, r * 0.3).fill(0x222222); g.rect(-r * 0.7, -r * 2.2, r * 1.4, r * 1.3).fill(0x222222); g.rect(-r * 0.7, -r * 1.2, r * 1.4, r * 0.25).fill(tint); }
-  else if (hat === 'helmet') { g.arc(0, -r * 0.1, r * 1.1, Math.PI, 0).fill(0x8a929b); g.rect(-r * 1.1, -r * 0.15, r * 2.2, r * 0.22).fill(0x6b727a); }
+  if (hat === 'helmet') { g.arc(0, -r * 0.1, r * 1.1, Math.PI, 0).fill(0x8a929b); g.rect(-r * 1.1, -r * 0.15, r * 2.2, r * 0.22).fill(0x6b727a); }
   else if (hat === 'crown') { g.poly([-r * 0.9, -r * 0.8, -r * 0.9, -r * 1.8, -r * 0.45, -r * 1.2, 0, -r * 1.9, r * 0.45, -r * 1.2, r * 0.9, -r * 1.8, r * 0.9, -r * 0.8]).fill(0xf2c230); }
   else if (hat === 'horns') { g.arc(0, -r * 0.1, r * 1.02, Math.PI, 0).fill(0x8a929b); g.poly([-r * 0.9, -r * 0.5, -r * 1.7, -r * 1.7, -r * 0.5, -r * 0.9]).fill(0xeeeeee); g.poly([r * 0.9, -r * 0.5, r * 1.7, -r * 1.7, r * 0.5, -r * 0.9]).fill(0xeeeeee); }
-  else if (hat === 'cowboy') { g.ellipse(0, -r * 0.75, r * 1.9, r * 0.35).fill(0x8a6a44); g.rect(-r * 0.7, -r * 1.7, r * 1.4, r * 1.0).fill(0x8a6a44); }
-  else if (hat === 'beanie') { g.arc(0, -r * 0.2, r * 1.05, Math.PI, 0).fill(tint); g.circle(0, -r * 1.3, r * 0.25).fill(0xffffff); }
   g.scale.set(1 / BIG);
   return g;
 }

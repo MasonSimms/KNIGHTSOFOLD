@@ -762,6 +762,13 @@ export const tuning = {
     boilFps: 9, // how often the painted fighters' brush strokes change (the package: 3 painted variants at 8-10 fps)
     // The hot-colour cape (looks only): where it hangs from (metres from the torso's centre), and how the cloth moves.
     cape: { backX: 0.1, shoulderY: -0.24, gravity: 9, trail: 3, flutter: 2.5, flutterRate: 6, damping: 0.94 },
+    // The swaying parts of hats (looks only; each hat's own settings are in content/hats.ts): how heavy they hang (m/s²), how much speed
+    // they keep each step, the push away from the facing and the idle wobble (m/s²) unless a hat sets its own, how fast it wobbles,
+    // constraint passes, and the longest step (s).
+    dangle: { gravity: 9, damping: 0.9, trail: 1.5, flutter: 1, flutterRate: 6, iterations: 4, maxDt: 1 / 30 },
+    // Googly eyes' loose pupils (looks only): how hard they are pulled back to the middle (1/s²), how fast they settle (1/s), and how much
+    // speed they keep bouncing off the rim of the eye.
+    googly: { spring: 500, damping: 6, bounce: 0.4 },
     underOffset: 0.025, // metres: the dark underpaint peeking out at the lower right of fighters and objects
     paintBlur: 0.6, // softness of the paint on the picture (pixels at 1080p)
     // The painting style. Every era can override any of these in its `style` row (content/eras.ts).

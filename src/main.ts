@@ -2,7 +2,7 @@ import { sfx, unlockAudio } from './audio/sfx';
 import { Excitement } from './audio/intensity';
 import { setMusicEra, updateMusic } from './audio/music';
 import { eraById } from './content/eras';
-import { botLook } from './content/looks';
+import { asEyes, asHat, botLook } from './content/looks';
 import { tuning } from './content/tuning';
 import { connectedPads, flushInput, readInput, readPadInput, wasPressed } from './input/input';
 import { createRenderer } from './render/render';
@@ -37,13 +37,13 @@ const stress = query.has('stress');
 // Open http://localhost:5173/?slow=0.2 to run the game at 20% speed, to study a slam frame by frame.
 const slow = Math.min(1, Number(query.get('slow')) || 1);
 const sim = await Sim.create(1, stress ? 4 : 2);
-// Look testing without a server: ?era=samurai keeps every round in that era; ?hats=cap,crown,horns,tophat and ?colors=4,5,6,7 dress the fighters.
+// Look testing without a server: ?era=samurai keeps every round in that era; ?hats=plumed,jester,wizard,hennin and ?colors=4,5,6,7 dress the fighters.
 const eraParam = query.get('era');
 const mapParam = query.get('map');
 if (eraParam || mapParam) { sim.forceEra = eraParam; sim.forceMap = mapParam === null ? null : Number(mapParam); sim.reset(); } // ?era=samurai&map=1 is the samurai bridge
-query.get('hats')?.split(',').forEach((h, i) => { if (sim.looks[i]) sim.looks[i].hat = h as typeof sim.looks[0]['hat']; });
+query.get('hats')?.split(',').forEach((h, i) => { if (sim.looks[i]) sim.looks[i].hat = asHat(h); });
 query.get('colors')?.split(',').forEach((c, i) => { if (sim.looks[i]) sim.looks[i].color = Number(c) || 0; });
-query.get('eyes')?.split(',').forEach((e, i) => { if (sim.looks[i]) sim.looks[i].eyes = e as typeof sim.looks[0]['eyes']; }); // ?eyes=round,fierce,sleepy
+query.get('eyes')?.split(',').forEach((e, i) => { if (sim.looks[i]) sim.looks[i].eyes = asEyes(e); }); // ?eyes=googly,startled,sly,cyclops
 // Open http://localhost:5173/?lag=100 to play through a pretend network: the real sim runs as a "server" in this page, your inputs and its
 // snapshots each take 100 ms to arrive, and what you see is a client copy built only from those snapshots (solo vs the dummy; R is off).
 const lagMs = Number(query.get('lag')) || 0;

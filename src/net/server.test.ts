@@ -265,9 +265,9 @@ describe('room server', () => {
     expect(sim.looks[0]).toEqual({ color: 5, hat: 'crown', eyes: 'sleepy' });
     expect(sim.looks[1]).toEqual({ color: 6, hat: 'horns', eyes: 'fierce' });
     // and a change during the fight shows up in the snapshots everyone gets
-    others[0].send({ t: 'look', color: 7, hat: 'cap', eyes: 'round' });
+    others[0].send({ t: 'look', color: 7, hat: 'jester', eyes: 'round' });
     const snap = await host.wait('snap', (m) => m.s.looks[1].color === 7, 3000);
-    expect(snap.s.looks[1].hat).toBe('cap');
+    expect(snap.s.looks[1].hat).toBe('jester');
     expect(snap.s.era.length).toBeGreaterThan(2);
     expect(snap.s.outfits.length).toBe(4);
   });
