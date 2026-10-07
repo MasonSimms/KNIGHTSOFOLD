@@ -745,16 +745,19 @@ export interface CostumeBody { r: number; hl: number; y: number; headY: number; 
  * An era's costume (content/costumes.ts), painted like the weapons and clipped to the body: never over the head, and only a hair wider
  * than the body, so it reads as clothes on it. Facing right; anchored at the hips (the body's origin).
  */
-export function paintedCostume(era: string, b: CostumeBody, K: SpriteKnobs): { tex: Texture[]; ax: number; ay: number } | null {
+export function paintedCostume(era: string, b: CostumeBody, tint: number, K: SpriteKnobs): { tex: Texture[]; ax: number; ay: number } | null {
   const pieces = COSTUMES[era];
   if (!pieces) return null;
+  if (!pieces.some((p) => p.c === 'player')) tint = 0; // (painted once for everyone, unless a piece is in the wearer's colour)
+  const dyed = [0xffffff, -1, 0x000000].map((m, i) => { const k = [0.3, 0, 0.45][i]; return '#' + [16, 8, 0].map((sh) => { const c = (tint >> sh) & 255, t = (m >> sh) & 255; return Math.round(m < 0 ? c : c + (t - c) * k).toString(16).padStart(2, '0'); }).join(''); }); // the wearer's colour, lit and shaded
   const s = PPM, grow = 0.012, x0 = -(b.r + grow), y0 = b.y - b.hl - b.r - grow, y1 = b.y + b.hl + b.r + grow;
   const W = Math.ceil(-2 * x0 * s + 2 * PAD), H = Math.ceil((y1 - y0) * s + 2 * PAD), N = W * H, ox = PAD - x0 * s, oy = PAD - y0 * s;
-  const at = { ax: ox / W, ay: oy / H }, key = `costume|${era}|${JSON.stringify(b)}|${JSON.stringify(K)}`, hit = cache.get(key);
+  const at = { ax: ox / W, ay: oy / H }, key = `costume|${era}|${tint}|${JSON.stringify(b)}|${JSON.stringify(K)}`, hit = cache.get(key);
   if (hit) return { tex: hit, ...at };
   const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!, P = (x: number, y: number): [number, number] => [ox + x * s, oy + y * s];
   const ramp = (c: Paint, ys: number[]) => { const gr = g.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys) + 0.01); c.forEach((col, i) => gr.addColorStop(i / (c.length - 1), col)); return gr; };
-  for (const p of pieces) {
+  for (const piece of pieces) {
+    const p = piece.c === 'player' ? { ...piece, c: dyed } : { ...piece, c: piece.c };
     g.beginPath();
     if (p.k === 'poly') {
       const pts = p.pts.map(([x, y]) => P(x, y));

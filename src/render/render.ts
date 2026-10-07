@@ -476,7 +476,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const art = p.role === 'stick' || p.role === 'flail' ? addWeapon(k, p) : null;
         painted.push(art ? [art] : p.shapes.map((s, i) => addPainted(k, s, p.role === 'stick' && i > 0 && p.weapon?.gun ? T.colors.stick : shade)));
         if (p.role === 'torso' && !bot) { // the era's costume over the body, under the hat (a bot stays a plain robot, as with the cape)
-          const P = T.finish.paint, made = paintedCostume(sim.era, { r: T.fighter.torsoRadius, hl: T.legs.torsoHalf, y: T.legs.torsoY, headY: T.fighter.headY, headR: T.fighter.headRadius }, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+          const P = T.finish.paint, made = paintedCostume(sim.era, { r: T.fighter.torsoRadius, hl: T.legs.torsoHalf, y: T.legs.torsoY, headY: T.fighter.headY, headR: T.fighter.headRadius }, base, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
           if (made) { const sp = new Sprite(made.tex[0]); sp.anchor.set(made.ax, made.ay); sp.scale.set(1 / PPM); k.addChild(sp); costume = { s: sp, tex: made.tex }; }
         }
         if (art) addWeapon(u, p, UNDER); else for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
