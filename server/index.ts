@@ -23,7 +23,7 @@ const DT = 1000 / 60;
 
 /** A player's place in a room. It outlives their connection: `ws` is null while they are away, and `token` is how they prove they are the same person.
  *  A bot's seat never has a connection: it is always ready, and a person who joins can take it. */
-interface Seat { token: string; ws: WebSocket | null; leftAt: number; look: Look; ready: boolean; bot?: boolean }
+interface Seat { token: string; ws: WebSocket | null; leftAt: number; look: Look; ready: boolean; bot?: boolean; inputsWas?: { ticks: number; dry: number; folded: number } }
 
 class GameRoom {
   seats: (Seat | null)[] = []; // in a lobby: join order. In a fight: exactly MAX_PLAYERS entries, the index is the fighter number
@@ -61,7 +61,9 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
     res.end(req.url === '/health' ? `ok ${rooms.size} rooms, ${[...rooms.values()].filter((r) => r.game && r.present.length).length} fighting` : 'Knights of Old room server'); // (npm run deploy will not go up while anyone is fighting)
   });
-  const wss = new WebSocketServer({ server: http, maxPayload: 4096 }); // inputs are tiny: anything bigger is junk
+  // inputs are tiny: anything bigger is junk. Compressed (permessage-deflate, which every browser speaks): a snapshot is mostly the same
+  // words and numbers as the one before, so it shrinks about 5 times (npm run netlab: 84 KB/s down to 17 per player), and the round's replay too.
+  const wss = new WebSocketServer({ server: http, maxPayload: 4096, perMessageDeflate: { zlibDeflateOptions: { level: 1 }, serverMaxWindowBits: 12, threshold: 256 } });
   await new Promise<void>((ok) => http.listen(port, ok));
 
   const send = (ws: WebSocket | null, m: ServerMsg) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m)); };
@@ -132,6 +134,13 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       return ws.close(1008, 'old version');
     }
     if (!c.hello) { send(ws, { t: 'error', why: 'The game has been updated. Reload the page to get the new version.', fatal: true }); return ws.close(1008, 'no hello'); } // (a page from before versions were checked)
+    if (m.t === 'stats') { // a page's report on its connection: one line in the log, with what the server saw of that player's buttons
+      if (!at?.room.game) return;
+      const v = (x: unknown, hi: number) => (typeof x === 'number' && Number.isFinite(x) ? Math.max(0, Math.min(hi, x)) : 0), r0 = Math.round;
+      const slot = slotOf(at.room, at.seat), st = at.room.game.room.stats[slot], was = at.seat.inputsWas ?? { ticks: 0, dry: 0, folded: 0 }, ticks = Math.max(1, st.ticks - was.ticks);
+      at.seat.inputsWas = { ticks: st.ticks, dry: st.dry, folded: st.folded };
+      return void console.log(`net ${at.room.code} seat ${slot}: ping ${r0(v(m.ping, 9999))} ms (worst ${r0(v(m.pingMax, 9999))}), buffer ${v(m.buffer, 99).toFixed(1)} ticks, stalls ${r0(v(m.stalls, 9999))}, carried on ${r0(v(m.carried, 99999))} frames, guess off ${r0(v(m.off, 9999))} cm, snaps ${r0(v(m.snaps, 9999))}, ${r0(v(m.fps, 999))} fps (${r0(v(m.slow, 99999))} slow frames), hidden ${r0(v(m.hidden, 99999))} s | its inputs: ${(100 * (st.dry - was.dry) / ticks).toFixed(1)}% of ticks none had come, ${st.folded - was.folded} folded`);
+    }
     if (m.t === 'in') {
       if (at?.room.game) at.room.game.room.setInput(slotOf(at.room, at.seat), cleanInput(m.i), Number.isInteger(m.n) ? m.n : 0);
     } else if (m.t === 'resync') {
@@ -244,14 +253,20 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
 
   // One loop for every room: run as many 60 Hz ticks as real time has passed (a few at most, then give up catching up).
   let last = performance.now(), acc = 0, sweep = 0;
+  // The server's own health, logged once a minute while anyone fights: a loop that ran late (over 50 ms: everyone's picture stalls) and how
+  // long a room's tick takes. A Fly.io shared CPU held to its quota stops the server for the rest of every 80 ms: it shows up here.
+  const health = { at: performance.now(), worstGap: 0, late: 0, work: 0, workMax: 0, ticks: 0 };
   const loop = setInterval(() => {
     const now = performance.now();
+    health.worstGap = Math.max(health.worstGap, now - last);
+    if (now - last > 50) health.late++;
     acc = Math.min(acc + now - last, DT * 5);
     last = now;
     for (; acc >= DT; acc -= DT) {
       for (const r of rooms.values()) {
         if (!r.game) continue;
-        const s = r.game.room.tick();
+        const t0 = performance.now(), s = r.game.room.tick(), w = performance.now() - t0;
+        health.work += w; health.workMax = Math.max(health.workMax, w); health.ticks++;
         if (!s) continue;
         const msg = JSON.stringify({ t: 'snap', s });
         for (const p of r.present) if (p.ws!.readyState === WebSocket.OPEN && p.ws!.bufferedAmount < 1_000_000) p.ws!.send(msg); // a slow client just misses snapshots
@@ -261,6 +276,11 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     }
     for (const r of rooms.values()) if (r.game?.sim.matchOver && r.game.sim.matchFrames >= T.match.crownFrames) endGame(r, 'the match is over'); // the crown has been shown: back to the room
     for (const r of rooms.values()) if (r.game) r.seats.forEach((s, i) => { if (s && !s.ws && !s.bot && s.leftAt && !r.game!.sim.gone[i] && Date.now() - s.leftAt > graceMs) r.game!.room.removePlayer(i); }); // away longer than the grace: their fighter dies and sits out until they are back
+    if (now - health.at > 60_000) {
+      const fighting = [...rooms.values()].filter((r) => r.game && r.present.length).length;
+      if (fighting) console.log(`server: ${fighting} fighting, the loop ran up to ${Math.round(health.worstGap)} ms late (${health.late} times over 50 ms), a room's tick ${(health.work / Math.max(1, health.ticks)).toFixed(2)} ms (worst ${health.workMax.toFixed(1)})`);
+      Object.assign(health, { at: now, worstGap: 0, late: 0, work: 0, workMax: 0, ticks: 0 });
+    }
     if (now - sweep > 1000) { // once a second: delete fights nobody is watching (an away player's seat is simply up for grabs after reserveMs: see 'join')
       sweep = now;
       for (const [ip, ts] of created) if (!ts.some((t) => Date.now() - t < CREATE_LIMIT.perMs)) created.delete(ip);

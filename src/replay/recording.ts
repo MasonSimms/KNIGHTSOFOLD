@@ -21,7 +21,7 @@ export interface Recording {
 /** A short fingerprint of the gameplay tuning (FNV-1a of its JSON; the look of the picture, `finish`, is left out: graphics quality changes it). */
 export function tuningFingerprint(): string {
   let h = 0x811c9dc5;
-  for (const ch of JSON.stringify(tuning, (k, v) => (k === 'finish' ? undefined : v))) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  for (const ch of JSON.stringify(tuning, (k, v) => (k === 'finish' || k === 'net' ? undefined : v))) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0; // (the looks and the online playback settings change no fight: a page may differ in them)
   return h.toString(16);
 }
 

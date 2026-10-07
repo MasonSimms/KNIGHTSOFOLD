@@ -49,6 +49,7 @@ query.get('colors')?.split(',').forEach((c, i) => { if (sim.looks[i]) sim.looks[
 query.get('eyes')?.split(',').forEach((e, i) => { if (sim.looks[i]) sim.looks[i].eyes = asEyes(e); }); // ?eyes=googly,startled,sly,cyclops
 // Open http://localhost:5173/?lag=100 to play through a pretend network: the real sim runs as a "server" in this page, your inputs and its
 // snapshots each take 100 ms to arrive, and what you see is a client copy built only from those snapshots (solo vs the dummy; R is off).
+if (query.has('smooth')) { T.net.jitter.percentile = 1; T.net.extrapolateTicks = 3; } // ?smooth: the playback buffer covers every hiccup (as before 2026-10-07): the others shown later, never carried on (compare with the default)
 const lagMs = Number(query.get('lag')) || 0;
 const stallMs = Number(query.get('stall')) || 0; // ...and ?lag=100&stall=200: every 2 s the snapshots stop for 200 ms and then arrive in a bunch (wifi): watch the F3 overlay's buffer widen to cover it
 const room = lagMs ? new Room(sim) : null;
@@ -56,6 +57,7 @@ let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 
 // Open http://localhost:5173/?online to play for real: make or join a room, the host starts. (Needs the room server: npm run server.)
 let net: NetClient | null = null, mySlot = 0, inputSeq = 0, ping = 0, isHost = false;
 let predictor: Predictor | null = null, shownAlpha = 0; // online: your own fighter moved at once (the Settings switch 'Controls: Instant')
+const netStats = { since: performance.now(), pings: 0, pingSum: 0, pingMax: 0, frames: 0, slow: 0 }; // online: this page's connection lately (sent to the server's log)
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
   const url = serverUrl(onlineParam);
@@ -67,7 +69,7 @@ if (onlineParam !== null) {
   const attach = (c: NetClient) => {
     c.onMsg = (msg) => {
       if (msg.t === 'snap') { m.push(msg.s); predictor?.reconcile(msg.s); }
-      else if (msg.t === 'pong') { ping = performance.now() - msg.n; showPing(ping, m.delay > T.net.blendTicks + 3); } // (amber when the round trip is long, or the line is shaky and the picture runs further behind to cover it)
+      else if (msg.t === 'pong') { ping = performance.now() - msg.n; netStats.pings++; netStats.pingSum += ping; netStats.pingMax = Math.max(netStats.pingMax, ping); showPing(ping, m.delay > T.net.blendTicks + 3); } // (amber when the round trip is long, or the line is shaky and the picture runs further behind to cover it)
       else if (msg.t === 'clip') { pendingClip = msg.c; clipAt = performance.now(); } // the round's best moment: it plays in the museum
       else if (msg.t === 'start') { mySlot = msg.you; if (predictor) { predictor.stop(); predictor.slot = msg.you; } if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
       else if (msg.t === 'over') void backToRoom(c); // the match is over (or the host ended it): back to the room's Hall, ready for a rematch
@@ -106,6 +108,14 @@ if (onlineParam !== null) {
   isHost = r.host;
   attach(net);
   setInterval(() => net?.send({ t: 'ping', n: performance.now() }), 2000); // the round trip, shown in a corner
+  // Every 30 s in a fight, how this connection is going, for the server's log (fly logs): the playtest night's real connections.
+  let was = { waits: 0, starved: 0, checks: 0, off: 0, snaps: 0 };
+  setInterval(() => {
+    const P = predictor?.stats ?? { checks: 0, off: 0, snaps: 0 }, checks = P.checks - was.checks, secs = Math.max(1, (performance.now() - netStats.since) / 1000);
+    if (net && !paused) net.send({ t: 'stats', ping: netStats.pings ? netStats.pingSum / netStats.pings : ping, pingMax: netStats.pingMax, buffer: m.delay, stalls: m.waits - was.waits, carried: m.starved - was.starved, off: checks ? ((P.off - was.off) / checks) * 100 : 0, snaps: P.snaps - was.snaps, fps: netStats.frames / secs, slow: netStats.slow, hidden: hiddenSeconds() });
+    was = { waits: m.waits, starved: m.starved, checks: P.checks, off: P.off, snaps: P.snaps };
+    Object.assign(netStats, { since: performance.now(), pings: 0, pingSum: 0, pingMax: 0, frames: 0, slow: 0 });
+  }, 30_000);
   // Out of sight (another tab) the page stops sending controls, and the server would hold your last press for as long as you are away: let go.
   addEventListener('visibilitychange', () => { if (document.hidden) net?.send({ t: 'in', i: NEUTRAL, n: ++inputSeq }); });
 }
@@ -367,6 +377,7 @@ function frame(now: number) {
   }
 
   frames++;
+  netStats.frames++; if (ft > 34) netStats.slow++; // (a frame that took more than two: a visible hitch on this computer)
   msSum += ft;
   if (now - statTime >= 500) {
     const fps = (frames * 1000) / (now - statTime);

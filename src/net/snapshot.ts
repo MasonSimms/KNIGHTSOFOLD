@@ -68,16 +68,23 @@ export class Mirror {
   private fresh = true; // nothing shown yet: the first snapshot says which round and era to build
 
   own = -1; // a fighter this page moves itself (prediction): its poses are not written in from snapshots
-  delay: number; // how many ticks the shown world runs behind the newest snapshot: widens when snapshots stall, narrows again when they arrive steadily (see update)
+  delay: number; // how many ticks the shown world runs behind the newest snapshot: sized to how unevenly snapshots arrive (see target)
   starved = 0; // frames on which the shown time ran past the newest snapshot (a stall the buffer did not cover; the motion carries on for a few ticks)
   waits = 0; // ...and frames on which it ran out even of that and the picture had to wait: what a player sees as a stutter (the overlay shows it)
-  private calm = 0; // seconds since the buffer last ran short
+  private calm = 0; // seconds since the buffer last narrowed
+  private late: number[] = []; // how late each recent snapshot arrived (ms after its tick, by this page's clock)
+  private sorted = new Float64Array(0);
+  private want = 0; // the buffer the arrivals call for (ticks): see target
   private lastFrame = -1; // the newest snapshot's tick at the last update (to tell a flowing stream from a stalled one)
-  constructor(readonly sim: Sim, delay = T.net.blendTicks, readonly keep = 60) { this.delay = delay; }
+  constructor(readonly sim: Sim, delay = T.net.blendTicks, readonly keep = 60) { this.delay = delay; this.want = delay; } // keep: snapshots held (a replay clip holds all of its own)
   /** The server tick being shown now (the newest snapshot's minus the buffer, give or take). */
-  get shown(): number { return this.head; } // keep: snapshots held (a replay clip holds all of its own)
+  get shown(): number { return this.head; }
 
-  push(s: Snapshot): void {
+  /** A snapshot from the server; `at` = when it arrived (ms, this page's clock). */
+  push(s: Snapshot, at = performance.now()): void {
+    this.late.push(at - s.frame * (1000 / 60));
+    if (this.late.length > T.net.jitter.window) this.late.shift();
+    this.want = this.target();
     if (this.fresh) { // a new client (or one that rejoined): build the round the server is in, with its era's weapon and arena
       this.fresh = false;
       if (s.round !== this.sim.round || s.era !== this.sim.era) this.sim.buildRound(s.round, s.era);
@@ -93,7 +100,7 @@ export class Mirror {
 
   /** Start over from a fresh build (a rejoining client): forget everything and replay from the next catch-up snapshot. */
   reset(): void {
-    this.snaps = []; this.applied = -1; this.started = false; this.fresh = true;
+    this.snaps = []; this.applied = -1; this.started = false; this.fresh = true; this.late = [];
     this.sim.gone.fill(false);
     this.sim.reset();
   }
@@ -105,13 +112,13 @@ export class Mirror {
     const N = T.net;
     if (!this.started) { this.head = latest.frame - this.delay; this.started = true; }
     this.head += seconds * 60;
-    // A jitter buffer that sizes itself (as Source's interpolation delay does, by hand): every frame the stream fails to stay ahead of the
-    // shown time widens the buffer by that frame, so after a stall the picture runs that much further behind and the next stall of the
-    // same size is covered; a steady stream narrows it again, slowly, down to blendTicks.
+    // A jitter buffer sized to the connection (see target): it widens at once when snapshots start arriving more unevenly, and narrows
+    // again a tick at a time once they have been steady for a while. A stall it does not cover is carried over (show extrapolates).
     const starved = this.head > latest.frame, flowing = latest.frame !== this.lastFrame;
     this.lastFrame = latest.frame;
-    if (starved) { this.starved++; this.delay = Math.min(N.blendMax, this.delay + seconds * 60); this.calm = 0; }
-    else if ((this.calm += seconds) > N.blendRelax) { this.calm = 0; this.delay = Math.max(N.blendTicks, this.delay - 1); }
+    if (starved) this.starved++;
+    if (this.want > this.delay) { this.delay = this.want; this.calm = 0; }
+    else if ((this.calm += seconds) > N.blendRelax) { this.calm = 0; this.delay = Math.max(this.want, this.delay - 1); }
     const err = latest.frame - this.delay - this.head;
     // Behind the target (a tab that was hidden): jump. Ahead of it while the stream flows (the buffer just widened): run slow, never slower
     // than half speed, until the stream has built the buffer up. During a stall time runs on at full speed, so the buffer measures the whole
@@ -119,6 +126,19 @@ export class Mirror {
     if (err > 12) this.head = latest.frame - this.delay; else if (flowing || err > 0) this.head += Math.max(err * 0.05, -0.5 * seconds * 60);
     if (this.head > latest.frame + N.extrapolateTicks) { this.waits++; this.head = latest.frame + N.extrapolateTicks; }
     return this.show(this.head);
+  }
+
+  /** The buffer (ticks) that covers how unevenly the last few seconds of snapshots arrived: blendTicks, plus how much later than the
+   *  quickest one the slow ones came, at T.net.jitter.percentile (1 = every hiccup, smooth but later; 0.9 = all but the worst tenth, the
+   *  rare stall carried over instead, sooner). Snapshots come a tick apart, so how late each was against its own tick is the jitter. */
+  private target(): number {
+    const N = T.net, n = this.late.length;
+    if (n < 30) return Math.max(this.want, N.blendTicks); // (not enough to judge yet)
+    if (this.sorted.length !== n) this.sorted = new Float64Array(n);
+    this.sorted.set(this.late);
+    this.sorted.sort();
+    const spread = this.sorted[Math.min(n - 1, Math.floor((n - 1) * N.jitter.percentile))] - this.sorted[0];
+    return Math.min(N.blendMax, N.blendTicks + spread / (1000 / 60));
   }
 
   /** Show the world at server tick `at` (exact: used directly by tests). */

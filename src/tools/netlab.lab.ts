@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { deflateRawSync } from 'node:zlib';
 import { it } from 'vitest';
 import { botLook } from '../content/looks';
 import { tuning as T } from '../content/tuning';
@@ -24,6 +25,8 @@ const LINES = [
   { name: 'Coast to coast', ms: 45, jitter: 6, loss: 0.002 },
 ];
 const SECONDS = Number(process.env.NETLAB_SECONDS) || 90, SEED = Number(process.env.NETLAB_SEED) || 11;
+if (process.env.NETLAB_JITTER) T.net.jitter.percentile = Number(process.env.NETLAB_JITTER); // (to compare buffer settings)
+if (process.env.NETLAB_CARRY) T.net.extrapolateTicks = Number(process.env.NETLAB_CARRY);
 const DT = 1000 / 60;
 
 /** One direction of a WebSocket: in order, each message late by the latency plus some jitter; a lost one holds up everything behind it. */
@@ -37,7 +40,8 @@ class Pipe<M> {
     this.last = Math.max(this.last, at);
     this.q.push({ at: this.last, m });
   }
-  take(now: number): M[] { const out: M[] = []; while (this.q.length && this.q[0].at <= now) out.push(this.q.shift()!.m); return out; }
+  /** What has arrived by `now`, each with when it arrived (a page stamps a message when it comes in, between its frames). */
+  take(now: number): { at: number; m: M }[] { const out: { at: number; m: M }[] = []; while (this.q.length && this.q[0].at <= now) out.push(this.q.shift()!); return out; }
 }
 
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
@@ -52,19 +56,21 @@ async function play(line: (typeof LINES)[number]) {
   const up = new Pipe<{ i: PlayerInput; n: number }>(line.ms, line.jitter, line.loss, rng), down = new Pipe<string>(line.ms, line.jitter, line.loss, rng);
   const sentAt = new Map<number, number>(), inputDelay: number[] = [], behind: number[] = [], buffer: number[] = [], off: number[] = [], alone: number[] = [];
   let fightSnaps = 0;
-  let n = 0, acc = 0, lastAck = 0, bytes = 0, snaps = 0, frames = 0, active = 0, shownAlpha = 0;
+  let n = 0, acc = 0, lastAck = 0, bytes = 0, packed = 0, snaps = 0, frames = 0, active = 0, shownAlpha = 0, prevMsg = Buffer.alloc(0), tickMs = 0;
   let serverAt = 0, clientAt = 0, lastFrame = 0;
   const end = SECONDS * 1000;
   while (Math.min(serverAt, clientAt) < end) {
     if (serverAt <= clientAt) { // the server's tick
-      for (const x of up.take(serverAt)) room.setInput(0, x.i, x.n);
-      const s = room.tick();
+      for (const { m: x } of up.take(serverAt)) room.setInput(0, x.i, x.n);
+      const t0 = performance.now(), s = room.tick();
+      tickMs += performance.now() - t0;
       if (s) {
         const ack = s.ack![0];
         if (ack !== lastAck && sentAt.has(ack)) inputDelay.push(serverAt - sentAt.get(ack)!);
         lastAck = ack;
         const msg = JSON.stringify(s);
         bytes += msg.length; snaps++;
+        const buf = Buffer.from(msg); packed += deflateRawSync(buf, { level: 1, dictionary: prevMsg }).length; prevMsg = buf; // (compressed on the wire, as permessage-deflate does: each message against the one before)
         down.send(serverAt, msg);
       }
       serverAt += DT;
@@ -79,9 +85,9 @@ async function play(line: (typeof LINES)[number]) {
         pred.tick(input, n, shownAlpha);
       }
       if (acc >= DT) acc = 0;
-      for (const m of down.take(clientAt)) {
+      for (const { at, m } of down.take(clientAt)) {
         const s = JSON.parse(m) as Snapshot, was = { ...pred.stats };
-        mirror.push(s); pred.reconcile(s);
+        mirror.push(s, at); pred.reconcile(s);
         // (only in a fight: a new round or a respawn puts everyone somewhere new, and the guess simply jumps there with it)
         if (pred.stats.checks > was.checks && !s.roundOver && !s.ev.some((e) => e.t === 'newround' || e.t === 'respawn')) {
           const d = pred.stats.off - was.off, me = s.f[0].p, near = s.f.some((g, i) => i > 0 && g.p.length && Math.hypot(g.p[0] - me[0], g.p[1] - me[1]) < 2.5);
@@ -99,7 +105,7 @@ async function play(line: (typeof LINES)[number]) {
   }
   const st = room.stats[0], P = pred.stats, minutes = SECONDS / 60;
   return {
-    line, desyncs: mirror.desyncs, snapBytes: bytes / snaps,
+    line, desyncs: mirror.desyncs, snapBytes: bytes / snaps, packedBytes: packed / snaps, tickMs: tickMs / (SECONDS * 60),
     inputMs: avg(inputDelay), input95: pct(inputDelay, 0.95), waiting: st.waiting / Math.max(1, st.ticks), dry: st.dry / Math.max(1, st.ticks), folded: st.folded,
     predicting: active / frames, offCm: avg(off) * 100, aloneCm: avg(alone) * 100, aloneShare: alone.length / Math.max(1, off.length), off95: pct(off, 0.95) * 100, worstCm: Math.max(0, ...off) * 100, snapsPerMin: fightSnaps / minutes, roundSnaps: P.snaps - fightSnaps,
     behindMs: avg(behind), behind95: pct(behind, 0.95), bufferTicks: avg(buffer), stallsPerMin: mirror.waits / minutes, starvedPerMin: mirror.starved / minutes,
@@ -136,8 +142,13 @@ ${table(['Connection', 'Predicting', 'Off (avg / 95%)', 'Off with nobody near (s
 What you see of the others is this far in the past (the wire plus the blend buffer). Stalls = times a minute the picture of them had to
 wait for a snapshot; carried on = times it ran past the newest one and carried the motion on instead.
 
-${table(['Connection', 'Others shown (avg / 95%)', 'Buffer (ticks)', 'Stalls a minute', 'Carried on a minute', 'Desyncs', 'Data down'],
-  rows.map((r) => [r.line.name, `${f0(r.behindMs)} / ${f0(r.behind95)} ms`, f1(r.bufferTicks), f1(r.stallsPerMin), f1(r.starvedPerMin), String(r.desyncs), `${f0(r.snapBytes * 60 / 1024)} KB/s`]))}
+${table(['Connection', 'Others shown (avg / 95%)', 'Buffer (ticks)', 'Stalls a minute', 'Carried on a minute', 'Desyncs', 'Data down (compressed)'],
+  rows.map((r) => [r.line.name, `${f0(r.behindMs)} / ${f0(r.behind95)} ms`, f1(r.bufferTicks), f1(r.stallsPerMin), f1(r.starvedPerMin), String(r.desyncs), `${f0(r.snapBytes * 60 / 1024)} KB/s (${f0(r.packedBytes * 60 / 1024)} KB/s)`]))}
+
+## The server
+One room's work each tick (the fight, its snapshot): ${f2(avg(rows.map((r) => r.tickMs)))} ms on this computer, ${f0(avg(rows.map((r) => r.tickMs)) / (1000 / 60) * 100)}% of one core. A Fly.io shared CPU may use 6.25% of a core
+before it spends its saved-up time (at most 500 s), and is then held to 6.25%, stopping for the rest of every 80 ms: a stutter for everyone.
+A performance CPU is never held back.
 `;
   mkdirSync('reports', { recursive: true });
   writeFileSync('reports/NETLAB.md', out);

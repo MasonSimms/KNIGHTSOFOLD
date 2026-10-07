@@ -6,7 +6,7 @@ import type { Clip } from '../replay/tape';
 // Messages between a browser and the room server: one JSON object per WebSocket message.
 /** Bump when the messages change. A page and a server with different versions (or different gameplay numbers) refuse to play together:
  *  their copies of the fight would not match. */
-export const PROTOCOL = 3;
+export const PROTOCOL = 4;
 
 export type ClientMsg =
   | { t: 'hello'; v: number; tuning: string } // the first message: which version of the game this page is (PROTOCOL, and the gameplay numbers' fingerprint)
@@ -20,7 +20,8 @@ export type ClientMsg =
   | { t: 'end' } // host only: back to the lobby
   | { t: 'in'; i: PlayerInput; n?: number } // my controls, sent every tick; n counts them (the snapshot says which one the server used last: prediction needs it)
   | { t: 'resync' } // my copy of the fight went wrong (a missed event): send me all of it again
-  | { t: 'ping'; n: number }; // send n straight back (to measure the round trip)
+  | { t: 'ping'; n: number } // send n straight back (to measure the round trip)
+  | { t: 'stats'; ping: number; pingMax: number; buffer: number; stalls: number; carried: number; off: number; snaps: number; fps: number; slow: number; hidden: number }; // every 30 s in a fight: how this page's connection is going (into the server's log, fly logs: what real connections are like)
 
 export type ServerMsg =
   | { t: 'lobby'; code: string; n: number; you: number; host: boolean; token: string; looks: (Look | null)[]; ready: boolean[] } // who is in the room and who is ready (sent to everyone whenever it changes); `token` is your private key to rejoin

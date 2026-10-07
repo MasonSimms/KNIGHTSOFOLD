@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 import { startServer } from '../../server/index';
 import type { Server, ServerOptions } from '../../server/index';
@@ -385,6 +385,18 @@ describe('room server', () => {
     expect(st.resync).toBe(true);
     expect(st.you).toBe(0);
     await host.wait('snap');
+  });
+
+  it('a page\'s report on its connection goes into the server\'s log (fly logs), with what the server saw of its inputs; junk is tamed', async () => {
+    const { host } = await fightOf(2);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    host.send({ t: 'stats', ping: 48.4, pingMax: 90, buffer: 3.6, stalls: 1, carried: 12, off: 9.2, snaps: 0, fps: 59.7, slow: 2, hidden: 0 });
+    host.send({ t: 'stats', ping: 'lots', pingMax: -5, buffer: 1e9, stalls: NaN, carried: 0, off: 0, snaps: 0, fps: 60, slow: 0, hidden: 0 });
+    await sleep(200);
+    const lines = log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith('net '));
+    log.mockRestore();
+    expect(lines[0]).toMatch(/seat 0: ping 48 ms \(worst 90\), buffer 3.6 ticks, stalls 1, carried on 12 frames, guess off 9 cm, snaps 0, 60 fps/);
+    expect(lines[1]).toMatch(/ping 0 ms \(worst 0\), buffer 99.0 ticks, stalls 0/);
   });
 
   it('every snapshot says which of each player\'s inputs it used', async () => {
