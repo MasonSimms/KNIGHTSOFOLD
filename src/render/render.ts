@@ -387,8 +387,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     if (s.k !== 'box') prewarm.push(() => paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0));
   }
   for (const hat of HATS) for (const c of COLORS) prewarm.push(() => { const k = new Container(); makeHat(hat, k, 0, 0, T.fighter.headRadius, c.hex); k.destroy({ children: true }); }); // and every hat (painted once; the cap, top hat and beanie per colour)
+  // Only while nothing is being drawn (a menu is up): one job can take over 100 ms, a visible freeze in a fight. Anything still unpainted
+  // when it is needed is painted then, as before the warm-up.
+  let drawnAt = 0;
   const idle = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 50));
-  const warmNext = () => { const job = prewarm.shift(); if (job) { job(); idle(warmNext); } };
+  const warmNext = () => { if (performance.now() - drawnAt < 300) { idle(warmNext); return; } const job = prewarm.shift(); if (job) { job(); idle(warmNext); } };
   idle(warmNext);
 
   let scale = 1, shake = 0, builtVersion = -1;
@@ -541,6 +544,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     },
     /** Draw the world between its last two states (alpha). own: online prediction moves your fighter on its own ticks (its own alpha). */
     draw(alpha: number, frameSeconds: number, own?: { slot: number; alpha: number }, target?: RenderTexture) {
+      drawnAt = performance.now();
       scale = Math.min(app.screen.width / A.viewW, app.screen.height / A.viewH);
       vignette.width = app.screen.width;
       vignette.height = app.screen.height;
