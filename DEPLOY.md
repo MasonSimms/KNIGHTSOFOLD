@@ -1,56 +1,45 @@
 # Putting Knights of Old online
 
-Two pieces: the **game page** (static files) and the **room server** (a small Node program that runs the fights).
+One Fly.io app holds everything (owner, 2026-10-06): the **room server** (runs the fights) also hands out the **game page**. One sign-up,
+one command to update. It sleeps when nobody plays (you pay only for the minutes it runs: roughly $0-3 a month) and wakes in about two
+seconds when someone opens the link. The server sits in Ashburn, Virginia (`iad`: US East).
 
-## Run it on your own computer first
+## First time (Windows PowerShell): about 30 minutes
+
+You do the sign-up (it needs your email and a card); every other step is a command to paste.
+
+1. Sign up at https://fly.io and add a card (Billing).
+2. Install their tool: `iwr https://fly.io/install.ps1 -useb | iex`, then close PowerShell and open it again.
+3. Log in: `fly auth login` (a browser window opens: log in there).
+4. Go to the game's folder: `cd C:\Users\User\knights-of-old`
+5. Make the app, with a name nobody has taken yet (lowercase, dashes): `fly apps create knights-of-old-YOURNAME`
+   Then put that name in `fly.toml` on the line `app = "..."` (or tell Claude the name and it does it).
+6. Send it up: `fly deploy` (the first time takes 3-6 minutes: Fly.io builds the game on its own machines).
+7. Your game is at `https://knights-of-old-YOURNAME.fly.dev`. Open it, click **Online**, **Make a room**, then **Copy invite link** and
+   send that link to your friends. They open it, pick a look, press Ready; you press **To Battle**.
+
+## Updating it later
+
+After any change: `fly deploy`. That updates the page and the server together (they must always match: a page from another version
+is told "the game has been updated: reload"). Anyone in a fight while it updates is told to make a new room in a minute.
+
+## Checking on it
+
+- `https://knights-of-old-YOURNAME.fly.dev/health` says `ok` and how many rooms are open.
+- `fly logs` shows what the server is doing; `fly status` whether it is awake.
+- One 4-player room costs roughly 10% of one small CPU core; this machine holds about 5-6 rooms at once (`MAX_ROOMS` in `fly.toml`).
+
+## On your own computer (no internet needed)
 
 ```powershell
-npm run server        # the room server, port 8080
-npm run dev           # the game, in a second terminal
+npm run build         # the game page, into dist
+npm run server        # the room server: it serves that page too, at http://localhost:8080
 ```
-Open `http://localhost:5173/?online` in two browser tabs: one makes a room, the other joins with the 4-letter code, the first one presses Start.
-Or: the first tab clicks **Copy invite link** and the second tab opens that link. `http://localhost:8080/health` answers "ok" while the server runs.
-
-**Keep the page and the server the same version.** A page from another version is turned away with "the game has been updated: reload" (their
-copies of the fight would never match). So after changing the game, deploy BOTH: `fly deploy` for the server, and a new build of the page.
+Open `http://localhost:8080/?online` in two browser tabs: one makes a room, the other opens the invite link. While working on the game,
+`npm run dev` (http://localhost:5173/?online) uses the server for the rooms and the live code for the page.
 `http://localhost:5173/?lag=100` plays solo through a pretend 100 ms network (no server needed).
 
-## Cheapest ways to host (prices are approximate: check the provider's page before you commit)
+## Other ways (not used)
 
-| Piece | Option | Cost | Notes |
-|---|---|---|---|
-| Game page | **Cloudflare Pages** | free | Build `npm run build`, publish the `dist` folder. Set `VITE_SERVER_URL=wss://<your-server-address>` when building. |
-| Room server | **Fly.io** (recommended) | a few cents to ~$3 a month | `fly.toml` is ready: the machine stops when nobody plays and wakes in a couple of seconds on the next connection. Needs a card on file. |
-| Room server | **Render free web service** | $0 | Sleeps after 15 min idle, the first player waits about 50 s for it to wake. Fine for testing with friends. Uses the `Dockerfile`. |
-| Room server | **Railway** | about $5 a month | Simplest setup, but not the cheapest. |
-| Room server | Oracle Cloud "Always Free" VM | $0 | Truly free but you set up and look after a Linux machine yourself. Not recommended for a beginner. |
-
-**How much server do you need?** One 4-player room costs roughly 10% of one small CPU core. A shared-1x machine holds about 5-6 rooms at once (`MAX_ROOMS` caps it so one busy night cannot freeze every fight). More players than that: raise the machine size or run a second server.
-
-## Deploying the server to Fly.io
-
-1. Make an account at fly.io and install their `fly` tool.
-2. In this folder: `fly launch --no-deploy` (accept the existing `fly.toml`; pick a unique app name), then `fly deploy`.
-3. Your server address is `wss://<app-name>.fly.dev`. Use it as `VITE_SERVER_URL` when you build the game page.
-
-## First deploy, step by step (Windows PowerShell)
-
-You do the sign-ups (they need your email and, for Fly.io, a card); every other step is a command to paste.
-
-**A. The room server (Fly.io, Virginia)**
-1. Sign up at https://fly.io. You pay only for the minutes the server runs (it sleeps when nobody plays).
-2. Install their tool: `iwr https://fly.io/install.ps1 -useb | iex`, then close PowerShell and open it again.
-3. `fly auth login` (a browser window opens: log in there).
-4. `cd C:\Users\User\knights-of-old`, then `fly launch --no-deploy`. Say yes to copying the existing configuration, pick a unique app name
-   (for example `knights-of-old-yourname`) and keep the region `iad` (Ashburn, Virginia: closest to an East Coast group).
-5. `fly deploy` (2-3 minutes). Your server address is `wss://<your-app-name>.fly.dev`.
-
-**B. The game page (Cloudflare Pages, free)**
-1. Sign up at https://dash.cloudflare.com.
-2. Build the page pointing at your server: `$env:VITE_SERVER_URL = "wss://<your-app-name>.fly.dev"; npm run build`
-3. In the Cloudflare dashboard: Workers & Pages, Create, Pages, Upload assets. Name the project `knights-of-old`, then drag the `dist`
-   folder in. Your game is at `https://knights-of-old.pages.dev` (or the name it gives you).
-4. Updating later: run step 2 again, then in the dashboard open the project and upload `dist` as a new deployment.
-
-**C. Check it**: open the link in Chrome on two computers (or a normal and a private window), click Online, make a room on one and join
-with the code on the other. Then put the link into HOWTOPLAY.md and send that to your friends.
+The page could live on Cloudflare Pages (free) with only the rooms on Fly.io (build with `$env:VITE_SERVER_URL = "wss://<app>.fly.dev"`),
+or everything on Render's free tier (no card, but it sleeps after 15 minutes and the first player then waits about 50 seconds).

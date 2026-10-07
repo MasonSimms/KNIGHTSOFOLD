@@ -403,3 +403,32 @@ describe('room server', () => {
     } finally { T.match.rounds = saved.r; T.match.crownFrames = saved.c; }
   }, 30_000);
 });
+
+describe('the game page from the same server', () => {
+  it('serves the built page (compressed), still answers /health, and never anything outside the page folder', async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs'), { join } = await import('node:path'), { tmpdir } = await import('node:os'), { gunzipSync } = await import('node:zlib');
+    const site = mkdtempSync(join(tmpdir(), 'koo-site-'));
+    mkdirSync(join(site, 'assets'));
+    writeFileSync(join(site, 'index.html'), '<!doctype html><title>Knights of Old</title>');
+    writeFileSync(join(site, 'assets', 'main-abc.js'), 'console.log("hi")'.repeat(50));
+    writeFileSync(join(tmpdir(), 'koo-secret.txt'), 'secret');
+    const s = await boot({ site }), base = `http://localhost:${s.port}`;
+    const home = await fetch(`${base}/?online&room=ABCD`);
+    expect(home.status).toBe(200);
+    expect(home.headers.get('content-type')).toContain('text/html');
+    expect(await home.text()).toContain('Knights of Old');
+    const js = await fetch(`${base}/assets/main-abc.js`, { headers: { 'accept-encoding': 'gzip' } });
+    expect(js.headers.get('cache-control')).toContain('immutable');
+    expect(js.headers.get('content-type')).toContain('javascript');
+    const raw = Buffer.from(await (await fetch(`${base}/assets/main-abc.js`, { headers: { 'accept-encoding': 'identity' } })).arrayBuffer());
+    expect(raw.toString()).toContain('console.log');
+    const { get } = await import('node:http'); // (fetch unzips by itself: ask the plain way to see what crosses the network)
+    const zipped = await new Promise<{ enc: string; body: Buffer }>((ok) => get(`${base}/assets/main-abc.js`, { headers: { 'accept-encoding': 'gzip' } }, (r) => { const parts: Buffer[] = []; r.on('data', (d: Buffer) => parts.push(d)); r.on('end', () => ok({ enc: String(r.headers['content-encoding']), body: Buffer.concat(parts) })); }));
+    expect(zipped.enc).toBe('gzip');
+    expect(zipped.body.length).toBeLessThan(raw.length);
+    expect(gunzipSync(zipped.body).toString()).toBe(raw.toString());
+    expect(await (await fetch(`${base}/health`)).text()).toMatch(/^ok \d+ rooms/);
+    for (const sneaky of ['/../koo-secret.txt', '/%2e%2e/koo-secret.txt', '/assets/../../koo-secret.txt']) expect((await fetch(base + sneaky)).status).toBe(404);
+    expect((await fetch(`${base}/nope.js`)).status).toBe(404);
+  });
+});

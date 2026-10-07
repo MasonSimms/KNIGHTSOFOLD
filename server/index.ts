@@ -9,6 +9,9 @@ import type { ClientMsg, ServerMsg } from '../src/net/protocol';
 import { Room } from '../src/net/room';
 import { Sim } from '../src/sim/world';
 import { tuning as T } from '../src/content/tuning';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { siteHandler } from './site';
 
 // The room server: 4-letter room codes, up to 4 players, the host starts the fight, the real sim runs here at 60 Hz.
 // People can join a fight under way (they appear next round) and come back after a drop (same seat, same score).
@@ -29,7 +32,7 @@ class GameRoom {
   get present(): Seat[] { return this.seats.filter((s): s is Seat => !!s?.ws); } // connected players, lowest seat first: the first is the host
 }
 
-export interface ServerOptions { maxRooms?: number; reserveMs?: number; emptyMs?: number; createLimit?: number }
+export interface ServerOptions { maxRooms?: number; reserveMs?: number; emptyMs?: number; createLimit?: number; site?: string } // site: a folder with the built game page to serve too
 export interface Server { port: number; rooms: Map<string, GameRoom>; close(why?: string): Promise<void> }
 
 export async function startServer(port: number, opts: ServerOptions = {}): Promise<Server> {
@@ -39,8 +42,10 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
   const conn = new WeakMap<WebSocket, { ip: string; hello: boolean }>(); // who is on the other end, and whether their page is the right version
   const createLimit = opts.createLimit ?? CREATE_LIMIT.rooms, created = new Map<string, number[]>(); // per address: when it made its last rooms
   const version = tuningFingerprint(); // a page must have the same gameplay numbers, or its copy of the fight would not match ours
-  // A plain web address too: /health is for the host's checks (Fly.io), anything else says what this is.
+  // A web address too: /health is for the host's checks (Fly.io); anything else is the game page (when there is one to serve).
+  const site = opts.site ? siteHandler(opts.site) : null;
   const http = createServer((req, res) => {
+    if (site && req.url?.split('?')[0] !== '/health') return void site(req, res);
     res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
     res.end(req.url === '/health' ? `ok ${rooms.size} rooms` : 'Knights of Old room server');
   });
@@ -262,8 +267,9 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
 
 // Started directly (node dist-server/index.js): listen on $PORT.
 if (process.argv[1] && /dist-server[\\/]index\.js$/.test(process.argv[1])) {
-  const s = await startServer(Number(process.env.PORT) || 8080, { maxRooms: Number(process.env.MAX_ROOMS) || 20 });
-  console.log(`Knights of Old room server listening on port ${s.port}`);
+  const page = fileURLToPath(new URL('../dist', import.meta.url)); // the built game page next to the server (npm run build)
+  const s = await startServer(Number(process.env.PORT) || 8080, { maxRooms: Number(process.env.MAX_ROOMS) || 20, site: existsSync(page) ? page : undefined });
+  console.log(`Knights of Old room server listening on port ${s.port}${existsSync(page) ? ' (and serving the game page)' : ''}`);
   // Stopped (a new version going up, or the host stopping an idle machine): tell everyone, then go.
   const stop = async () => { console.log('stopping'); await s.close('The server is restarting. Make a new room in a minute.'); process.exit(0); };
   process.once('SIGTERM', () => void stop());
