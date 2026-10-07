@@ -121,6 +121,7 @@ export class Bot {
       if (age > 14) this.backOff(now);
     } else if (plan.kind === 'backoff') {
       out.moveX = Math.abs(dx) < B.backoffRange ? -Math.sign(dx) : 0;
+      if (out.moveX && age > 6 && me.grounded && Math.abs(me.torso.body.linvel().x) < 0.3) this.hop(); // backed against something: hop out of the corner (two bots stood trading blows against a wall for 4 s)
     } else if (plan.kind === 'grab') {
       out.attack = age < 110; // hold on (let go to fling)
       if (!me.hold) { out.moveX = Math.sign(dx) * 0.6; if (age > 30) out.attack = false; } // still reaching for them

@@ -229,7 +229,7 @@ export class Sim {
     this.outfits = outfitsFor(this.seed, this.round);
     this.rng = makeRng(this.seed);
     this.frame = 0;
-    this.nextSpawn = T.spawn.firstGap;
+    this.nextSpawn = this.arena.gunsOnly ? T.spawn.gunsFirst : T.spawn.firstGap;
     this.lastImpact = 0;
     this.events.length = 0;
     this.edits = []; // (a new list: last round's recording keeps the old one)
@@ -541,7 +541,7 @@ export class Sim {
   private spawn(index: number, x: number, player: boolean): Fighter {
     const y = floorAt(this.arena, x) - T.stand.height - 0.02; // the hips at standing height
     const foe = this.dummy && index === 1; // the training partner: armed or not as the training menu says
-    const f = buildFighter(this.world, index, x, y, player, !this.arena.noWeapons && (foe ? this.training.foeArmed : T.fighter.startArmed), this.weapon, player && x > this.arena.viewW / 2 ? -1 : 1); // (facing the middle; the dummy never aims: it faces right, the way its controls point)
+    const f = buildFighter(this.world, index, x, y, player, !this.arena.noWeapons && !this.arena.gunsOnly && (foe ? this.training.foeArmed : T.fighter.startArmed), this.weapon, player && x > this.arena.viewW / 2 ? -1 : 1); // (facing the middle; the dummy never aims: it faces right, the way its controls point)
     for (const p of f.parts) this.partByBody.set(p.body.handle, p);
     return f;
   }
@@ -580,6 +580,7 @@ export class Sim {
       }
     }
 
+    if (T.grab.throwDisarms) for (const e of this.events) if (e.t === 'throw' && e.victim >= 0 && this.fighters[e.victim]?.grip) this.disarmByShot(this.fighters[e.victim], 0, 0, e.owner); // flung out of someone's hands: what they held flies on by itself
     for (const f of this.fighters) if (f.fireRequest) { f.fireRequest = false; if (!f.limp) fire(this, f); } // triggers pulled with a loaded gun
     for (const p of this.props) { const v = p.body.linvel(this.tmpV); p.vx = v.x; p.vy = v.y; p.w = p.body.angvel(); }
     this.spawnPickups();
@@ -701,10 +702,15 @@ export class Sim {
   private spawnPickups(): void {
     const S = T.spawn, pickups = eraById(this.era).pickups;
     if (!T.eras.changeGameplay || !T.spawn.enabled || !pickups?.length || this.arena.noWeapons || this.frame < this.nextSpawn) return;
-    this.nextSpawn = this.frame + Math.round(S.firstGap + (S.minGap - S.firstGap) * Math.min(1, this.frame / S.rampFrames));
+    this.nextSpawn = this.frame + (this.arena.gunsOnly ? S.gunsGap : Math.round(S.firstGap + (S.minGap - S.firstGap) * Math.min(1, this.frame / S.rampFrames)));
     if (this.props.filter((p) => !p.chainOf && pickups.includes(p.weapon?.id ?? '')).length >= S.maxLoose) return; // (a flail's head is not a second flail)
-    const strong = pickups.length > 1 && this.frame >= S.strongAfterFrames && this.rng() < S.strongChance;
-    const kind = pickups[strong ? pickups.length - 1 : 0], A = this.arena;
+    const n = Math.min(eraById(this.era).strong ?? 1, pickups.length - 1), strongOnes = pickups.slice(pickups.length - n);
+    const pool = this.arena.gunsOnly ? pickups.filter((k) => PROPS[k]?.gun) : pickups; // (a guns-only arena: only the era's guns)
+    const common = pool.filter((k) => !strongOnes.includes(k)), rare = pool.filter((k) => strongOnes.includes(k));
+    if (!pool.length) return;
+    const strong = rare.length > 0 && (!common.length || (this.frame >= S.strongAfterFrames && this.rng() < S.strongChance));
+    const from = strong ? rare : common; // (the common ones, or later the strong ones: one of them at random)
+    const kind = from.length > 1 ? from[Math.floor(this.rng() * from.length)] : from[0], A = this.arena;
     const sky = this.rng() < S.airdropChance, x = sky ? A.platformX + 0.8 + this.rng() * (A.platformW - 1.6) : A.platformX + A.platformW * S.spots[Math.floor(this.rng() * S.spots.length)];
     const y = sky ? -1.5 : A.platformTop - 0.4;
     this.addProp(kind, x, y);
@@ -1250,7 +1256,8 @@ export class Sim {
     const W = att.kind === 'stick' ? att.part.weapon ?? T.stick : T.fist, own = att.kind === 'stick' ? att.part.weapon : undefined;
     const impact = impactValue(closing, W.impactFactor) * (own?.spear && !f.grip ? T.special.spearThrown : 1); // (a spear thrown point-first)
     this.tryDisarm(f, victim, vp, pt, impact, nx, ny, sa, sb); // a great hit on the hand or arm can knock the club out
-    let dmg = damageFor(impact, head ? T.combat.headMult : 1);
+    const punch = att.kind === 'fist' && f.punch > 0 && !f.grip; // a quick punch (owner: it knocks a rival away more than it hurts)
+    let dmg = damageFor(impact, head ? T.combat.headMult : 1) * (punch ? T.punch.hurt : 1);
     if (dmg <= 0) return;
     // A huge club blow to a limb takes the limb, not the life: the victim is left with a few HP (unless they were already nearly dead).
     const maiming = att.kind === 'stick' && impact >= T.maim.impact && !head && ['upper', 'fore', 'thigh', 'shin'].includes(vp.role);
@@ -1264,6 +1271,7 @@ export class Sim {
     const killing = victim.hp <= 0;
     const k = knockbackFor(impact) * (att.kind === 'fist' ? T.fist.knockbackMul : 1) * (own?.push ?? 1), pull = own?.pull ? -1 : 1; // punches shove much less than a club; a shield shoves more; the gravity hammer pulls
     shove(victim, pull * nx * k, pull * ny * k - impact * T.combat.knockbackUp);
+    if (punch) { const m = fighterMass(victim); shove(victim, (Math.sign(nx) || f.side) * T.punch.knock * m, -T.punch.lift * m); } // ...back, and a little off their feet
     if (!killing) this.knockdown(victim, impact, nx);
     // A hit tips the victim backward (head swings away from the blow) a little: smooth and funny, not a random flip.
     victim.torso.body.applyTorqueImpulse(-Math.sign(nx || 1) * impact * T.combat.spinScale * (0.8 + 0.4 * this.rng()), true);

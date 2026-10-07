@@ -55,6 +55,7 @@ export const tuning = {
     tower: null as null | { x: number; w: number }, // a water tower's tank (see tuning.tower): from x, w wide, its top at the platform top: shoot its side and it leaks
     wind: null as null | { base: number; gust: number; dir: -1 | 1 }, // a windy map (see tuning.wind): a steady `base` m/s plus gusts up to `gust` more, blowing toward dir
     noWeapons: false, // nobody starts armed, nothing lies about and no pickups come (the train: fists and throws)
+    gunsOnly: false, // nobody starts armed and only the era's guns drop in, early and often (eras.ts gunsOnly; tuning.spawn.gunsFirst, gunsGap)
     train: null as null | { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }, // a train map (see tuning.train): things pass at speed (m/s), each at its second `at` of every `cycle` seconds
     chase: null as null | { speed: number; mammothX: number; obstacles: string[]; gap: number }, // a treadmill map (see tuning.chase): the floor slides left at speed (m/s) toward a mammoth at mammothX; obstacles (props.ts kinds) ride in from the right, gap metres apart
     fires: [] as { x: number; w: number; up: number }[], // fires (see tuning.fire): flames from x, w wide, on the ground (up = 0) or a ledge `up` m higher
@@ -400,13 +401,18 @@ export const tuning = {
     // Unarmed left-click, TAPPED: a quick thrown punch with no wind-up. The arm whips straight out along the aim and the body leans in.
     // (Held instead of tapped, it becomes a grab: see grab below.) Angles are for a fighter facing right (mirrored when facing left).
     power: 0.7, // strength of a punch (1 = the old full-hold punch)
-    strikeFrames: 10, // throw forward
-    recoverFrames: 12, // before you can punch again
+    strikeFrames: 7, // throw forward (was 10: quicker, owner 2026-10-07)
+    recoverFrames: 8, // before you can punch again (was 12)
     guardUpper: 1.0, // resting guard: upper arm hanging down in front...
     guardElbow: -2.0, // ...forearm folded up, fist at the chest
     torqueMul: 2.5, // arm strength during a full-power throw
     strikeImpulse: 0.8, // extra shove on the fist each frame of a full-power throw
-    lunge: 35, // push the whole body forward into a full-power punch
+    lunge: 70, // push the whole body forward into a full-power punch (was 35: a quick punch now reaches about 1.2 m, chest to chest)
+    // What a quick punch does to the one it lands on (owner, 2026-10-07: like Stick Fight, the punch is for knocking a rival away from a gun,
+    // more than for hurting them). PLACEHOLDER numbers.
+    knock: 3.5, // m/s: it knocks them back this fast (away from the puncher), however hard it landed: about 2.5-3 m back
+    lift: 1.5, // m/s: ...and this much up, off their feet a little
+    hurt: 0.5, // share of a fist's usual damage it does
   },
   grab: {
     // Unarmed left-click, HELD: your hand reaches out along the aim and grabs whatever part of a fighter it touches.
@@ -422,6 +428,7 @@ export const tuning = {
     thrownFrames: 90, // for this long after being flung (1.5 s) a hard crash hurts
     slamFactor: 2.6, // damage factor for a flung or held fighter crashing into the floor, a wall or another fighter: impact = crash speed (m/s) x this (was 2.0: owner wants throws into walls and swings into the ground to count as body slams)
     slamCooldown: 12, // frames between two crash hits on the same thrown fighter
+    throwDisarms: true, // a fighter flung out of your hands drops what they were holding (owner: grab and throw someone to take the gun off them)
   },
   disarm: {
     // A great hit can knock a club out of an opponent's hand. Where it lands matters: the hand (and the grip end of the club) is the
@@ -439,10 +446,12 @@ export const tuning = {
   spawn: {
     enabled: true, // weapons keep arriving during a round (owner: on for the first playtest night; false = off, to tune the fighting without extra weapons)
     // Weapons keep arriving during a round, faster and better as it goes on (so rounds finish by themselves). Each era's pickups are in eras.ts.
-    firstGap: 480, // frames from one spawn to the next at the start of a round (8 s)
+    firstGap: 300, // frames from one spawn to the next at the start of a round (5 s; was 8 s for minute-long rounds: rounds are about 20 s now)
     minGap: 150, // ...shrinking to this by rampFrames (2.5 s)
-    rampFrames: 3600, // a minute
-    strongAfterFrames: 1500, // the era's strong pickup can only appear after this (25 s)
+    rampFrames: 1800, // half a minute
+    strongAfterFrames: 720, // the era's strong pickups can only appear after this (12 s)
+    gunsFirst: 60, // a guns-only arena (eras.ts gunsOnly): the first gun drops this soon (1 s)...
+    gunsGap: 150, // ...and another every this many frames (2.5 s): everyone races for them
     strongChance: 0.6, // once it can appear, this share of spawns are the strong one
     maxLoose: 6, // never more pickups lying around than this
     airdropChance: 0.5, // a spawn falls from the sky (otherwise it appears at one of the fixed spots)

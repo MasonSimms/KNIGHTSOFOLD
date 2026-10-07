@@ -29,6 +29,7 @@ describe('era gameplay: weapon and arena', () => {
     const A = sim.arena;
     const w = weaponById(A.weapon || era.weapon); // (a map can have its own: Standing Stones has stone axes)
     expect(sim.weapon.id).toBe(w.id);
+    if (A.gunsOnly) { for (const f of sim.fighters) expect(f.grip, 'a guns-only arena: bare hands').toBeNull(); return; }
     for (const f of sim.fighters) {
       expect(f.stick!.weapon!.id).toBe(w.id);
       const shape = f.stick!.shapes[0];
@@ -116,8 +117,10 @@ describe('era gameplay: weapon and arena', () => {
     const log = await run();
     expect(log.length).toBe(T.spawn.maxLoose); // nobody picks anything up here, so it stops at the cap
     expect(log[0].f).toBe(T.spawn.firstGap);
-    expect(log.filter((s) => s.kind === 'boat-hook').every((s) => s.f >= T.spawn.strongAfterFrames)).toBe(true);
-    expect(log.some((s) => s.kind === 'boat-hook')).toBe(true);
+    const pirates = eras.find((e) => e.id === 'pirates')!, strong = pirates.pickups!.slice(-(pirates.strong ?? 1)); // (the era's strong ones: only later in a round)
+    expect(log.filter((s) => strong.includes(s.kind)).every((s) => s.f >= T.spawn.strongAfterFrames)).toBe(true);
+    expect(log.some((s) => strong.includes(s.kind))).toBe(true);
+    expect(new Set(log.map((s) => s.kind)).size).toBeGreaterThan(2); // (any of the era's pickups, not only the first and the last)
     const gaps = log.slice(1).map((s, i) => s.f - log[i].f);
     expect(gaps[gaps.length - 1]).toBeLessThan(gaps[0]); // more rapid over time
     expect(await run()).toEqual(log);
