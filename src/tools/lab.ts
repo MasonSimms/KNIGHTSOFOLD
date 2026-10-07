@@ -80,7 +80,7 @@ export function report(o: LabOptions, rounds: Round[], minutes: number): string 
   L.push(`${rounds.length} rounds of ${o.players} bots (seeds ${o.seeds.join(', ')}), the real game: eras in order, weapons arriving, props on the maps. ` +
     `Took ${minutes.toFixed(1)} minutes to run. Bots are steadier than people: read this for outliers, not as the last word on feel.`, '');
   L.push('## The headlines', '');
-  L.push(`- **Round length:** ${secs(avg(all))} on average (half the rounds are under ${secs(median(all))}). The target is about a minute.`);
+  L.push(`- **Round length:** ${secs(avg(all))} on average (half the rounds are under ${secs(median(all))}). The target is about 20 s (owner, 2026-10-07).`);
   L.push(`- **How people die:** ${pct(knockoffs, deaths.length)} knocked or fallen off the stage, ${pct(deaths.length - knockoffs, deaths.length)} beaten down.`);
   L.push(`- **Rounds nobody won in ${o.capSeconds} s** (stopped by the lab): ${capped} of ${rounds.length}.`);
   L.push(`- **Draws** (the last two went down together): ${rounds.filter((r) => r.winner === -1).length}.`, '');

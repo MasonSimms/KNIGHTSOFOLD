@@ -538,6 +538,7 @@ export const tuning = {
     steady: 0.15, // how quickly the hand steadies a gun on the aim (share of the error corrected each frame)
     bounceKeep: 0.5, // a falling shot (a lobbed grenade round) keeps this share of its speed when it bounces
     brace: { spring: 300, damping: 30 }, // the other hand steadying a gun on the aim: how hard it turns the barrel toward the aim (1/s²), and how much it calms its swing (1/s)
+    hurt: 2.6, // a gun's shots and blasts hurt this many times the damage curve (combat.damageScale went from 0.3 to 0.115 for 20 s rounds: guns stay as deadly as they were; fists, clubs and slams take longer)
     sprayMax: 8, // a held trigger or a burst wanders more each shot (props.ts spreadPerShot), up to this many shots' worth
   },
   water: {
@@ -568,6 +569,8 @@ export const tuning = {
     sinkFloat: 0.3, // ...a fighter whose time has run out: going under
     bodyHalf: 0.16, drag: 12, spinDrag: 6, // (as tuning.water: tar is much thicker)
     frames: 180, // how long you can stay in it (3 s; back on the ground it starts again)
+    wetAt: 0.1, // ...counting while this much of you is in it (any of you: bobbing at the edge half out still counts)
+    swallow: 60, // once you start to sink, this long later the tar has you, even clinging to its edge (frames)
     walk: 0.35, // your paddling speed in it, as a share of walking
     kick: 0.6, // the kick out of it, as a share of a normal jump (weak: a pit's edge should be low)
     drownDepth: 1.1, // sinking this far below the surface finishes you (m)
@@ -703,7 +706,7 @@ export const tuning = {
   },
   combat: {
     impactMin: 10, // below this nothing happens (resting contact never hurts)
-    damageScale: 0.3,
+    damageScale: 0.115, // how much every hit hurts (was 0.3: owner wants 20 s rounds, 2026-10-07; guns are scaled back up by tuning.guns.hurt so they stay as deadly)
     damageExp: 1.5, // 1 = damage grows in a straight line with impact; above 1, big committed swings are worth disproportionately more
     damageMax: 100,
     knockbackScale: 0.9, // how hard a hit shoves the victim
@@ -766,6 +769,7 @@ export const tuning = {
     resultFrames: 150, // how long the result is shown before the next round starts (2.5 s)
     rounds: 12, // a match: one round per era (owner). A tie at the top after the last one plays extra rounds until someone leads
     crownFrames: 480, // how long the crown screen shows the winner before everyone goes back to the Hall (8 s)
+    suddenDeath: { after: 2700, rate: 2 }, // a round still going after `after` frames (45 s) drains everyone left: `rate` x the seconds since, a second (2: all 100 hidden health gone in 10 s)
   },
   respawn: {
     frames: 120,

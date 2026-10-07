@@ -67,7 +67,7 @@ const decodeItem = (e: { v: number; victim: number }): Item => (e.v < 0 ? { kind
 /** What killed a fighter, so the death can be staged to fit (crushed, blown apart, a limb lost). */
 /** A training change at frame f: an item dropped in at (x, y), or (no item) the loose things cleared away. */
 export interface Edit { f: number; item?: string; x?: number; y?: number }
-export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam' | 'shot' | 'crush' | 'fire' | 'blast'; part?: Part; head?: boolean; nx: number; ny: number }
+export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam' | 'shot' | 'crush' | 'fire' | 'blast' | 'time'; part?: Part; head?: boolean; nx: number; ny: number }
 
 export class Sim {
   frame = 0;
@@ -456,7 +456,7 @@ export class Sim {
    *  breakable scenery breaks. `by`: who threw it. */
   /** A blast at (x, y) (a grenade; a gun's `blast`, props.ts): everything near is thrown outward and hurt, less further out. `spare`: the one
    *  it throws but never hurts (who fired it). */
-  blast(x: number, y: number, by: number, o = { radius: T.special.blastRadius, push: T.special.blastPush, impact: T.special.blastImpact }, spare = -1): void {
+  blast(x: number, y: number, by: number, o: { radius: number; push: number; impact: number; hurt?: number } = { radius: T.special.blastRadius, push: T.special.blastPush, impact: T.special.blastImpact }, spare = -1): void {
     const B = T.special, R = o.radius;
     const push = (b: RAPIER.RigidBody): number => {
       const t = b.translation(), dx = t.x - x, dy = t.y - y, d = Math.hypot(dx, dy);
@@ -470,16 +470,16 @@ export class Sim {
       for (const p of f.parts) near = Math.min(near, push(p.body));
       if (f.limp || near > R || f.index === spare) continue;
       const impact = o.impact * (1 - near / R), t = f.torso.body.translation();
-      this.wound(f, damageFor(impact), impact, t.x, t.y, by, false, true, { how: 'blast', nx: Math.sign(t.x - x) || 1, ny: -0.5 });
+      this.wound(f, damageFor(impact) * (o.hurt ?? 1), impact, t.x, t.y, by, false, true, { how: 'blast', nx: Math.sign(t.x - x) || 1, ny: -0.5 });
     }
     for (const p of [...this.props]) { const d = push(p.body); if (d < R && p.hp !== undefined && this.props.includes(p)) damageScenery(this, p, o.impact * B.blastScenery * (1 - d / R)); }
   }
 
   /** Fire's damage (fire.ts): a little hidden health at a time, no stagger; it can finish you. */
-  scorch(f: Fighter, dmg: number): void {
+  scorch(f: Fighter, dmg: number, how: Cause['how'] = 'fire'): void {
     if (f.limp) return;
     f.hp -= dmg;
-    if (f.hp <= 0) this.kill(f, false, 0, { how: 'fire', nx: 0, ny: 0 });
+    if (f.hp <= 0) this.kill(f, false, 0, { how, nx: 0, ny: 0 });
   }
   /** After a bullet hit a fighter: a hold breaks on a big one, a knockdown, or the end. */
   afterShot(v: Fighter, impact: number, dx: number): void {
@@ -613,6 +613,8 @@ export class Sim {
     moveBullets(this);
     applyJets(this);
     applyFire(this);
+    const SD = T.match.suddenDeath, late = (this.frame - SD.after) * T.sim.dt; // sudden death: a round still going this late drains everyone left, faster and faster (none runs for ever)
+    if (late > 0 && !this.dummy && !this.roundOver) for (const f of this.fighters) if (f.controlled && !f.limp) this.scorch(f, SD.rate * late * T.sim.dt, 'time');
     this.checkDeaths();
     this.snapshot();
   }
@@ -1356,7 +1358,7 @@ export class Sim {
     for (const f of this.fighters.slice()) {
       const t = f.torso.body.translation();
       if (!f.limp && (t.y > A.killY || t.x < -A.killXMargin || t.x > A.viewW + A.killXMargin)) this.kill(f, true);
-      else if (!f.limp && f.sinking && t.y > surfaceY(A, this.frame, t.x) + (f.tar ? T.tar : T.swim).drownDepth) this.kill(f, true); // went under: a knock-off
+      else if (!f.limp && f.sinking && (t.y > surfaceY(A, this.frame, t.x) + (f.tar ? T.tar : T.swim).drownDepth || (f.tar && f.wetFrames >= T.tar.frames + T.tar.swallow))) this.kill(f, true); // went under (or the tar has them, clinging to its edge or not): a knock-off
       if (!this.matchActive && f.limp && this.frame - f.deadAt >= T.respawn.frames) { this.respawn(f); this.events.push({ t: 'respawn', x: f.spawnX, y: f.spawnY, v: 0, owner: f.index, victim: -1 }); } // alone, you respawn; in a fight you stay down
     }
     if (this.matchActive) this.updateRound();

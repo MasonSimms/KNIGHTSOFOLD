@@ -103,7 +103,7 @@ export function applyWater(A: Arena, frame: number, fighters: Fighter[], props: 
       if (p === f.torso) { f.wet = under; f.tar = W === T.tar; }
     }
     if (f.limp) continue;
-    if (f.wet > T.swim.wetAt && !f.grounded) { if (++f.wetFrames >= (f.tar ? T.tar.frames : T.swim.frames)) f.sinking = true; }
+    if (f.wet > (f.tar ? T.tar.wetAt : T.swim.wetAt) && (!f.grounded || f.tar)) { if (++f.wetFrames >= (f.tar ? T.tar.frames : T.swim.frames)) f.sinking = true; } // (in tar a foot on the side of the pit is not out of it)
     else if (f.grounded) f.wetFrames = 0;
   }
   for (const p of props) { const W = liquidAt(A, p.body.translation().x); if (W) floatBody(A, frame, p.body, W.propFloat, W); }

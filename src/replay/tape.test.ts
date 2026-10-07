@@ -84,7 +84,7 @@ describe('the end-of-round replay', () => {
           copy.world.free();
         }
       }
-      expect(clips).toBeGreaterThan(10);
+      expect(clips).toBeGreaterThan(6); // (rounds are about 20 s now)
     } finally { T.spawn.enabled = saved2.sp; T.props.lying = saved2.ly; T.eras.mixStarts = saved2.mx; }
   }, 300_000);
 

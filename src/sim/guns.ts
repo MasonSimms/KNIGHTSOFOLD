@@ -184,7 +184,7 @@ function strike(sim: Sim, u: Bullet, c: Collider, dx: number, dy: number, nx: nu
   }
   if (holder && !holder.limp) { // a fighter
     const head = c === holder.headCollider || part.role === 'head';
-    const dmg = damageFor(u.impact, head ? T.combat.headMult : 1);
+    const dmg = damageFor(u.impact, head ? T.combat.headMult : 1) * G.hurt; // (guns keep their deadliness as health goes up: tuning.guns.hurt)
     holder.hp -= dmg;
     holder.stun = T.combat.stunFrames;
     shove(holder, dx * u.push, dy * u.push);
@@ -239,7 +239,7 @@ function land(sim: Sim, u: Bullet, S: GunSpec, c: Collider | undefined): void {
 /** A shell goes off where it is: the blast (world.ts), seen and heard everywhere ('boom' with no grenade to take away). */
 function explode(sim: Sim, u: Bullet, S: GunSpec): void {
   sim.events.push({ t: 'boom', x: u.x, y: u.y, v: S.blast!.radius, owner: -1, victim: -1 });
-  sim.blast(u.x, u.y, u.owner, S.blast!, S.selfBlast ? -1 : u.owner);
+  sim.blast(u.x, u.y, u.owner, { ...S.blast!, hurt: T.guns.hurt }, S.selfBlast ? -1 : u.owner);
 }
 
 /** A wooden thing takes a bullet: a crack, or, shot enough, it snaps in two. */

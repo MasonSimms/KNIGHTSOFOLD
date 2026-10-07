@@ -1,113 +1,11 @@
 # Balance lab: 4-player brawls
 
-72 rounds of 4 bots (seeds 101, 102, 103), the real game: eras in order, weapons arriving, props on the maps. Took 0.8 minutes to run. Bots are steadier than people: read this for outliers, not as the last word on feel.
+72 rounds of 4 bots (seeds 101, 102, 103), the real game: eras in order, weapons arriving, props on the maps. Took 1.3 minutes to run. Bots are steadier than people: read this for outliers, not as the last word on feel.
 
 ## The headlines
 
-- **Round length:** 11 s on average (half the rounds are under 10 s). The target is about a minute.
-- **How people die:** 17% knocked or fallen off the stage, 83% beaten down.
-- **Rounds nobody won in 180 s** (stopped by the lab): 0 of 72.
-- **Draws** (the last two went down together): 2.
-
-## Eras and maps
-
-| Era | Map | Rounds | Average length | Longest | Knocked off | Hits per round |
-|---|---|---|---|---|---|---|
-| Cavemen | Mammoth Chase | 2 | 7 s | 9 s | 17% | 29 |
-| Ancient Egypt | Pyramid Steps | 3 | 8 s | 9 s | 11% | 30 |
-| Mobsters | main | 4 | 11 s | 16 s | 15% | 35 |
-| Vikings | main | 6 | 11 s | 13 s | 28% | 34 |
-| Medieval Knights | main | 6 | 14 s | 19 s | 0% | 39 |
-| Pirates | Ship Deck | 3 | 17 s | 22 s | 0% | 46 |
-| The Wild West | Water Tower | 1 | 12 s | 12 s | 0% | 19 |
-| World War I | main | 6 | 12 s | 27 s | 39% | 35 |
-| Fantasy Archers | main | 5 | 15 s | 26 s | 0% | 33 |
-| Modern Warfare | main | 6 | 11 s | 17 s | 17% | 36 |
-| Space Age | main | 6 | 11 s | 19 s | 17% | 30 |
-| Cavemen | Campfire Clearing | 1 | 12 s | 12 s | 0% | 16 |
-| Roman Gladiators | main | 2 | 11 s | 13 s | 17% | 35 |
-| Samurai Knights | Rope Bridge | 2 | 4 s | 4 s | 33% | 17 |
-| Pirates | Ship to Ship | 1 | 7 s | 7 s | 0% | 20 |
-| The Wild West | main | 2 | 8 s | 8 s | 33% | 30 |
-| Vietnam | main | 5 | 8 s | 20 s | 20% | 32 |
-| Cavemen | main | 1 | 6 s | 6 s | 33% | 21 |
-| Ancient Egypt | main | 1 | 18 s | 18 s | 0% | 53 |
-| Roman Gladiators | Lion's Pit | 3 | 6 s | 9 s | 20% | 18 |
-| The Wild West | Saloon | 1 | 20 s | 20 s | 0% | 27 |
-| Samurai Knights | main | 2 | 8 s | 10 s | 17% | 34 |
-| Cavemen | Tar Pit | 2 | 9 s | 15 s | 0% | 24 |
-| The Wild West | Train | 1 | 3 s | 3 s | 67% | 9 |
-
-## What finished people off
-
-The last thing that hurt someone before they died (falling counts if they were hit in the 4 seconds before).
-
-| Cause | Deaths | Share | Of those, knocked off |
-|---|---|---|---|
-| punches | 69 | 32% | 7% |
-| Bone Club | 13 | 6% | 8% |
-| Trench Shovel | 13 | 6% | 38% |
-| slams and crashes | 12 | 6% | 8% |
-| Battle Axe | 11 | 5% | 36% |
-| Longsword | 11 | 5% | 0% |
-| Longbow (as a staff) | 11 | 5% | 0% |
-| Katana | 10 | 5% | 20% |
-| Energy Staff | 9 | 4% | 33% |
-| Gladius | 9 | 4% | 22% |
-| Khopesh | 6 | 3% | 17% |
-| Cutlass | 5 | 2% | 0% |
-| Rifle (as a club) | 5 | 2% | 20% |
-| Machete | 5 | 2% | 20% |
-| Baseball Bat | 4 | 2% | 25% |
-| Riot Baton | 4 | 2% | 0% |
-| Crate | 3 | 1% | 0% |
-| Plank | 3 | 1% | 67% |
-| fell on their own | 3 | 1% | 100% |
-| stomps | 3 | 1% | 33% |
-| Plasma Blade | 2 | 1% | 0% |
-| body collisions | 2 | 1% | 50% |
-| Grenade | 1 | 0% | 100% |
-| Log | 1 | 0% | 0% |
-| Stool | 1 | 0% | 0% |
-| Tusk | 1 | 0% | 0% |
-| Barrel | 1 | 0% | 100% |
-
-## Each era's own weapon
-
-How often the era's weapon (the one everyone starts with) finishes someone, per round of that era.
-
-| Era | Weapon | Rounds | Kills by it per round |
-|---|---|---|---|
-| Cavemen | Bone Club | 6 | 2.17 |
-| Ancient Egypt | Khopesh | 4 | 1.50 |
-| Mobsters | Baseball Bat | 4 | 1.00 |
-| Vikings | Battle Axe | 6 | 1.83 |
-| Medieval Knights | Longsword | 6 | 1.83 |
-| Pirates | Cutlass | 4 | 1.25 |
-| The Wild West | Rifle (as a club) | 5 | 1.00 |
-| World War I | Trench Shovel | 6 | 2.17 |
-| Fantasy Archers | Longbow (as a staff) | 5 | 2.20 |
-| Modern Warfare | Riot Baton | 6 | 0.67 |
-| Space Age | Energy Staff | 6 | 1.50 |
-| Roman Gladiators | Gladius | 5 | 1.80 |
-| Samurai Knights | Katana | 4 | 2.50 |
-| Vietnam | Machete | 5 | 1.00 |
-
-## Things worth a look
-
-- Samurai Knights (Rope Bridge) rounds are over very fast: 4 s on average, against 11 s overall.
-
-
----
-
-# Balance lab: 1 v 1 duels
-
-72 rounds of 2 bots (seeds 201, 202, 203), the real game: eras in order, weapons arriving, props on the maps. Took 0.3 minutes to run. Bots are steadier than people: read this for outliers, not as the last word on feel.
-
-## The headlines
-
-- **Round length:** 7 s on average (half the rounds are under 6 s). The target is about a minute.
-- **How people die:** 17% knocked or fallen off the stage, 83% beaten down.
+- **Round length:** 16 s on average (half the rounds are under 14 s). The target is about 20 s (owner, 2026-10-07).
+- **How people die:** 50% knocked or fallen off the stage, 50% beaten down.
 - **Rounds nobody won in 180 s** (stopped by the lab): 0 of 72.
 - **Draws** (the last two went down together): 0.
 
@@ -115,30 +13,29 @@ How often the era's weapon (the one everyone starts with) finishes someone, per 
 
 | Era | Map | Rounds | Average length | Longest | Knocked off | Hits per round |
 |---|---|---|---|---|---|---|
-| Cavemen | main | 2 | 8 s | 10 s | 0% | 13 |
-| Ancient Egypt | Pyramid Steps | 2 | 5 s | 7 s | 0% | 11 |
-| Roman Gladiators | Lion's Pit | 5 | 3 s | 5 s | 40% | 6 |
-| Vikings | main | 6 | 7 s | 14 s | 17% | 14 |
-| Medieval Knights | main | 5 | 5 s | 10 s | 0% | 10 |
-| Samurai Knights | main | 2 | 7 s | 9 s | 0% | 14 |
-| Pirates | Ship Deck | 2 | 9 s | 14 s | 0% | 14 |
-| The Wild West | main | 2 | 13 s | 16 s | 50% | 10 |
-| World War I | main | 5 | 6 s | 11 s | 0% | 13 |
-| Vietnam | main | 5 | 5 s | 7 s | 0% | 15 |
-| Modern Warfare | main | 5 | 8 s | 20 s | 20% | 13 |
-| Space Age | main | 5 | 5 s | 9 s | 0% | 13 |
-| Ancient Egypt | main | 3 | 4 s | 5 s | 33% | 6 |
-| Samurai Knights | Rope Bridge | 3 | 2 s | 4 s | 0% | 4 |
-| Pirates | Ship to Ship | 4 | 8 s | 16 s | 0% | 13 |
-| The Wild West | Saloon | 1 | 15 s | 15 s | 0% | 10 |
-| Mobsters | main | 7 | 12 s | 25 s | 43% | 13 |
-| Cavemen | Campfire Clearing | 2 | 6 s | 7 s | 50% | 5 |
-| Cavemen | Standing Stones | 1 | 9 s | 9 s | 0% | 15 |
-| Roman Gladiators | main | 1 | 8 s | 8 s | 0% | 21 |
-| The Wild West | Train | 1 | 11 s | 11 s | 100% | 18 |
-| Cavemen | Tar Pit | 1 | 7 s | 7 s | 0% | 9 |
-| Fantasy Archers | main | 1 | 10 s | 10 s | 100% | 25 |
-| The Wild West | Water Tower | 1 | 12 s | 12 s | 0% | 14 |
+| Cavemen | Mammoth Chase | 2 | 31 s | 52 s | 50% | 45 |
+| Ancient Egypt | Pyramid Steps | 4 | 12 s | 17 s | 25% | 64 |
+| Mobsters | main | 5 | 17 s | 35 s | 67% | 58 |
+| Vikings | main | 6 | 13 s | 21 s | 78% | 50 |
+| Medieval Knights | main | 6 | 12 s | 15 s | 44% | 57 |
+| Pirates | Ship Deck | 4 | 19 s | 21 s | 0% | 75 |
+| The Wild West | Water Tower | 1 | 14 s | 14 s | 0% | 66 |
+| World War I | main | 6 | 20 s | 35 s | 33% | 62 |
+| Fantasy Archers | main | 6 | 17 s | 50 s | 50% | 52 |
+| Modern Warfare | main | 5 | 16 s | 38 s | 40% | 62 |
+| Space Age | main | 5 | 16 s | 25 s | 53% | 62 |
+| Cavemen | Vine Ravine | 1 | 3 s | 3 s | 100% | 8 |
+| Roman Gladiators | main | 2 | 22 s | 26 s | 33% | 78 |
+| The Wild West | main | 2 | 21 s | 23 s | 50% | 58 |
+| Vietnam | main | 5 | 17 s | 38 s | 60% | 68 |
+| Cavemen | main | 1 | 6 s | 6 s | 100% | 37 |
+| Ancient Egypt | main | 1 | 18 s | 18 s | 0% | 80 |
+| Roman Gladiators | Lion's Pit | 3 | 7 s | 11 s | 56% | 27 |
+| Samurai Knights | Rope Bridge | 1 | 4 s | 4 s | 100% | 19 |
+| The Wild West | Saloon | 1 | 47 s | 47 s | 0% | 94 |
+| Samurai Knights | main | 2 | 12 s | 16 s | 67% | 66 |
+| Cavemen | Tar Pit | 2 | 14 s | 18 s | 100% | 32 |
+| The Wild West | Train | 1 | 7 s | 7 s | 67% | 42 |
 
 ## What finished people off
 
@@ -146,29 +43,142 @@ The last thing that hurt someone before they died (falling counts if they were h
 
 | Cause | Deaths | Share | Of those, knocked off |
 |---|---|---|---|
-| punches | 27 | 38% | 19% |
-| Gladius | 4 | 6% | 25% |
-| Katana | 3 | 4% | 0% |
-| Crate | 3 | 4% | 33% |
-| slams and crashes | 3 | 4% | 0% |
-| Bone Club | 3 | 4% | 0% |
+| punches | 64 | 30% | 44% |
+| slams and crashes | 14 | 6% | 57% |
+| shot | 11 | 5% | 9% |
+| Bone Club | 11 | 5% | 100% |
+| Baseball Bat | 9 | 4% | 67% |
+| Battle Axe | 9 | 4% | 89% |
+| Longsword | 8 | 4% | 38% |
+| Gladius | 8 | 4% | 38% |
+| Trench Shovel | 8 | 4% | 50% |
+| Longbow (as a staff) | 7 | 3% | 43% |
+| Katana | 7 | 3% | 100% |
+| Energy Staff | 6 | 3% | 67% |
+| Khopesh | 6 | 3% | 17% |
+| Machete | 5 | 2% | 80% |
+| Crate | 4 | 2% | 75% |
+| stomps | 4 | 2% | 25% |
+| Cutlass | 4 | 2% | 0% |
+| Barrel | 3 | 1% | 67% |
+| fell on their own | 3 | 1% | 100% |
+| Log | 3 | 1% | 67% |
+| Sceptre | 3 | 1% | 0% |
+| crush | 2 | 1% | 0% |
+| Round Shield | 2 | 1% | 50% |
+| Gravity Hammer | 2 | 1% | 50% |
+| Stool | 2 | 1% | 0% |
+| body collisions | 2 | 1% | 100% |
+| Trident | 1 | 0% | 0% |
+| Bayonet Rifle | 1 | 0% | 0% |
+| Bayonet Knife | 1 | 0% | 0% |
+| Stave | 1 | 0% | 0% |
+| Smg | 1 | 0% | 0% |
+| Beanbag | 1 | 0% | 0% |
+| Rifle (as a club) | 1 | 0% | 100% |
+| Coach Gun | 1 | 0% | 0% |
+| Grenade | 1 | 0% | 0% |
+
+## Each era's own weapon
+
+How often the era's weapon (the one everyone starts with) finishes someone, per round of that era.
+
+| Era | Weapon | Rounds | Kills by it per round |
+|---|---|---|---|
+| Cavemen | Bone Club | 6 | 1.83 |
+| Ancient Egypt | Khopesh | 5 | 1.20 |
+| Mobsters | Baseball Bat | 5 | 1.80 |
+| Vikings | Battle Axe | 6 | 1.50 |
+| Medieval Knights | Longsword | 6 | 1.33 |
+| Pirates | Cutlass | 4 | 1.00 |
+| The Wild West | Rifle (as a club) | 5 | 0.20 |
+| World War I | Trench Shovel | 6 | 1.33 |
+| Fantasy Archers | Longbow (as a staff) | 6 | 1.17 |
+| Modern Warfare | Riot Baton | 5 | 0.00 |
+| Space Age | Energy Staff | 5 | 1.20 |
+| Roman Gladiators | Gladius | 5 | 1.60 |
+| Vietnam | Machete | 5 | 1.00 |
+| Samurai Knights | Katana | 3 | 2.33 |
+
+## Things worth a look
+
+- Nothing stood out.
+
+
+---
+
+# Balance lab: 1 v 1 duels
+
+72 rounds of 2 bots (seeds 201, 202, 203), the real game: eras in order, weapons arriving, props on the maps. Took 0.4 minutes to run. Bots are steadier than people: read this for outliers, not as the last word on feel.
+
+## The headlines
+
+- **Round length:** 11 s on average (half the rounds are under 9 s). The target is about 20 s (owner, 2026-10-07).
+- **How people die:** 59% knocked or fallen off the stage, 41% beaten down.
+- **Rounds nobody won in 180 s** (stopped by the lab): 0 of 72.
+- **Draws** (the last two went down together): 1.
+
+## Eras and maps
+
+| Era | Map | Rounds | Average length | Longest | Knocked off | Hits per round |
+|---|---|---|---|---|---|---|
+| Cavemen | main | 2 | 13 s | 14 s | 0% | 28 |
+| Ancient Egypt | Pyramid Steps | 2 | 4 s | 5 s | 100% | 8 |
+| Roman Gladiators | Lion's Pit | 4 | 8 s | 14 s | 75% | 17 |
+| Vikings | main | 5 | 14 s | 30 s | 67% | 20 |
+| Medieval Knights | main | 5 | 12 s | 29 s | 40% | 22 |
+| Samurai Knights | main | 3 | 9 s | 12 s | 67% | 18 |
+| Pirates | Ship Deck | 1 | 6 s | 6 s | 0% | 15 |
+| The Wild West | main | 2 | 15 s | 22 s | 100% | 15 |
+| World War I | main | 6 | 7 s | 9 s | 50% | 17 |
+| Vietnam | main | 5 | 9 s | 16 s | 60% | 18 |
+| Modern Warfare | main | 5 | 5 s | 6 s | 100% | 15 |
+| Space Age | main | 6 | 9 s | 12 s | 67% | 22 |
+| Ancient Egypt | main | 3 | 8 s | 11 s | 33% | 14 |
+| Samurai Knights | Rope Bridge | 2 | 4 s | 4 s | 100% | 5 |
+| Pirates | Ship to Ship | 4 | 16 s | 24 s | 0% | 27 |
+| The Wild West | Saloon | 1 | 46 s | 46 s | 100% | 41 |
+| Mobsters | main | 7 | 15 s | 28 s | 57% | 24 |
+| Cavemen | Campfire Clearing | 2 | 16 s | 24 s | 50% | 24 |
+| Cavemen | Standing Stones | 1 | 41 s | 41 s | 0% | 52 |
+| Roman Gladiators | main | 2 | 15 s | 18 s | 0% | 37 |
+| The Wild West | Train | 1 | 4 s | 4 s | 100% | 3 |
+| Cavemen | Mammoth Chase | 1 | 10 s | 10 s | 100% | 25 |
+| Fantasy Archers | main | 1 | 9 s | 9 s | 100% | 15 |
+| The Wild West | Rooftops | 1 | 5 s | 5 s | 100% | 7 |
+
+## What finished people off
+
+The last thing that hurt someone before they died (falling counts if they were hit in the 4 seconds before).
+
+| Cause | Deaths | Share | Of those, knocked off |
+|---|---|---|---|
+| punches | 15 | 21% | 87% |
+| shot | 6 | 8% | 33% |
+| Energy Staff | 5 | 7% | 80% |
+| Machete | 4 | 5% | 50% |
+| slams and crashes | 3 | 4% | 67% |
+| Bone Club | 3 | 4% | 33% |
+| Trident | 3 | 4% | 0% |
+| Longsword | 3 | 4% | 33% |
+| Katana | 3 | 4% | 67% |
+| fell on their own | 3 | 4% | 100% |
 | Baseball Bat | 3 | 4% | 33% |
-| Riot Baton | 3 | 4% | 0% |
-| Log | 2 | 3% | 50% |
-| Trench Shovel | 2 | 3% | 0% |
-| Machete | 2 | 3% | 0% |
+| stomps | 3 | 4% | 67% |
+| Battle Axe | 2 | 3% | 50% |
+| Crate | 2 | 3% | 100% |
+| Trench Shovel | 2 | 3% | 50% |
 | Khopesh | 2 | 3% | 50% |
-| Battle Axe | 2 | 3% | 0% |
-| Longsword | 2 | 3% | 0% |
-| Energy Staff | 2 | 3% | 0% |
-| Cutlass | 2 | 3% | 0% |
-| Gangplank | 1 | 1% | 0% |
-| fell on their own | 1 | 1% | 100% |
-| Stone Axe | 1 | 1% | 0% |
-| shot | 1 | 1% | 0% |
+| Gladius | 2 | 3% | 100% |
+| Log | 1 | 1% | 0% |
+| Cutlass | 1 | 1% | 0% |
+| Barrel | 1 | 1% | 100% |
+| Crowbar | 1 | 1% | 0% |
+| Tusk | 1 | 1% | 0% |
+| rope | 1 | 1% | 0% |
+| Revolver | 1 | 1% | 100% |
+| Mace | 1 | 1% | 0% |
 | Longbow (as a staff) | 1 | 1% | 100% |
-| Barrel | 1 | 1% | 0% |
-| Rifle (as a club) | 1 | 1% | 0% |
 
 ## Each era's own weapon
 
@@ -178,20 +188,20 @@ How often the era's weapon (the one everyone starts with) finishes someone, per 
 |---|---|---|---|
 | Cavemen | Bone Club | 6 | 0.50 |
 | Ancient Egypt | Khopesh | 5 | 0.40 |
-| Roman Gladiators | Gladius | 6 | 0.67 |
-| Vikings | Battle Axe | 6 | 0.33 |
-| Medieval Knights | Longsword | 5 | 0.40 |
+| Roman Gladiators | Gladius | 6 | 0.33 |
+| Vikings | Battle Axe | 5 | 0.40 |
+| Medieval Knights | Longsword | 5 | 0.60 |
 | Samurai Knights | Katana | 5 | 0.60 |
-| Pirates | Cutlass | 6 | 0.33 |
-| The Wild West | Rifle (as a club) | 5 | 0.20 |
-| World War I | Trench Shovel | 5 | 0.40 |
-| Vietnam | Machete | 5 | 0.40 |
-| Modern Warfare | Riot Baton | 5 | 0.60 |
-| Space Age | Energy Staff | 5 | 0.40 |
+| Pirates | Cutlass | 5 | 0.20 |
+| The Wild West | Rifle (as a club) | 5 | 0.00 |
+| World War I | Trench Shovel | 6 | 0.33 |
+| Vietnam | Machete | 5 | 0.80 |
+| Modern Warfare | Riot Baton | 5 | 0.00 |
+| Space Age | Energy Staff | 6 | 0.83 |
 | Mobsters | Baseball Bat | 7 | 0.43 |
 | Fantasy Archers | Longbow (as a staff) | 1 | 1.00 |
 
 ## Things worth a look
 
-- Samurai Knights (Rope Bridge) rounds are over very fast: 2 s on average, against 7 s overall.
+- Samurai Knights (Rope Bridge) rounds are over very fast: 4 s on average, against 11 s overall.
 

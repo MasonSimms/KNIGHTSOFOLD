@@ -107,7 +107,7 @@ describe('era gameplay: weapon and arena', () => {
     const run = async () => {
       const sim = await inEra('pirates', 2);
       const era = eras.find((e) => e.id === 'pirates')!, log: { f: number; kind: string }[] = [];
-      for (let i = 0; i < 4000; i++) {
+      for (let i = 0; i < T.match.suddenDeath.after - 60; i++) { // (before sudden death ends the round)
         sim.step([idle(), idle()]);
         for (const e of sim.events) if (e.t === 'spawn') log.push({ f: sim.frame, kind: Object.keys(PROPS)[e.v] });
         expect(sim.props.filter((p) => era.pickups!.includes(p.weapon!.id)).length).toBeLessThanOrEqual(T.spawn.maxLoose);

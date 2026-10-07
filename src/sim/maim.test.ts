@@ -95,7 +95,7 @@ describe('maiming: a huge hit to a limb takes it off and the fighter plays on', 
       maimed++;
       expect(f.limp).toBe(false);
       expect(f.hp).toBeGreaterThan(0);
-      expect(f.hp).toBeLessThanOrEqual(T.maim.leaveHp + 1);
+      expect(f.hp).toBeLessThan(T.fighter.hp - 20); // (it hurt; since the damage curve came down for 20 s rounds it no longer has to be held back to leave them alive)
       (sim as unknown as Maimable).kill(sim.fighters[1], true, 0); // end the round
       const round = sim.round;
       for (let i = 0; i < 300 && sim.round === round; i++) sim.step([idle(), idle()]);
