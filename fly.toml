@@ -24,6 +24,8 @@ primary_region = "iad"
     path = "/health"
     timeout = "5s"
 
+# A whole CPU core of its own (owner, 2026-10-07): a shared one is held to 6.25% of a core once its saved-up time runs out, and the
+# server then stops for the rest of every 80 ms (everyone stutters). About 4 cents an hour, only while the machine runs (it stops when idle).
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
+  size = "performance-1x"
+  memory = "2gb"
