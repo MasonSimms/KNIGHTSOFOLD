@@ -8,6 +8,10 @@ primary_region = "iad"
 [env]
   PORT = "8080"
   MAX_ROOMS = "6"
+  # The fast lane (server/fast.ts): WebRTC over UDP on this port, dialled on the app's dedicated IPv4 (fly ips list; $2 a month, owner
+  # 2026-10-07). UDP works only on a dedicated IPv4, not the shared one or IPv6. Change both if the address ever changes.
+  RTC_PORT = "7777"
+  RTC_PUBLIC_IP = "169.155.52.222"
 
 [http_service]
   internal_port = 8080
@@ -26,6 +30,13 @@ primary_region = "iad"
 
 # A whole CPU core of its own (owner, 2026-10-07): a shared one is held to 6.25% of a core once its saved-up time runs out, and the
 # server then stops for the rest of every 80 ms (everyone stutters). About 4 cents an hour, only while the machine runs (it stops when idle).
+# The fast lane's UDP (the server binds it on fly-global-services, as Fly.io needs for replies to go out right).
+[[services]]
+  internal_port = 7777
+  protocol = "udp"
+  [[services.ports]]
+    port = 7777
+
 [[vm]]
   size = "performance-1x"
   memory = "2gb"

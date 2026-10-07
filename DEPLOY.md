@@ -57,3 +57,12 @@ The page could live on Cloudflare Pages (free) with only the rooms on Fly.io (bu
 or everything on Render's free tier (no card, but it sleeps after 15 minutes and the first player then waits about 50 seconds).
 
 Deploy from committed code only (2026-10-07): `fly deploy` packs up the folder as it stands, including half-done edits from another window. When two windows work at once, deploy from a clean checkout of the last commit: `git worktree add --detach ..\deploy-tmp HEAD`, then `fly deploy` inside that folder, then `git worktree remove --force ..\deploy-tmp`. (The page and the server are always built together, so they match each other either way.)
+
+## The fast lane (UDP, 2026-10-07)
+
+Besides the WebSocket, each page opens a WebRTC data channel to the server (`server/fast.ts`, `src/net/fast.ts`): snapshots and inputs
+go both ways at once, and a lost message on the fast lane is simply skipped instead of holding everything up. Fly.io only does UDP on a
+**dedicated IPv4** (`169.155.52.222`, $2 a month: `fly ips list`), so `fly.toml` has a `[[services]]` block for UDP port 7777 and the
+address in `RTC_PUBLIC_IP`. If the address ever changes, change it there too. A page that cannot open the fast lane (a network that
+blocks UDP) plays over the WebSocket as before. The F3 overlay says which: `fast lane` or `WebSocket only`; so does each player's line in
+`fly logs`.
