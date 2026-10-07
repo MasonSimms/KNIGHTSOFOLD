@@ -1,7 +1,8 @@
 import { Application, BlurFilter, Container, Graphics, MeshRope, Point, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 import type { RenderTexture } from 'pixi.js';
-import { eraById } from '../content/eras';
+import { eraById, eras } from '../content/eras';
 import { COLORS, HATS } from '../content/looks';
+import { COSTUMES } from '../content/costumes';
 import { createOilFilter, setOilScale } from './oilpaint';
 import { createBackdrops } from './painter/backdrops';
 import { BOT_GRAYS, drawRobotHead } from './robot';
@@ -401,6 +402,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const playerColor = (i: number) => (sim.looks[i]?.bot ? BOT_GRAYS[i % BOT_GRAYS.length] : COLORS[sim.looks[i]?.color ?? i % COLORS.length].hex); // each player's chosen colour (a bot is a shade of gray)
   const fighterColor = (f: Fighter) => (f.controlled ? playerColor(f.index) : T.colors.dummy); // the training dummy has its own colour
 
+  /** The body a costume fits: the torso pill and, kept clear, the head. */
+  const costumeBody = () => ({ r: T.fighter.torsoRadius, hl: T.legs.torsoHalf, y: T.legs.torsoY, headY: T.fighter.headY, headR: T.fighter.headRadius });
   // Paint every lobby colour's body parts in idle moments after start-up, so picking a colour never stalls a round.
   const prewarm: (() => void)[] = [];
   const P0 = T.finish.paint, K0 = { relief: P0.relief, bristle: P0.bristle, jitter: P0.jitter, under: P0.under };
@@ -408,6 +411,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     const col = p.role === 'stick' ? T.colors.stick : p.role === 'off' ? mix(hex, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(hex, 0x000000, 0.18) : hex;
     if (s.k !== 'box') prewarm.push(() => paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0));
   }
+  // every era's costume, in the order a match plays them (round 1 needs the first at once); one per colour where it is dyed in the wearer's
+  for (const era of eras) if (COSTUMES[era.id]) for (const hex of COSTUMES[era.id].some((p) => p.c === 'player') ? [...COLORS.map((c) => c.hex), T.colors.dummy] : [0]) prewarm.push(() => paintedCostume(era.id, costumeBody(), hex, K0));
   for (const it of ITEMS) prewarm.push(() => paintedWeapon(it.id, it.spec.len, K0)); // every weapon's picture
   for (const hat of HATS) for (const c of COLORS) prewarm.push(() => { const k = new Container(); makeHat(hat, k, 0, 0, T.fighter.headRadius, c.hex); k.destroy({ children: true }); }); // and every hat (painted once; the cap, top hat and beanie per colour)
   // Only while nothing is being drawn (a menu is up): one job can take over 100 ms, a visible freeze in a fight. Anything still unpainted
@@ -476,7 +481,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const art = p.role === 'stick' || p.role === 'flail' ? addWeapon(k, p) : null;
         painted.push(art ? [art] : p.shapes.map((s, i) => addPainted(k, s, p.role === 'stick' && i > 0 && p.weapon?.gun ? T.colors.stick : shade)));
         if (p.role === 'torso' && !bot) { // the era's costume over the body, under the hat (a bot stays a plain robot, as with the cape)
-          const P = T.finish.paint, made = paintedCostume(sim.era, { r: T.fighter.torsoRadius, hl: T.legs.torsoHalf, y: T.legs.torsoY, headY: T.fighter.headY, headR: T.fighter.headRadius }, base, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+          const P = T.finish.paint, made = paintedCostume(sim.era, costumeBody(), base, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
           if (made) { const sp = new Sprite(made.tex[0]); sp.anchor.set(made.ax, made.ay); sp.scale.set(1 / PPM); k.addChild(sp); costume = { s: sp, tex: made.tex }; }
         }
         if (art) addWeapon(u, p, UNDER); else for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
