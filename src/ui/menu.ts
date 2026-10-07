@@ -18,10 +18,11 @@ export function openMenu(cls: string, html: string): HTMLElement {
 }
 export const closeMenu = (): void => document.getElementById('menu')?.remove();
 
-/** Paint an era's arena into a frame's canvas (with the painter the fight uses; kept in storage, so only the first visit waits). */
-export function hangPicture(canvas: HTMLCanvasElement, era: string, w: number, h: number): void {
+/** Paint an era's arena (its usual one, or map `map`) into a frame's canvas (with the painter the fight uses; kept in storage, so only the
+ *  first visit waits). */
+export function hangPicture(canvas: HTMLCanvasElement, era: string, w: number, h: number, map = 0): void {
   canvas.width = w; canvas.height = h;
-  paintPicture(era, geoOf(arenaFor(era, 0)), w, h).then((b) => { if (b) canvas.getContext('2d')!.drawImage(b, 0, 0, w, h); });
+  paintPicture(era, geoOf(arenaFor(era, map)), w, h).then((b) => { if (b) canvas.getContext('2d')!.drawImage(b, 0, 0, w, h); });
 }
 
 /** The wall is painted too: soft horizontal brush strokes, lighter and darker, on a tile that repeats without seams. */

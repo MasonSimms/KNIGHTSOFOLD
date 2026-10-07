@@ -241,6 +241,7 @@ let acc = 0, last = performance.now();
 let frames = 0, msSum = 0, simMsSum = 0, statTime = last;
 let lastInput: PlayerInput = NEUTRAL;
 let players = 1; // how many people are playing: 1 plus every gamepad beyond the first
+let downAt = -1; // training: the frame a player went down (the practice starts again half a second later)
 
 /** Show the menus (the fight waits underneath) until someone picks what to play. */
 async function menu(screen: 'home' | 'hall') {
@@ -259,7 +260,7 @@ async function menu(screen: 'home' | 'hall') {
     if (!seats) { screen = 'home'; continue; }
     mode = 'local'; devices = seats.map((s) => s.dev);
     sim.looks = [0, 1, 2, 3].map((i) => ({ ...(seats[i]?.look ?? { color: i, hat: 'none' as const, eyes: 'round' as const }) })); // (an unseated look carries no bot over from last time)
-    // Training keeps its own settings (the training menu: Tab); anything else plays as normal.
+    // Training keeps its own settings (the training menu: Esc); anything else plays as normal.
     if (hallTraining) { const t = loadTraining(); applyTraining(sim, t, seats.length === 1); speed = t.speed; }
     else { leaveTraining(sim, eraParam, mapParam === null ? null : Number(mapParam)); speed = slow; }
     mySlot = Math.max(0, devices.indexOf('kb'));
@@ -278,7 +279,7 @@ async function trainingMenu() {
   const r = await runTraining(sim, mySlot, sim.practising, (x) => { speed = x; });
   flushInput(); // (keys pressed in the panel do not reach the fight)
   last = performance.now(); acc = 0;
-  if (r === 'leave') { void menu('home'); return; }
+  if (r === 'lobby') { void menu('hall'); return; }
   paused = false;
 }
 
@@ -318,6 +319,7 @@ function frame(now: number) {
   // Esc (or Start on a gamepad) leaves the fight: back to the Hall with everyone still seated, or home from training.
   const startNow = pads.some((p) => !!p.buttons[9]?.pressed), leave = wasPressed('Escape') || (startNow && !startHeld);
   startHeld = startNow;
+  if (leave && mode === 'local' && hallTraining) { void trainingMenu(); return; } // (training: Esc is the training menu, which has the way back to the lobby)
   if (leave && mode !== 'auto') { void menu(mode === 'local' ? 'hall' : 'home'); return; }
   if (leave && net) { // online: the host can end the fight for everyone (back to the room); anyone can leave
     if (isHost && confirm('End the fight for everyone and go back to the room?')) net.send({ t: 'end' });
@@ -325,7 +327,7 @@ function frame(now: number) {
     flushInput(); last = performance.now(); acc = 0;
     return;
   }
-  // Tab (or Back on a gamepad) while training: the training settings.
+  // Tab (or Back on a gamepad) while training: the training menu too.
   const backNow = pads.some((p) => !!p.buttons[8]?.pressed), drill = wasPressed('Tab') || (backNow && !backHeld);
   backHeld = backNow;
   if (drill && mode === 'local' && hallTraining) { void trainingMenu(); return; }
@@ -356,7 +358,10 @@ function frame(now: number) {
     tape.feed(sim);
     const clip = tape.take();
     if (clip) pendingClip = clip;
-    if (sim.matchActive && sim.roundOver && !sim.matchOver && sim.roundFrames >= T.transition.freezeFrames) { void eraChange(); break; } // half a second after the last one fell: the museum (the fight waits)
+    if (mode === 'local' && hallTraining) { // training (owner): no museum and no replays; half a second after a player goes down (or the round is decided) it starts again
+      if (downAt < 0 && sim.matchActive && (sim.roundOver || devices.some((d, k) => d !== 'bot' && sim.fighters[k]?.limp))) downAt = sim.frame;
+      if (downAt >= 0 && sim.frame - downAt >= T.transition.freezeFrames) { downAt = -1; sim.reset(); break; }
+    } else if (sim.matchActive && sim.roundOver && !sim.matchOver && sim.roundFrames >= T.transition.freezeFrames) { void eraChange(); break; } // half a second after the last one fell: the museum (the fight waits)
   }
   if (acc >= T.sim.dt) acc = 0; // too far behind: drop the backlog instead of spiralling
   simMsSum += performance.now() - t0;
