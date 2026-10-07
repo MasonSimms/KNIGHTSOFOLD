@@ -5,13 +5,15 @@ export const COLORS: { name: string; hex: number }[] = [
   { name: 'Vermilion', hex: 0xd8402a }, { name: 'Ultramarine', hex: 0x2d5db0 }, { name: 'Cadmium', hex: 0xe8b931 }, { name: 'Viridian', hex: 0x2f9e6b },
   { name: 'Violet', hex: 0x8a4fd0 }, { name: 'Orange', hex: 0xe8812e }, { name: 'Rose', hex: 0xe86aa8 }, { name: 'Bone', hex: 0xe6dcc6 },
 ];
-export const HATS = ['none', 'helmet', 'plumed', 'crown', 'horns', 'jester', 'wizard', 'hennin', 'locks'] as const;
+// The hat slot holds hats, then hairstyles (natural colours, not the player's). Every old id is kept so saves and rooms stay valid.
+export const HATS = ['none', 'helmet', 'crown', 'horns', 'cap', 'tophat', 'cowboy', 'beanie', 'plumed', 'jester', 'wizard', 'hennin', 'locks', 'ponytail', 'braid', 'pigtails', 'mohawk', 'topknot', 'afro'] as const;
 export type Hat = (typeof HATS)[number];
-export const HAT_NAMES: Record<Hat, string> = { none: 'Bare', helmet: 'Great Helm', plumed: 'Plumed Helm', crown: 'Crown', horns: 'Horned Helm', jester: 'Jester Cap', wizard: 'Wizard Hat', hennin: 'Hennin & Veil', locks: 'Flowing Locks' };
-export const EYES = ['round', 'fierce', 'sleepy', 'googly', 'startled', 'sly', 'sad', 'cyclops'] as const;
+export const HAT_NAMES: Record<Hat, string> = { none: 'Bare', helmet: 'Great Helm', plumed: 'Plumed Helm', crown: 'Crown', horns: 'Horned Helm', jester: 'Jester Cap', wizard: 'Wizard Hat', hennin: 'Hennin & Veil', locks: 'Flowing Locks',
+  cap: 'Cap', tophat: 'Top Hat', cowboy: 'Stetson', beanie: 'Beanie', ponytail: 'Ponytail', braid: 'Long Braid', pigtails: 'Pigtails', mohawk: 'Mohawk', topknot: 'Topknot', afro: 'Afro' };
+export const EYES = ['round', 'fierce', 'sleepy', 'googly', 'startled', 'sly', 'sad', 'cyclops', 'bloodshot', 'walleyed'] as const;
 export type Eyes = (typeof EYES)[number];
-export const EYE_NAMES: Record<Eyes, string> = { round: 'Round', fierce: 'Fierce', sleepy: 'Sleepy', googly: 'Googly', startled: 'Startled', sly: 'Sly', sad: 'Sad', cyclops: 'Cyclops' };
-/** An id from outside (a test link, an old build): anything unknown, like the old cap, top hat, stetson or beanie, is Bare / Round. */
+export const EYE_NAMES: Record<Eyes, string> = { round: 'Round', fierce: 'Fierce', sleepy: 'Sleepy', googly: 'Googly', startled: 'Startled', sly: 'Sly', sad: 'Sad', cyclops: 'Cyclops', bloodshot: 'Bloodshot', walleyed: 'Wall-eyed' };
+/** An id from outside (a test link, an old build): anything unknown is Bare / Round. */
 export const asHat = (id: string): Hat => ((HATS as readonly string[]).includes(id) ? (id as Hat) : 'none');
 export const asEyes = (id: string): Eyes => ((EYES as readonly string[]).includes(id) ? (id as Eyes) : 'round');
 

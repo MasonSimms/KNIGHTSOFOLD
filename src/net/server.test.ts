@@ -255,7 +255,7 @@ describe('room server', () => {
     others[0].send({ t: 'look', color: 2, hat: 'a hat that does not exist', eyes: 'round' });
     expect((await others[0].wait('error')).why).toMatch(/not allowed/);
     others[0].clear();
-    others[0].send({ t: 'look', color: 2, hat: 'cap', eyes: 'googly' });
+    others[0].send({ t: 'look', color: 2, hat: 'cap', eyes: 'eyes that do not exist' });
     expect((await others[0].wait('error')).why).toMatch(/not allowed/);
     others[0].send({ t: 'look', color: 6, hat: 'horns', eyes: 'fierce' });
     await readyAll([host, ...others]);

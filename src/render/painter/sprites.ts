@@ -140,7 +140,7 @@ const lit = (g: Ctx, x: number, y: number, rad: number, light: string, base: str
 const STEEL = ['#C9CFD4', '#8A929B', '#4F555C'] as const, GOLD = ['#F6DC86', '#E2B33C', '#8C6A1C'] as const;
 /** The static parts of each hat (LOOKS_HANDOFF.md), drawn facing right in head radii; `P` turns a point into canvas px. The swaying parts
  *  (feather, jester points, wizard tip, veil, mane) are content/hats.ts. Returns the brush direction at a point (radians, 0 = across). */
-const HAT_SHAPES: Partial<Record<Hat, (g: Ctx, P: (x: number, y: number) => [number, number], s: number) => (x: number, y: number) => number>> = {
+const HAT_SHAPES: Partial<Record<Hat, (g: Ctx, P: (x: number, y: number) => [number, number], s: number, tint: number) => (x: number, y: number) => number>> = {
   helmet(g, P, s) { // a steel bucket over the whole head, a dark visor slot the eyes show through, a nose bar, breath holes
     const path = new Path2D();
     path.moveTo(...P(-1.07, 0.67)); path.lineTo(...P(-1.07, -0.7)); path.quadraticCurveTo(...P(-1.07, -1.27), ...P(0, -1.27)); path.quadraticCurveTo(...P(1.07, -1.27), ...P(1.07, -0.7)); path.lineTo(...P(1.07, 0.67)); path.closePath();
@@ -200,18 +200,103 @@ const HAT_SHAPES: Partial<Record<Hat, (g: Ctx, P: (x: number, y: number) => [num
     g.closePath(); g.fill();
     return () => Math.PI / 2; // hair hangs
   },
+  cap(g, P, s, tint) { // a peaked cap in a darker shade of the player's colour, the peak to the face side, a button on top
+    const c = hex(mixHex(tint, 0, 0.3)), l = hex(mixHex(tint, 0xffffff, 0.12)), d = hex(mixHex(tint, 0, 0.55));
+    g.fillStyle = lit(g, ...P(0.6, -0.26), 0.8 * s, c, c, d); g.beginPath(); g.moveTo(...P(0.3, -0.36)); g.quadraticCurveTo(...P(1.2, -0.42), ...P(1.58, -0.2)); g.quadraticCurveTo(...P(1.1, -0.12), ...P(0.3, -0.12)); g.closePath(); g.fill();
+    g.fillStyle = lit(g, ...P(0, -0.7), 1.02 * s, l, c, d); g.beginPath(); g.arc(...P(0, -0.2), 1.02 * s, Math.PI, Math.PI * 2); g.fill();
+    g.fillStyle = d; g.beginPath(); g.arc(...P(0, -1.22), 0.09 * s, 0, Math.PI * 2); g.fill();
+    return (x, y) => (y > -0.42 && x > 0.3 ? 0 : Math.atan2(y + 0.2, x) + Math.PI / 2);
+  },
+  tophat(g, P, s, tint) { // a black stovepipe on a black brim, a band in the player's colour, a faint highlight down one side
+    g.fillStyle = lit(g, ...P(-0.2, -1.6), 1 * s, '#3A3A3E', '#222224', '#0E0E10'); g.fillRect(...P(-0.68, -2.35), 1.36 * s, 1.52 * s);
+    g.fillStyle = 'rgba(200,200,210,0.28)'; g.fillRect(...P(-0.52, -2.3), 0.12 * s, 1.18 * s);
+    g.fillStyle = lit(g, ...P(0, -1.0), 0.8 * s, hex(mixHex(tint, 0xffffff, 0.15)), hex(tint), hex(mixHex(tint, 0, 0.4))); g.fillRect(...P(-0.68, -1.12), 1.36 * s, 0.26 * s);
+    g.fillStyle = lit(g, ...P(0, -0.84), 1.25 * s, '#38383C', '#1E1E20', '#0A0A0C'); g.beginPath(); g.ellipse(...P(0, -0.84), 1.2 * s, 0.13 * s, 0, 0, Math.PI * 2); g.fill();
+    return (_x, y) => (y < -0.95 ? Math.PI / 2 : 0);
+  },
+  cowboy(g, P, s) { // a leather crown with a pinched dent, a dark band, a wide curled brim low over the brow
+    g.fillStyle = lit(g, ...P(0, -1.3), 0.9 * s, '#B08A5C', '#8A6A44', '#4E3A22'); g.beginPath();
+    g.moveTo(...P(-0.72, -0.86)); g.lineTo(...P(-0.66, -1.62)); g.quadraticCurveTo(...P(-0.35, -1.8), ...P(0, -1.56)); g.quadraticCurveTo(...P(0.35, -1.8), ...P(0.66, -1.62)); g.lineTo(...P(0.72, -0.86)); g.closePath(); g.fill();
+    g.fillStyle = '#4A3220'; g.fillRect(...P(-0.72, -1.06), 1.44 * s, 0.18 * s);
+    g.fillStyle = lit(g, ...P(0, -0.8), 1.7 * s, '#A07C50', '#7A5C3A', '#3E2C18'); g.beginPath();
+    g.moveTo(...P(-1.67, -1.02)); g.quadraticCurveTo(...P(-1.1, -0.82), ...P(0, -0.86)); g.quadraticCurveTo(...P(1.1, -0.82), ...P(1.67, -1.02)); g.quadraticCurveTo(...P(1.3, -0.62), ...P(0, -0.66)); g.quadraticCurveTo(...P(-1.3, -0.62), ...P(-1.67, -1.02)); g.closePath(); g.fill();
+    return (_x, y) => (y < -1.06 ? Math.PI / 2 : 0);
+  },
+  beanie(g, P, s, tint) { // a ribbed knit dome in the player's colour, a darker ribbed cuff (the pom-pom bounces on its own)
+    g.fillStyle = lit(g, ...P(0, -0.75), 1.05 * s, hex(mixHex(tint, 0xffffff, 0.15)), hex(tint), hex(mixHex(tint, 0, 0.45))); g.beginPath(); g.arc(...P(0, -0.25), 1.05 * s, Math.PI, Math.PI * 2); g.fill();
+    g.strokeStyle = hex(mixHex(tint, 0, 0.3)); g.lineWidth = 0.05 * s;
+    for (let x = -0.8; x <= 0.81; x += 0.2) { g.beginPath(); g.moveTo(...P(x, -0.4)); g.lineTo(...P(x * 0.6, -0.25 - Math.sqrt(Math.max(0, 1.1 - x * x)) * 0.95)); g.stroke(); }
+    g.fillStyle = lit(g, ...P(0, -0.3), 1.1 * s, hex(mixHex(tint, 0, 0.15)), hex(mixHex(tint, 0, 0.3)), hex(mixHex(tint, 0, 0.55))); g.fillRect(...P(-1.07, -0.47), 2.14 * s, 0.32 * s);
+    g.fillStyle = hex(mixHex(tint, 0, 0.45)); for (let x = -1.0; x <= 1.0; x += 0.14) g.fillRect(...P(x, -0.47), 0.04 * s, 0.32 * s);
+    return (x, y) => (y > -0.47 ? Math.PI / 2 : Math.PI / 2 + x * 0.4); // the knit runs up the dome
+  },
+  ponytail(g, P, s) { // an auburn cap of hair, tied high at the back with a small ultramarine band (the tail swings)
+    hairCap(g, P, s, ['#B05A34', '#8A3A1E', '#5A2210'], -0.42);
+    g.fillStyle = '#2D5DB0'; g.beginPath(); g.ellipse(...P(-0.93, -0.5), 0.12 * s, 0.17 * s, 0.4, 0, Math.PI * 2); g.fill();
+    return () => Math.PI / 2;
+  },
+  braid(g, P, s) { // blonde hair with darker strands (the plait hangs down the back)
+    hairCap(g, P, s, ['#ECCB78', '#D8B35A', '#9A7A30'], -0.45);
+    g.strokeStyle = '#C79A44'; g.lineWidth = 0.04 * s;
+    for (const y of [-0.95, -0.75, -0.55]) { g.beginPath(); g.moveTo(...P(0.7, y + 0.35)); g.quadraticCurveTo(...P(0, y - 0.25), ...P(-0.88, 0.05)); g.stroke(); }
+    return () => Math.PI / 2;
+  },
+  pigtails(g, P, s) { // ginger hair with a centre parting, gold ties at the sides (the bunches bounce)
+    hairCap(g, P, s, ['#F0904A', '#D8732E', '#9A4A18'], -0.4);
+    g.strokeStyle = '#9A4A18'; g.lineWidth = 0.05 * s; g.beginPath(); g.moveTo(...P(0.05, -1.08)); g.quadraticCurveTo(...P(0.2, -0.85), ...P(0.18, -0.55)); g.stroke();
+    g.fillStyle = lit(g, ...P(0, -0.33), 1 * s, ...GOLD); for (const x of [-0.97, 0.97]) { g.beginPath(); g.arc(...P(x, -0.33), 0.13 * s, 0, Math.PI * 2); g.fill(); }
+    return () => Math.PI / 2;
+  },
+  topknot(g, P, s) { // black hair at the sides and back, a small folded knot on top with a gold tie
+    hairCap(g, P, s, ['#3A3028', '#1E1712', '#0A0705'], -0.5);
+    g.fillStyle = '#1E1712';
+    g.beginPath(); g.ellipse(...P(-0.02, -1.13), 0.2 * s, 0.13 * s, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.roundRect(...P(-0.08, -1.36), 0.5 * s, 0.17 * s, 0.08 * s); g.fill();
+    g.fillStyle = GOLD[1]; g.fillRect(...P(-0.06, -1.27), 0.1 * s, 0.22 * s);
+    return (_x, y) => (y < -1.05 ? 0 : Math.PI / 2);
+  },
+  afro(g, P, s) { // the hairline over the brow (the cloud of curls is behind the head: HAT_BACKS)
+    g.fillStyle = lit(g, ...P(0, -0.8), 1 * s, '#6A4428', '#4A2E1A', '#26160A'); g.beginPath();
+    g.arc(...P(0, 0), 1.03 * s, Math.PI + 0.62, Math.PI * 2 - 0.62); g.quadraticCurveTo(...P(0, -0.5), ...P(-0.84, -0.6)); g.closePath(); g.fill();
+    return () => 0;
+  },
 };
 
+/** A cap of hair over the top of the head and down the back, with a smooth hairline over the brow at `brow` (head radii). */
+function hairCap(g: Ctx, P: (x: number, y: number) => [number, number], s: number, c: readonly [string, string, string], brow: number): void {
+  g.fillStyle = lit(g, ...P(0, -0.55), 1.15 * s, ...c); g.beginPath();
+  g.moveTo(...P(-1.07, 0.15)); g.arc(...P(0, 0), 1.08 * s, Math.PI * 0.96, Math.PI * 2 - 0.36);
+  g.quadraticCurveTo(...P(0.55, brow - 0.08), ...P(0.1, brow - 0.12)); g.quadraticCurveTo(...P(-0.55, brow - 0.1), ...P(-0.8, 0.05)); g.closePath(); g.fill();
+}
+/** Static parts drawn behind the head: the afro's cloud of curls (about 1.25 r round, centred 0.75 r above the head's centre). */
+const HAT_BACKS: Partial<Record<Hat, (g: Ctx, P: (x: number, y: number) => [number, number], s: number, tint: number) => (x: number, y: number) => number>> = {
+  afro(g, P, s) {
+    const R = makeRandom(4513);
+    g.fillStyle = lit(g, ...P(0, -0.75), 1.4 * s, '#6A4428', '#4A2E1A', '#26160A'); g.beginPath(); g.arc(...P(0, -0.75), 1.05 * s, 0, Math.PI * 2); g.fill();
+    for (let i = 0; i < 16; i++) { // curls round the rim
+      const a = (i / 16) * Math.PI * 2, x = Math.cos(a) * 1.0, y = -0.75 + Math.sin(a) * 0.95;
+      g.fillStyle = lit(g, ...P(x, y), 0.45 * s, '#7A5232', '#4A2E1A', '#26160A'); g.beginPath(); g.arc(...P(x, y), R.range(0.3, 0.42) * s, 0, Math.PI * 2); g.fill();
+    }
+    return (x, y) => Math.atan2(y + 0.75, x) + Math.PI / 2; // dabbed round the curls
+  },
+};
+const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
+const mixHex = (a: number, b: number, t: number) => { const ch = (k: number) => Math.round(((a >> k) & 255) + (((b >> k) & 255) - ((a >> k) & 255)) * t); return (ch(16) << 16) | (ch(8) << 8) | ch(0); };
+/** Hats painted in the player's own colour. */
+const TINTED = new Set<Hat>(['cap', 'tophat', 'beanie']);
+
 /** A hat's static parts (dome, cone, band, fringe), painted like the fighters: 3 variants for the boil. Sized for a head of radius `headR`
- *  metres; anchor the sprite at (ax, ay), the centre of the head. Null for Bare. */
-export function paintedHat(hat: Hat, headR: number, K: SpriteKnobs): { tex: Texture[]; ax: number; ay: number } | null {
-  const draw = HAT_SHAPES[hat];
+ *  metres; `tint` = the player's colour (the cap, top hat and beanie use it); `back` = the part behind the head (the afro's curls).
+ *  Anchor the sprite at (ax, ay), the centre of the head. Null when there is nothing to paint (Bare, a mohawk's bare head). */
+export function paintedHat(hat: Hat, headR: number, tint: number, K: SpriteKnobs, back = false): { tex: Texture[]; ax: number; ay: number } | null {
+  const draw = (back ? HAT_BACKS : HAT_SHAPES)[hat];
   if (!draw) return null;
+  if (!TINTED.has(hat)) tint = 0;
   const s = headR * PPM, W = Math.ceil(2 * HAT_BOX.x * s + 2 * PAD), H = Math.ceil((HAT_BOX.up + HAT_BOX.down) * s + 2 * PAD), ox = PAD + HAT_BOX.x * s, oy = PAD + HAT_BOX.up * s;
-  const key = `hat|${hat}|${headR.toFixed(3)}|${JSON.stringify(K)}`, hit = cache.get(key);
+  const key = `hat|${hat}|${back}|${tint}|${headR.toFixed(3)}|${JSON.stringify(K)}`, hit = cache.get(key);
   if (hit) return { tex: hit, ax: ox / W, ay: oy / H };
   const N = W * H, g = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
-  const along = draw(g, (x, y) => [ox + x * s, oy + y * s], s);
+  const along = draw(g, (x, y) => [ox + x * s, oy + y * s], s, tint);
   const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(hat.length * 7919 + Math.round(s));
   for (let i = 0; i < N; i++) {
     alpha[i] = d[4 * i + 3] / 255;

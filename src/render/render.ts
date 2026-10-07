@@ -46,9 +46,11 @@ export interface LoosePupil { g: Graphics; x: number; y: number; room: number }
  * flips them with the facing. They stay crisp (the package keeps eyes out of the paint). Sizes in head radii (LOOKS_HANDOFF.md). Fierce: a
  * brow slanting down toward the nose cuts the top off each eye. Sad: the reverse, the brow lifting toward the nose. Sleepy: a heavy lid
  * across the middle; sly: a flat lid just above it, pupils glancing ahead. Startled: big whites, pinprick pupils, arched brows. Googly:
- * bigger rimmed whites with loose pupils (`pupils` on the container). Cyclops: one big eye. (The eye itself is cut, so it works over any hat.) */
-export function drawEyes(headR: number, eyes: Eyes = 'round', rim = false): Container & { pupils?: LoosePupil[] } {
-  const c: Container & { pupils?: LoosePupil[] } = new Container(), inner = new Container(), r = headR * BIG, g = new Graphics(), ink = 0x120d0a, cream = 0xf7f2e0;
+ * bigger rimmed whites with loose pupils (`pupils` on the container). Cyclops: one big eye. Bloodshot: pink veined whites under heavy lids
+ * in a lighter tint of the body colour, bags below. Wall-eyed: each pupil at the outer edge of its eye. (The eye itself is cut, so it works
+ * over any hat.) `body` = the body's colour (very light ones get rimmed whites). */
+export function drawEyes(headR: number, eyes: Eyes = 'round', body = 0xd8402a): Container & { pupils?: LoosePupil[] } {
+  const rim = rimEyes(body), c: Container & { pupils?: LoosePupil[] } = new Container(), inner = new Container(), r = headR * BIG, g = new Graphics(), ink = 0x120d0a, cream = 0xf7f2e0;
   /** A disc with everything above `top(x)` cut away. */
   const cut = (cx: number, cy: number, rad: number, top: (x: number) => number) => {
     const pts: number[] = [];
@@ -71,9 +73,13 @@ export function drawEyes(headR: number, eyes: Eyes = 'round', rim = false): Cont
       : eyes === 'sleepy' ? () => -e * 0.05
       : eyes === 'sly' ? (px: number) => -e * 0.15 + e * 0.12 * out(px) // just above the middle, a little lower at the outer end
       : () => -Infinity;
-    const [pr, ox, oy] = eyes === 'googly' ? [0.15, 0, 0.08] : eyes === 'startled' ? [0.07, 0, 0] : eyes === 'sleepy' ? [0.13, 0.073, 0.07] : eyes === 'sly' ? [0.13, 0.1, 0.05] : eyes === 'sad' ? [0.13, 0.06, 0.07] : [0.13, 0.073, 0.023];
+    const [pr, ox, oy] = eyes === 'googly' ? [0.15, 0, 0.08] : eyes === 'startled' ? [0.07, 0, 0] : eyes === 'sleepy' ? [0.13, 0.073, 0.07] : eyes === 'sly' ? [0.13, 0.1, 0.05] : eyes === 'sad' ? [0.13, 0.06, 0.07] : eyes === 'bloodshot' ? [0.08, 0.04, 0.13] : eyes === 'walleyed' ? [0.13, -inward * 0.11, 0] : [0.13, 0.073, 0.023];
     if (rim || eyes === 'googly') g.poly(cut(x, 0, e + r * 0.03, top)).fill(ink);
-    g.poly(cut(x, 0, e, top)).fill(cream);
+    g.poly(cut(x, 0, e, top)).fill(eyes === 'bloodshot' ? 0xf2d9cc : cream);
+    if (eyes === 'bloodshot') for (const [a, l] of [[0.1, 0.6], [-0.25, 0.5], [Math.PI + 0.2, 0.45]]) { // thin red veins from the corners
+      const sx = x - inward * Math.cos(a) * e * 0.95, sy = Math.sin(a) * e * 0.6;
+      g.moveTo(sx, sy).quadraticCurveTo(sx + inward * Math.cos(a) * e * l * 0.5, sy + e * 0.12, sx + inward * Math.cos(a) * e * l, sy - e * 0.05).stroke({ width: r * 0.022, color: 0xc8352b });
+    }
     if (eyes === 'googly') { // the pupil is its own shape, so it can rattle round the eye
       const p = new Graphics().circle(0, 0, r * pr).fill(ink);
       p.position.set(x + r * ox, r * oy);
@@ -82,6 +88,13 @@ export function drawEyes(headR: number, eyes: Eyes = 'round', rim = false): Cont
     } else g.poly(cut(x + r * ox, r * oy, r * pr, top)).fill(ink);
     if (eyes === 'fierce' || eyes === 'sad') line(x - inward * e * 1.2, x + inward * e * 1.15, top, 0.1);
     if (eyes === 'sleepy' || eyes === 'sly') line(x - e * 1.05, x + e * 1.05, top, 0.07);
+    if (eyes === 'bloodshot') { // a heavy droopy lid over the top half, its dark edge, a faint bag below
+      const lid = e * 0.08, pts: number[] = [];
+      for (let k = 0; k < 28; k++) { const a = (k / 28) * Math.PI * 2; pts.push(x + (e + r * 0.01) * Math.cos(a), Math.min(lid, (e + r * 0.01) * Math.sin(a))); }
+      g.poly(pts).fill(mix(body, 0xffffff, 0.25));
+      line(x - e, x + e, () => lid, 0.06);
+      g.moveTo(x + e * 1.1 * Math.cos(Math.PI * 0.2), e * 1.1 * Math.sin(Math.PI * 0.2)).arc(x, 0, e * 1.1, Math.PI * 0.2, Math.PI * 0.8).stroke({ width: r * 0.04, color: ink, alpha: 0.3, cap: 'round' });
+    }
     if (eyes === 'startled') g.moveTo(x + e * 1.45 * Math.cos(-Math.PI * 0.7), e * 0.2 + e * 1.45 * Math.sin(-Math.PI * 0.7)).arc(x, e * 0.2, e * 1.45, -Math.PI * 0.7, -Math.PI * 0.3).stroke({ width: r * 0.06, color: ink, cap: 'round' });
   }
   return c;
@@ -442,10 +455,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const hat = f.controlled && !bot ? sim.looks[f.index]?.hat : undefined;
         const onHead = p.role === 'head' || (p.role === 'torso' && !f.ragdolled);
         if (hat && onHead) {
-          hatView = makeHat(hat, T.fighter.headRadius);
-          if (hatView) { hatView.front.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(hatView.front); }
+          hatView = makeHat(hat, k, 0, p.role === 'torso' ? T.fighter.headY : 0, T.fighter.headRadius, color);
         }
-        if (onHead) { const ey = bot ? drawRobotHead(T.fighter.headRadius, base) : drawEyes(T.fighter.headRadius, f.controlled ? sim.looks[f.index]?.eyes : 'round', rimEyes(base)); ey.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(ey); eyes.push(ey); }
+        if (onHead) { const ey = bot ? drawRobotHead(T.fighter.headRadius, base) : drawEyes(T.fighter.headRadius, f.controlled ? sim.looks[f.index]?.eyes : 'round', base); ey.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(ey); eyes.push(ey); }
         group.addChild(k);
         c.push(k);
       }
