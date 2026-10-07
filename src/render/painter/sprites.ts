@@ -7,6 +7,7 @@ import { Texture } from 'pixi.js';
 import { blur, licSmooth, makeRandom, newImg, relight, sobel } from './core';
 import type { Img } from './core';
 import { paintLayer } from './strokes';
+import type { Hat } from '../../content/looks';
 
 export const PPM = 160; // texture pixels per metre (the view is 100 px per metre at 1080p)
 export const VARIANTS = 3;
@@ -125,6 +126,101 @@ export function paintedCape(color: number, K: SpriteKnobs): Texture[] {
   const out = paintFlat(img, alpha, ang, color & 0xfff, K);
   cache.set(key, out);
   return out;
+}
+
+/** How far a hat reaches from the centre of the head, in head radii (x both ways, y up and down): the canvas it is painted on. */
+const HAT_BOX = { x: 2, up: 3.1, down: 0.8 };
+type Ctx = OffscreenCanvasRenderingContext2D;
+/** Lit from the upper left: lighter there, darker toward the lower right of the shape centred at (x, y) with radius `rad` (canvas px). */
+const lit = (g: Ctx, x: number, y: number, rad: number, light: string, base: string, dark: string) => {
+  const gr = g.createRadialGradient(x - rad * 0.45, y - rad * 0.5, rad * 0.05, x, y, rad * 1.25);
+  gr.addColorStop(0, light); gr.addColorStop(0.45, base); gr.addColorStop(1, dark);
+  return gr;
+};
+const STEEL = ['#C9CFD4', '#8A929B', '#4F555C'] as const, GOLD = ['#F6DC86', '#E2B33C', '#8C6A1C'] as const;
+/** The static parts of each hat (LOOKS_HANDOFF.md), drawn facing right in head radii; `P` turns a point into canvas px. The swaying parts
+ *  (feather, jester points, wizard tip, veil, mane) are content/hats.ts. Returns the brush direction at a point (radians, 0 = across). */
+const HAT_SHAPES: Partial<Record<Hat, (g: Ctx, P: (x: number, y: number) => [number, number], s: number) => (x: number, y: number) => number>> = {
+  helmet(g, P, s) { // a steel bucket over the whole head, a dark visor slot the eyes show through, a nose bar, breath holes
+    const path = new Path2D();
+    path.moveTo(...P(-1.07, 0.67)); path.lineTo(...P(-1.07, -0.7)); path.quadraticCurveTo(...P(-1.07, -1.27), ...P(0, -1.27)); path.quadraticCurveTo(...P(1.07, -1.27), ...P(1.07, -0.7)); path.lineTo(...P(1.07, 0.67)); path.closePath();
+    g.fillStyle = lit(g, ...P(0, -0.3), 1.1 * s, ...STEEL); g.fill(path);
+    g.fillStyle = '#17110D'; g.beginPath(); g.roundRect(...P(-0.8, -0.3), 1.68 * s, 0.56 * s, 0.12 * s); g.fill();
+    g.fillStyle = STEEL[1]; g.fillRect(...P(-0.01, -0.32), 0.08 * s, 0.9 * s);
+    g.fillStyle = '#2A2622'; for (const [x, y] of [[-0.62, 0.42], [-0.44, 0.5], [0.56, 0.42], [0.74, 0.5]]) { g.beginPath(); g.arc(...P(x, y), 0.055 * s, 0, Math.PI * 2); g.fill(); }
+    return (x, y) => Math.atan2(y + 0.3, x) + Math.PI / 2; // round the dome
+  },
+  plumed(g, P, s) { // a steel kettle dome over the top half, with a brim (the feather sways)
+    g.fillStyle = lit(g, ...P(0, -0.7), 1.05 * s, ...STEEL); g.beginPath(); g.arc(...P(0, -0.27), 1.02 * s, Math.PI, Math.PI * 2); g.fill();
+    g.fillStyle = lit(g, ...P(0, -0.27), 1.4 * s, STEEL[1], '#737B84', STEEL[2]); g.beginPath(); g.ellipse(...P(0, -0.27), 1.33 * s, 0.13 * s, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = GOLD[2]; g.beginPath(); g.arc(...P(0.27, -1.18), 0.1 * s, 0, Math.PI * 2); g.fill(); // the plume's socket
+    return (x, y) => (y > -0.4 ? 0 : Math.atan2(y + 0.27, x) + Math.PI / 2);
+  },
+  crown(g, P, s) { // five gold points on a dark gold band, a red gem in the middle and two blue ones
+    const pts: [number, number][] = [[-0.85, -0.95], [-0.88, -1.62], [-0.63, -1.2], [-0.42, -1.72], [-0.21, -1.2], [0, -1.85], [0.21, -1.2], [0.42, -1.72], [0.63, -1.2], [0.88, -1.62], [0.85, -0.95]];
+    g.fillStyle = lit(g, ...P(0, -1.3), 1 * s, ...GOLD); g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(...P(x, y)) : g.moveTo(...P(x, y)))); g.closePath(); g.fill();
+    for (const [x, y] of [pts[1], pts[3], pts[5], pts[7], pts[9]]) { g.fillStyle = GOLD[0]; g.beginPath(); g.arc(...P(x, y), 0.07 * s, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = lit(g, ...P(0, -0.84), 0.9 * s, '#D9AE4A', '#A07A22', '#5E4510'); g.fillRect(...P(-0.87, -0.97), 1.74 * s, 0.26 * s);
+    g.fillStyle = '#C8282A'; g.beginPath(); g.arc(...P(0, -0.84), 0.1 * s, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#2D5DB0'; for (const x of [-0.5, 0.5]) { g.beginPath(); g.arc(...P(x, -0.84), 0.07 * s, 0, Math.PI * 2); g.fill(); }
+    return (_x, y) => (y < -0.97 ? Math.PI / 2 : 0); // the points upright, the band along
+  },
+  horns(g, P, s) { // a steel cap and band, two bone horns curving up and out from the sides
+    for (const k of [-1, 1]) {
+      g.fillStyle = lit(g, ...P(1.35 * k, -1), 0.9 * s, '#FFF8E8', '#EDE3CC', '#A99C80'); g.beginPath();
+      g.moveTo(...P(1.0 * k, -0.25)); g.quadraticCurveTo(...P(1.9 * k, -0.6), ...P(1.75 * k, -1.75)); g.quadraticCurveTo(...P(1.3 * k, -0.8), ...P(0.62 * k, -0.62)); g.closePath(); g.fill();
+    }
+    g.fillStyle = lit(g, ...P(0, -0.5), 1.05 * s, ...STEEL); g.beginPath(); g.arc(...P(0, -0.1), 1.04 * s, Math.PI, Math.PI * 2); g.fill();
+    g.fillStyle = lit(g, ...P(0, -0.2), 1.2 * s, STEEL[1], '#6B727A', STEEL[2]); g.fillRect(...P(-1.06, -0.3), 2.12 * s, 0.22 * s);
+    return (x, y) => (Math.abs(x) > 0.95 && y < -0.3 ? Math.PI / 2 - Math.sign(x) * 0.5 : Math.atan2(y + 0.1, x) + Math.PI / 2);
+  },
+  jester(g, P, s) { // a gold band round the head (the three points sway)
+    g.fillStyle = lit(g, ...P(0, -0.65), 1 * s, ...GOLD); g.beginPath();
+    g.moveTo(...P(-0.98, -0.72)); g.quadraticCurveTo(...P(0, -0.98), ...P(0.98, -0.72)); g.lineTo(...P(0.98, -0.46)); g.quadraticCurveTo(...P(0, -0.72), ...P(-0.98, -0.46)); g.closePath(); g.fill();
+    return () => 0;
+  },
+  wizard(g, P, s) { // an indigo cone with little cream stars on a wide brim (its tip droops on its own)
+    g.fillStyle = lit(g, ...P(0, -1.2), 0.9 * s, '#6E66B0', '#4A4288', '#2C2758'); g.beginPath();
+    g.moveTo(...P(-0.82, -0.74)); g.quadraticCurveTo(...P(-0.42, -1.2), ...P(-0.2, -1.87)); g.lineTo(...P(0.2, -1.87)); g.quadraticCurveTo(...P(0.42, -1.2), ...P(0.82, -0.74)); g.closePath(); g.fill();
+    g.fillStyle = lit(g, ...P(0, -0.73), 1.45 * s, '#5C549C', '#3E3878', '#221E48'); g.beginPath(); g.ellipse(...P(0, -0.73), 1.4 * s, 0.16 * s, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#F1E6CF'; for (const [x, y, r] of [[-0.32, -1.02, 0.07], [0.22, -1.28, 0.06], [0.1, -0.9, 0.05], [-0.08, -1.55, 0.05]]) { g.beginPath(); g.arc(...P(x, y), r * s, 0, Math.PI * 2); g.fill(); }
+    return (_x, y) => (y < -0.85 ? Math.PI / 2 : 0);
+  },
+  hennin(g, P, s) { // a tall plum cone leaning up to its tip, a gold band at its base (the veil streams from the tip)
+    g.fillStyle = lit(g, ...P(0.3, -1.6), 1.3 * s, '#A05A82', '#7A3A5E', '#4A2038'); g.beginPath();
+    g.moveTo(...P(-0.74, -0.62)); g.quadraticCurveTo(...P(0.1, -1.7), ...P(1.07, -2.8)); g.quadraticCurveTo(...P(0.7, -1.6), ...P(0.8, -0.72)); g.closePath(); g.fill();
+    g.fillStyle = lit(g, ...P(0, -0.66), 1 * s, ...GOLD); g.beginPath();
+    g.moveTo(...P(-0.8, -0.5)); g.quadraticCurveTo(...P(0, -0.9), ...P(0.85, -0.6)); g.lineTo(...P(0.82, -0.78)); g.quadraticCurveTo(...P(0, -1.08), ...P(-0.76, -0.68)); g.closePath(); g.fill();
+    return (_x, y) => (y < -0.8 ? Math.PI / 2 - 0.45 : 0); // along the cone
+  },
+  locks(g, P, s) { // brown hair over the top of the head, a ragged fringe over the forehead (the mane behind sways)
+    g.fillStyle = lit(g, ...P(0, -0.5), 1.15 * s, '#A0703E', '#7A4E28', '#4E3016'); g.beginPath();
+    g.moveTo(...P(-1.1, 0.4)); g.arc(...P(0, 0), 1.09 * s, Math.PI * 0.97, Math.PI * 2 - 0.3);
+    for (const [x, y] of [[0.84, -0.48], [0.7, -0.36], [0.52, -0.56], [0.32, -0.44], [0.12, -0.62], [-0.12, -0.5], [-0.36, -0.66], [-0.58, -0.42], [-0.72, -0.05], [-0.92, 0.42]]) g.lineTo(...P(x, y));
+    g.closePath(); g.fill();
+    return () => Math.PI / 2; // hair hangs
+  },
+};
+
+/** A hat's static parts (dome, cone, band, fringe), painted like the fighters: 3 variants for the boil. Sized for a head of radius `headR`
+ *  metres; anchor the sprite at (ax, ay), the centre of the head. Null for Bare. */
+export function paintedHat(hat: Hat, headR: number, K: SpriteKnobs): { tex: Texture[]; ax: number; ay: number } | null {
+  const draw = HAT_SHAPES[hat];
+  if (!draw) return null;
+  const s = headR * PPM, W = Math.ceil(2 * HAT_BOX.x * s + 2 * PAD), H = Math.ceil((HAT_BOX.up + HAT_BOX.down) * s + 2 * PAD), ox = PAD + HAT_BOX.x * s, oy = PAD + HAT_BOX.up * s;
+  const key = `hat|${hat}|${headR.toFixed(3)}|${JSON.stringify(K)}`, hit = cache.get(key);
+  if (hit) return { tex: hit, ax: ox / W, ay: oy / H };
+  const N = W * H, g = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
+  const along = draw(g, (x, y) => [ox + x * s, oy + y * s], s);
+  const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(hat.length * 7919 + Math.round(s));
+  for (let i = 0; i < N; i++) {
+    alpha[i] = d[4 * i + 3] / 255;
+    for (let c = 0; c < 3; c++) img.c[c][i] = d[4 * i + c] / 255;
+    ang[i] = along((i % W - ox) / s, (((i / W) | 0) - oy) / s) + R.normal() * 0.05;
+  }
+  const out = paintFlat(img, alpha, ang, 3001 + hat.length * 31, K);
+  cache.set(key, out);
+  return { tex: out, ax: ox / W, ay: oy / H };
 }
 
 /** A few painted paint splats (white, tinted when used): a cluster of blobs with drips running down. Anchor them at (0.5, 0.35). */

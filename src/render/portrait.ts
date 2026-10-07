@@ -9,7 +9,8 @@ import { tuning as T } from '../content/tuning';
 import type { Shape } from '../sim/fighter';
 import { paintPicture } from './painter/backdrops';
 import { paintedCape, PPM, VARIANTS } from './painter/sprites';
-import { addPainted, drawEyes, drawHat, drawShape, mix, rimEyes, UNDER, updatePainted } from './render';
+import { makeHat } from './hat';
+import { addPainted, drawEyes, drawShape, mix, rimEyes, UNDER, updatePainted } from './render';
 import { BOT_GRAYS, drawRobotHead } from './robot';
 import type { Painted } from './render';
 
@@ -61,8 +62,8 @@ export async function paintPortrait(look: Look, seat: number, opts: { bare?: boo
     under.addChild(u);
     painted.push(addPainted(fig, s, color));
   }
-  const headY = F.headY * Z, hat = opts.crown ? drawHat('crown', hex, F.headRadius * Z) : look.bot ? null : drawHat(look.hat, hex, F.headRadius * Z), eyes = look.bot ? drawRobotHead(F.headRadius * Z, hex) : drawEyes(F.headRadius * Z, look.eyes, rimEyes(hex)); // eyes over the hat, as in the fight
-  if (hat) { hat.position.set(0, headY); fig.addChild(hat); }
+  const headY = F.headY * Z, hat = opts.crown ? makeHat('crown', F.headRadius * Z) : look.bot ? null : makeHat(look.hat, F.headRadius * Z), eyes = look.bot ? drawRobotHead(F.headRadius * Z, hex) : drawEyes(F.headRadius * Z, look.eyes, rimEyes(hex)); // eyes over the hat, as in the fight
+  if (hat) { hat.front.position.set(0, headY); fig.addChild(hat.front); }
   eyes.position.set(0, headY);
   fig.addChild(eyes);
 
@@ -70,6 +71,7 @@ export async function paintPortrait(look: Look, seat: number, opts: { bare?: boo
   for (let v = 0; v < VARIANTS; v++) {
     painted.forEach((p) => updatePainted(p, 0, v));
     for (const c of capes) c.texture = capeTex[v];
+    hat?.show(v, 1);
     const fg = a.renderer.extract.canvas({ target: stage, frame: new Rectangle(0, 0, W, H) }) as HTMLCanvasElement;
     const c = document.createElement('canvas');
     c.width = W; c.height = H;

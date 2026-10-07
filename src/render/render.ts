@@ -14,9 +14,11 @@ import { createPassing } from './passing';
 import { createJets } from './jets';
 import { windAt } from '../sim/wind';
 import { createLight } from './light';
+import { makeHat } from './hat';
+import type { HatView } from './hat';
 import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
-import type { Eyes, Hat } from '../content/looks';
+import type { Eyes } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
 import type { SimEvent } from '../sim/types';
@@ -34,17 +36,6 @@ export function mix(a: number, b: number, t: number): number {
 // Pixi picks curve detail from the size it is drawn at, and our shapes are fractions of a metre, so draw big and scale down
 // (otherwise heads come out as octagons).
 const BIG = 100;
-
-/** A hat for the head (placeholder vector shapes until the art arrives). Drawn at the origin = the centre of the head; units are metres. */
-export function drawHat(hat: Hat, tint: number, headR: number): Graphics | null {
-  if (hat === 'none') return null;
-  const g = new Graphics(), r = headR * BIG;
-  if (hat === 'helmet') { g.arc(0, -r * 0.1, r * 1.1, Math.PI, 0).fill(0x8a929b); g.rect(-r * 1.1, -r * 0.15, r * 2.2, r * 0.22).fill(0x6b727a); }
-  else if (hat === 'crown') { g.poly([-r * 0.9, -r * 0.8, -r * 0.9, -r * 1.8, -r * 0.45, -r * 1.2, 0, -r * 1.9, r * 0.45, -r * 1.2, r * 0.9, -r * 1.8, r * 0.9, -r * 0.8]).fill(0xf2c230); }
-  else if (hat === 'horns') { g.arc(0, -r * 0.1, r * 1.02, Math.PI, 0).fill(0x8a929b); g.poly([-r * 0.9, -r * 0.5, -r * 1.7, -r * 1.7, -r * 0.5, -r * 0.9]).fill(0xeeeeee); g.poly([r * 0.9, -r * 0.5, r * 1.7, -r * 1.7, r * 0.5, -r * 0.9]).fill(0xeeeeee); }
-  g.scale.set(1 / BIG);
-  return g;
-}
 
 /** Eye whites on a body this light (Bone, the dummy) get a thin dark rim, or they vanish into the face. */
 export const rimEyes = (body: number) => (0.2126 * ((body >> 16) & 255) + 0.7152 * ((body >> 8) & 255) + 0.0722 * (body & 255)) / 255 > 0.8;
@@ -192,6 +183,7 @@ interface Entry {
   soft: Container[]; // per part: its share of the fighter's faint soft shadow on the map (in the shadow layer)
   shade: Container; // all of this fighter's soft shadow
   eyes: Container[]; // painted eyes: they look the way the fighter faces
+  hat: HatView | null; // the player's hat, on the head
   blur: BlurFilter; // softens the fighter as they slip back into the background plane (dodge)
   crushed: boolean; // flattened by a stomp or a crash
   sq: number; // how flat (0..1, eases toward 1 once crushed)
@@ -426,6 +418,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const base = fighterColor(f);
       group.sortableChildren = true;
       const c: Container[] = [], eyes: Container[] = [], painted: Painted[][] = [], under: Container[] = [], soft: Container[] = [], shadeC = new Container();
+      let hatView: HatView | null = null;
       shadows.addChild(shadeC);
       const underAll = new Container();
       underAll.zIndex = -10;
@@ -449,8 +442,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const hat = f.controlled && !bot ? sim.looks[f.index]?.hat : undefined;
         const onHead = p.role === 'head' || (p.role === 'torso' && !f.ragdolled);
         if (hat && onHead) {
-          const h = drawHat(hat, color, T.fighter.headRadius);
-          if (h) { h.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(h); }
+          hatView = makeHat(hat, T.fighter.headRadius);
+          if (hatView) { hatView.front.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(hatView.front); }
         }
         if (onHead) { const ey = bot ? drawRobotHead(T.fighter.headRadius, base) : drawEyes(T.fighter.headRadius, f.controlled ? sim.looks[f.index]?.eyes : 'round', rimEyes(base)); ey.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(ey); eyes.push(ey); }
         group.addChild(k);
@@ -458,7 +451,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
       if (bot) cape.rope.parent!.visible = false;
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, eyes, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
+      entries.push({ f, group, c, eyes, hat: hatView, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
     }
     builtVersion = sim.version;
   }
@@ -644,6 +637,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         });
         e.shade.alpha = (1 - e.vis) * so.a; // a fighter slipping into the background plane leaves the play plane's shadow behind
         for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
+        e.hat?.show(variant, f.side);
         const torso = c[0], tc = Math.cos(torso.rotation), ts = Math.sin(torso.rotation), cx = -f.side * T.finish.cape.backX, cy = T.finish.cape.shoulderY;
         stepCape(e.cape, torso.x + tc * cx - ts * cy, torso.y + ts * cx + tc * cy, f.side, frameSeconds, boil / T.finish.boilFps, variant, wind);
         // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.
