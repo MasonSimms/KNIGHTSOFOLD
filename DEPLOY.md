@@ -18,6 +18,16 @@ You do the sign-up (it needs your email and a card); every other step is a comma
 7. Your game is at `https://knightsofold.fly.dev`. Open it, click **Online**, **Make a room**, then **Copy invite link** and
    send that link to your friends. They open it, pick a look, press Ready; you press **To Battle**.
 
+## Two things Fly.io needed after the first deploy (done 2026-10-06; keep them in mind)
+
+- **An address.** The first  started the game but gave it no internet address, so the browser said the site could not be found.
+  Fixed with  and  (both free). A home router can remember the "not found" for
+  about 5 minutes afterwards: wait, or try on a phone with Wi-Fi off.
+- **Exactly one server.** Fly.io started two copies of the server, but the rooms live inside one: a friend could land on the other copy and
+  be told there is no such room. Fixed with . Later deploys keep it at one.
+- **Do not use the Deploy button on Fly.io's website** (it offers to merge files into GitHub and deploy from there): it deploys whatever
+  GitHub has, which is older than this computer. Always  from PowerShell in this folder.
+
 ## Updating it later
 
 After any change: `fly deploy`. That updates the page and the server together (they must always match: a page from another version
