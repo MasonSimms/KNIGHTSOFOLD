@@ -3,8 +3,8 @@
 > **Revised 2026-10-06:** the owner wants to keep the four hats already in the game (Cap, Top hat, Stetson, Beanie) alongside the new ones.
 > That makes 12 hats plus Bare. Nothing is removed. The Beanie's pom-pom now bounces.
 >
-> **Revised again 2026-10-06 (evening):** 6 hairstyles added to the same hat slot (see §2b) and 2 more eye sets, Bloodshot and Wall-eyed
-> (see §4). Totals: 18 headwear options plus Bare, 10 eyes, 8 colours.
+> **Revised again 2026-10-06 (evening):** 7 hairstyles (including the owner's named style, Fubo) added to the same hat slot (see §2b) and 2 more eye sets, Bloodshot and Wall-eyed
+> (see §4). Totals: 19 headwear options plus Bare, 10 eyes, 8 colours.
 
 From the owner's design window, 2026-10-05. The visual catalogue is the "Looks — Hats, Eyes, Colours v1" artboard on the owner's
 "Museum Menu Screens" design canvas; ask the owner for a screenshot if you need to see it. This file is the spec.
@@ -58,7 +58,7 @@ Suggested order in the picker: `helmet, crown, horns, cap, tophat, cowboy, beani
 ## 2b. Hairstyles (same `Hat` list and same picker row, after the hats)
 
 Hair uses fixed natural colours (it doesn't follow the player's colour), painted with the painter like the hats. In the picker they
-come after the hats; you can show the row label as "Hat / Hair". Order: `ponytail, braid, pigtails, mohawk, topknot, afro`.
+come after the hats; you can show the row label as "Hat / Hair". Order: `fubo, ponytail, braid, pigtails, mohawk, topknot, afro`.
 
 | id | Name | Look | Sway? |
 |---|---|---|---|
@@ -67,6 +67,7 @@ come after the hats; you can show the row label as "Hat / Hair". Order: `ponytai
 | `pigtails` | Pigtails | Ginger (#D8732E / #C4602A), centre parting, two short bunches at the sides with gold ties. | **Yes**: 2 bouncy bunches |
 | `mohawk` | Mohawk | Dyed-red (#B5321F) crest of 7 stiff spikes along the top centre of the head, the rest bare. | **Yes**: stiff spikes |
 | `topknot` | Topknot | Black (#1E1712) samurai-style: hair at the sides and back, a small folded knot on top with a gold tie. | Static |
+| `fubo` | **Fubo** (owner's named style) | Black (#1A1512, strand highlights #3E342A) full mop with volume on top, a **middle part**, thick **curtain bangs** falling either side of the forehead to cheek level (the right one a little longer, brushing past the eye), sides covering the ears, and 3 short **flyaway strands** sticking up. | **Yes**: curtains + flyaways |
 | `afro` | Afro | Big round cloud of dark curls (#4A2E1A) behind and above the head (≈1.25 r radius, centred 0.75 r above the head centre), with a hairline over the brow. | **Squish**: wobbles on landing |
 
 Sway settings (first guesses, same `DangleSpec` as §3; anchors in head radii, the back of the head is −x):
@@ -76,6 +77,8 @@ Sway settings (first guesses, same `DangleSpec` as §3; anchors in head radii, t
 | ponytail | tail | (−0.93, −0.5) | 4 | 1.9 | 0.5 | 0.2 | 0.45 → 0.12 | |
 | braid | plait | (−0.9, 0.05) | 5 | 2.0 | 0.15 | 0.1 | 0.42 → 0.3 | heavier: gravity ×1.4; use a braided strip texture (alternating lumps); `tip: 'tie'` (red tie plus tuft) |
 | pigtails | left / right | (−0.97, −0.33), (0.97, −0.33) | 3 | 1.0 | ±0.7 (outward) | 0.3 | 0.45 → 0.15 | ties drawn at the anchors |
+| fubo | left / right curtain | (−0.03, −0.87), (0.03, −0.87) | 3 | 1.3 / 1.45 | ±0.35 (down and out) | 0.4 | 0.45 → 0.12 | in FRONT of the face, over the eyes' layer; they part when running, flop on landing |
+| fubo | 3 flyaways | along the top, x −0.4 … 0.6 | 2 | 0.4 | pointing up and out | 0.6 | 0.06 → 0.03 | thin strands that wobble |
 | mohawk | 7 spikes | evenly along x −0.7 … 0.7 on the top of the head | 2 | 0.5–1.1 (tallest in the middle) | pointing straight out from the head | 0.85 | 0.2 → 0.02 | they mostly jiggle |
 
 Afro squish: no chain. Give the curl cloud a scale spring (`finish.afro.spring`, `damping`). When the head's vertical speed changes
@@ -190,7 +193,7 @@ feather and veil a little.
    head as it moves, rotates and comes off.
 6. **Googly pupils live** in the fight.
 7. **Portraits:** settle the dangles before baking.
-8. **Records:** a DECISIONS.md line (12 hats with the 4 old ones kept, 6 hairstyles in the hat slot, 10 eyes, Teal → Bone, sway is render-only), an ASSETS.md note (still no asset files; hats
+8. **Records:** a DECISIONS.md line (12 hats with the 4 old ones kept, 7 hairstyles including Fubo in the hat slot, 10 eyes, Teal → Bone, sway is render-only), an ASSETS.md note (still no asset files; hats
    are painted at runtime), and a Status line in CLAUDE.md.
 
 ## 8. What to tell the owner when it's ready
