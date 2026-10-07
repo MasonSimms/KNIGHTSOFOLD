@@ -1,4 +1,10 @@
-# Handoff: Looks v1 (8 hats + Bare, 8 eyes, 8 colours, swaying physics)
+# Handoff: Looks v1 (12 hats + Bare, 8 eyes, 8 colours, swaying physics)
+
+> **Revised 2026-10-06:** the owner wants to keep the four hats already in the game (Cap, Top hat, Stetson, Beanie) alongside the new ones.
+> That makes 12 hats plus Bare. Nothing is removed. The Beanie's pom-pom now bounces.
+>
+> **Revised again 2026-10-06 (evening):** 6 hairstyles added to the same hat slot (see §2b) and 2 more eye sets, Bloodshot and Wall-eyed
+> (see §4). Totals: 18 headwear options plus Bare, 10 eyes, 8 colours.
 
 From the owner's design window, 2026-10-05. The visual catalogue is the "Looks — Hats, Eyes, Colours v1" artboard on the owner's
 "Museum Menu Screens" design canvas; ask the owner for a screenshot if you need to see it. This file is the spec.
@@ -28,8 +34,11 @@ each one that runs. This touches five or more files, so give the owner the SWITC
 
 ## 2. Hats (ids, names, what they look like)
 
-Keep `none` = **Bare** as the first option (not counted in the 8). Keep the ids `helmet`, `crown` and `horns` so existing saves and
-rooms stay valid.
+Keep `none` = **Bare** as the first option (not counted in the 12). **Keep every existing id** (`cap`, `tophat`, `helmet`, `crown`,
+`horns`, `cowboy`, `beanie`) so existing saves and rooms stay valid. All 12 hats are repainted with the painter; the old
+`drawHat` vector shapes go.
+
+Suggested order in the picker: `helmet, crown, horns, cap, tophat, cowboy, beanie, plumed, jester, wizard, hennin, locks`.
 
 | id | Name | Look | Sway? |
 |---|---|---|---|
@@ -40,11 +49,40 @@ rooms stay valid.
 | `jester` | Jester Cap | Gold band round the head at y −0.6; three cloth points: left and right in vermilion, centre in cadmium; a small brass bell at each tip. | **Yes**: 3 floppy chains |
 | `wizard` | Wizard Hat | Indigo cone (#4A4288) with a wide brim (±1.4 at y −0.73), little cream stars. The top third bends over. | **Yes**: bendy tip |
 | `hennin` | Hennin & Veil | Tall plum (#7A3A5E) cone leaning back to about 2.8 r above the head, gold band at its base, a sheer cream veil (#F4EEE2 at 75% opacity) streaming from the tip. | **Yes**: cloth, like the cape |
+| `cap` | Cap | (already in game) Peaked cap in a darker shade of the player's colour, brim pointing to the face side, small button on top. | Static |
+| `tophat` | Top Hat | (already in game) Black stovepipe (≈1.5 r tall) on a black brim, band in the player's colour, a faint highlight down one side. | Static |
+| `cowboy` | Stetson | (already in game) Leather-brown crown with a pinched dent, dark band, a wide curled brim (±1.67 wide) that sits low over the brow. | Static |
+| `beanie` | Beanie | (already in game) Ribbed knit dome in the player's colour, darker ribbed cuff, cream pom-pom on top. | **Yes**: bouncy pom-pom |
 | `locks` | Flowing Locks | Brown hair (#7A4E28 / #8C5A2E): a fringe over the forehead (static) and a mane down to the shoulders behind the head. | **Yes**: hair strands |
 
-Remove `cap`, `tophat`, `cowboy` and `beanie`. Anything that receives one of those, or any unknown id (old saves, a client on an
-older build, URL test links), treats it as `none`. Also update `FIRST_HATS` in `src/ui/hall.ts` (it uses `tophat`); suggested
-values: `['helmet', 'crown', 'plumed', 'horns']`.
+## 2b. Hairstyles (same `Hat` list and same picker row, after the hats)
+
+Hair uses fixed natural colours (it doesn't follow the player's colour), painted with the painter like the hats. In the picker they
+come after the hats; you can show the row label as "Hat / Hair". Order: `ponytail, braid, pigtails, mohawk, topknot, afro`.
+
+| id | Name | Look | Sway? |
+|---|---|---|---|
+| `ponytail` | Ponytail | Auburn (#8A3A1E, tail #6E2E16) cap of hair, tied high at the back with a small Ultramarine band; tail hangs from the tie. | **Yes**: whips when you turn |
+| `braid` | Long Braid | Blonde (#D8B35A / #C79A44) hair, one thick plait from the back of the head down past the shoulders (chunky alternating segments), red tie and a little tuft at the end. | **Yes**: heavy rope |
+| `pigtails` | Pigtails | Ginger (#D8732E / #C4602A), centre parting, two short bunches at the sides with gold ties. | **Yes**: 2 bouncy bunches |
+| `mohawk` | Mohawk | Dyed-red (#B5321F) crest of 7 stiff spikes along the top centre of the head, the rest bare. | **Yes**: stiff spikes |
+| `topknot` | Topknot | Black (#1E1712) samurai-style: hair at the sides and back, a small folded knot on top with a gold tie. | Static |
+| `afro` | Afro | Big round cloud of dark curls (#4A2E1A) behind and above the head (≈1.25 r radius, centred 0.75 r above the head centre), with a hairline over the brow. | **Squish**: wobbles on landing |
+
+Sway settings (first guesses, same `DangleSpec` as §3; anchors in head radii, the back of the head is −x):
+
+| Hair | Dangle | anchor | links | length | rest | stiffness | width | notes |
+|---|---|---|---|---|---|---|---|---|
+| ponytail | tail | (−0.93, −0.5) | 4 | 1.9 | 0.5 | 0.2 | 0.45 → 0.12 | |
+| braid | plait | (−0.9, 0.05) | 5 | 2.0 | 0.15 | 0.1 | 0.42 → 0.3 | heavier: gravity ×1.4; use a braided strip texture (alternating lumps); `tip: 'tie'` (red tie plus tuft) |
+| pigtails | left / right | (−0.97, −0.33), (0.97, −0.33) | 3 | 1.0 | ±0.7 (outward) | 0.3 | 0.45 → 0.15 | ties drawn at the anchors |
+| mohawk | 7 spikes | evenly along x −0.7 … 0.7 on the top of the head | 2 | 0.5–1.1 (tallest in the middle) | pointing straight out from the head | 0.85 | 0.2 → 0.02 | they mostly jiggle |
+
+Afro squish: no chain. Give the curl cloud a scale spring (`finish.afro.spring`, `damping`). When the head's vertical speed changes
+suddenly (a landing or a hit), kick the spring so the cloud squashes wide and short, then wobbles back. Clamp it to about ±15%.
+Add it to `dangle.ts` with a test (it settles back to scale 1).
+
+Any unknown hat id (a client on an older build, URL test links) is treated as `none`. `FIRST_HATS` in `src/ui/hall.ts` can stay as it is.
 
 ## 3. Sway: one small module for all of it
 
@@ -82,6 +120,7 @@ Per-hat settings (first guesses; the owner will tune them):
 | jester | right point | (0.73, −0.6) | 4 | 1.2 | 2.2 | 0.2 | 0.35 → 0.05 | `tip: 'bell'` |
 | wizard | cone tip | (0, −1.87) | 3 | 1.1 | −3.1 | 0.45 | 0.4 → 0.04 | the base cone is static; the tip droops and swings |
 | hennin | veil | (1.07, −2.8) | 6 | 4.2 | 0.3 | 0.05 | 0.3 → 0.7 | cloth; reuse the cape's trail and flutter feel; 75% opacity |
+| beanie | pom-pom | (0, −1.3) | 2 | 0.25 | −3.14 (straight up) | 0.6 | 0.6 → 0.6 | not a strip: draw one painted ball (r 0.33) at the end point. It bobs on a short stiff spring, like the googly pupils |
 | locks | 3 strands | (−0.9, −0.3), (−0.5, −0.8), (0, −0.95) | 4 | 1.6 | 0.2 | 0.15 | 0.5 → 0.25 | behind the head; overlapping strands read as one mane |
 
 Defaults in `tuning.ts` → `finish.dangle`: `gravity`, `damping`, `flutterRate`, `iterations` (constraint passes, 4 like the cape),
@@ -104,6 +143,9 @@ over any hat. Sizes are in head radii (eye radius e = 0.255 r and pupil 0.13 r f
 | `sly` | Sly | Lids cut flat just above the middle, sloping slightly down outward; pupils pushed toward the face side |
 | `sad` | Sad | The reverse of fierce: brows slant **up** toward the nose and cut the top of each eye there; pupils a bit low |
 | `cyclops` | Cyclops | One eye only, centred slightly toward the face (x +0.07 r, y −0.07 r), white 0.43 r, pupil 0.2 r, small cream glint |
+
+| `bloodshot` | Bloodshot | Pinkish whites (#F2D9CC) with a few thin red veins (#C8352B) from the outer and inner corners, heavy droopy upper lids (a lid shape in a lighter tint of the body colour with a dark lid line) covering the top half, small low pupils, and a faint dark "bag" curve under each eye. A cartoon tired, dazed look. |
+| `walleyed` | Wall-eyed | Normal-size whites; each pupil pushed hard to the **outer** edge of its own eye (left pupil far left, right pupil far right), so they look away from each other. Mirror with the facing like the other eyes. |
 
 **Googly pupils (render-only sway):** each pupil is a spring-damper around the eye centre. Each frame its acceleration is
 `−k·offset − c·velocity − headAcceleration + gravity`. Clamp it inside the white (|offset| ≤ white − pupil) and bounce off the rim
@@ -139,22 +181,23 @@ feather and veil a little.
 1. **Data:** new lists in `looks.ts` (ids, names, colours), `hats.ts` with the sway settings, `finish.dangle` and `finish.googly` in
    `tuning.ts`, unknown ids fall back to `none`/`round`, update `FIRST_HATS`. Grep `src/net/` and the tests for hat and eye ids and
    fix any validation. `npm test` and `npm run typecheck` pass.
-2. **Five new eyes** in `drawEyes` (static googly pupils for now).
+2. **Seven new eyes** in `drawEyes` (static googly pupils for now).
 3. **Painted static hats:** add `paintedHat()` next to `paintedCape` in `src/render/painter/sprites.ts` and replace the placeholder
-   `drawHat` shapes for all 8 hats (only the static parts: dome, cone, band and fringe).
+   `drawHat` shapes for all 12 hats and 6 hairstyles (only the static parts: dome, cone, band and fringe).
 4. **`dangle.ts`** plus a unit test: a chain at rest settles to its rest angle; length is kept; stiffness 1 doesn't bend; googly
    pupils never leave the eye.
-5. **Swaying parts** on the fighters: the feather, the jester points with bells, the wizard tip, the veil and the hair, following the
+5. **Swaying parts** on the fighters: the ponytail, braid, pigtails and mohawk spikes, the afro squish, the beanie pom-pom, the feather, the jester points with bells, the wizard tip, the veil and the hair, following the
    head as it moves, rotates and comes off.
 6. **Googly pupils live** in the fight.
 7. **Portraits:** settle the dangles before baking.
-8. **Records:** a DECISIONS.md line (the new lists, Teal → Bone, sway is render-only), an ASSETS.md note (still no asset files; hats
+8. **Records:** a DECISIONS.md line (12 hats with the 4 old ones kept, 6 hairstyles in the hat slot, 10 eyes, Teal → Bone, sway is render-only), an ASSETS.md note (still no asset files; hats
    are painted at runtime), and a Status line in CLAUDE.md.
 
 ## 8. What to tell the owner when it's ready
 
 - Where to see it: the Hall of Champions (cycle the hat and eyes) and a fight (`npm run dev`).
-- What to look for: the feather springing back after a hit; the jester points and bells flopping; the wizard tip drooping when you
+- What to look for: the ponytail and braid whipping when you turn or flip; the pigtails bouncing; the afro squashing on landing;
+  the beanie pom-pom bouncing when you land; the feather springing back after a hit; the jester points and bells flopping; the wizard tip drooping when you
   run; the veil streaming like the cape; hair swinging when you flip; googly pupils rattling when you land or get hit.
 - What to tune, by name: `finish.dangle.gravity` (how heavy everything hangs), per-hat `stiffness` (stiff feather vs floppy cloth),
   `trail`, `flutter`, `finish.googly.spring` and `finish.googly.damping`.
