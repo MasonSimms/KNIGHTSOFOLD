@@ -40,7 +40,7 @@ export function createSea(ring: (x: number, y: number, color: number) => void) {
       }
       if (!A.sea) return;
       const pa = paintingFor(sim.era);
-      const top = A.platformTop + A.sea.level - 0.4, h = A.viewH - top + 0.5;
+      const top = A.platformTop + A.sea.level - (A.sea.tide?.rise ?? 0) - 0.4, h = A.viewH - top + 0.5; // (as high as the tide will come)
       const wt = paintedWater(A.viewW + 1, h, pa.void[0], pa.void[1], pa.mist, K);
       sea = new Sprite(wt.tex);
       sea.position.set(-0.5, top);

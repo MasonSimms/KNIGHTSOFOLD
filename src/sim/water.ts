@@ -26,11 +26,20 @@ export function tarAt(A: Arena, x: number): Arena['tar'][number] | null {
 const liquidAt = (A: Arena, x: number) => (tarAt(A, x) ? T.tar : A.sea ? T.water : null);
 type Liquid = NonNullable<ReturnType<typeof liquidAt>>;
 
-/** Height of the surface at x (y grows downward), at a given frame: a tar pit's is still, the sea's has waves. */
+/** How far below the platform top the sea stands at a given frame: its level, less what the tide has risen (arena.sea.tide: from low
+ *  at the start of the round to `rise` metres higher after `seconds`, easing in and out; the frame counter starts again each round). */
+export function seaLevel(A: Arena, frame: number): number {
+  const S = A.sea, tide = S?.tide;
+  if (!tide) return S?.level ?? 0;
+  const k = Math.min(1, (frame * T.sim.dt) / tide.seconds);
+  return S.level - tide.rise * k * k * (3 - 2 * k);
+}
+
+/** Height of the surface at x (y grows downward), at a given frame: a tar pit's is still, the sea's has waves (and may have a tide). */
 export function surfaceY(A: Arena, frame: number, x: number): number {
   const pit = tarAt(A, x);
   if (pit) return A.platformTop + pit.level;
-  let y = A.platformTop + (A.sea?.level ?? 0);
+  let y = A.platformTop + seaLevel(A, frame);
   const t = frame * T.sim.dt;
   for (const w of T.water.waves) y += w.amp * Math.sin(2 * Math.PI * (x / w.length - t / w.period));
   return y;

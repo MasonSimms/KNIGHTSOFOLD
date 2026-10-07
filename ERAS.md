@@ -89,7 +89,7 @@ Pickups: **Flintlock Pistol** (clubbed with, or thrown), **Grappling Hook** (a h
 2. **Ship to Ship**: two boats side by side joined by a gangplank (a plank prop). Cut the ropes and they drift apart. **BUILT 2026-10-06** (pirates map 1): two 8 m ships, a 1.5 m gap, a 2.6 m gangplank lying across it and two ropes in an X from each ship's rigging to the other's rail; a blade or a bullet cuts a rope, and with both cut the ships drift apart (the gap opens to about 4 m) and the gangplank falls in.
 3. **Harbour Pier**: a wooden pier on posts over shallow water, with barrels and crates. A broken plank is a gap and a club. **BUILT 2026-10-07** (pirates map 2): a stone quay, a 6 m pier of six breakable planks on two posts, a pier-head, and a shallow rowboat moored off its end (lower than the pier: the way back up out of the water); cut the mooring line and it drifts off. The water is deep (swim, then sink), not shallow.
 4. **Sinking Wreck**: a hull that slowly tilts and sinks as the round goes on. The high side is safe and moves.
-5. **Tidal Cove**: a treasure cove where the tide rises and falls with the frame counter. The sand platform shrinks as the water comes in.
+5. **Tidal Cove**: a treasure cove where the tide rises and falls with the frame counter. The sand platform shrinks as the water comes in. **BUILT 2026-10-07** (pirates map 3; owner: the tide rises over the round): low sand, a dune with a sea chest, high rocks at both ends and two old timbers above; the sea comes up 1.6 m over the first 30 s of a round (low again next round), so the sand goes under, then the dune, and a round ends on the rocks and timbers.
 
 ## 8. The Wild West
 Pickups: **Revolver**, **Lasso** (grab from a distance, needs the "grab at range" feature).

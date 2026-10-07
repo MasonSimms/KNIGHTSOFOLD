@@ -180,3 +180,22 @@ describe('ship to ship', () => {
     expect(await play()).toBe(await play());
   }, 30_000);
 });
+
+describe('tidal cove', () => {
+  it('the tide comes in over the round: the low sand goes under, the rocks stay dry, and the next round starts at low tide again', async () => {
+    const sim = await Sim.create(3, 2, false);
+    sim.forceEra = 'pirates'; sim.forceMap = 3; sim.reset();
+    const A = sim.arena, tide = A.sea!.tide!, sand = A.platformTop, rock = A.platformTop - A.ground[0].up!;
+    const water = () => surfaceY(A, sim.frame, 8);
+    expect(water()).toBeGreaterThan(sand); // low tide: the sand is dry
+    moveTo(sim, 1, 3.75, rock - T.stand.height); // one fighter climbs onto the rocks; the other stays down on the sand
+    run(sim, Math.round((tide.seconds * 0.85) / T.sim.dt));
+    expect(sand - water()).toBeGreaterThan(1); // the sea stands over a metre deep on the sand...
+    expect(water()).toBeGreaterThan(rock); // ...and still under the rocks
+    const [low, high] = sim.fighters;
+    expect(low.wet > T.swim.wetAt || low.limp).toBe(true); // swimming, or gone under
+    expect(high.wet).toBe(0);
+    sim.reset();
+    expect(water()).toBeGreaterThan(sand); // a new round: low tide
+  }, 30_000);
+});

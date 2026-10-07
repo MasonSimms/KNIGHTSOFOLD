@@ -69,8 +69,8 @@ describe('maps', () => {
       const f = sim.fighters[0], other = sim.fighters[1];
       setBackPlane(other, true); other.dodge = 1e9; // the other fighter steps aside (we pass through it)
       for (const p of [...sim.props]) if (!p.links?.length && (!hop || p.body.isFixed())) sim.removeBody(p, undefined); // walking checks the ground itself (a crate is shoved along until it jams, a standing stone is jumped); a window is a door you break
-      const t = f.torso.body.translation();
-      for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + x0 - t.x, y: q.y }, true); }
+      const t = f.torso.body.translation(), dy = floorAt(A, x0) - floorAt(A, t.x); // (onto the ground there: the far end can be higher, a cove's rocks)
+      for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + x0 - t.x, y: q.y + dy }, true); }
       let n = 0;
       const block = (p: { back?: boolean; body: { mass(): number; translation(): { x: number; y: number } } }, x: number) => !p.back && p.body.mass() > T.props.maxLift && p.body.translation().y > A.platformTop - 1 && p.body.translation().x - x > 0 && p.body.translation().x - x < 1.2;
       const leap = () => { const x = f.torso.body.translation().x; return pits.some((p) => x > p.x - p.run && x < p.x + p.w) || sim.props.some((p) => block(p, x)); }; // a pit or a standing stone: a full jump

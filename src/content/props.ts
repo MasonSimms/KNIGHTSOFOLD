@@ -82,6 +82,7 @@ export const PROPS: Record<string, PropSpec> = {
   net: { len: 0.55, thick: 0.18, mass: 0.8, factor: 0.8, material: 'light', net: true, grip: 0.3 }, // the net (weapons batch two, step 5; owner places it later): thrown, it tangles (sim/tangle.ts)
   lasso: { len: 0.5, thick: 0.12, mass: 0.6, factor: 1.2, material: 'light', hook: true, lasso: true, grip: 0.3 }, // the lasso (weapons batch two, step 4; owner places it later): a coil in the hand, thrown like the grappling hook (sim/hook.ts)
   ...GUN_LOCKER,
+  chest: { len: 0.8, thick: 0.55, mass: 7, factor: 2.6, box: true, breaks: { hp: 50, into: ['plank', 'stave', 'stave'] } }, // a sea chest (Tidal Cove): breakable scenery, like a crate
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)
