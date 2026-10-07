@@ -51,6 +51,10 @@ export function createFx(layer: Container, puffTex: Texture[]) {
         twirls.set(e.owner, 0);
       } else if (e.t === 'spark') { // metal: a burst of sparks back toward the shot
         for (let i = 0; i < 7; i++) bit(e.x, e.y, e.v + (Math.random() - 0.5) * 2.2, 4 + Math.random() * 5, 0.12 + Math.random() * 0.12, 0.025, 0xffd27a, 0.18, false);
+      } else if (e.t === 'boom') { // a grenade: a flash, a ring of smoke, dirt and bits flying
+        flashList.push({ x: e.x, y: e.y, a: -Math.PI / 2, life: B.flashSeconds * 3 });
+        for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; puff(e.x + Math.cos(a) * 0.4, e.y + Math.sin(a) * 0.3, 0.9 + Math.random() * 0.5, 0x6a6258, 0.8, 1.6, 0.6); }
+        for (let i = 0; i < 18; i++) bit(e.x, e.y, Math.random() * Math.PI * 2, 4 + Math.random() * 7, 0.06 + Math.random() * 0.12, 0.04, i % 3 ? 0x3d2e22 : 0xffc46b, 0.9, true);
       } else if ((e.t === 'break' && e.w === 'pane') || e.t === 'shatter') { // a window or a mug: glass flying, glinting, falling
         for (let i = 0, n = e.t === 'shatter' ? 10 : 22; i < n; i++) bit(e.x, e.y + (Math.random() - 0.5) * 1.4, (Math.random() - 0.5) * Math.PI * 2, 2 + Math.random() * 5, 0.05 + Math.random() * 0.12, 0.03, i % 3 ? 0xd8eef4 : 0xffffff, 0.9, true);
       } else if (e.t === 'splinter' || e.t === 'snap' || e.t === 'break') { // wood: splinters flying, more when it gives way

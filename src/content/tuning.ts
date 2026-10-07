@@ -506,6 +506,20 @@ export const tuning = {
     kick: 0.6, // the kick out of it, as a share of a normal jump (weak: a pit's edge should be low)
     drownDepth: 1.1, // sinking this far below the surface finishes you (m)
   },
+  special: {
+    // Weapons that do more than hit (owner, batch one; sim/special.ts, world.ts hit and blast). PLACEHOLDER numbers until the playtest.
+    spearFly: 6, // a loose spear faster than this (m/s) turns its point into the way it flies...
+    spearTurn: 14, // ...this quickly
+    spearStick: 7, // it sticks into the ground or a wall when it arrives at least this fast (m/s)...
+    spearPointFirst: 0.5, // ...within this angle (radians) of point-first
+    spearThrown: 1.8, // a thrown spear hits this many times harder than a swung one
+    blastRadius: 3, // a grenade's reach (m)
+    blastPush: 14, // how hard it throws things outward at its middle (m/s), less further out
+    blastLift: 5, // ...and up (m/s)
+    blastImpact: 40, // how hard it hurts right next to it (a full club hit is about 45), less further out
+    blastScenery: 4, // breakable scenery takes the blast this many times harder (a barrel within about 1.8 m breaks)
+    blastShake: 0.6, // how much it shakes the picture (as a share of tuning.shake.max)
+  },
   light: {
     // Dynamic light (owner; render/light.ts): fires and lanterns light the scene and cast each fighter's shadow away from them, flickering
     // with the flame; a lantern put out darkens the room (only the background: light never hides anyone). PLACEHOLDER numbers.
@@ -794,7 +808,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

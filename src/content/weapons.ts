@@ -11,6 +11,10 @@ export interface Weapon {
   material?: Material; // what a bullet does to it in your hand (default wood)
   toughness?: number; // wood: how much shooting it takes before it snaps in two (bullet calibres added up)
   gun?: GunSpec; // it shoots (sim/guns.ts)
+  push?: number; // its hits shove this many times harder (a shield bash)
+  pull?: boolean; // its hits pull the victim toward you instead of knocking them away (the gravity hammer)
+  spear?: boolean; // thrown, it flies point-first, hits harder (tuning.special.spearThrown) and sticks into the ground and walls (sim/special.ts)
+  fuse?: number; // a grenade: seconds from leaving a hand to going off (sim/special.ts)
 }
 
 /**

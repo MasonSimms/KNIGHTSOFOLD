@@ -24,7 +24,7 @@ import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
 import { runHome } from './ui/home';
-import { updateHud } from './ui/hud';
+import { clearBanner, updateHud } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 import { applySettings, loadSettings, runSettings } from './ui/settings';
@@ -158,6 +158,7 @@ async function eraChange() {
   await museum.slide();
   await museum.zoomIn();
   if (!net && !room) sim.finishRoundPause(); // (here the next round starts now; online the server has been waiting the same time)
+  clearBanner();
   museum.close();
   replaying = false; last = performance.now(); acc = 0;
 }
