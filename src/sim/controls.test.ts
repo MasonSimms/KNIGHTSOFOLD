@@ -197,9 +197,10 @@ describe('charge, punch and throw (the newer controls)', () => {
       let held = false;
       for (let i = 0; i < 120 && !held; i++) { step({ attack: true, moveX: 0.5 }); held = !!P().hold; }
       expect(held).toBe(true);
-      const fist = X().fore.body, pt = P().torso.body.translation(); // fighter 2's fist, thrown hard at the grabber's back
-      fist.setTranslation({ x: pt.x - 0.6, y: pt.y - 0.1 }, true);
-      fist.setLinvel({ x: 18, y: 0 }, true);
+      // fighter 2 thrown hard at the grabber's back, fist first (a fist moved and flung on its own was yanked back by its elbow and only
+      // reached them by bouncing off the floor, which an arm now passes through; moved alone with its arm, the arm's own motors stopped it)
+      const fist = X().fore.body, pt = P().torso.body.translation(), ft = fist.translation(), dx = pt.x - 0.6 - ft.x, dy = pt.y - 0.1 - ft.y;
+      for (const p of X().parts) { const t = p.body.translation(); p.body.setTranslation({ x: t.x + dx, y: t.y + dy }, true); p.body.setLinvel({ x: 18, y: 0 }, true); }
       for (let i = 0; i < 8; i++) step({ attack: true });
       expect(P().hp).toBeLessThan(T.fighter.hp);
       expect(P().hold).toBeNull();
@@ -371,5 +372,22 @@ describe('holding S in the air (owner: always possible, with a weapon too)', () 
     expect(f.grounded || f.crouch === 1).toBe(true);
     expect(f.crouch).toBe(1); // lying down
     expect(tilt()).toBeGreaterThan(1.0);
+  });
+
+  // Owner, 2026-10-07: jumping, holding S and landing on plain ground flew you up into the air. Lying flat with the cursor below you, the arm
+  // pushed on the floor like a push-up; still holding S you landed flat again and it pushed again, higher every time (34 m, empty-handed).
+  it.each([[true, 45], [false, 45], [false, 135]])('armed %s, aiming %i degrees down: landing a dive holding S stays on the ground', async (armed, deg) => {
+    const aim = (deg * Math.PI) / 180, sim = await settled(aim);
+    const f = sim.fighters[0];
+    if (!armed) { sim.step([idle({ aim, drop: true })]); for (let i = 0; i < 30; i++) sim.step([idle({ aim })]); }
+    const floorY = f.torso.body.translation().y;
+    let top = false, highest = Infinity;
+    for (let i = 0; i < 150; i++) {
+      if (f.torso.body.linvel().y > 0 && !f.grounded) top = true;
+      sim.step([idle({ aim, jump: i < 20, crouch: top })]);
+      if (top && i > 60) highest = Math.min(highest, f.torso.body.translation().y);
+    }
+    expect(f.crouch).toBe(1); // lying down...
+    expect(floorY - highest).toBeLessThan(0.3); // ...and never back up off the floor (it was flying 34 m)
   });
 });

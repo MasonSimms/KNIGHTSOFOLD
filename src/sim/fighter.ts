@@ -182,8 +182,11 @@ export const backGroups = ((0x8000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 const offGroups = ((0x4000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 
 /** A weapon in a hand passes through the scenery; a loose one (dropped, knocked out of a hand) lands on it like anything else. Every frame.
- * A fighter's weapon (unlike the fighter) meets ropes. */
+ * A fighter's weapon (unlike the fighter) meets ropes. A living fighter's arm passes through the scenery too (owner, 2026-10-07: diving
+ * flat with S held and the cursor below, the arm pushed on the floor like a push-up and launched the body, higher with every landing). */
 export function syncStickGroups(f: Fighter): void {
+  const base = f.inBack ? backGroups : ownerGroups(f.index), arm = (f.limp ? base : base & ~GROUP_TERRAIN) >>> 0;
+  if (!f.armLost) for (const p of f.parts) if (p.role === 'upper' || p.role === 'fore') for (const c of p.colliders) if (c.collisionGroups() !== arm) c.setCollisionGroups(arm);
   if (!f.stick) return;
   const g = ((f.inBack ? backGroups : ownerGroups(f.index) | GROUP_ROPE) & ~(f.grip ? GROUP_TERRAIN : 0)) >>> 0;
   for (const c of [...f.stick.colliders, ...(f.stick.head?.colliders ?? [])]) if (c.collisionGroups() !== g) c.setCollisionGroups(g);
