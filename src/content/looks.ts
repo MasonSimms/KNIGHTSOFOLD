@@ -6,10 +6,10 @@ export const COLORS: { name: string; hex: number }[] = [
   { name: 'Violet', hex: 0x8a4fd0 }, { name: 'Orange', hex: 0xe8812e }, { name: 'Rose', hex: 0xe86aa8 }, { name: 'Bone', hex: 0xe6dcc6 },
 ];
 // The hat slot holds hats, then hairstyles (natural colours, not the player's). Every old id is kept so saves and rooms stay valid.
-export const HATS = ['none', 'helmet', 'crown', 'horns', 'cap', 'tophat', 'cowboy', 'beanie', 'plumed', 'jester', 'wizard', 'hennin', 'locks', 'fubo', 'ponytail', 'braid', 'pigtails', 'mohawk', 'topknot', 'afro'] as const;
+export const HATS = ['none', 'helmet', 'crown', 'horns', 'cap', 'tophat', 'cowboy', 'beanie', 'plumed', 'jester', 'wizard', 'hennin', 'locks', 'fubo', 'ponytail', 'braid', 'pigtails', 'mohawk', 'topknot', 'afro', 'graham', 'bubby'] as const;
 export type Hat = (typeof HATS)[number];
 export const HAT_NAMES: Record<Hat, string> = { none: 'Bare', helmet: 'Great Helm', plumed: 'Plumed Helm', crown: 'Crown', horns: 'Horned Helm', jester: 'Jester Cap', wizard: 'Wizard Hat', hennin: 'Hennin & Veil', locks: 'Flowing Locks',
-  cap: 'Cap', tophat: 'Top Hat', cowboy: 'Stetson', beanie: 'Beanie', fubo: 'Fubo', ponytail: 'Ponytail', braid: 'Long Braid', pigtails: 'Pigtails', mohawk: 'Mohawk', topknot: 'Topknot', afro: 'Afro' };
+  cap: 'Cap', tophat: 'Top Hat', cowboy: 'Stetson', beanie: 'Beanie', fubo: 'Fubo', ponytail: 'Ponytail', braid: 'Long Braid', pigtails: 'Pigtails', mohawk: 'Mohawk', topknot: 'Topknot', afro: 'Afro', graham: 'Graham', bubby: 'Bubby' };
 export const EYES = ['round', 'fierce', 'sleepy', 'googly', 'startled', 'sly', 'sad', 'cyclops', 'bloodshot', 'walleyed'] as const;
 export type Eyes = (typeof EYES)[number];
 export const EYE_NAMES: Record<Eyes, string> = { round: 'Round', fierce: 'Fierce', sleepy: 'Sleepy', googly: 'Googly', startled: 'Startled', sly: 'Sly', sad: 'Sad', cyclops: 'Cyclops', bloodshot: 'Bloodshot', walleyed: 'Wall-eyed' };

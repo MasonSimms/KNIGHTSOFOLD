@@ -340,9 +340,13 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   let nextStreak = 0;
   const flying: { s: Sprite; len: number; t: number; delay: number }[] = [];
   const lerpR = (r: number[], k: number) => r[0] + (r[1] - r[0]) * k;
+  /** The paint a fighter leaves: their colour, shaded toward umber when it is so light it would read as dust. */
+  const paintOf = (c: number) => (rimEyes(c) ? mix(c, 0x6e5a44, T.splat.lightShade) : c);
   /** Someone went off at (x, y): their paint streaks onto the canvas from the edge where they went out toward the middle. */
   const paintStreaks = (x: number, y: number, color: number) => {
     const S = T.splat.streaks, ex = Math.max(0.3, Math.min(A.viewW - 0.3, x)), ey = Math.max(0.3, Math.min(A.viewH - 0.3, y)), base = Math.atan2(A.viewH / 2 - ey, A.viewW / 2 - ex);
+    color = paintOf(color);
+    splat(ex, ey, S.burst, color, 0.2); // a burst where they went out, the streaks flying from it
     const n = Math.round(lerpR(S.count, Math.random()));
     for (let i = 0; i < n; i++) {
       const s = streaks[nextStreak++ % streaks.length], len = lerpR(S.length, Math.random()), w = lerpR(S.width, Math.random());
@@ -356,7 +360,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   /** A hit: a subtle spray of the hurt player's paint, flung the way the blow went. */
   let windNow = 0; // (the wind at the last drawn frame: paint flung in it lands downwind)
   const spray = (e: SimEvent, color: number) => {
-    const P = T.splat.spray, k = Math.min(1, e.v / 100), a = sim.fighters[e.owner]?.torso, b = sim.fighters[e.victim]?.torso;
+    const P = T.splat.spray;
+    if (e.v < P.minImpact) return; // a tap leaves no paint
+    color = paintOf(color);
+    const k = Math.min(1, e.v / 100), a = sim.fighters[e.owner]?.torso, b = sim.fighters[e.victim]?.torso;
     const dir = a && b ? Math.atan2(b.cy - a.cy, b.cx - a.cx) : -Math.PI / 2;
     for (let i = 0, n = Math.round(lerpR(P.drops, k)); i < n; i++) {
       const d = lerpR(P.reach, Math.random()) * (0.5 + k), ang = dir + (Math.random() - 0.5) * 1.1;
@@ -483,6 +490,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (onHead) {
           const hy = p.role === 'torso' ? T.fighter.headY : 0, ey = bot ? drawRobotHead(T.fighter.headRadius, base) : drawEyes(T.fighter.headRadius, f.controlled ? sim.looks[f.index]?.eyes : 'round', base);
           ey.position.set(0, hy); k.addChild(ey); eyes.push(ey);
+          if (hatView?.glasses) eyes.push(hatView.glasses); // (glasses turn and go limp with the eyes)
           googly = bot ? null : makeGoogly(ey, 0, hy, T.fighter.headRadius);
           head = k;
         }

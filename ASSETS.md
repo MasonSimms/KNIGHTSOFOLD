@@ -47,3 +47,7 @@ The vignette is generated in code (no file). Tune `finish.vignetteAlpha` in `src
 ## art-guide/ (2026-10-05)
 - art-guide/ART_STYLE.md and art-guide/reference/*.jpg: style guide and reference paintings from the owner's separate art window (AI/tool-generated with the owner's own painter tools; used for direction only, not shipped in the game).
 - src/render/oilpaint.ts: oil-paint screen filter written in this repo (our own GLSL; no external asset).
+
+## Graham and Bubby hairstyles (2026-10-06)
+- No files. Both hairstyles are drawn and oil-painted at runtime by our own code (render/painter/sprites.ts `HAT_SHAPES`/`HAT_BACKS`, content/hats.ts `DANGLES`). Graham's glasses are vector shapes (render/hat.ts `drawGlasses`).
+- Designed from photos the owner shared of two friends (direction only, not shipped). No image or sound is AI-generated; the code was written with Claude.

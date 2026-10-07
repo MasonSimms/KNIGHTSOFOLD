@@ -268,6 +268,26 @@ const HAT_SHAPES: Partial<Record<Hat, (g: Ctx, P: (x: number, y: number) => [num
     g.strokeStyle = '#0A0806'; g.lineWidth = 0.05 * s; g.beginPath(); g.moveTo(...P(0.02, -1.28)); g.lineTo(...P(0.05, -0.9)); g.stroke(); // the middle part
     return () => Math.PI / 2;
   },
+  graham(g, P, s) { // the owner's friend Graham: a brown cap of hair, a fringe of loose waves over the forehead and curls over the ears (the mop behind, the side curls and flyaways sway; the glasses are render/hat.ts)
+    const HAIR = ['#A9814F', '#7E5A36', '#4A321C'] as const;
+    hairCap(g, P, s, HAIR, -0.5);
+    for (const [x, y, r] of [[-0.78, -0.62, 0.3], [-0.45, -0.78, 0.3], [-0.08, -0.84, 0.3], [0.3, -0.76, 0.28], [0.62, -0.6, 0.24], [-0.98, -0.2, 0.26], [-1.02, 0.15, 0.24], [0.92, -0.32, 0.2]]) { // the fringe and the ear curls
+      g.fillStyle = lit(g, ...P(x, y), r * 1.3 * s, ...HAIR); g.beginPath(); g.arc(...P(x, y), r * s, 0, Math.PI * 2); g.fill();
+    }
+    g.strokeStyle = '#C49A62'; g.lineWidth = 0.04 * s;
+    for (const [x, y] of [[-0.6, -0.95], [-0.15, -1.02], [0.3, -0.92], [-0.95, -0.4]]) { g.beginPath(); g.arc(...P(x, y), 0.14 * s, Math.PI * 0.9, Math.PI * 1.9); g.stroke(); } // wave highlights
+    return () => Math.PI / 2; // hair hangs
+  },
+  bubby(g, P, s) { // the owner's friend Bubby: the hairline over the brow with tight curls tumbling onto the forehead (the cloud of curls is behind: HAT_BACKS)
+    const HAIR = ['#8E6440', '#6A4528', '#3A2414'] as const;
+    g.fillStyle = lit(g, ...P(0, -0.8), 1 * s, ...HAIR); g.beginPath();
+    g.arc(...P(0, 0), 1.05 * s, Math.PI + 0.45, Math.PI * 2 - 0.5); g.quadraticCurveTo(...P(0, -0.42), ...P(-0.9, -0.45)); g.closePath(); g.fill();
+    for (const [x, y] of [[-0.7, -0.55], [-0.38, -0.6], [-0.05, -0.62], [0.28, -0.6], [0.58, -0.55], [-0.98, -0.1], [0.95, -0.22]]) { // a row of tight curls along the brow and over the ears
+      g.fillStyle = lit(g, ...P(x, y), 0.25 * s, ...HAIR); g.beginPath(); g.arc(...P(x, y), 0.19 * s, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = HAIR[2]; g.lineWidth = 0.035 * s; g.beginPath(); g.arc(...P(x + 0.02, y + 0.01), 0.09 * s, 0.3, Math.PI * 1.6); g.stroke();
+    }
+    return () => 0;
+  },
   afro(g, P, s) { // the hairline over the brow (the cloud of curls is behind the head: HAT_BACKS)
     g.fillStyle = lit(g, ...P(0, -0.8), 1 * s, '#6A4428', '#4A2E1A', '#26160A'); g.beginPath();
     g.arc(...P(0, 0), 1.03 * s, Math.PI + 0.62, Math.PI * 2 - 0.62); g.quadraticCurveTo(...P(0, -0.5), ...P(-0.84, -0.6)); g.closePath(); g.fill();
@@ -283,6 +303,26 @@ function hairCap(g: Ctx, P: (x: number, y: number) => [number, number], s: numbe
 }
 /** Static parts drawn behind the head: the afro's cloud of curls (about 1.25 r round, centred 0.75 r above the head's centre). */
 const HAT_BACKS: Partial<Record<Hat, (g: Ctx, P: (x: number, y: number) => [number, number], s: number, tint: number) => (x: number, y: number) => number>> = {
+  graham(g, P, s) { // the big loose mop: wider than the head, down past the ears to the jaw, lumpy with waves
+    const R = makeRandom(7177), HAIR = ['#A9814F', '#7E5A36', '#4A321C'] as const;
+    g.fillStyle = lit(g, ...P(-0.1, -0.6), 1.5 * s, ...HAIR); g.beginPath(); g.ellipse(...P(-0.1, -0.45), 1.35 * s, 1.1 * s, 0, 0, Math.PI * 2); g.fill();
+    for (let i = 0; i < 14; i++) { // waves round the rim, the lower ones hanging to the jaw at the sides
+      const a = Math.PI * 0.85 + (i / 13) * Math.PI * 1.3, x = -0.1 + Math.cos(a) * 1.3, y = -0.45 + Math.sin(a) * 1.05;
+      g.fillStyle = lit(g, ...P(x, y), 0.5 * s, ...HAIR); g.beginPath(); g.arc(...P(x, y), R.range(0.3, 0.45) * s, 0, Math.PI * 2); g.fill();
+    }
+    return (x, y) => Math.atan2(y + 0.45, x + 0.1) + Math.PI / 2;
+  },
+  bubby(g, P, s) { // a round cloud of tight curls sitting high on the head, a little smaller than the afro's
+    const R = makeRandom(2903), HAIR = ['#8E6440', '#6A4528', '#3A2414'] as const;
+    g.fillStyle = lit(g, ...P(0, -0.65), 1.3 * s, ...HAIR); g.beginPath(); g.arc(...P(0, -0.65), 1.22 * s, 0, Math.PI * 2); g.fill();
+    for (let i = 0; i < 20; i++) { // tight curls round the rim
+      const a = (i / 20) * Math.PI * 2, x = Math.cos(a) * 1.15, y = -0.65 + Math.sin(a) * 1.08;
+      g.fillStyle = lit(g, ...P(x, y), 0.35 * s, ...HAIR); g.beginPath(); g.arc(...P(x, y), R.range(0.22, 0.3) * s, 0, Math.PI * 2); g.fill();
+    }
+    g.strokeStyle = HAIR[2]; g.lineWidth = 0.035 * s;
+    for (let i = 0; i < 16; i++) { const x = R.range(-0.85, 0.85), y = R.range(-1.4, -0.1); g.beginPath(); g.arc(...P(x, y), 0.1 * s, R.range(0, 3), R.range(3.5, 6)); g.stroke(); } // ringlets inside the cloud
+    return (x, y) => Math.atan2(y + 0.6, x) + Math.PI / 2; // dabbed round the curls
+  },
   afro(g, P, s) {
     const R = makeRandom(4513);
     g.fillStyle = lit(g, ...P(0, -0.75), 1.4 * s, '#6A4428', '#4A2E1A', '#26160A'); g.beginPath(); g.arc(...P(0, -0.75), 1.05 * s, 0, Math.PI * 2); g.fill();

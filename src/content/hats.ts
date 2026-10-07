@@ -17,7 +17,7 @@ export interface DangleSpec {
   width: [number, number]; // strip width at the root and at the tip ([0, 0]: no strip, just the tip)
   colors: [string, string?]; // its paint: the colour, and a second one along its middle (a feather's quill, a lock's lighter strand)
   alpha?: number; // how solid (a veil is sheer)
-  tip?: 'bell' | 'tie' | 'pompom'; // something drawn at the last point: a brass bell, a braid's red tie and tuft, a beanie's pom-pom
+  tip?: 'bell' | 'tie' | 'pompom' | 'curl'; // something drawn at the last point: a brass bell, a braid's red tie and tuft, a beanie's pom-pom, a round curl of the hair
   braided?: boolean; // painted as a plait (alternating lumps)
   front?: boolean; // in front of the face, over the eyes (Fubo's curtain bangs); otherwise behind the head
 }
@@ -42,4 +42,12 @@ export const DANGLES: Partial<Record<Hat, DangleSpec[]>> = {
     ...[-0.4, 0.1, 0.6].map((x): DangleSpec => { const y = -Math.sqrt(1 - x * x) - 0.25; return { anchor: [x, y], links: 2, length: 0.4, rest: Math.atan2(x * 1.6, -1), stiffness: 0.6, width: [0.06, 0.03], colors: ['#1A1512'] }; }),
   ],
   mohawk: [-0.7, -0.47, -0.23, 0, 0.23, 0.47, 0.7].map(spike), // seven stiff spikes, the tallest in the middle: they mostly jiggle
+  graham: [ // the owner's friend Graham (2026-10-06): a big loose brown mop of waves. Two side curls hang to the jaw and swing; four flyaway waves on top spring about (his browline glasses are render/hat.ts)
+    ...[-1, 1].map((k): DangleSpec => ({ anchor: [1.0 * k, -0.15], links: 3, length: 0.85, rest: 0.25 * k, stiffness: 0.3, width: [0.5, 0.32], colors: ['#7E5A36', '#A9814F'] })),
+    ...[-0.75, -0.3, 0.15, 0.55].map((x): DangleSpec => { const y = -Math.sqrt(1 - x * x) - 0.45; return { anchor: [x, y], links: 3, length: 0.6, rest: Math.atan2(x * 1.8, -1), stiffness: 0.35, width: [0.22, 0.06], colors: ['#7E5A36', '#A9814F'] }; }),
+  ],
+  bubby: [-0.95, -0.6, -0.2, 0.2, 0.6, 0.95].map((x): DangleSpec => { // the owner's friend Bubby (2026-10-06): tight springy curls round the rim of the cloud that bounce with every move (the cloud squashes like the afro's)
+    const y = -0.65 - Math.sqrt(Math.max(0, 1.3 - x * x)) * 0.95;
+    return { anchor: [x, y], links: 3, length: 0.32, rest: Math.atan2(x * 1.4, y + 0.6), stiffness: 0.4, width: [0.2, 0.14], colors: ['#6A4528', '#8E6440'], tip: 'curl' }; // a short coil with a round curl on the end
+  }),
 };

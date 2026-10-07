@@ -746,9 +746,10 @@ export const tuning = {
     radiusPerImpact: 1.2,
     alpha: 0.95,
     // Hurt (owner): a subtle spray in the hurt player's own colour, flung the way the blow went, soaking into the canvas.
-    spray: { drops: [3, 9], reach: [0.25, 1.1], size: [7, 18], alpha: 0.55 }, // drops per hit (small hit .. big hit), how far they fly (m), their size (px), how strong
+    spray: { drops: [2, 6], reach: [0.25, 1.1], size: [7, 18], alpha: 0.55, minImpact: 12 }, // drops per hit (small hit .. big hit), how far they fly (m), their size (px), how strong; hits softer than minImpact leave no paint (2026-10-06: taps on the training dummy were burying the picture in paint)
+    lightShade: 0.35, // paint of a very light colour (Bone, the dummy) is shaded this much toward umber, so it reads as paint and not as dust or snow
     // Knocked off (owner): streaks of their paint fly onto the canvas from where they went out toward the middle of the picture.
-    streaks: { count: [5, 7], length: [2.5, 6], width: [10, 22], spread: 0.45, seconds: 0.35, alpha: 0.85, color: 'player' as 'player' | number }, // length in m, width in px, spread = radians either side; color 'player' or a colour like 0xb3232b (red)
+    streaks: { count: [3, 5], length: [1.4, 3], width: [26, 42], spread: 0.35, seconds: 0.35, alpha: 0.85, color: 'player' as 'player' | number, burst: 60 }, // length in m, width in px, spread = radians either side; color 'player' or a colour like 0xb3232b (red); burst = the splat where they went out (px). (2026-10-06: fewer, shorter, fatter streaks plus a burst: the old long thin ones read as scratches, not paint)
   },
   music: {
     // Dynamic music (owner; the stems are in content/audio.ts). Every sway is subtle.
