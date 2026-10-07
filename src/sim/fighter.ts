@@ -206,8 +206,10 @@ function revolute(world: World, a: RigidBody, ax: number, ay: number, b: RigidBo
   return j;
 }
 
-export function buildFighter(world: World, index: number, x: number, y: number, controlled: boolean, armed: boolean, weapon: Weapon): Fighter {
+/** dir: the way the fighter starts facing (1 = right, -1 = left): the arm and weapon are built already pointing that way. */
+export function buildFighter(world: World, index: number, x: number, y: number, controlled: boolean, armed: boolean, weapon: Weapon, dir = 1): Fighter {
   const F = T.fighter;
+  const a0 = dir > 0 ? 0 : Math.PI; // the arm's starting angle
   const L = F.armLength;
   const armHl = L / 2 - F.armRadius;
   const damp = { lin: F.armLinearDamping, ang: F.armAngularDamping };
@@ -238,13 +240,14 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     return { thigh, shin, hip, knee };
   });
 
-  // One arm per fighter. It starts pointing right (angle 0); the shoulder motor swings it to its pose.
+  // One arm per fighter. It starts pointing the way the fighter faces (built pointing right, everyone on the right of the arena swung their
+  // weapon half a turn in the first frames: a whip that cut the samurai bridge and could kill a neighbour before anyone pressed a key).
   const sx = x, sy = y + F.shoulderY;
   const arm = (() => {
-    const upper = addPart(world, index, 'upper', sx + L / 2, sy, 0, [
+    const upper = addPart(world, index, 'upper', sx + dir * L / 2, sy, a0, [
       { s: { k: 'cap', hl: armHl, r: F.armRadius, x: 0, y: 0, rot: Math.PI / 2 }, mass: F.upperMass },
     ], null, damp);
-    const fore = addPart(world, index, 'fore', sx + 1.5 * L, sy, 0, [
+    const fore = addPart(world, index, 'fore', sx + dir * 1.5 * L, sy, a0, [
       { s: { k: 'cap', hl: armHl, r: F.armRadius, x: 0, y: 0, rot: Math.PI / 2 }, mass: F.foreMass },
       { s: { k: 'ball', r: F.fistRadius, x: L / 2, y: 0 }, mass: F.fistMass, attacker: controlled ? 'fist' : undefined },
     ], attackers, damp);
@@ -255,7 +258,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   })();
 
   // The second arm: decoration that flops along with the body (no motors, only joint friction; touches only the floor and walls).
-  const off = [0.5, 1.5].map((k, i) => addPart(world, index, 'off', sx + k * L, sy, 0, [
+  const off = [0.5, 1.5].map((k, i) => addPart(world, index, 'off', sx + dir * k * L, sy, a0, [
     { s: { k: 'cap', hl: armHl, r: F.armRadius, x: 0, y: 0, rot: Math.PI / 2 }, mass: T.offArm.mass },
     ...(i === 1 ? [{ s: { k: 'ball' as const, r: F.fistRadius, x: L / 2, y: 0 }, mass: 0.05 }] : []),
   ], null, damp));
@@ -272,14 +275,14 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, drift: 0, swimKick: 0, carried: 0, slamming: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: 1, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
+    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
     spawnX: x, spawnY: y,
   };
 
   if (armed) {
     const S = weapon;
     const grip = S.length / 2 - S.gripFromEnd; // grip point sits this far behind the stick centre
-    const stick = addPart(world, index, 'stick', sx + 2 * L + grip, sy, 0, [
+    const stick = addPart(world, index, 'stick', sx + dir * (2 * L + grip), sy, a0, [
       { s: { k: 'cap', hl: S.length / 2 - S.thickness / 2, r: S.thickness / 2, x: 0, y: 0, rot: Math.PI / 2 }, mass: S.mass, attacker: 'stick' },
     ], attackers, { lin: 0, ang: 0.2 });
     stick.weapon = weapon;

@@ -107,6 +107,29 @@ describe('the world is physics: a breakable bridge', () => {
     expect(sim.round === round ? sim.fighters[1].hp < hp0 : true).toBe(true); // the plank hurt them (or the round ended trying)
   }, 30000);
 
+  it('a plank still in the bridge cannot be picked up (empty-handed on the bridge, right-click finds nothing to take)', async () => {
+    const { sim, step } = await onBridge(4);
+    const f = sim.fighters[2]; // (starts on the bridge)
+    step(1, [{}, {}, { drop: true }]);
+    const t = f.torso.body.translation();
+    f.stick!.body.setTranslation({ x: t.x, y: t.y - 6 }, true); f.stick!.body.setLinvel({ x: 0, y: 0 }, true); f.stick!.body.setGravityScale(0, true); // (its own club out of reach)
+    step(50);
+    const seen: string[] = [];
+    for (let i = 0; i < 3; i++) { step(1, [{}, {}, { drop: i === 0, aim: Math.PI / 2 }]); seen.push(...sim.events.map((e) => e.t)); }
+    expect(seen).not.toContain('pickup');
+    expect(planks(sim).every(attached)).toBe(true);
+  });
+
+  it('four bots fighting on the bridge from the first frame leave it standing at first (a sword turning round at the start used to cut it)', async () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const sim = await Sim.create(seed, 4, false);
+      sim.looks = sim.looks.map((l) => ({ ...l, bot: true }));
+      sim.forceEra = 'samurai'; sim.forceMap = 1; sim.reset();
+      for (let i = 0; i < 40; i++) sim.step([idle(), idle(), idle(), idle()]);
+      expect(planks(sim).every(attached)).toBe(true);
+    }
+  }, 30000);
+
   it('you pick up the one you aim at, and an outstretched hand takes what it touches', async () => {
     for (const aim of [0, Math.PI]) {
       const { sim, step } = await onBridge();

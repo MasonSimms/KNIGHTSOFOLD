@@ -405,7 +405,7 @@ export class Sim {
         if (!plank.links?.length) return;
         const vb = other.parent();
         const part = vb && this.partByBody.get(vb.handle);
-        if (!part || part.owner < 0 || part.role === 'off') return;
+        if (!part || part.owner < 0 || part.role === 'off' || part.role === 'stick' || part.role === 'upper' || part.role === 'fore') return; // a body slam: not a swinging arm or weapon (their tips move far faster than any fall; a weapon cuts by hitProp's rule)
         this.world.contactPair(plank.colliders[0], other, (m) => {
           if (!plank.links?.length || m.numSolverContacts() === 0) return;
           const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP;
@@ -448,7 +448,7 @@ export class Sim {
   private spawn(index: number, x: number, player: boolean): Fighter {
     const y = floorAt(this.arena, x) - T.stand.height - 0.02; // the hips at standing height
     const foe = this.dummy && index === 1; // the training partner: armed or not as the training menu says
-    const f = buildFighter(this.world, index, x, y, player, !this.arena.noWeapons && (foe ? this.training.foeArmed : T.fighter.startArmed), this.weapon);
+    const f = buildFighter(this.world, index, x, y, player, !this.arena.noWeapons && (foe ? this.training.foeArmed : T.fighter.startArmed), this.weapon, player && x > this.arena.viewW / 2 ? -1 : 1); // (facing the middle; the dummy never aims: it faces right, the way its controls point)
     for (const p of f.parts) this.partByBody.set(p.body.handle, p);
     return f;
   }
@@ -674,7 +674,7 @@ export class Sim {
         if (g.armLost && g.upper.role === 'upper') consider({ kind: 'limb', from: g.index, k: 0 }, g.upper); // a lost arm (not one somebody already took)
         g.legs.forEach((l, i) => { if (g.legLost[i] && l.thigh.role === 'thigh') consider({ kind: 'limb', from: g.index, k: 1 + i }, l.thigh); }); // a lost leg
       }
-      this.props.forEach((p, i) => consider({ kind: 'prop', index: i }, p));
+      for (const p of this.props) { const it = this.itemOf(p); if (it) consider(it, p); } // only what a hand can take (not a plank still in the bridge, not a standing stone)
       if (!best) continue;
       this.acquire(f, (best as { item: Item }).item);
       this.events.push({ t: 'pickup', x: bt.x, y: bt.y, v: itemCode((best as { item: Item }).item), owner: f.index, victim: (best as { item: Item }).item.kind === 'prop' ? -1 : ((best as { item: Item }).item as { from: number }).from });
