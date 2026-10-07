@@ -16,7 +16,7 @@ import { windAt } from '../sim/wind';
 import { createLight } from './light';
 import { makeGoogly, makeHat } from './hat';
 import type { HatView } from './hat';
-import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, paintedWeapon, PPM, VARIANTS } from './painter/sprites';
+import { CAPE, paintedBox, paintedCape, paintedCostume, paintedFront, paintedShape, paintedSplats, paintedStreaks, paintedWeapon, PPM, VARIANTS } from './painter/sprites';
 import { ITEMS } from '../content/props';
 import { paintingFor } from '../content/paintings';
 import type { Eyes } from '../content/looks';
@@ -210,6 +210,7 @@ interface Entry {
   shade: Container; // all of this fighter's soft shadow
   eyes: Container[]; // painted eyes: they look the way the fighter faces
   hat: HatView | null; // the player's hat, on the head
+  costume: { s: Sprite; tex: Texture[] } | null; // the era's costume, on the body (content/costumes.ts)
   googly: Pick<HatView, 'step'> | null; // googly eyes' loose pupils
   head: Container | null; // the container the head is in (what sways on the head follows it)
   blur: BlurFilter; // softens the fighter as they slip back into the background plane (dodge)
@@ -460,7 +461,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const base = fighterColor(f);
       group.sortableChildren = true;
       const c: Container[] = [], eyes: Container[] = [], painted: Painted[][] = [], under: Container[] = [], soft: Container[] = [], shadeC = new Container();
-      let hatView: HatView | null = null, googly: Entry['googly'] = null, head: Entry['head'] = null;
+      let hatView: HatView | null = null, googly: Entry['googly'] = null, head: Entry['head'] = null, costume: Entry['costume'] = null;
       shadows.addChild(shadeC);
       const underAll = new Container();
       underAll.zIndex = -10;
@@ -474,6 +475,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const shade = p.role === 'off' ? mix(color, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(color, 0x000000, 0.18) : color;
         const art = p.role === 'stick' || p.role === 'flail' ? addWeapon(k, p) : null;
         painted.push(art ? [art] : p.shapes.map((s, i) => addPainted(k, s, p.role === 'stick' && i > 0 && p.weapon?.gun ? T.colors.stick : shade)));
+        if (p.role === 'torso' && !bot) { // the era's costume over the body, under the hat (a bot stays a plain robot, as with the cape)
+          const P = T.finish.paint, made = paintedCostume(sim.era, { r: T.fighter.torsoRadius, hl: T.legs.torsoHalf, y: T.legs.torsoY, headY: T.fighter.headY, headR: T.fighter.headRadius }, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+          if (made) { const sp = new Sprite(made.tex[0]); sp.anchor.set(made.ax, made.ay); sp.scale.set(1 / PPM); k.addChild(sp); costume = { s: sp, tex: made.tex }; }
+        }
         if (art) addWeapon(u, p, UNDER); else for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
         underAll.addChild(u);
         under.push(u);
@@ -499,7 +504,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
       if (bot) cape.rope.parent!.visible = false;
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, eyes, hat: hatView, googly, head, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0, hand: f.side });
+      entries.push({ f, group, c, eyes, hat: hatView, costume, googly, head, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0, hand: f.side });
     }
     builtVersion = sim.version;
   }
@@ -694,6 +699,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
         if (e.head) { const k = e.head; e.hat?.step(k.x, k.y, k.rotation, f.side, frameSeconds, now, wind); e.googly?.step(k.x, k.y, k.rotation, f.side, frameSeconds, now, wind); } // (what sways on the head)
         e.hat?.show(variant, f.side);
+        if (e.costume) { e.costume.s.texture = e.costume.tex[variant]; e.costume.s.scale.x = f.side / PPM; }
         const torso = c[0], tc = Math.cos(torso.rotation), ts = Math.sin(torso.rotation), cx = -f.side * T.finish.cape.backX, cy = T.finish.cape.shoulderY;
         stepCape(e.cape, torso.x + tc * cx - ts * cy, torso.y + ts * cx + tc * cy, f.side, frameSeconds, boil / T.finish.boilFps, variant, wind);
         // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.

@@ -9,6 +9,7 @@ import type { Img } from './core';
 import { paintLayer } from './strokes';
 import type { Hat } from '../../content/looks';
 import { WEAPON_ART } from '../../content/weaponArt';
+import { COSTUMES } from '../../content/costumes';
 import type { Paint } from '../../content/weaponArt';
 
 /** A canvas to paint on away from the page: OffscreenCanvas, or an ordinary canvas where the browser has none (Safari before 16.4). */
@@ -733,6 +734,49 @@ export function paintedWeapon(id: string, len: number, K: SpriteKnobs): { tex: T
     ang[i] = (b ? Math.atan2(y - b.y, x - b.x) + Math.PI / 2 : 0) + R.normal() * 0.05; // brushed along the weapon, round the round things
   }
   const out = paintFlat(img, alpha, ang, 8009 + seed, K);
+  cache.set(key, out);
+  return { tex: out, ...at };
+}
+
+/** The body a costume is clipped to: the pill (radius r, half-length hl, centred at y below the hips) and, kept clear, the head (headR at headY). */
+export interface CostumeBody { r: number; hl: number; y: number; headY: number; headR: number }
+
+/**
+ * An era's costume (content/costumes.ts), painted like the weapons and clipped to the body: never over the head, and only a hair wider
+ * than the body, so it reads as clothes on it. Facing right; anchored at the hips (the body's origin).
+ */
+export function paintedCostume(era: string, b: CostumeBody, K: SpriteKnobs): { tex: Texture[]; ax: number; ay: number } | null {
+  const pieces = COSTUMES[era];
+  if (!pieces) return null;
+  const s = PPM, grow = 0.012, x0 = -(b.r + grow), y0 = b.y - b.hl - b.r - grow, y1 = b.y + b.hl + b.r + grow;
+  const W = Math.ceil(-2 * x0 * s + 2 * PAD), H = Math.ceil((y1 - y0) * s + 2 * PAD), N = W * H, ox = PAD - x0 * s, oy = PAD - y0 * s;
+  const at = { ax: ox / W, ay: oy / H }, key = `costume|${era}|${JSON.stringify(b)}|${JSON.stringify(K)}`, hit = cache.get(key);
+  if (hit) return { tex: hit, ...at };
+  const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!, P = (x: number, y: number): [number, number] => [ox + x * s, oy + y * s];
+  const ramp = (c: Paint, ys: number[]) => { const gr = g.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys) + 0.01); c.forEach((col, i) => gr.addColorStop(i / (c.length - 1), col)); return gr; };
+  for (const p of pieces) {
+    g.beginPath();
+    if (p.k === 'poly') {
+      const pts = p.pts.map(([x, y]) => P(x, y));
+      pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.closePath(); g.fillStyle = ramp(p.c, pts.map((q) => q[1]));
+    } else {
+      const [cx, cy] = P(p.x, p.y);
+      if (p.k === 'ball') g.ellipse(cx, cy, (p.rx ?? p.r) * s, p.r * s, 0, 0, Math.PI * 2);
+      else for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, r = (i % 2 ? 0.45 : 1) * p.r * s; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } // a star
+      g.closePath(); g.fillStyle = lit(g, cx, cy, p.r * s, p.c[0], p.c[1], p.c[p.c.length - 1]);
+    }
+    g.fill();
+  }
+  const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(era.length * 4099);
+  for (let i = 0; i < N; i++) {
+    const x = (i % W - ox) / s, y = (((i / W) | 0) - oy) / s;
+    const inBody = b.r + grow - Math.hypot(x, y - Math.max(b.y - b.hl, Math.min(b.y + b.hl, y))), offHead = Math.hypot(x, y - b.headY) - b.headR; // (metres inside the body, outside the head)
+    alpha[i] = (d[4 * i + 3] / 255) * Math.min(1, Math.max(0, inBody * s + 0.5)) * Math.min(1, Math.max(0, offHead * s + 0.5));
+    for (let c = 0; c < 3; c++) img.c[c][i] = d[4 * i + c] / 255;
+    ang[i] = R.normal() * 0.05; // brushed across the body
+  }
+  const out = paintFlat(img, alpha, ang, 9013 + era.length * 37, K);
   cache.set(key, out);
   return { tex: out, ...at };
 }

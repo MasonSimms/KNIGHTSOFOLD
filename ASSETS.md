@@ -23,6 +23,9 @@ No files: the 12 hats and 7 hairstyles are drawn and then oil-painted at runtime
 ## Weapons (2026-10-07)
 No files: every weapon (the 15 era weapons and every pickup) is a few flat shapes written as data (src/content/weaponArt.ts), drawn and then oil-painted at runtime by our own code (paintedWeapon in src/render/painter/sprites.ts). Designed from the owner's weapon sheet (art-guide/visuals/weapons.png, from the owner's design window: direction only, not shipped). No image is AI-generated; the code was written with Claude.
 
+## Era costumes (2026-10-07)
+No files: each era's costume piece is a few flat shapes written as data (src/content/costumes.ts), drawn, clipped to the body and then oil-painted at runtime by our own code (paintedCostume in src/render/painter/sprites.ts). Designed from the owner's costume sheet (art-guide/visuals/costumes.png, from the owner's design window: direction only, not shipped). No image is AI-generated; the code was written with Claude.
+
 ## AI-generated content
 None yet. Log tool, version, prompt and seed for every AI-generated image or sound.
 
