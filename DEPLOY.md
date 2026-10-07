@@ -20,13 +20,13 @@ You do the sign-up (it needs your email and a card); every other step is a comma
 
 ## Two things Fly.io needed after the first deploy (done 2026-10-06; keep them in mind)
 
-- **An address.** The first  started the game but gave it no internet address, so the browser said the site could not be found.
-  Fixed with  and  (both free). A home router can remember the "not found" for
+- **An address.** The first `fly deploy` started the game but gave it no internet address, so the browser said the site could not be found.
+  Fixed with `fly ips allocate-v6` and `fly ips allocate-v4 --shared` (both free). A home router can remember the "not found" for
   about 5 minutes afterwards: wait, or try on a phone with Wi-Fi off.
 - **Exactly one server.** Fly.io started two copies of the server, but the rooms live inside one: a friend could land on the other copy and
-  be told there is no such room. Fixed with . Later deploys keep it at one.
+  be told there is no such room. Fixed with `fly scale count 1`. Later deploys keep it at one.
 - **Do not use the Deploy button on Fly.io's website** (it offers to merge files into GitHub and deploy from there): it deploys whatever
-  GitHub has, which is older than this computer. Always  from PowerShell in this folder.
+  GitHub has, which is older than this computer. Always `fly deploy` from PowerShell in this folder.
 
 ## Updating it later
 
