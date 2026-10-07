@@ -1,6 +1,6 @@
 # Fly.io config for the room server. The machine stops itself when nobody is playing and wakes on the next connection,
 # so you only pay for the minutes it runs. First time: fly launch --no-deploy (accept this file), then fly deploy.
-app = "knights-of-old-server"
+app = "knightsofold"
 primary_region = "iad"
 
 [build]

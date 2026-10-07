@@ -12,10 +12,10 @@ You do the sign-up (it needs your email and a card); every other step is a comma
 2. Install their tool: `iwr https://fly.io/install.ps1 -useb | iex`, then close PowerShell and open it again.
 3. Log in: `fly auth login` (a browser window opens: log in there).
 4. Go to the game's folder: `cd C:\Users\User\knights-of-old`
-5. Make the app, with a name nobody has taken yet (lowercase, dashes): `fly apps create knights-of-old-YOURNAME`
+5. Make the app, with a name nobody has taken yet (lowercase, dashes): `fly apps create knights-of-old-YOURNAME` (done: the app is **knightsofold**)
    Then put that name in `fly.toml` on the line `app = "..."` (or tell Claude the name and it does it).
 6. Send it up: `fly deploy` (the first time takes 3-6 minutes: Fly.io builds the game on its own machines).
-7. Your game is at `https://knights-of-old-YOURNAME.fly.dev`. Open it, click **Online**, **Make a room**, then **Copy invite link** and
+7. Your game is at `https://knightsofold.fly.dev`. Open it, click **Online**, **Make a room**, then **Copy invite link** and
    send that link to your friends. They open it, pick a look, press Ready; you press **To Battle**.
 
 ## Updating it later
@@ -25,7 +25,7 @@ is told "the game has been updated: reload"). Anyone in a fight while it updates
 
 ## Checking on it
 
-- `https://knights-of-old-YOURNAME.fly.dev/health` says `ok` and how many rooms are open.
+- `https://knightsofold.fly.dev/health` says `ok` and how many rooms are open.
 - `fly logs` shows what the server is doing; `fly status` whether it is awake.
 - One 4-player room costs roughly 10% of one small CPU core; this machine holds about 5-6 rooms at once (`MAX_ROOMS` in `fly.toml`).
 
