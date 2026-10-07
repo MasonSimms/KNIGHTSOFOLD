@@ -55,3 +55,5 @@ Open `http://localhost:8080/?online` in two browser tabs: one makes a room, the 
 
 The page could live on Cloudflare Pages (free) with only the rooms on Fly.io (build with `$env:VITE_SERVER_URL = "wss://<app>.fly.dev"`),
 or everything on Render's free tier (no card, but it sleeps after 15 minutes and the first player then waits about 50 seconds).
+
+Deploy from committed code only (2026-10-07): `fly deploy` packs up the folder as it stands, including half-done edits from another window. When two windows work at once, deploy from a clean checkout of the last commit: `git worktree add --detach ..\deploy-tmp HEAD`, then `fly deploy` inside that folder, then `git worktree remove --force ..\deploy-tmp`. (The page and the server are always built together, so they match each other either way.)
