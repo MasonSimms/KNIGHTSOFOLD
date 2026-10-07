@@ -1,6 +1,7 @@
 import { BOT_GRAYS, COLORS } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import { paintPortrait, PORTRAIT } from '../render/portrait';
+import { paintedSplats } from '../render/painter/sprites';
 import type { Sim } from '../sim/world';
 
 // What is drawn over a real fight (2-4 players). Owner: as little text as possible. The scoreboard is each player's colour and their
@@ -33,6 +34,33 @@ export function updateHud(sim: Sim): void {
 
 /** Take the round's banner away (the museum slides on to the next painting: it belongs to the one before). */
 export function clearBanner(): void { banner.textContent = ''; lastBanner = ''; }
+
+// The round break (owner, 2026-10-07): while the round hangs as a painting on the museum wall, a little gilt-framed card per player: their
+// portrait from the Hall and a gold coin for every round won (the round winner's newest dropping in), the leader's frame glowing, and a red
+// splat across the card of whoever went out last. No words.
+let cards: HTMLElement | null = null;
+export function showCards(sim: Sim): void {
+  const players = sim.fighters.filter((f) => f.controlled && !sim.gone[f.index]);
+  const top = Math.max(0, ...players.map((f) => sim.scores[f.index]));
+  const out = players.filter((f) => f.limp && f.index !== sim.roundWinner).sort((a, b) => b.deadAt - a.deadAt)[0]?.index ?? -1; // knocked off last
+  if (!cards) { cards = document.createElement('div'); cards.id = 'cards'; document.body.appendChild(cards); }
+  cards.innerHTML = players.map((f) => {
+    const n = sim.scores[f.index], coins = Array.from({ length: n }, (_, k) => `<i${f.index === sim.roundWinner && k === n - 1 ? ' class="new"' : ''}></i>`).join('');
+    return `<div class="card${top > 0 && n === top ? ' lead' : ''}"><canvas width="${PORTRAIT.w}" height="${PORTRAIT.h}"></canvas>${f.index === out ? '<canvas class="splat" width="112" height="144"></canvas>' : ''}<div class="coins">${coins}</div></div>`;
+  }).join('');
+  cards.style.display = 'flex';
+  cards.querySelectorAll('.card').forEach((card, k) => {
+    const portrait = card.querySelector('canvas')!, splat = card.querySelector<HTMLCanvasElement>('canvas.splat');
+    void paintPortrait({ ...sim.looks[players[k].index] }, players[k].index).then((v) => portrait.getContext('2d')!.drawImage(v[0], 0, 0));
+    if (splat) { // the knock-off paint (painter/sprites.ts paintedSplats, white) in red, keeping its brushwork
+      const P = T.finish.paint, src = paintedSplats({ relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under })[0].source.resource as CanvasImageSource, g = splat.getContext('2d')!;
+      g.drawImage(src, 0, 0, splat.width, splat.height);
+      g.globalCompositeOperation = 'multiply'; g.fillStyle = '#C8282C'; g.fillRect(0, 0, splat.width, splat.height);
+      g.globalCompositeOperation = 'destination-in'; g.drawImage(src, 0, 0, splat.width, splat.height);
+    }
+  });
+}
+export function hideCards(): void { if (cards) cards.style.display = 'none'; }
 
 /** The end of a match: busts on pedestals, the winner crowned in the middle and highest, under a warm light. */
 function showPodium(sim: Sim, on: boolean): void {

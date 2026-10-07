@@ -24,9 +24,20 @@ let land: Promise<ImageBitmap | null> | null = null;
 
 /**
  * The three painted variants of one player's portrait (seat picks the stretch of landscape behind them). bare: the figure alone, no
- * landscape or varnish (a bust to stand on a pedestal); crown: wearing the crown whatever their hat (a bot too).
+ * landscape or varnish (a bust to stand on a pedestal); crown: wearing the crown whatever their hat (a bot too). The last few are kept:
+ * the Hall paints each player's, and the round break's score cards show the same ones without painting them again mid-match.
  */
-export async function paintPortrait(look: Look, seat: number, opts: { bare?: boolean; crown?: boolean } = {}): Promise<HTMLCanvasElement[]> {
+export function paintPortrait(look: Look, seat: number, opts: { bare?: boolean; crown?: boolean } = {}): Promise<HTMLCanvasElement[]> {
+  const key = JSON.stringify([look, seat, opts]), hit = kept.get(key);
+  if (hit) return hit;
+  const made = paint(look, seat, opts);
+  kept.set(key, made);
+  if (kept.size > 16) kept.delete(kept.keys().next().value!); // (browsing hats in the Hall paints a new one each time: forget the oldest)
+  return made;
+}
+const kept = new Map<string, Promise<HTMLCanvasElement[]>>();
+
+async function paint(look: Look, seat: number, opts: { bare?: boolean; crown?: boolean }): Promise<HTMLCanvasElement[]> {
   app ??= (async () => { const a = new Application(); await a.init({ width: PORTRAIT.w, height: PORTRAIT.h, backgroundAlpha: 0, antialias: true, preference: 'webgl' }); return a; })();
   land ??= paintPicture(BACKGROUND, NO_GROUND, 640, 360);
   const [a, back] = await Promise.all([app, opts.bare ? null : land]);

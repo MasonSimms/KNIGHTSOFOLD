@@ -205,6 +205,16 @@
 #score .pips i { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--gold-dim); }
 #score .pips i.on { background: var(--gold-dim); }
 #score .pips i.now { background: var(--gold); box-shadow: 0 0 8px rgba(255, 210, 120, .7); }
+/* the round break: a gilt-framed card per player under the painting (hud.ts showCards) */
+#cards { position: fixed; left: 0; right: 0; bottom: 3.5vh; display: none; justify-content: center; align-items: flex-end; gap: 2.2vh; pointer-events: none; z-index: 5; }
+#cards .card { position: relative; width: 11vh; padding: .55vh; background: linear-gradient(135deg, #f3d27a, #b98a2e 50%, #6e4e16); box-shadow: 0 .6vh 1.4vh rgba(0, 0, 0, .55); }
+#cards .card > canvas { display: block; width: 100%; height: auto; }
+#cards .card.lead { box-shadow: 0 0 2.4vh rgba(255, 210, 120, .9), 0 .6vh 1.4vh rgba(0, 0, 0, .55); }
+#cards .card > canvas.splat { position: absolute; left: -14%; top: 4%; width: 128%; transform: rotate(-14deg); }
+#cards .coins { display: flex; flex-wrap: wrap; justify-content: center; gap: .35vh; margin-top: .6vh; min-height: 1.5vh; }
+#cards .coins i { width: 1.5vh; height: 1.5vh; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3c0, #e2b33c 45%, #8c6a1c); box-shadow: 0 .15vh .3vh rgba(0, 0, 0, .5); }
+#cards .coins i.new { animation: coin-drop .7s cubic-bezier(.3, 1.6, .5, 1) .6s both; }
+@keyframes coin-drop { from { transform: translateY(-7vh) scale(1.7); opacity: 0; } to { transform: none; opacity: 1; } }
 #score .pips i.tie { background: #c8282c; box-shadow: 0 0 8px rgba(200, 40, 44, .7); }
 
 /* The end of a match (no words): busts on stone pedestals, the winner crowned in the middle, highest, under a warm light; gold marks

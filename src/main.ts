@@ -26,7 +26,7 @@ import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
 import { runHome } from './ui/home';
-import { clearBanner, updateHud } from './ui/hud';
+import { clearBanner, hideCards, showCards, updateHud } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 import { applySettings, loadSettings, runSettings } from './ui/settings';
@@ -106,7 +106,7 @@ if (onlineParam !== null) {
     c.onMsg = null; // (the room's messages wait for the Hall to pick them up)
     paused = true;
     notice('');
-    museum.close();
+    museum.close(); hideCards();
     const r = await runLobby(url, c);
     mySlot = r.you; isHost = r.host;
     if (predictor) { predictor.stop(); predictor.slot = r.you; }
@@ -167,12 +167,14 @@ async function eraChange() {
   const now = museum.newCanvas();
   renderer.draw(lastAlpha, 0, undefined, now); // the freeze
   museum.hangNow(now, view.era);
+  showCards(view); // (who went out last is read now, before the replay plays the round again)
   await museum.pullBack();
   for (let i = 0; i < 90 && net && !pendingClip; i++) await new Promise((ok) => setTimeout(ok, 20)); // (online: the server's clip is on its way)
   const clip = pendingClip;
   pendingClip = null;
   if (clip) await playClip(clip, renderer, view, play, net ? clipAt : undefined, (a, dt) => { renderer.draw(a, dt, undefined, now); museum.render(); });
   if (view.endsMatch) { // the last round: no next era; the podium comes up over the wall (the museum closes when everyone goes back to the Hall)
+    hideCards();
     if (!net && !room) sim.finishRoundPause();
     replaying = false; last = performance.now(); acc = 0;
     return;
@@ -181,6 +183,7 @@ async function eraChange() {
   await drawNextRound(next);
   museum.hangNext(next, view.upcoming().era);
   clearBanner();
+  hideCards();
   await museum.slide();
   await museum.zoomIn();
   if (!net && !room) sim.finishRoundPause(); // (here the next round starts now; online the server has been waiting the same time)
@@ -366,7 +369,7 @@ function frame(now: number) {
   if (acc >= T.sim.dt) acc = 0; // too far behind: drop the backlog instead of spiralling
   simMsSum += performance.now() - t0;
   if (!net && !room && sim.matchOver && sim.matchFrames >= T.match.crownFrames) { // the crown has been shown: back to the Hall, everyone still seated
-    museum.close();
+    museum.close(); hideCards();
     if (mode === 'local') { void menu('hall'); return; }
     sim.reseed(Math.floor(Math.random() * 2 ** 31)); // (testing links: straight into the next match)
   }
