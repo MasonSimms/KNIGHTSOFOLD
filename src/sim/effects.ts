@@ -81,7 +81,7 @@ export function moveEffects(sim: Sim): void {
 function thaw(f: Fighter): void {
   f.frozen = 0;
   const was = ice.get(f);
-  if (was) for (const [c, k] of was) c.setFriction(k);
+  if (was) for (const [c, k] of was) if (c.isValid()) c.setFriction(k); // (not a limb cut off meanwhile: its body is gone)
   ice.delete(f);
 }
 
