@@ -808,8 +808,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // still holding it and you are lying down. Not while you hold someone: that is the suplex (slam, above).
   f.dove = f.controlled && !f.grounded && input.crouch && !f.hold && f.stun === 0 && f.knock === 0 && f.carried === 0 && f.slamBy < 0;
   if (f.dove) {
-    const w = body.angvel();
-    body.setAngvel(w + clamp(clamp(DV.gain * wrapAngle(s * DV.angle - tilt), DV.max) - w, DV.accel * dt), true);
+    body.setAngvel(clamp(DV.gain * wrapAngle(s * DV.angle - tilt), DV.max), true); // (set outright every frame: the arm aiming at the cursor would otherwise turn the body on past flat)
   } else if (tip === 0 && Math.abs(tilt) > RU.from && f.stun === 0) {
     // Far from upright (after a knock, a landing, a tumble): turn back smoothly at a capped rate instead of a hard spring.
     const w = body.angvel();

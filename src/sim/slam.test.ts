@@ -133,18 +133,19 @@ describe('holding S in the air', () => {
     expect(plain.v).toBeLessThan(held.v - 0.5);
   });
 
-  it('does not lie you down in mid-air: you land on your feet, and only then go down', async () => {
+  it('turns you flat in mid-air, never past flat, and you land lying down (owner, 2026-10-07: it used to keep you upright)', async () => {
     const sim = await Sim.create(11);
     const P = sim.fighters[0];
     for (let i = 0; i < 20; i++) sim.step([idle({ moveX: 1 })]); // a running jump, S held from the top of it until well after landing
-    let tilt = 0, landed = -1;
+    let tilt = 0, flat = 0, landed = -1;
     for (let i = 0; i < 90; i++) {
       sim.step([idle({ moveX: i < 20 ? 1 : 0, jump: i < 20, crouch: i >= 20 })]);
-      if (landed < 0) tilt = Math.max(tilt, Math.abs(P.torso.body.rotation()));
+      if (landed < 0) { tilt = Math.max(tilt, Math.abs(P.torso.body.rotation())); if (Math.abs(P.torso.body.rotation()) > 1.3) flat++; }
       if (landed < 0 && i > 25 && P.grounded) landed = i;
     }
     expect(landed).toBeGreaterThan(0);
-    expect(tilt).toBeLessThan(0.6); // upright the whole way down (it used to tip onto its side and land sideways)
+    expect(flat).toBeGreaterThan(5); // flat for a while before it lands...
+    expect(tilt).toBeLessThan(1.9); // ...and never tipped on past flat (head down)
     expect(P.crouch).toBe(1); // and lying down once on the ground
   });
 });

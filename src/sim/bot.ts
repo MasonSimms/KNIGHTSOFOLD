@@ -36,7 +36,10 @@ export class Bot {
   private seen = { x: 0, y: 0, vx: 0, vy: 0, at: 0 }; // where the target was when last looked at (decisions run on this: a beat late)
   private aim = 0;
   private wobble = 0; // this thought's aiming error
-  private stuck = 0; // frames spent lying down, or pushing to walk and getting nowhere
+  private stuck = 0; // frames spent lying down
+  private from = { x: 0, at: 0 }; // where it was when it last made headway while trying to walk (see below)
+  private hops = 0; // hops out of getting nowhere since it last made headway
+  private detour = { dir: 0, until: 0 }; // a hop did not free it: walking the other way for a moment
   private jumpFrames = 0; // frames left holding jump (a person holds it for the full height: a quick tap is only a hop)
 
   constructor(seed: number) { this.rng = makeRng(seed); }
@@ -138,11 +141,18 @@ export class Bot {
       if (near) out.moveX = Math.sign(p.x - near.torso.body.translation().x) || 1;
     }
 
-    // Lying down, or pushing to walk and getting nowhere (tangled up with someone's club, wedged in a gap, propped up on a body): a person
-    // would jump out of it.
-    const lying = Math.abs(wrap(me.torso.body.rotation())) > 1.1, going = Math.abs(me.torso.body.linvel().x) > 0.3;
-    this.stuck = (lying && me.grounded) || (out.moveX !== 0 && !going) ? this.stuck + 1 : 0;
-    if (this.stuck > B.stuckFrames && this.jumpFrames === 0) { this.hop(); this.stuck = 0; }
+    // Lying down, or trying to walk and getting nowhere (tangled up with someone's club, wedged in a gap, propped up on a body, walking on a
+    // barrel that rolls away under its feet): a person would jump out of it. Judged by headway, not speed: on a rolling barrel it is never still.
+    const lying = Math.abs(wrap(me.torso.body.rotation())) > 1.1;
+    if (Math.abs(p.x - this.from.x) > 0.3 || now < this.from.at) this.hops = 0; // (headway: whatever it tried worked)
+    if (out.moveX === 0 || Math.abs(p.x - this.from.x) > 0.3 || now < this.from.at) this.from = { x: p.x, at: now };
+    this.stuck = lying && me.grounded ? this.stuck + 1 : 0;
+    if ((this.stuck > B.stuckFrames || now - this.from.at > B.stuckFrames) && this.jumpFrames === 0) {
+      if (this.hops++ > 0 && out.moveX !== 0) this.detour = { dir: -Math.sign(out.moveX), until: now + B.stuckFrames }; // a hop did not do it (a ceiling over its head): step back out the other way
+      else this.hop();
+      this.stuck = 0; this.from = { x: p.x, at: now };
+    }
+    if (now < this.detour.until && now >= this.detour.until - B.stuckFrames) out.moveX = this.detour.dir;
 
     // A gap in the floor ahead with more floor past it (a pit, a gap by a stepping stone): hop over it rather than walk in.
     if (plan.kind !== 'recover' && me.grounded && out.moveX !== 0 && this.jumpFrames === 0) {
