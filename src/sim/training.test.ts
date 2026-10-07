@@ -38,7 +38,7 @@ describe('training settings', () => {
     for (let i = 0; i < 30; i++) sim.step([idle()]);
     const P = sim.fighters[0], t = P.torso.body.translation(), n0 = sim.props.length;
     for (const it of ITEMS) sim.spawnItem(it.id, 12, 2); // every one of them
-    expect(sim.props.length).toBe(n0 + ITEMS.length);
+    expect(sim.props.filter((p) => !p.chainOf).length).toBe(n0 + ITEMS.length); // (a chain weapon's head is a loose thing of its own)
     sim.clearLoose();
     expect(sim.props.length).toBe(0);
     sim.spawnItem('katana', t.x + 0.5, t.y - 1.5); // one at your feet

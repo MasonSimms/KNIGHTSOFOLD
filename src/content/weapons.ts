@@ -18,6 +18,9 @@ export interface Weapon {
   hook?: boolean; // a grappling hook: a click throws the hook on a rope (sim/hook.ts)
 }
 
+/** A chain weapon (props.ts chain): a head of this weight and radius on a chain this long from the handle's far end (sim/fighter.ts addHead). */
+export interface ChainSpec { length: number; r: number; mass: number }
+
 /**
  * What a weapon is made of decides what a bullet does to it in your hand (owner): metal blocks it with a spark; wood (and bone) blocks it
  * but cracks, and snaps in two after enough shooting; light things (knives, fans, bamboo) are knocked out of your hand. 'shield' (later

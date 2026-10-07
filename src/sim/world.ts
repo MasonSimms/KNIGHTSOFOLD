@@ -2,7 +2,7 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
-import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, ropeGroups, setBackPlane, shove, syncStickGroups, terrainGroups } from './fighter';
+import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWeapon, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, ropeGroups, setBackPlane, shove, syncStickGroups, terrainGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { eraById } from '../content/eras';
 import { ITEMS, PROPS, PROP_KINDS } from '../content/props';
@@ -283,6 +283,7 @@ export class Sim {
       const p = createProp(this.world, pr.x, A.platformTop - pr.up - spec.thick / 2 - 0.01, 0, { kind: pr.kind, ...spec });
       this.props.push(p);
       this.partByBody.set(p.body.handle, p);
+      if (p.head) { this.props.push(p.head); this.partByBody.set(p.head.body.handle, p.head); }
     }
     this.fighters = Array.from({ length: this.count }, (_, i) => this.spawn(i, xs[i], !(this.dummy && i === 1 && this.training.foe === 'dummy')));
     this.fighters.forEach((f) => { if (this.gone[f.index]) this.park(f); });
@@ -426,6 +427,8 @@ export class Sim {
     }
     this.partByBody.delete(part.body.handle);
     this.world.removeRigidBody(part.body);
+    const h = part.head;
+    if (h) { const k = this.props.indexOf(h); if (k >= 0) this.props.splice(k, 1); this.partByBody.delete(h.body.handle); this.world.removeRigidBody(h.body); }
   }
   /** A light weapon shot out of the hand: it flies off with the bullet. */
   disarmByShot(f: Fighter, ix: number, iy: number, owner: number): void {
@@ -487,7 +490,7 @@ export class Sim {
         if (!plank.links?.length) return;
         const vb = other.parent();
         const part = vb && this.partByBody.get(vb.handle);
-        if (!part || part.owner < 0 || part.role === 'off' || part.role === 'stick' || part.role === 'upper' || part.role === 'fore') return; // a body slam: not a swinging arm or weapon (their tips move far faster than any fall; a weapon cuts by hitProp's rule)
+        if (!part || part.owner < 0 || part.role === 'off' || isWeapon(part) || part.role === 'upper' || part.role === 'fore') return; // a body slam: not a swinging arm or weapon (their tips move far faster than any fall; a weapon cuts by hitProp's rule)
         this.world.contactPair(plank.colliders[0], other, (m) => {
           if (!plank.links?.length || m.numSolverContacts() === 0) return;
           const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP;
@@ -665,6 +668,7 @@ export class Sim {
     const p = createProp(this.world, x, y, 0, { kind, ...(PROPS[kind] ?? ITEMS.find((it) => it.id === kind)?.spec ?? PROPS.plank) });
     this.props.push(p);
     this.partByBody.set(p.body.handle, p);
+    if (p.head) { this.props.push(p.head); this.partByBody.set(p.head.body.handle, p.head); } // (a chain weapon's head: a loose thing of its own, right after its handle)
     this.version++;
   }
 
@@ -688,7 +692,7 @@ export class Sim {
     const S = T.spawn, pickups = eraById(this.era).pickups;
     if (!T.eras.changeGameplay || !T.spawn.enabled || !pickups?.length || this.arena.noWeapons || this.frame < this.nextSpawn) return;
     this.nextSpawn = this.frame + Math.round(S.firstGap + (S.minGap - S.firstGap) * Math.min(1, this.frame / S.rampFrames));
-    if (this.props.filter((p) => pickups.includes(p.weapon?.id ?? '')).length >= S.maxLoose) return;
+    if (this.props.filter((p) => !p.chainOf && pickups.includes(p.weapon?.id ?? '')).length >= S.maxLoose) return; // (a flail's head is not a second flail)
     const strong = pickups.length > 1 && this.frame >= S.strongAfterFrames && this.rng() < S.strongChance;
     const kind = pickups[strong ? pickups.length - 1 : 0], A = this.arena;
     const sky = this.rng() < S.airdropChance, x = sky ? A.platformX + 0.8 + this.rng() * (A.platformW - 1.6) : A.platformX + A.platformW * S.spots[Math.floor(this.rng() * S.spots.length)];
@@ -734,7 +738,7 @@ export class Sim {
       if (!cut[0] && !cut[1]) continue;
       for (const p of f.parts) {
         // only what is still attached to the body (not a dropped club or a lost limb lying elsewhere)
-        if ((p.role === 'stick' && !f.grip) || (f.armLost && (p.role === 'upper' || p.role === 'fore')) || (f.legLost.some(Boolean) && (p.role === 'thigh' || p.role === 'shin'))) continue;
+        if ((isWeapon(p) && !f.grip) || (f.armLost && (p.role === 'upper' || p.role === 'fore')) || (f.legLost.some(Boolean) && (p.role === 'thigh' || p.role === 'shin'))) continue;
         const v = p.body.linvel(this.tmpV); p.body.setLinvel({ x: v.x + cut[0], y: v.y + cut[1] }, true);
       }
     }
@@ -779,6 +783,7 @@ export class Sim {
     if (item.kind === 'prop') {
       part = this.props.splice(item.index, 1)[0];
       this.ripFree(part);
+      if (part.head) this.props.splice(this.props.indexOf(part.head), 1);
     } else {
       const g = this.fighters[item.from];
       part = item.k === 0 ? g.upper : g.legs[item.k - 1].thigh;
@@ -786,7 +791,7 @@ export class Sim {
       cutJoint(this.world, g, item.k === 0 ? g.elbow : g.legs[item.k - 1].knee); // the rest of the limb stays behind: only the thigh (or upper arm) is taken
       this.dropCut(g, item.k);
     }
-    if (f.stick) this.props.push(dropToWorld(f, this.world)); // your own club, lying loose, is left behind for anyone
+    if (f.stick) { const d = dropToWorld(f, this.world); this.props.push(d); if (d.head) this.props.push(d.head); } // your own club, lying loose, is left behind for anyone
     takeIn(this.world, f, part);
     this.version++;
   }
@@ -799,6 +804,7 @@ export class Sim {
   /** An outstretched empty hand locks onto the first part of another fighter it touches (not a club, not the floppy second arm). */
   /** What an object is, if a hand can take it: a prop, a club nobody is holding, or a limb that has come off. */
   private itemOf(part: Part): Item | null {
+    if (part.chainOf) return this.itemOf(part.chainOf); // (a chain weapon's head: you take it by the handle)
     if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && (part.body.isDynamic() || !!part.weapon?.spear) && !part.links?.length && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
     const g = this.fighters[part.owner];
     if (!g) return null;
@@ -820,7 +826,7 @@ export class Sim {
         if (!part || part.role === 'off') return;
         const item = this.itemOf(part);
         if (item) { take.push([f, item, other.parent()!.translation()]); return; } // an outstretched hand takes the object it touches: aim at the one you want
-        if (part.owner === f.index || part.role === 'stick' || part.owner < 0) return;
+        if (part.owner === f.index || isWeapon(part) || part.owner < 0) return;
         const victim = this.fighters[part.owner];
         if (!victim || victim.inBack || victim.limp || victim.held === f) return; // no grabbing the dead (a limp ragdoll under the strong grabbing arm blows up)
         this.world.contactPair(fist, other, (m) => {
@@ -900,7 +906,7 @@ export class Sim {
       if (v.slamWait > 0) v.slamWait--; else v.crashPeak = 0;
       if (v.limp) continue;
       for (const p of v.parts) {
-        if (p.role === 'off' || (p.role === 'stick' && !v.grip)) continue;
+        if (p.role === 'off' || (isWeapon(p) && !v.grip)) continue;
         if (holder && v.thrown <= 0 && Math.cos(v.torso.body.rotation()) > 0.55 && (p.role === 'thigh' || p.role === 'shin')) continue; // held and set down on your feet is not a slam
         for (const col of p.colliders) {
           this.world.contactPairsWith(col, (other) => {
@@ -947,7 +953,7 @@ export class Sim {
       const going = !!g && g.held === v && g.slamming && !v.limp;
       if (!going && v.slamWindow === 0) { v.slamBy = -1; continue; }
       if (going) for (const part of v.parts) for (const col of part.colliders) { // any part of them: in an arc it is often a shoulder or an arm that lands first
-        if (part.role === 'off' || (part.role === 'stick' && !v.grip)) continue;
+        if (part.role === 'off' || (isWeapon(part) && !v.grip)) continue;
         if (Math.cos(v.torso.body.rotation()) > 0.55 && (part.role === 'thigh' || part.role === 'shin')) continue; // landing them on their feet is not a slam
         const head = col === v.headCollider || part.role === 'head';
         this.world.contactPairsWith(col, (other) => {
@@ -998,7 +1004,7 @@ export class Sim {
       if (p.body.mass() < P.crushMass || (p.crushAt ?? 0) > this.frame || Math.hypot(p.vx, p.vy) + Math.abs(p.w) * (p.weapon?.length ?? 1) / 2 < P.crushSpeed) continue; // (a tipping stone's end comes down faster than its middle)
       for (const col of p.colliders) this.world.contactPairsWith(col, (other) => {
         const vb = other.parent(), vp = vb && this.partByBody.get(vb.handle);
-        const v = vp && vp.role !== 'prop' && vp.role !== 'stick' ? this.fighters[vp.owner] : undefined;
+        const v = vp && vp.role !== 'prop' && !isWeapon(vp) ? this.fighters[vp.owner] : undefined;
         if (!vp || !v || v.limp || v.inBack || this.detached(v, vp) || (p.crushAt ?? 0) > this.frame) return;
         this.world.contactPair(col, other, (m) => {
           if (m.numSolverContacts() === 0) return;
@@ -1037,7 +1043,7 @@ export class Sim {
     for (const f of this.fighters) {
       if (f.limp || f.knock <= 0 || f.crashWait > 0) continue;
       for (const part of f.parts) {
-        if (part.role === 'stick' || part.role === 'off') continue;
+        if (isWeapon(part) || part.role === 'off') continue;
         const tp = part.body.translation();
         for (const col of part.colliders) this.world.contactPairsWith(col, (other) => {
           if (f.crashWait > 0 || !isWorld(other)) return;
@@ -1131,11 +1137,11 @@ export class Sim {
           this.world.contactPairsWith(att.collider, (other) => {
             const vb = other.parent();
             const victimPart = vb && this.partByBody.get(vb.handle);
-            if (!victimPart || victimPart.owner === f.index || (victimPart.role === 'stick') !== clubsOnly) return;
+            if (!victimPart || victimPart.owner === f.index || isWeapon(victimPart) !== clubsOnly) return;
             this.world.contactPair(att.collider, other, (m) => {
               if (m.numSolverContacts() === 0 || this.frame < att.nextHit) return; // (a hit earlier in this very frame already used up the swing)
               if (victimPart.role === 'prop') { this.hitProp(att, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN)); return; } // a plank or a log
-            if (victimPart.role === 'stick') { // a club hit by a club or fist: no damage, but a great clash can knock it out of a hand
+            if (isWeapon(victimPart)) { // a club (or a flail's head) hit by a club or fist: no damage, but a great clash can knock it out of a hand
                 const holder = this.fighters[victimPart.owner];
                 if (holder && holder.stick === victimPart && holder.grip) this.clash(f, att, holder, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN));
                 return;
@@ -1280,7 +1286,7 @@ export class Sim {
     if (impact >= D.explodeImpact) {
       for (const j of [f.shoulder, f.elbow, f.neck, f.offShoulder, f.offElbow, ...f.legs.flatMap((l) => [l.hip, l.knee])]) cutJoint(this.world, f, j);
       for (const p of f.parts) {
-        if (p.role === 'stick') continue;
+        if (isWeapon(p)) continue;
         const q = p.body.translation(), dx = q.x - t.x, dy = q.y - t.y, d = Math.hypot(dx, dy) || 1;
         const v = p.body.linvel(this.tmpV), s = D.explodeSpeed * (0.7 + 0.6 * this.rng());
         p.body.setLinvel({ x: v.x + (dx / d) * s, y: v.y + (dy / d) * s - D.explodeLift }, true);

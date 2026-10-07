@@ -147,7 +147,7 @@ export function updatePainted(p: Painted, partRot: number, variant: number): voi
 /** A weapon with its own picture (content/weaponArt.ts) instead of a plain rod: one sprite on the part. `tint`: its dark underpaint or
  *  its shadow. Null when it has none (a plank, a leg). */
 export function addWeapon(parent: Container, p: Part, tint?: number): Painted | null {
-  const P = T.finish.paint, w = p.weapon, art = w && paintedWeapon(w.id, w.length, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+  const P = T.finish.paint, w = p.weapon, art = w && paintedWeapon(p.chainOf ? `${w.id}-head` : w.id, w.length, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }); // (a chain weapon's head has its own picture)
   if (!art) return null;
   const sp = new Sprite(art.tex[0]);
   sp.anchor.set(art.ax, art.ay);
@@ -469,10 +469,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const cape = makeCape(group, paintedCape(parseInt(paintingFor(sim.era).hot.slice(1), 16), { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under }));
       for (const p of f.parts as Part[]) {
         const k = new Container(), u = new Container();
-        k.zIndex = p.role === 'off' ? -2 : p.role === 'stick' ? -0.5 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs; a held club is behind the hand and arm so it looks gripped
-        const color = p.role === 'stick' ? thingColor(p) : base;
+        k.zIndex = p.role === 'off' ? -2 : p.role === 'stick' || p.role === 'flail' ? -0.5 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs; a held club is behind the hand and arm so it looks gripped
+        const color = p.role === 'stick' || p.role === 'flail' ? thingColor(p) : base;
         const shade = p.role === 'off' ? mix(color, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(color, 0x000000, 0.18) : color;
-        const art = p.role === 'stick' ? addWeapon(k, p) : null;
+        const art = p.role === 'stick' || p.role === 'flail' ? addWeapon(k, p) : null;
         painted.push(art ? [art] : p.shapes.map((s, i) => addPainted(k, s, p.role === 'stick' && i > 0 && p.weapon?.gun ? T.colors.stick : shade)));
         if (art) addWeapon(u, p, UNDER); else for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
         underAll.addChild(u);
@@ -700,6 +700,14 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         e.group.pivot.set(torso.x, torso.y);
         e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis + T.death.squashDrop * e.sq);
         e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis) * (1 + T.death.squashWide * e.sq), lerp(1, 0.97, e.vis) * (1 - T.death.squashFlat * e.sq));
+      }
+      for (const p of [...sim.props, ...sim.fighters.flatMap((f) => f.parts)]) { // chain weapons: the chain, a run of links from the handle's far end to its head
+        const h = p.head;
+        if (!h) continue;
+        const a = lerp(p.pa, p.ca, alpha), half = (p.weapon?.length ?? 0.4) / 2, tx = lerp(p.px, p.cx, alpha) + Math.cos(a) * half, ty = lerp(p.py, p.cy, alpha) + Math.sin(a) * half;
+        const hx = lerp(h.px, h.cx, alpha), hy = lerp(h.py, h.cy, alpha), d = Math.hypot(hx - tx, hy - ty), n = Math.max(2, Math.round(d / 0.045));
+        const color = p.weapon?.id === 'flail' ? 0xd9a93a : 0x6a7077;
+        for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; ropes.circle(tx + (hx - tx) * t, ty + (hy - ty) * t, 0.02).stroke({ width: 0.012, color }); }
       }
       for (let k = 0, H = sim.hookLines; k + 3 < H.length; k += 4) { // grappling hooks: the rope from the hook's end of the weapon (sagging while it flies, taut once it bites), and the hook
         const e = entries[H[k]], st = e?.f.stick, c = st ? e.c[e.f.parts.indexOf(st)] : undefined;

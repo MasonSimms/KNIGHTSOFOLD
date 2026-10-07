@@ -121,6 +121,7 @@ function strike(sim: Sim, u: Bullet, c: Collider, dx: number, dy: number, nx: nu
   const ev = (t: 'spark' | 'splinter' | 'impact', victim = -1) => sim.events.push({ t, x: u.x, y: u.y, v: Math.atan2(ny, nx), owner: u.owner, victim });
   if (!part) { leak(sim, u.x, u.y, nx); ev('impact'); return 'stop'; } // the ground or a wall: a puff of dust (the water tower's tank: a leak)
   const holder = part.owner >= 0 && part.role !== 'prop' ? sim.fighters[part.owner] : undefined;
+  if (part.role === 'flail') { push(G.blockPush); ev('spark', holder?.index ?? -1); return 'stop'; } // a flail's iron (or gold) head in someone's hand: it stops the bullet
   if (part.role === 'stick' && holder && holder.grip && holder.stick === part) { // a weapon in someone's hand
     const m = part.weapon?.material ?? 'wood';
     if (m === 'shield') { // sent back the way it came: now it can hit anyone, the shooter too

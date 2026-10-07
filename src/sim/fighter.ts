@@ -1,7 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { Collider, ImpulseJoint, RevoluteImpulseJoint, RigidBody, World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
-import type { GunSpec, Material, Weapon } from '../content/weapons';
+import type { ChainSpec, GunSpec, Material, Weapon } from '../content/weapons';
 import { gripOf } from '../content/props';
 import type { PlayerInput, SimEvent } from './types';
 
@@ -14,7 +14,7 @@ export interface Part {
   body: RigidBody;
   shapes: Shape[]; // what the renderer draws (the same as the colliders)
   colliders: Collider[];
-  role: 'torso' | 'upper' | 'fore' | 'stick' | 'head' | 'thigh' | 'shin' | 'off' | 'prop'; // 'off' = the floppy second arm; 'prop' = a loose object in the world (a plank, a log...)
+  role: 'torso' | 'upper' | 'fore' | 'stick' | 'head' | 'thigh' | 'shin' | 'off' | 'prop' | 'flail'; // 'off' = the floppy second arm; 'prop' = a loose object in the world (a plank, a log...); 'flail' = the head of a chain weapon in someone's hand (see head)
   links?: ImpulseJoint[]; // a prop that is part of a structure (a bridge plank): the joints holding it
   weapon?: Weapon; // a club's own stats (so it keeps them when someone else picks it up)
   ammo?: number; // a gun: shots left (they belong to the gun, whoever holds it)
@@ -24,6 +24,8 @@ export interface Part {
   crushAt?: number; // a heavy loose thing: the frame it may crush someone again
   back?: boolean; // stands a step behind the fighters (props.ts back): touches the ground and loose things only
   hang?: { x: number; y: number }; // hangs on a rope from this point (a lantern)
+  head?: Part; // a chain weapon (props.ts chain): its head, hanging on its chain from this handle's far end; it goes wherever the handle goes
+  chainOf?: Part; // ...and on the head: its handle
   fuse?: number; // a grenade that has left a hand: frames until it goes off (sim/special.ts)
   thrower?: number; // ...and who let it go (the blast is theirs)
   burning?: number; // wood on fire: frames it goes on burning (sim/fire.ts)
@@ -175,7 +177,7 @@ const offGroups = ((0x4000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 export function syncStickGroups(f: Fighter): void {
   if (!f.stick) return;
   const g = ((f.inBack ? backGroups : ownerGroups(f.index) | GROUP_ROPE) & ~(f.grip ? GROUP_TERRAIN : 0)) >>> 0;
-  for (const c of f.stick.colliders) if (c.collisionGroups() !== g) c.setCollisionGroups(g);
+  for (const c of [...f.stick.colliders, ...(f.stick.head?.colliders ?? [])]) if (c.collisionGroups() !== g) c.setCollisionGroups(g);
 }
 
 /** Move a whole fighter (body, arm, club) between the normal plane and the background plane. */
@@ -347,7 +349,7 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
 }
 
 /** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
-export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean }): Part {
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; chain?: ChainSpec }): Part {
   const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
   const body = world.createRigidBody((spec.fixed ? RAPIER.RigidBodyDesc.fixed() : RAPIER.RigidBodyDesc.dynamic()).setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
   // A block (a stone, a crate, a pane of glass) or, by default, a rod (a plank, a club, a barrel on its side)
@@ -355,12 +357,52 @@ export function createProp(world: World, x: number, y: number, angle: number, sp
   const collider = world.createCollider(desc.setMass(spec.mass).setFriction(0.8).setRestitution(0.05).setCollisionGroups(spec.back ? backGroups : worldGroups), body);
   const shapes: Shape[] = [spec.box ? { k: 'box', hw: spec.len / 2, hh: r, x: 0, y: 0, rot: 0 } : { k: 'cap', hl, r, x: 0, y: 0, rot: Math.PI / 2 }];
   if (spec.gun) shapes.push({ k: 'cap', hl: 0.04, r: 0.035, x: -spec.len / 2 + 0.08, y: 0.07, rot: 0 }); // (picture only) a gun's handle, hanging under the back of the barrel
-  return {
+  const part: Part = {
     body, shapes, colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
     weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse, hook: spec.hook },
     ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}), ...(spec.back ? { back: true } : {}),
   };
+  if (spec.chain) addHead(world, part, spec.chain);
+  return part;
+}
+
+/** A chain weapon's head (props.ts chain), on a chain (a rope joint: it swings freely, up to the chain's length) from the handle's far end. */
+function addHead(world: World, p: Part, C: ChainSpec): void {
+  const len = p.weapon!.length, a = p.body.rotation(), t = p.body.translation(), d = len / 2 + C.length;
+  const x = t.x + Math.cos(a) * d, y = t.y + Math.sin(a) * d;
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
+  const collider = world.createCollider(RAPIER.ColliderDesc.ball(C.r).setMass(C.mass).setFriction(0.8).setRestitution(0.2).setCollisionGroups(worldGroups), body);
+  p.head = {
+    body, shapes: [{ k: 'ball', r: C.r, x: 0, y: 0 }], colliders: [collider], role: 'prop', owner: -1, chainOf: p,
+    px: x, py: y, pa: 0, cx: x, cy: y, ca: 0, vx: 0, vy: 0, w: 0,
+    weapon: { ...p.weapon!, length: 2 * C.r, thickness: 2 * C.r, mass: C.mass, gripFromEnd: 0 }, // (its hits are the weapon's: same name, its own weight)
+  };
+  world.createImpulseJoint(RAPIER.JointData.rope(C.length, { x: len / 2, y: 0 }, { x: 0, y: 0 }), p.body, body, true);
+}
+
+/** A weapon in or from a hand: the club itself, or a chain weapon's head. */
+export const isWeapon = (p: Part): boolean => p.role === 'stick' || p.role === 'flail';
+
+/** A chain weapon's head joins (or leaves) a fighter along with its handle. */
+function headTo(f: Fighter | null, h: Part | undefined): void {
+  if (!h) return;
+  if (f) {
+    h.role = 'flail'; h.owner = f.index;
+    for (const c of h.colliders) c.setCollisionGroups(f.inBack ? backGroups : ownerGroups(f.index));
+    f.attackers.push({ collider: h.colliders[0], part: h, kind: 'stick', nextHit: 0 });
+    f.parts.push(h);
+  } else {
+    h.role = 'prop'; h.owner = -1;
+    for (const c of h.colliders) c.setCollisionGroups(worldGroups);
+  }
+}
+function headFrom(f: Fighter, h: Part | undefined): void {
+  if (!h) return;
+  const i = f.parts.indexOf(h);
+  if (i >= 0) f.parts.splice(i, 1);
+  const k = f.attackers.findIndex((a) => a.part === h);
+  if (k >= 0) f.attackers.splice(k, 1);
 }
 
 /**
@@ -378,6 +420,7 @@ export function takeIn(world: World, f: Fighter, part: Part): void {
   for (const c of part.colliders) c.setCollisionGroups(f.inBack ? backGroups : ownerGroups(f.index));
   f.attackers.push({ collider: part.colliders[0], part, kind: 'stick', nextHit: 0 });
   f.parts.push(part);
+  headTo(f, part.head);
   f.stick = part;
   attachStick(world, f);
 }
@@ -392,8 +435,10 @@ export function dropToWorld(f: Fighter, world?: World): Part {
   part.role = 'prop';
   part.owner = -1;
   for (const c of part.colliders) c.setCollisionGroups(worldGroups);
+  headFrom(f, part.head);
+  headTo(null, part.head);
   f.stick = null;
-  return part;
+  return part; // (with a chain weapon, the caller lays its head out with it: part.head)
 }
 
 /** Make `part` (a club) belong to `to`: its owner, its parts list, its damage credit and its collision group. */
@@ -406,6 +451,8 @@ function reassign(part: Part, from: Fighter, to: Fighter): void {
   for (const c of part.colliders) c.setCollisionGroups(to.inBack ? backGroups : ownerGroups(to.index));
   to.stick = part;
   to.parts.push(part);
+  headFrom(from, part.head);
+  headTo(to, part.head);
 }
 
 /**
@@ -443,7 +490,7 @@ export function letGo(world: World, f: Fighter, fling: boolean, events: SimEvent
   if (!fling) { f.chargeLocked = true; return; } // let go of the button and press again to grab again
   const G = T.grab;
   for (const p of v.parts) {
-    if (p.role === 'stick' && !v.grip) continue;
+    if (isWeapon(p) && !v.grip) continue;
     const lv = p.body.linvel(tmp);
     const k = Math.min(G.fling, G.maxFling / Math.max(1e-6, Math.hypot(lv.x, lv.y))); // boosted, but never past the speed cap
     p.body.setLinvel({ x: lv.x * k, y: lv.y * k }, true);
@@ -465,6 +512,11 @@ export function placeLoose(world: World, f: Fighter, x: number, y: number, angle
   b.setAngvel(0, true);
   const p = f.stick!;
   p.px = p.cx = x; p.py = p.cy = y; p.pa = p.ca = angle;
+  if (p.head) { // (its head beside it, or the chain would whip it across the map)
+    const d = (p.weapon?.length ?? 1) / 2 + 0.1, hx = x + Math.cos(angle) * d, hy = y + Math.sin(angle) * d, hb = p.head.body;
+    hb.setTranslation({ x: hx, y: hy }, true); hb.setLinvel({ x: 0, y: 0 }, true); hb.setAngvel(0, true);
+    p.head.px = p.head.cx = hx; p.head.py = p.head.cy = hy;
+  }
   f.dropCooldown = 0;
   f.lostFrames = 0;
 }
@@ -512,7 +564,7 @@ export function ragdoll(world: World, f: Fighter, rng: () => number): Part[] {
 /** Total mass of every part of a fighter. */
 export function fighterMass(f: Fighter): number {
   let m = 0;
-  for (const p of f.parts) if (p.role !== 'stick' || f.grip) m += p.body.mass(); // a dropped club is not part of the body
+  for (const p of f.parts) if (!isWeapon(p) || f.grip) m += p.body.mass(); // a dropped club is not part of the body
   return m;
 }
 
@@ -520,7 +572,7 @@ export function fighterMass(f: Fighter): number {
 export function shove(f: Fighter, ix: number, iy: number): void {
   const M = fighterMass(f);
   for (const p of f.parts) {
-    if (p.role === 'stick' && !f.grip) continue;
+    if (isWeapon(p) && !f.grip) continue;
     const k = p.body.mass() / M;
     p.body.applyImpulse({ x: ix * k, y: iy * k }, true);
   }
@@ -866,7 +918,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     // Wall slide: in the air, pushing toward a wall, you slide down it slowly instead of dropping.
     if (!grounded && f.wall !== 0 && input.moveX * f.wall > 0.2) {
       for (const p of f.parts) {
-        if (p.role === 'stick' && !f.grip) continue;
+        if (isWeapon(p) && !f.grip) continue;
         const lv = p.body.linvel(tmp);
         if (lv.y > M.wallSlideSpeed) p.body.setLinvel({ x: lv.x, y: M.wallSlideSpeed }, true);
       }
@@ -884,7 +936,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     shove(f, dv * fighterMass(f), 0);
     if (swimming && f.jumpBuffer > 0 && f.swimKick === 0 && !f.sinking) { // a kick up out of the water (to climb back aboard)
       for (const p of f.parts) {
-        if (p.role === 'stick' && !f.grip) continue;
+        if (isWeapon(p) && !f.grip) continue;
         const lv = p.body.linvel(tmp);
         p.body.setLinvel({ x: lv.x, y: -M.jumpSpeed * (f.tar ? T.tar.kick : T.swim.kick) }, true);
       }
@@ -895,12 +947,12 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     } else if (f.jumpBuffer > 0 && f.coyote > 0) { // pressing a touch early, or a touch late after walking off a ledge, still jumps
       const jumpSpeed = f.held ? T.slam.carryJumpSpeed : M.jumpSpeed; // someone in your hands weighs you down
       for (const p of f.parts) { // the whole body leaves the ground together
-        if (p.role === 'stick' && !f.grip) continue;
+        if (isWeapon(p) && !f.grip) continue;
         const lv = p.body.linvel(tmp);
         p.body.setLinvel({ x: lv.x, y: -jumpSpeed * [1, T.maim.oneLegJump, 0][lostLegs] * (1 + T.crouch.jumpBonus * f.crouch) }, true); // a jump from a crouch goes a little higher; missing legs jump lower
       }
       if (f.held) for (const p of f.held.parts) { // whoever you are holding comes up with you (they are in your hands)
-        if (p.role === 'stick' && !f.held.grip) continue;
+        if (isWeapon(p) && !f.held.grip) continue;
         const lv = p.body.linvel(tmp);
         p.body.setLinvel({ x: lv.x, y: -jumpSpeed }, true);
       }
@@ -911,7 +963,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     } else if (f.jumpBuffer > 0 && !grounded && !swimming && f.wallCoyote > 0) {
       // Wall jump: kicked away from the wall, up to the height of a normal jump.
       for (const p of f.parts) {
-        if (p.role === 'stick' && !f.grip) continue;
+        if (isWeapon(p) && !f.grip) continue;
         p.body.setLinvel({ x: -f.wallDir * M.wallJumpX, y: -M.wallJumpY }, true);
       }
       f.jumpBuffer = 0;
@@ -923,7 +975,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     } else if (f.prevJump && !input.jump && body.linvel(tmp).y < -M.jumpCutMinSpeed) {
       // Let go of jump early and the jump is cut short: tap for a hop, hold for the full height.
       for (const p of f.parts) {
-        if (p.role === 'stick' && !f.grip) continue;
+        if (isWeapon(p) && !f.grip) continue;
         const lv = p.body.linvel(tmp);
         p.body.setLinvel({ x: lv.x, y: lv.y * M.jumpCut }, true);
       }

@@ -1,4 +1,5 @@
 import { tuning as T } from '../content/tuning';
+import { isWeapon } from './fighter';
 import type { Part } from './fighter';
 import { surfaceY } from './water';
 import type { Sim } from './world';
@@ -25,7 +26,7 @@ export function applyFire(sim: Sim): void {
   for (const f of sim.fighters) {
     if (f.limp) { f.burning = 0; continue; }
     if (A.fires.length) for (const p of f.parts) {
-      if (p.role === 'stick' || p.role === 'off') continue;
+      if (isWeapon(p) || p.role === 'off') continue;
       const t = p.body.translation();
       if (!inFlames(sim, t.x, t.y)) continue;
       if (f.burning === 0) ignite(t.x, t.y, -1, f.index);
@@ -48,7 +49,7 @@ export function applyFire(sim: Sim): void {
     p.burning--;
     for (const c of p.colliders) sim.world.contactPairsWith(c, (other) => { // whoever it touches catches fire (not the one holding it)
       const vb = other.parent(), vp = vb && sim.partByBody.get(vb.handle);
-      const v = vp && vp.role !== 'prop' && vp.role !== 'stick' ? sim.fighters[vp.owner] : undefined;
+      const v = vp && vp.role !== 'prop' && !isWeapon(vp) ? sim.fighters[vp.owner] : undefined;
       if (!v || v.index === holder || v.limp || v.inBack || v.burning > 0) return;
       sim.world.contactPair(c, other, (m) => {
         if (m.numSolverContacts() === 0 || v.burning > 0) return;

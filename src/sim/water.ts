@@ -1,7 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { RigidBody, World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
-import { fighterMass, terrainGroups } from './fighter';
+import { fighterMass, isWeapon, terrainGroups } from './fighter';
 import type { Fighter, Part } from './fighter';
 import type { Arena } from './world';
 
@@ -99,7 +99,7 @@ export function applyWater(A: Arena, frame: number, fighters: Fighter[], props: 
   for (const f of fighters) {
     for (const p of f.parts) {
       const W = liquidAt(A, p.body.translation().x);
-      const under = W ? floatBody(A, frame, p.body, p.role === 'stick' && !f.grip ? W.propFloat : f.sinking ? W.sinkFloat : W.float, W) : 0;
+      const under = W ? floatBody(A, frame, p.body, isWeapon(p) && !f.grip ? W.propFloat : f.sinking ? W.sinkFloat : W.float, W) : 0;
       if (p === f.torso) { f.wet = under; f.tar = W === T.tar; }
     }
     if (f.limp) continue;

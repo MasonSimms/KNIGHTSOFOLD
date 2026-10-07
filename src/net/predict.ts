@@ -1,6 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { RigidBody } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
+import { isWeapon } from '../sim/fighter';
 import type { Fighter, Part } from '../sim/fighter';
 import type { PlayerInput, SimEvent } from '../sim/types';
 import { HOLDING } from './snapshot';
@@ -147,7 +148,7 @@ export class Predictor {
 
   /** The parts that move with you (not a club you dropped, not a limb you lost). */
   private mine(f: Fighter): Part[] {
-    return f.parts.filter((p) => !(p.role === 'stick' && !f.grip) && !(f.armLost && (p.role === 'upper' || p.role === 'fore'))
+    return f.parts.filter((p) => !(isWeapon(p) && !f.grip) && !(f.armLost && (p.role === 'upper' || p.role === 'fore'))
       && !f.legs.some((l, i) => f.legLost[i] && (p === l.thigh || p === l.shin)));
   }
 }
