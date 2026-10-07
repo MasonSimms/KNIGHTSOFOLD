@@ -35,10 +35,10 @@ export interface Snapshot {
 export function fighterState(f: Fighter): number {
   return (f.knock > 0 ? 1 : 0) | (f.stun > 0 ? 2 : 0) | (f.carried > 0 || f.slamBy >= 0 ? 4 : 0) | (f.hold ? 8 : 0) | (f.limp ? 16 : 0) | (f.inBack ? 32 : 0)
     | (f.burning > 0 ? 64 : 0) | (f.stick?.burning ? 128 : 0) // (on fire, and their weapon on fire: for the picture)
-    | (f.grip ? HOLDING : 0) | (f.hooked ? HOOKED : 0); // their weapon is in their hand (a page moving its own fighter must let go when the server says it was thrown or knocked away)
+    | (f.grip ? HOLDING : 0) | (f.hooked ? HOOKED : 0) | (f.tangled > 0 ? TANGLED : 0); // their weapon is in their hand (a page moving its own fighter must let go when the server says it was thrown or knocked away)
 }
 
-export const HOLDING = 256, HOOKED = 512; // HOOKED: on a grappling hook's rope (the server swings you: no guessing it)
+export const HOLDING = 256, HOOKED = 512, TANGLED = 1024; // HOOKED: on a grappling hook's rope (the server swings you: no guessing it)
 const TELEPORT = 4; // metres moved between two snapshots (50 ms) that can only be a teleport
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
@@ -213,6 +213,7 @@ export class Mirror {
       f.hp = a.f[i].hp; f.inBack = a.f[i].back;
       const st = a.f[i].st ?? 0;
       f.burning = st & 64 ? 1 : 0;
+      f.tangled = st & TANGLED ? 1 : 0; // (for the picture: the net over them)
       if (f.stick) f.stick.burning = st & 128 ? 1 : 0;
       if (i === this.own) return; // (this page moves it)
       f.parts.forEach((p, j) => {

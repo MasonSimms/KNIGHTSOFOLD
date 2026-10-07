@@ -709,6 +709,15 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const color = p.weapon?.id === 'flail' ? 0xd9a93a : 0x6a7077;
         for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; ropes.circle(tx + (hx - tx) * t, ty + (hy - ty) * t, 0.02).stroke({ width: 0.012, color }); }
       }
+      for (const f of sim.fighters) { // tangled in a net: the mesh over them
+        if (!f.tangled || f.limp) continue;
+        const cx = lerp(f.torso.px, f.torso.cx, alpha), cy = lerp(f.torso.py, f.torso.cy, alpha) + 0.1, R = 0.55;
+        for (let i = -3; i <= 3; i++) {
+          const o = (i / 3) * R;
+          ropes.moveTo(cx + o - R * 0.6, cy - R).lineTo(cx + o + R * 0.6, cy + R).stroke({ width: 0.018, color: 0x9c8458 });
+          ropes.moveTo(cx + o + R * 0.6, cy - R).lineTo(cx + o - R * 0.6, cy + R).stroke({ width: 0.018, color: 0x9c8458 });
+        }
+      }
       for (let k = 0, H = sim.hookLines; k + 3 < H.length; k += 4) { // grappling hooks: the rope from the hook's end of the weapon (sagging while it flies, taut once it bites), and the hook
         const e = entries[H[k]], st = e?.f.stick, c = st ? e.c[e.f.parts.indexOf(st)] : undefined;
         if (!e || !st || !c) continue;

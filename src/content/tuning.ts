@@ -264,6 +264,13 @@ export const tuning = {
     stun: 25, // ...and loses their footing for this many frames
     cutSpeed: 6, // m/s a blade must be moving to cut the rope
   },
+  netting: {
+    // The net (sim/tangle.ts, weapon `net`). PLACEHOLDER numbers.
+    speed: 11, // m/s it is thrown at (on top of how you are moving)
+    flyFrames: 50, // frames it can still tangle someone after it leaves the hand
+    frames: 130, // how long someone stays tangled (about 2 s)
+    walk: 0.3, // ...walking at this share of their speed
+  },
   lasso: {
     // The lasso (sim/hook.ts, weapon `lasso`): like the hook, but it only takes people and loose things, and holds a fighter longer. PLACEHOLDER.
     range: 7, speed: 26, drop: 0.25, reel: 5, minLength: 0.9,

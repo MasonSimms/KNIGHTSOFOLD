@@ -26,6 +26,7 @@ export interface Part {
   hang?: { x: number; y: number }; // hangs on a rope from this point (a lantern)
   head?: Part; // a chain weapon (props.ts chain): its head, hanging on its chain from this handle's far end; it goes wherever the handle goes
   chainOf?: Part; // ...and on the head: its handle
+  netLive?: number; // a thrown net: frames it can still tangle someone it touches (sim/tangle.ts)
   fuse?: number; // a grenade that has left a hand: frames until it goes off (sim/special.ts)
   thrower?: number; // ...and who let it go (the blast is theirs)
   burning?: number; // wood on fire: frames it goes on burning (sim/fire.ts)
@@ -144,6 +145,8 @@ export interface Fighter {
   hookRequest: boolean; // clicked with a grappling hook in hand: the world throws it this frame (sim/hook.ts)
   hooked: boolean; // hanging on (or hauling on) a grappling hook's rope
   hauled: boolean; // caught on someone else's grappling hook (being reeled in)
+  netRequest: boolean; // clicked with a net in hand: the world throws it this frame (sim/tangle.ts)
+  tangled: number; // frames left caught in a net: no attacking, grabbing, jumping or dodging, only a shuffle
   gunCool: number; // frames until the gun can fire again
   aim: number; // where the player is aiming (radians): a bullet flies exactly there
   gunTrim: number; // how much the wrist corrects to hold a gun on the aim
@@ -287,7 +290,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, drift: 0, swimKick: 0, carried: 0, slamming: false, dove: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
+    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, netRequest: false, tangled: 0, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -349,7 +352,7 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
 }
 
 /** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
-export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; chain?: ChainSpec }): Part {
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; net?: boolean; chain?: ChainSpec }): Part {
   const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
   const body = world.createRigidBody((spec.fixed ? RAPIER.RigidBodyDesc.fixed() : RAPIER.RigidBodyDesc.dynamic()).setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
   // A block (a stone, a crate, a pane of glass) or, by default, a rod (a plank, a club, a barrel on its side)
@@ -360,7 +363,7 @@ export function createProp(world: World, x: number, y: number, angle: number, sp
   const part: Part = {
     body, shapes, colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
-    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse, hook: spec.hook, lasso: spec.lasso },
+    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse, hook: spec.hook, lasso: spec.lasso, net: spec.net },
     ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}), ...(spec.back ? { back: true } : {}),
   };
   if (spec.chain) addHead(world, part, spec.chain);
@@ -701,6 +704,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const body = f.torso.body;
 
   if (f.stun > 0) f.stun--;
+  if (f.tangled > 0) { f.tangled--; input = { ...input, attack: false, jump: false, dodge: false, drop: false, moveX: input.moveX * T.netting.walk }; } // caught in a net (sim/tangle.ts)
   if (f.crashWait > 0) f.crashWait--;
   if (f.knock > 0) { // knocked down: tumbling and limp until it passes, or until they are calm and on the ground (then they get up at once)
     const K = T.knock;
@@ -785,12 +789,14 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // A grappling hook in the hand: a click throws it; holding the click reels in, letting go lets go (the world does it: sim/hook.ts).
   const hooker = armed && !!f.stick?.weapon?.hook;
   if (hooker && f.controlled && attack && !f.trigger) f.hookRequest = true;
+  const netter = armed && !!f.stick?.weapon?.net; // a net: a click throws it (sim/tangle.ts)
+  if (netter && f.controlled && attack && !f.trigger) f.netRequest = true;
   f.trigger = input.attack;
   f.aim = input.aim;
   f.reach = input.reach ?? 0;
   const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
   // Facing follows the aim, but is locked for a whole attack (a charge and its lunge, or a punch) so the swing cannot turn around.
-  const facingLocked = f.controlled && !gun && !hooker && (attack || f.charge > 0 || f.release > 0 || f.punch > 0); // (a gun turns freely: you aim it)
+  const facingLocked = f.controlled && !gun && !hooker && !netter && (attack || f.charge > 0 || f.release > 0 || f.punch > 0); // (a gun turns freely: you aim it)
   if (!facingLocked) {
     if (aimX > FLIP) f.side = 1;
     else if (aimX < -FLIP) f.side = -1;
@@ -798,7 +804,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const s = f.side;
 
   // ---- attack state ----
-  const charging = f.controlled && armed && attack && !f.throwPending && !gun && !hooker; // hold to charge a club (a hook: the click is the hook's)
+  const charging = f.controlled && armed && attack && !f.throwPending && !gun && !hooker && !netter; // hold to charge a club (a hook: the click is the hook's)
   let punchPhase: 'none' | 'strike' | 'recover' = 'none';
   let strikeStart = false;
   const G = T.grab;
