@@ -44,7 +44,8 @@ const sim = await Sim.create(1, stress ? 4 : 2);
 // Look testing without a server: ?era=samurai keeps every round in that era; ?hats=plumed,jester,wizard,hennin and ?colors=4,5,6,7 dress the fighters.
 const eraParam = query.get('era');
 const mapParam = query.get('map');
-if (eraParam || mapParam) { sim.forceEra = eraParam; sim.forceMap = mapParam === null ? null : Number(mapParam); sim.reset(); } // ?era=samurai&map=1 is the samurai bridge
+sim.give = query.get('give'); // ?give=boat-hook: start every round holding that item (any id in content/props.ts)
+if (eraParam || mapParam || sim.give) { sim.forceEra = eraParam; sim.forceMap = mapParam === null ? null : Number(mapParam); sim.reset(); } // ?era=samurai&map=1 is the samurai bridge
 query.get('hats')?.split(',').forEach((h, i) => { if (sim.looks[i]) sim.looks[i].hat = asHat(h); });
 query.get('colors')?.split(',').forEach((c, i) => { if (sim.looks[i]) sim.looks[i].color = Number(c) || 0; });
 query.get('eyes')?.split(',').forEach((e, i) => { if (sim.looks[i]) sim.looks[i].eyes = asEyes(e); }); // ?eyes=googly,startled,sly,cyclops

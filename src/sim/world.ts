@@ -20,6 +20,8 @@ import type { Passing } from './train';
 import { applyJets } from './tower';
 import { applyWind } from './wind';
 import { aimSpears, fuses, goneOff, stickSpears } from './special';
+import { moveHooks } from './hook';
+import type { Hook } from './hook';
 import type { Jet } from './tower';
 import { breakProp, damageScenery, fire, moveBullets, predictShot, shatter, snapPart, spendShot } from './guns';
 import type { Bullet } from './guns';
@@ -76,6 +78,8 @@ export class Sim {
   private rng: () => number;
   readonly partByBody = new Map<number, Part>(); // (guns.ts reads it too)
   bullets: Bullet[] = []; // bullets in flight (sim/guns.ts)
+  hooks: Hook[] = []; // grappling hooks out (sim/hook.ts)
+  hookLines: number[] = []; // ...as they are drawn: owner, x, y, caught (1/0) for each (an online copy has these from the snapshot only)
   nextBullet = 0;
   private seed: number;
   private tmpV = { x: 0, y: 0 };
@@ -87,6 +91,7 @@ export class Sim {
   outfits = [0, 1, 2, 3]; // which of the era's 4 outfits each fighter wears this round
   forceEra: string | null = null; // testing: ?era=samurai keeps every round in one era
   forceMap: number | null = null; // testing: ?map=1 keeps every round on the era's second map
+  give: string | null = null; // testing: ?give=boat-hook puts that item (props.ts) in fighter 1's hand at the start of every round
   // Training (practising alone): who the second fighter is. A standing dummy (with a club, or empty-handed), or a bot that fights back.
   // Either way there are no rounds: whoever dies stands up again. (The bot also needs its look to say bot: the training menu does both.)
   training = { foe: 'dummy' as 'dummy' | 'bot', foeArmed: true };
@@ -225,6 +230,8 @@ export class Sim {
     this.events.length = 0;
     this.edits = []; // (a new list: last round's recording keeps the old one)
     this.bullets = [];
+    this.hooks = [];
+    this.hookLines = [];
     this.nextBullet = 0;
     this.partByBody.clear();
 
@@ -288,6 +295,13 @@ export class Sim {
         if (rule === 'spots') placeLoose(this.world, f, x, A.platformTop - 0.1, 0);
         else placeLoose(this.world, f, x, -1.5 - 2.5 * i, 0.4 * i);
       });
+    }
+    const f0 = this.fighters[0];
+    if (this.give && PROPS[this.give] && f0) { // (testing a weapon: in your hand from the start)
+      const t = f0.torso.body.translation();
+      if (f0.stick && f0.grip) placeLoose(this.world, f0, t.x - 2 * f0.side, A.platformTop - 0.1, 0);
+      this.addProp(this.give, t.x, t.y - 1.5);
+      this.acquire(f0, { kind: 'prop', index: this.props.length - 1 });
     }
     this.version++;
   }
@@ -563,6 +577,7 @@ export class Sim {
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     if (this.passing.length) stepTrain(this, this.passing);
     applyWind(this);
+    moveHooks(this);
     aimSpears(this);
     this.moveRopeEnds();
     this.world.step();

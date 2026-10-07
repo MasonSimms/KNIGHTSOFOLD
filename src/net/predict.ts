@@ -15,7 +15,7 @@ import type { Mirror, Snapshot } from './snapshot';
 // off), it starts from the newest place the server has you and quickly replays the buttons the server has not used yet, so the guess is
 // where the server will have you; on screen your fighter slides there from where it was drawn (shift) instead of jumping.
 
-const SERVER_ONLY = 1 | 2 | 4 | 8 | 16; // knocked, stunned, held, holding someone, dead (snapshot.fighterState)
+const SERVER_ONLY = 1 | 2 | 4 | 8 | 16 | 512; // knocked, stunned, held, holding someone, dead, on a grappling hook's rope (snapshot.fighterState)
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 

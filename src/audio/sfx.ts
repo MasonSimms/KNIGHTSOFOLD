@@ -103,6 +103,9 @@ export const sfx = {
   whistle() { play('whistle', (p) => { tone('triangle', 520 * p, 500 * p, 0.7, 0.18); tone('triangle', 650 * p, 625 * p, 0.7, 0.15); tone('triangle', 780 * p, 750 * p, 0.7, 0.12); }); }, // the train's steam whistle: something is coming
   shatter() { play('shatter', (p) => { burst(0.35, 0.5); tone('triangle', 3200 * p, 2400 * p, 0.2, 0.15); setTimeout(() => tone('triangle', 4100 * p, 3000 * p, 0.15, 0.1), 50); }); }, // a window breaking
   boom() { play('boom', (p) => { burst(0.6, 1); tone('sine', 90 * p, 30 * p, 0.6, 0.9); tone('square', 60 * p, 25 * p, 0.3, 0.3); }); }, // a grenade
+  hookThrow() { play('hookThrow', (p) => { burst(0.12, 0.15); tone('triangle', 700 * p, 300 * p, 0.12, 0.08); }); }, // a grappling hook whirls out
+  hook() { play('hook', (p) => { tone('square', 900 * p, 600 * p, 0.05, 0.25); burst(0.04, 0.2); }); }, // ...and bites
+  unhook() { play('unhook', (p) => { tone('triangle', 400 * p, 700 * p, 0.08, 0.08); }); }, // ...let go (or cut)
   thunk() { play('thunk', (p) => { tone('square', 220 * p, 110 * p, 0.07, 0.35); burst(0.05, 0.3); }); }, // a spear sticks in
   leak() { play('leak', (p) => { burst(0.6, 0.3); tone('sine', 900 * p, 700 * p, 0.3, 0.06); }); }, // a bullet through the water tower: a gush
   ignite() { play('ignite', (p) => { burst(0.35, 0.35); tone('sawtooth', 90 * p, 160 * p, 0.3, 0.12); }); }, // a whoomph as something catches fire

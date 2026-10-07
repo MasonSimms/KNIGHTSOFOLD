@@ -253,6 +253,17 @@ export const tuning = {
     stunFactor: 0.25, // balance strength while stunned
     stunDamping: 0.75, // ...but this much of the spin damping stays (more than stunFactor: a dazed body sways back up instead of rocking)
   },
+  hook: {
+    // The grappling hook (owner, 2026-10-07; sim/hook.ts). PLACEHOLDER numbers until it is played.
+    range: 9, // metres it flies before it comes back, having caught nothing
+    speed: 38, // m/s it flies at
+    drop: 0.15, // share of gravity it falls with in flight (a little arc)
+    reel: 7, // m/s the rope shortens while you hold the click
+    minLength: 0.7, // the shortest the rope reels in to (m)
+    yank: 9, // N s: a fighter it catches is pulled this hard toward you at once
+    stun: 25, // ...and loses their footing for this many frames
+    cutSpeed: 6, // m/s a blade must be moving to cut the rope
+  },
   dive: {
     // Holding S in the air (owner, 2026-10-07): the body turns flat, head first the way you face; let go and it turns upright again.
     angle: 1.5, // radians from upright it turns to (1.57 = exactly flat)

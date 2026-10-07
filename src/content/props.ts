@@ -6,7 +6,7 @@ import type { GunSpec, Material } from './weapons';
 // weapons that spawn in as a round goes on: heavier or longer, hitting harder.
 /** breaks: scenery that breaks (owner: environments have destructible elements): how much it takes (bullets by calibre x 10, hard hits by
  *  impact) and the loose pieces it leaves (kinds in this list). */
-export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean; hangs?: number; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number } // grip: where the hand holds it, as a share of its length from the back end (the ring on art-guide/visuals/weapons.png)
+export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean; hangs?: number; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean } // hook: a grappling hook (sim/hook.ts); grip: where the hand holds it, as a share of its length from the back end (the ring on art-guide/visuals/weapons.png)
 
 /** The guns (owner: the revolver and the flintlock first). PLACEHOLDER numbers until the playtest. */
 const REVOLVER: GunSpec = { ammo: 6, cooldown: 14, speed: 70, calibre: 1, impact: 31, push: 9, recoil: 2.5, kick: 6 }; // 6 quick shots, each about half a full club hit
@@ -29,7 +29,7 @@ export const PROPS: Record<string, PropSpec> = {
   spear: { len: 1.5, thick: 0.05, mass: 1.0, factor: 2.4, spear: true, grip: 0.38 }, 'great-axe': { len: 1.1, thick: 0.12, mass: 2.4, factor: 3.0 }, // (the spear: the Vikings' throwing spear, thrown point-first, and it sticks)
   mace: { len: 0.8, thick: 0.15, mass: 2.0, factor: 2.9 }, lance: { len: 1.9, thick: 0.08, mass: 1.6, factor: 2.7 },
   naginata: { len: 1.6, thick: 0.05, mass: 1.0, factor: 2.4 }, 'iron-fan': { len: 0.5, thick: 0.08, mass: 0.7, factor: 2.6 },
-  pistol: { len: 0.45, thick: 0.08, mass: 0.9, factor: 2.4, material: 'metal', gun: FLINTLOCK }, 'boat-hook': { len: 1.3, thick: 0.06, mass: 1.3, factor: 2.7 },
+  pistol: { len: 0.45, thick: 0.08, mass: 0.9, factor: 2.4, material: 'metal', gun: FLINTLOCK }, 'boat-hook': { len: 1.3, thick: 0.06, mass: 1.3, factor: 2.7, hook: true, grip: 0.15 }, // (the grappling hook)
   revolver: { len: 0.4, thick: 0.08, mass: 1.0, factor: 2.4, material: 'metal', gun: REVOLVER }, pickaxe: { len: 1.0, thick: 0.1, mass: 2.0, factor: 2.9 },
   'bayonet-rifle': { len: 1.6, thick: 0.07, mass: 1.5, factor: 2.6 }, grenade: { len: 0.6, thick: 0.1, mass: 1.2, factor: 2.8, fuse: 2, grip: 0.12 }, // (the fuse starts when it leaves a hand)
   'bamboo-stick': { len: 1.4, thick: 0.05, mass: 0.5, factor: 2.2 }, 'bayonet-knife': { len: 0.4, thick: 0.05, mass: 0.5, factor: 2.8 },

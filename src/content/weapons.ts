@@ -15,6 +15,7 @@ export interface Weapon {
   pull?: boolean; // its hits pull the victim toward you instead of knocking them away (the gravity hammer)
   spear?: boolean; // thrown, it flies point-first, hits harder (tuning.special.spearThrown) and sticks into the ground and walls (sim/special.ts)
   fuse?: number; // a grenade: seconds from leaving a hand to going off (sim/special.ts)
+  hook?: boolean; // a grappling hook: a click throws the hook on a rope (sim/hook.ts)
 }
 
 /**

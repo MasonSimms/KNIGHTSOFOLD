@@ -701,6 +701,14 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis + T.death.squashDrop * e.sq);
         e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis) * (1 + T.death.squashWide * e.sq), lerp(1, 0.97, e.vis) * (1 - T.death.squashFlat * e.sq));
       }
+      for (let k = 0, H = sim.hookLines; k + 3 < H.length; k += 4) { // grappling hooks: the rope from the hook's end of the weapon (sagging while it flies, taut once it bites), and the hook
+        const e = entries[H[k]], st = e?.f.stick, c = st ? e.c[e.f.parts.indexOf(st)] : undefined;
+        if (!e || !st || !c) continue;
+        const half = ((st.weapon?.length ?? 1) / 2) * c.scale.x, tx = c.x + Math.cos(c.rotation) * half, ty = c.y + Math.sin(c.rotation) * half, hx = H[k + 1], hy = H[k + 2];
+        const sag = (H[k + 3] ? 0.02 : 0.12) * Math.hypot(hx - tx, hy - ty);
+        ropes.moveTo(tx, ty).quadraticCurveTo((tx + hx) / 2, (ty + hy) / 2 + sag, hx, hy).stroke({ width: 0.035, color: T.colors.things.rope ?? 0xb09a6a });
+        ropes.circle(hx, hy, 0.06).fill(0x3a3e43);
+      }
       sea.draw(sim, alpha);
       fx.draw(sim, alpha, frameSeconds, wind);
       flames.draw(sim, alpha, frameSeconds, variant, wind);

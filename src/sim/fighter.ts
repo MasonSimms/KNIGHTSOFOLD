@@ -139,6 +139,9 @@ export interface Fighter {
   dropCooldown: number; // frames until a dropped club can be picked up again
   trigger: boolean; // the attack button last frame (a gun fires on the press)
   fireRequest: boolean; // pressed the trigger with a loaded gun: the world fires it this frame (sim/guns.ts)
+  hookRequest: boolean; // clicked with a grappling hook in hand: the world throws it this frame (sim/hook.ts)
+  hooked: boolean; // hanging on (or hauling on) a grappling hook's rope
+  hauled: boolean; // caught on someone else's grappling hook (being reeled in)
   gunCool: number; // frames until the gun can fire again
   aim: number; // where the player is aiming (radians): a bullet flies exactly there
   gunTrim: number; // how much the wrist corrects to hold a gun on the aim
@@ -282,7 +285,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, drift: 0, swimKick: 0, carried: 0, slamming: false, dove: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
+    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, gunCool: 0, aim: 0, gunTrim: 0, reach: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -344,7 +347,7 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
 }
 
 /** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
-export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number }): Part {
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean }): Part {
   const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
   const body = world.createRigidBody((spec.fixed ? RAPIER.RigidBodyDesc.fixed() : RAPIER.RigidBodyDesc.dynamic()).setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
   // A block (a stone, a crate, a pane of glass) or, by default, a rod (a plank, a club, a barrel on its side)
@@ -355,7 +358,7 @@ export function createProp(world: World, x: number, y: number, angle: number, sp
   return {
     body, shapes, colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
-    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse },
+    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse, hook: spec.hook },
     ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}), ...(spec.back ? { back: true } : {}),
   };
 }
@@ -727,12 +730,15 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const gun = armed && f.stick?.weapon?.gun && (f.stick.ammo ?? 0) > 0 && !f.stick.flipped ? f.stick.weapon.gun : null;
   if (f.gunCool > 0) f.gunCool--;
   if (gun && f.controlled && attack && !f.trigger && f.gunCool === 0) f.fireRequest = true;
+  // A grappling hook in the hand: a click throws it; holding the click reels in, letting go lets go (the world does it: sim/hook.ts).
+  const hooker = armed && !!f.stick?.weapon?.hook;
+  if (hooker && f.controlled && attack && !f.trigger) f.hookRequest = true;
   f.trigger = input.attack;
   f.aim = input.aim;
   f.reach = input.reach ?? 0;
   const aimX = Math.cos(input.aim), aimY = Math.sin(input.aim);
   // Facing follows the aim, but is locked for a whole attack (a charge and its lunge, or a punch) so the swing cannot turn around.
-  const facingLocked = f.controlled && !gun && (attack || f.charge > 0 || f.release > 0 || f.punch > 0); // (a gun turns freely: you aim it)
+  const facingLocked = f.controlled && !gun && !hooker && (attack || f.charge > 0 || f.release > 0 || f.punch > 0); // (a gun turns freely: you aim it)
   if (!facingLocked) {
     if (aimX > FLIP) f.side = 1;
     else if (aimX < -FLIP) f.side = -1;
@@ -740,7 +746,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const s = f.side;
 
   // ---- attack state ----
-  const charging = f.controlled && armed && attack && !f.throwPending && !gun; // hold to charge a club
+  const charging = f.controlled && armed && attack && !f.throwPending && !gun && !hooker; // hold to charge a club (a hook: the click is the hook's)
   let punchPhase: 'none' | 'strike' | 'recover' = 'none';
   let strikeStart = false;
   const G = T.grab;
@@ -856,7 +862,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     if (f.tuck > 0) f.tuck--;
     // Coming down is quicker than going up (owner: the jump felt floaty): extra pull while you fall on your own. Not while knocked down,
     // flung, held or holding someone (carries and slams keep their own arcs), so big hits and throws still fly.
-    if (!grounded && !swimming && f.knock === 0 && f.thrown === 0 && f.carried === 0 && !f.held && body.linvel(tmp).y > 0) shove(f, 0, (M.fallGravity - 1) * T.sim.gravity * fighterMass(f) * dt);
+    if (!grounded && !swimming && f.knock === 0 && f.thrown === 0 && f.carried === 0 && !f.held && !f.hooked && body.linvel(tmp).y > 0) shove(f, 0, (M.fallGravity - 1) * T.sim.gravity * fighterMass(f) * dt);
     // Wall slide: in the air, pushing toward a wall, you slide down it slowly instead of dropping.
     if (!grounded && f.wall !== 0 && input.moveX * f.wall > 0.2) {
       for (const p of f.parts) {
@@ -866,7 +872,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       }
     }
   }
-  if (!f.controlled && grounded) shove(f, clamp(-vx, M.groundAccel * dt) * fighterMass(f), 0); // the dummy plants its feet
+  if (!f.controlled && grounded && !f.hauled) shove(f, clamp(-vx, M.groundAccel * dt) * fighterMass(f), 0); // the dummy plants its feet (not against a rope)
   if (f.controlled && f.stun === 0) {
     const accel = (grounded ? M.groundAccel : M.airAccel) * dt;
     const winding = charging || !!f.hold; // slower while charging a club or holding someone
@@ -874,7 +880,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     const legMul = [1, T.maim.oneLegSpeed, T.maim.noLegSpeed][lostLegs]; // missing legs: hobbling, then crawling
     // (holding S in the air keeps your momentum: no steering, no braking. Owner: it lets you carry speed into a collision.)
     const mired = swimming && f.tar ? T.tar.walk : 1; // tar: a slow paddle
-    const dv = f.release > 0 || f.wallLock > 0 || (!grounded && input.crouch) ? 0 : clamp(input.moveX * M.moveSpeed * legMul * mired * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
+    const dv = f.release > 0 || f.wallLock > 0 || (!grounded && input.crouch) || f.hauled || (f.hooked && input.moveX === 0) ? 0 : clamp(input.moveX * M.moveSpeed * legMul * mired * (winding ? C.moveFactor : 1) * lerp(1, T.crouch.speedFactor, f.crouch) - vx, accel);
     shove(f, dv * fighterMass(f), 0);
     if (swimming && f.jumpBuffer > 0 && f.swimKick === 0 && !f.sinking) { // a kick up out of the water (to climb back aboard)
       for (const p of f.parts) {
