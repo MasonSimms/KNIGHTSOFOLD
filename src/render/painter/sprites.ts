@@ -255,6 +255,14 @@ const HAT_SHAPES: Partial<Record<Hat, (g: Ctx, P: (x: number, y: number) => [num
     g.fillStyle = GOLD[1]; g.fillRect(...P(-0.06, -1.27), 0.1 * s, 0.22 * s);
     return (_x, y) => (y < -1.05 ? 0 : Math.PI / 2);
   },
+  fubo(g, P, s) { // the owner's named style: a full black mop with volume on top and a middle part, sides over the ears (the curtain bangs and flyaways sway)
+    hairCap(g, P, s, ['#3E342A', '#1A1512', '#0A0806'], -0.55);
+    g.fillStyle = lit(g, ...P(0, -0.95), 1.1 * s, '#3E342A', '#1A1512', '#0A0806'); g.beginPath(); g.ellipse(...P(-0.05, -0.9), 0.95 * s, 0.42 * s, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#3E342A'; g.lineWidth = 0.035 * s;
+    for (const [x0, x1] of [[-0.75, -0.55], [-0.4, -0.3], [0.35, 0.5]]) { g.beginPath(); g.moveTo(...P(x0, -1.05)); g.quadraticCurveTo(...P((x0 + x1) / 2, -0.75), ...P(x1, -0.4)); g.stroke(); } // strand highlights
+    g.strokeStyle = '#0A0806'; g.lineWidth = 0.05 * s; g.beginPath(); g.moveTo(...P(0.02, -1.28)); g.lineTo(...P(0.05, -0.9)); g.stroke(); // the middle part
+    return () => Math.PI / 2;
+  },
   afro(g, P, s) { // the hairline over the brow (the cloud of curls is behind the head: HAT_BACKS)
     g.fillStyle = lit(g, ...P(0, -0.8), 1 * s, '#6A4428', '#4A2E1A', '#26160A'); g.beginPath();
     g.arc(...P(0, 0), 1.03 * s, Math.PI + 0.62, Math.PI * 2 - 0.62); g.quadraticCurveTo(...P(0, -0.5), ...P(-0.84, -0.6)); g.closePath(); g.fill();

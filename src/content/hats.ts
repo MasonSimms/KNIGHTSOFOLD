@@ -19,6 +19,7 @@ export interface DangleSpec {
   alpha?: number; // how solid (a veil is sheer)
   tip?: 'bell' | 'tie' | 'pompom'; // something drawn at the last point: a brass bell, a braid's red tie and tuft, a beanie's pom-pom
   braided?: boolean; // painted as a plait (alternating lumps)
+  front?: boolean; // in front of the face, over the eyes (Fubo's curtain bangs); otherwise behind the head
 }
 
 const point = (anchor: [number, number], length: number, rest: number, stiffness: number, color: string): DangleSpec => ({ anchor, links: 4, length, rest, stiffness, width: [0.35, 0.05], colors: [color], tip: 'bell' });
@@ -36,5 +37,9 @@ export const DANGLES: Partial<Record<Hat, DangleSpec[]>> = {
   ponytail: [{ anchor: [-0.93, -0.5], links: 4, length: 1.9, rest: -0.5, stiffness: 0.2, width: [0.45, 0.12], colors: ['#8A3A1E', '#6E2E16'] }], // whips round when you turn
   braid: [{ anchor: [-0.9, 0.05], links: 5, length: 2.0, rest: -0.15, stiffness: 0.1, gravity: 1.4, width: [0.42, 0.3], colors: ['#D8B35A', '#C79A44'], braided: true, tip: 'tie' }], // a heavy rope
   pigtails: [-1, 1].map((k): DangleSpec => ({ anchor: [0.97 * k, -0.33], links: 3, length: 1.0, rest: 0.7 * k, stiffness: 0.3, width: [0.45, 0.15], colors: ['#D8732E', '#C4602A'] })), // two bouncy bunches
+  fubo: [ // the owner's named style: curtain bangs falling either side of the middle part, in front of the face (the right one longer, brushing past the eye), and three flyaway strands. (Rest 0.8, not the handoff's 0.35: from the middle part, 0.35 hangs them straight over both eyes.)
+    ...[-1, 1].map((k): DangleSpec => ({ anchor: [0.03 * k, -0.87], links: 3, length: k < 0 ? 1.3 : 1.45, rest: 0.8 * k, stiffness: 0.4, width: [0.45, 0.12], colors: ['#1A1512', '#3E342A'], front: true })),
+    ...[-0.4, 0.1, 0.6].map((x): DangleSpec => { const y = -Math.sqrt(1 - x * x) - 0.25; return { anchor: [x, y], links: 2, length: 0.4, rest: Math.atan2(x * 1.6, -1), stiffness: 0.6, width: [0.06, 0.03], colors: ['#1A1512'] }; }),
+  ],
   mohawk: [-0.7, -0.47, -0.23, 0, 0.23, 0.47, 0.7].map(spike), // seven stiff spikes, the tallest in the middle: they mostly jiggle
 };

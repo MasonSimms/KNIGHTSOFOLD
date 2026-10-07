@@ -44,7 +44,8 @@ const TIPS: Record<NonNullable<DangleSpec['tip']>, { r: number; color: number; a
 
 /**
  * Put a hat on a head: its parts go into `head` (the container that moves and turns with the head), centred on (hx, hy) in it; what is
- * behind the head (the swaying parts, the afro's curls) goes underneath everything else in that container. `headR` is in the container's
+ * behind the head (most swaying parts, the afro's curls) goes underneath everything else in that container, what hangs in front of the
+ * face (Fubo's bangs) over everything, the eyes too. `headR` is in the container's
  * units (metres in the fight, metres x zoom in a portrait); `tint` = the player's colour. Null for Bare.
  */
 export function makeHat(hat: Hat, head: Container, hx: number, hy: number, headR: number, tint: number): HatView | null {
@@ -60,11 +61,14 @@ export function makeHat(hat: Hat, head: Container, hx: number, hy: number, headR
     sprites.push({ s, tex: painted.tex, back });
   }
   if (!sprites.length && !specs.length) return null;
-  const holder = new Container(), dangles: Dangle[] = [], squish: Squish | null = hat === 'afro' ? { s: 0, v: 0 } : null, track = tracker();
-  holder.scale.set(1 / PPM); // the ropes work in texture pixels
-  if (specs.length) head.addChildAt(holder, 0);
+  const dangles: Dangle[] = [], squish: Squish | null = hat === 'afro' ? { s: 0, v: 0 } : null, track = tracker();
+  const holders = [new Container(), new Container()]; // behind the head, and in front of the face (raised over the eyes on the first step, once they are on)
+  for (const h of holders) h.scale.set(1 / PPM); // the ropes work in texture pixels
+  if (specs.some((d) => !d.front)) head.addChildAt(holders[0], 0);
+  if (specs.some((d) => d.front)) head.addChild(holders[1]);
+  let raised = false;
   for (const spec of specs) {
-    const pts = Array.from({ length: spec.links }, () => new Point(0, 0)), tex = spec.width[0] > 0 ? paintedStrip(spec, headR, K) : [];
+    const holder = holders[spec.front ? 1 : 0], pts = Array.from({ length: spec.links }, () => new Point(0, 0)), tex = spec.width[0] > 0 ? paintedStrip(spec, headR, K) : [];
     const rope = tex.length ? new MeshRope({ texture: tex[0], points: pts }) : null;
     if (rope) { rope.alpha = spec.alpha ?? 1; holder.addChild(rope); }
     const tips = (spec.tip ? TIPS[spec.tip] : []).map((t) => {
@@ -88,6 +92,7 @@ export function makeHat(hat: Hat, head: Container, hx: number, hy: number, headR
     },
     step(kx, ky, krot, facing, dt, time, wind) {
       side = facing;
+      if (!raised && holders[1].parent) { head.addChild(holders[1]); raised = true; }
       const h = headAt(kx, ky, krot, hx, hy, headR, side), [, ay] = track(h.x, h.y, dt);
       if (squish) stepSquish(squish, ay, dt);
       const c = Math.cos(-krot), s = Math.sin(-krot), local = (x: number, y: number, p: Point) => { const wx = x * headR - kx, wy = y * headR - ky; p.set((wx * c - wy * s) * PPM, (wx * s + wy * c) * PPM); };
