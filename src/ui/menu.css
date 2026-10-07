@@ -217,25 +217,23 @@
 @keyframes coin-drop { from { transform: translateY(-7vh) scale(1.7); opacity: 0; } to { transform: none; opacity: 1; } }
 #score .pips i.tie { background: #c8282c; box-shadow: 0 0 8px rgba(200, 40, 44, .7); }
 
-/* The end of a match (no words): busts on stone pedestals, the winner crowned in the middle, highest, under a warm light; gold marks
-   on each pedestal for the rounds won. */
-#podium { position: fixed; inset: 0; z-index: 6; display: none; background: radial-gradient(ellipse at 50% 100%, rgba(10, 8, 4, .35), rgba(6, 5, 3, .82) 70%);
+/* The end of a match, the victory wall (no words), made of the menus' pictures (.pic, .lamp, .frame, .art above): the champion large and
+   lit in the middle, the others smaller, in the dark, hung crooked with red paint thrown across them; gold coins (rounds won) under each. */
+#podium { position: fixed; inset: 0; z-index: 6; display: none; background: radial-gradient(ellipse at 50% 40%, rgba(10, 8, 4, .15), rgba(6, 5, 3, .7) 75%);
   animation: podiumin .6s ease-out; }
-#podium .light { position: absolute; left: 50%; top: 0; bottom: 0; width: min(520px, 60vw); transform: translateX(-50%);
-  background: radial-gradient(ellipse at 50% 30%, rgba(255, 214, 140, .32), rgba(255, 200, 110, 0) 62%); pointer-events: none; }
-#podium .stand { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); display: grid; grid-template-columns: repeat(5, min(190px, 18vw)); align-items: end; column-gap: 1.5vw; }
-#podium .place { grid-row: 1; display: flex; flex-direction: column; align-items: center; animation: risein .8s ease-out both; }
-#podium .place.r0 { animation-delay: .5s; }
-#podium .place.r1 { animation-delay: .25s; }
-#podium canvas { width: 82%; height: auto; margin-bottom: -6px; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .55)); }
-#podium .r0 canvas { width: 100%; filter: drop-shadow(0 0 18px rgba(255, 210, 120, .35)) drop-shadow(0 10px 12px rgba(0, 0, 0, .6)); }
-#podium .plinth { position: relative; width: 100%; background: linear-gradient(90deg, #4a463e, #8a8274 30%, #a49a88 48%, #6e685c 75%, #3e3a32);
-  box-shadow: inset 0 10px 0 -2px #b39a5c, inset 0 12px 0 -2px #5a4520, 0 -2px 0 #e3c375, 0 18px 40px rgba(0, 0, 0, .6); }
-#podium .r0 .plinth { box-shadow: inset 0 10px 0 -2px #e3c375, inset 0 12px 0 -2px #7a5618, 0 -2px 0 #f2d48a, 0 18px 40px rgba(0, 0, 0, .6); }
-#podium .marks { position: absolute; top: 26px; left: 10%; right: 10%; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-#podium .marks i { width: 11px; height: 11px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #f6dc94, #b38a35 70%); box-shadow: 0 1px 2px rgba(0, 0, 0, .6); }
+#podium .hang { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; grid-template-columns: repeat(5, min(200px, 17vw)); align-items: center; column-gap: 2vw; }
+#podium .hung { grid-row: 1; display: flex; flex-direction: column; align-items: center; transform: rotate(var(--tilt)); animation: hangin .8s ease-out both; }
+#podium .hung.r0 { animation-delay: .5s; z-index: 1; }
+#podium .hung.r1 { animation-delay: .25s; }
+#podium .hung .pic { width: 80%; }
+#podium .hung.r0 .pic { width: 150%; }
+#podium .art canvas { height: auto; }
+#podium .art canvas.splat { position: absolute; left: -6%; top: 10%; width: 112%; transform: rotate(-12deg); }
+#podium .coins { position: relative; z-index: 1; margin-top: 1.4vh; display: flex; flex-wrap: wrap; justify-content: center; gap: .45vh; max-width: 80%; }
+#podium .coins i { width: 1.4vh; height: 1.4vh; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3c0, #e2b33c 45%, #8c6a1c); box-shadow: 0 .1vh .25vh rgba(0, 0, 0, .55); }
+#podium .r0 .coins i { width: 1.9vh; height: 1.9vh; }
+@keyframes hangin { from { opacity: 0; transform: rotate(var(--tilt)) translateY(-30px); } to { opacity: 1; transform: rotate(var(--tilt)); } }
 @keyframes podiumin { from { opacity: 0; } to { opacity: 1; } }
-@keyframes risein { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
 
 /* The end-of-round replay's mark (no words): a gold replay sign in the top left corner. */
 #replaymark { position: fixed; top: 52px; left: 22px; z-index: 6; display: none; color: var(--gold); font-size: 46px; line-height: 1;

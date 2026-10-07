@@ -5,8 +5,8 @@ import { paintedSplats } from '../render/painter/sprites';
 import type { Sim } from '../sim/world';
 
 // What is drawn over a real fight (2-4 players). Owner: as little text as possible. The scoreboard is each player's colour and their
-// rounds won, with a pip for every round of the match; a round ends with a short banner ("Red wins!"); the match ends with the winner's
-// bust, crowned, on the highest pedestal, the others lower, each pedestal marked with their rounds won. No words.
+// rounds won, with a pip for every round of the match; a round ends with a short banner ("Red wins!") and, between eras, score cards
+// under the painting; the match ends with the victory wall (the champion crowned under a lamp, the others hung crooked). No words.
 const score = document.getElementById('score') as HTMLElement;
 const banner = document.getElementById('banner') as HTMLElement;
 const hint = document.getElementById('hint') as HTMLElement | null;
@@ -52,17 +52,24 @@ export function showCards(sim: Sim): void {
   cards.querySelectorAll('.card').forEach((card, k) => {
     const portrait = card.querySelector('canvas')!, splat = card.querySelector<HTMLCanvasElement>('canvas.splat');
     void paintPortrait({ ...sim.looks[players[k].index] }, players[k].index).then((v) => portrait.getContext('2d')!.drawImage(v[0], 0, 0));
-    if (splat) { // the knock-off paint (painter/sprites.ts paintedSplats, white) in red, keeping its brushwork
-      const P = T.finish.paint, src = paintedSplats({ relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under })[0].source.resource as CanvasImageSource, g = splat.getContext('2d')!;
-      g.drawImage(src, 0, 0, splat.width, splat.height);
-      g.globalCompositeOperation = 'multiply'; g.fillStyle = '#C8282C'; g.fillRect(0, 0, splat.width, splat.height);
-      g.globalCompositeOperation = 'destination-in'; g.drawImage(src, 0, 0, splat.width, splat.height);
-    }
+    if (splat) redSplat(splat, 0);
   });
 }
 export function hideCards(): void { if (cards) cards.style.display = 'none'; }
 
-/** The end of a match: busts on pedestals, the winner crowned in the middle and highest, under a warm light. */
+/** The knock-off paint (painter/sprites.ts paintedSplats, white; splat n of them) in red, keeping its brushwork, on a canvas. */
+function redSplat(c: HTMLCanvasElement, n: number): void {
+  const P = T.finish.paint, all = paintedSplats({ relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }), src = all[n % all.length].source.resource as CanvasImageSource, g = c.getContext('2d')!;
+  g.drawImage(src, 0, 0, c.width, c.height);
+  g.globalCompositeOperation = 'multiply'; g.fillStyle = '#C8282C'; g.fillRect(0, 0, c.width, c.height);
+  g.globalCompositeOperation = 'destination-in'; g.drawImage(src, 0, 0, c.width, c.height);
+}
+
+/**
+ * The end of a match, the victory wall (owner's visuals handoff, no heading, no words): the champion's portrait, crowned, large in a heavy
+ * gilt frame under a brass lamp in the middle of the museum wall; the others smaller, darker, hung crooked, red paint thrown across them;
+ * under each a gilt plaque of gold coins, one per round won.
+ */
 function showPodium(sim: Sim, on: boolean): void {
   if (!on) { if (podium) podium.style.display = 'none'; podiumKey = ''; return; }
   const players = sim.fighters.filter((f) => f.controlled && !sim.gone[f.index]).map((f) => f.index);
@@ -73,13 +80,14 @@ function showPodium(sim: Sim, on: boolean): void {
   if (key === podiumKey) return;
   podiumKey = key;
   // Places left to right: 4th, 2nd, 1st (the middle column), 3rd.
-  const col = [3, 2, 4, 1], H = [1, 0.68, 0.5, 0.36]; // (five columns, the fifth empty: the winner is in the middle of the screen)
-  podium.innerHTML = `<div class="light"></div><div class="stand">${ranked.map((i, rank) => `<div class="place r${rank}" style="grid-column:${col[rank]}">
-      <canvas width="${PORTRAIT.w}" height="${PORTRAIT.h}"></canvas>
-      <div class="plinth" style="height:${H[rank] * 30}vh"><div class="marks">${'<i></i>'.repeat(Math.min(16, sim.scores[i]))}</div></div></div>`).join('')}</div>`;
-  const canvases = podium.querySelectorAll('canvas');
+  const col = [3, 2, 4, 1], tilt = [0, -7, 4, -3]; // (five columns, the fifth empty: the champion is in the middle of the screen)
+  podium.innerHTML = `<div class="hang">${ranked.map((i, rank) => `<div class="hung r${rank}" style="grid-column:${col[rank]};--tilt:${tilt[rank]}deg">
+      <div class="pic${rank === 0 ? ' lit' : ''}"><div class="lamp"></div><div class="frame"><div class="art"><canvas width="${PORTRAIT.w}" height="${PORTRAIT.h}"></canvas>${rank > 0 ? '<canvas class="splat" width="112" height="144"></canvas>' : ''}</div></div></div>
+      <div class="coins">${'<i></i>'.repeat(Math.min(16, sim.scores[i]))}</div></div>`).join('')}</div>`; // (the menus' pictures: lit, the lamp is on)
+  const frames = podium.querySelectorAll('.hung');
   ranked.forEach((i, rank) => {
-    const look = { ...sim.looks[i] };
-    void paintPortrait(look, i, { bare: true, crown: rank === 0 }).then((v) => { if (podiumKey === key) canvases[rank].getContext('2d')!.drawImage(v[0], 0, 0); });
+    const canvas = frames[rank].querySelector('canvas')!, splat = frames[rank].querySelector<HTMLCanvasElement>('canvas.splat');
+    void paintPortrait({ ...sim.looks[i] }, i, rank === 0 ? { crown: true } : {}).then((v) => { if (podiumKey === key) canvas.getContext('2d')!.drawImage(v[0], 0, 0); }); // (the others: the portraits the Hall painted)
+    if (splat) redSplat(splat, rank);
   });
 }
