@@ -25,6 +25,7 @@ Skip it for tuning-number tweaks and bug fixes, where you should pick the obviou
 
 ## Art direction (owner; the art itself is made in a separate window and arrives as a handoff)
 The whole game looks like an OIL PAINTING: every frame you look at should feel like a painting. The characters should feel PAINTED ONTO the background (not pasted on top of it). Eliminations by falling off the stage show an animation that bloodies the background art: cartoon red paint, not gore (a placeholder paint splash exists). Keep that in mind in every rendering decision; do not invent a different style.
+As little text as possible (owner, 2026-10-06): very short banners ("Bot 1 wins!"); show it instead of writing it (the podium of crowned busts, pips for rounds, a replay mark). Menus keep their few labels.
 
 ## Design rule: the world is physics (owner)
 Maps are thematic to their era and have fun physics attached (the samurai era has a bridge). The general rule for every map and object: **anything in the world is a physics body players can interact with: grab it, pick it up and use it as a weapon, break it, cut it.** Lost limbs stay on the map and are interactable too (a leg is a club). When designing a map or an object, ask what players can do to it with their hands, weapons and bodies, and make that work through the physics rather than through scripted special cases.
@@ -41,7 +42,16 @@ Maps are thematic to their era and have fun physics attached (the samurai era ha
 - Run in Chrome, Firefox, and Safari before closing a phase.
 
 ## Records to maintain
-`DESIGN.pdf` (keep current), `DECISIONS.md` (one line per decision, with date and reason), `ASSETS.md` (every asset's source and tool; needed for the Steam AI disclosure), `PLAYTEST.md` (what friends said, what changed; create at first playtest).
+`DESIGN.pdf` (keep current), `DECISIONS.md` (one line per decision, with date and reason), `ASSETS.md` (every asset's source and tool; needed for the Steam AI disclosure), `PLAYTEST.md` (what friends said, what changed; create at first playtest), `MARKETING.md` (launch plan, dates, wishlist status, marketing log).
+
+## Launch and marketing: one plan with the code (owner, 2026-10-05)
+You are the owner's single partner for BOTH development and marketing. Read `MARKETING.md` at the start of every session along with this file.
+- Target: Steam launch Tuesday 2027-03-09 (fallback 2027-04-13), Steam Next Fest 2027-02-22 to 03-01, store page public by 2026-11-15. Valve's dates are fixed; see MARKETING.md.
+- This target is shorter than DESIGN.pdf's 12-18 month roadmap. DECIDED (owner, 2026-10-06): the FULL game at launch, 12 eras x 5 arenas (about 60), against the recommended Early Access 6 x 3. That is about 55 more arenas in 22 weeks (about 2.5 a week, plus their paint): watch the pace, and when it slips, raise the fallback (2027-04-13, or Early Access) early rather than late.
+- When planning work, name the next marketing deadline it serves or threatens (for example: 2-3 eras in final paint by 2026-11-01 for the capsule, screenshots and trailer). If a dev task puts a marketing date at risk, say so in one line and offer the trade-off.
+- After a slice with a visible, funny or new moment, tell the owner in one line what to record as a clip.
+- At each gate, add one line to MARKETING.md's Log if the result changes what can be shown or promised.
+- Never show placeholder eras in store assets; keep ASSETS.md exact for the AI disclosure.
 
 ## Where humans are required
 Judging game feel. Expose tuning variants behind flags and describe how to test them; never declare something "feels good". Final calls on art, audio, balance.
@@ -82,6 +92,6 @@ Online (Phase 3) groundwork is built ahead of the gate at the owner's request, w
 
 Still open from earlier phases (all need the owner, none are code): the public URL deploy (Cloudflare Pages account), Firefox and Safari checks, and the painted background for the style test (see ASSETS.md).
 
-GitHub backup (2026-10-05): private repo https://github.com/MasonSimms/KNIGHTSOFOLD (remote `origin`; `git push` works, sign-in is stored). Work on `master`. Two windows can work at once by giving one of them its own folder (a git worktree on its own branch), then merging; the `maps` branch was done that way and is merged.
+GitHub backup (2026-10-05): repo (NOTE 2026-10-05: GitHub currently serves it as PUBLIC; the owner meant it to be private, check Settings > General > Danger Zone) https://github.com/MasonSimms/KNIGHTSOFOLD (remote `origin`; `git push` works, sign-in is stored). Work on `master`. Two windows can work at once by giving one of them its own folder (a git worktree on its own branch), then merging; the `maps` branch was done that way and is merged.
 
 Do not start Phase 3 (online) until the owner confirms the Phase 2 gate; then grill them on Phase 3's open decisions first. Speak to the owner in plain English: they are not a developer, so describe tweakable factors by what they do (and give the setting name in brackets).
