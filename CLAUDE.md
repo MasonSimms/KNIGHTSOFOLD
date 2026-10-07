@@ -71,7 +71,7 @@ Judging game feel. Expose tuning variants behind flags and describe how to test 
 
 ## Commands
 - `npm run dev` start the game at http://localhost:5173 (edit `src/content/tuning.ts` while it runs: the world resets with the new numbers). In training, Tab opens the settings panel (drop in any weapon, change the era and map, swap the dummy for a bot). Links for testing: `?era=westerns&map=2`, `?stress` (4 fighters), `?lag=100&stall=200` (a pretend bad connection), `?online` (needs the room server).
-- `npm test` run tests, `npm run typecheck` check types, `npm run build` production build, `npm run lab` bot-only matches with no screen (writes reports/BALANCE.md).
+- `npm test` run tests, `npm run typecheck` check types, `npm run build` production build, `npm run lab` bot-only matches with no screen (writes reports/BALANCE.md), `npm run netlab` online play over four pretend connections (writes reports/NETLAB.md: run it before and after any online change).
 - `npm run server` the room server on this computer (it serves the built page too: http://localhost:8080/?online in two tabs).
 - `npm run deploy` put the new version live (never plain `fly deploy`: a deploy restarts the server and ends every fight, so this refuses while anyone is fighting). Only from committed code (see "Several windows share this folder").
 - Live checks: https://knightsofold.fly.dev/health (rooms open, how many fighting); `fly logs --app knightsofold` (page errors players hit, why connections dropped).

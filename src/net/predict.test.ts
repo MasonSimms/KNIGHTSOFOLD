@@ -74,6 +74,19 @@ describe('prediction', () => {
     expect(Math.hypot(s.x - me().cx, s.y - me().cy)).toBeLessThan(0.05); // standing: where the server has you
   }, 60_000);
 
+  it('the server knocks your weapon out of your hand: this page lets go too, and stays with the server', async () => {
+    const t = await setup(4);
+    for (let i = 0; i < 90; i++) t.step(NEUTRAL);
+    const sf = t.server.fighters[0], cf = t.client.fighters[0];
+    expect(sf.grip && cf.grip && t.pred.active).toBeTruthy();
+    t.server.world.removeImpulseJoint(sf.grip!, true); sf.grip = null; // (a disarm, on the server: no event for it reaches the page)
+    sf.stick!.body.setLinvel({ x: 0, y: -12 }, true); // the club flies off
+    for (let i = 0; i < 60; i++) t.step({ ...NEUTRAL, moveX: i < 30 ? 1 : 0 });
+    expect(cf.grip).toBeNull(); // (held on to here, the club tugged your fighter after it: a jump of metres)
+    const s = t.serverAt.get(t.n() - 2 * LAG - 2)!;
+    expect(Math.hypot(s.x - t.me().cx, s.y - t.me().cy)).toBeLessThan(0.3);
+  }, 60_000);
+
   it('knocked down (decided by the server), your fighter follows the server until you are up again', async () => {
     const t = await setup(6);
     for (let i = 0; i < 90; i++) t.step(NEUTRAL);

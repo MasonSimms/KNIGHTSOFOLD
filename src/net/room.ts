@@ -16,11 +16,15 @@ export class Room {
   private pending: SimEvent[] = [];
   private log: SimEvent[] = []; // structural events since the round began, so a late joiner can catch up
   private tape = new Tape(); // the round, for its end-of-round replay
+  /** Per player, how their buttons have been arriving (the server log, npm run netlab): ticks counted, inputs left waiting summed over
+   *  them (each one waiting is a tick of delay), ticks with none arrived (the last one used again), inputs folded into the next. */
+  stats: { ticks: number; waiting: number; dry: number; folded: number }[];
 
   constructor(readonly sim: Sim, readonly snapEvery = T.net.snapEvery) {
     this.inputs = sim.fighters.map(() => NEUTRAL);
     this.queue = sim.fighters.map(() => []);
     this.acks = sim.fighters.map(() => 0);
+    this.stats = sim.fighters.map(() => ({ ticks: 0, waiting: 0, dry: 0, folded: 0 }));
     // Between rounds everyone sees the museum: the freeze, the camera pulling back, the replay in the painting, the slide to the next
     // painting and into it (render/museum.ts). The next round waits for all of it.
     const X = T.transition;
@@ -33,16 +37,24 @@ export class Room {
     const q = this.queue[slot];
     if (!q) return;
     q.push({ i: input, n });
-    while (q.length > T.net.inputQueue) {
-      const [a, b] = q;
-      b.i = { ...b.i, jump: a.i.jump || b.i.jump, attack: a.i.attack || b.i.attack, drop: a.i.drop || b.i.drop, dodge: a.i.dodge || b.i.dodge };
-      q.shift();
-    }
+    while (q.length > T.net.inputQueue) this.fold(slot);
+  }
+
+  /** The oldest waiting input is folded into the next: its presses still count, its tick of movement is merged away. */
+  private fold(slot: number): void {
+    const q = this.queue[slot], [a, b] = q;
+    b.i = { ...b.i, jump: a.i.jump || b.i.jump, attack: a.i.attack || b.i.attack, drop: a.i.drop || b.i.drop, dodge: a.i.dodge || b.i.dodge };
+    q.shift();
+    this.stats[slot].folded++;
   }
 
   /** One 60 Hz tick. Returns a snapshot on every `snapEvery`th tick. */
   tick(): Snapshot | null {
-    this.queue.forEach((q, i) => { const x = q.shift(); if (x) { this.inputs[i] = x.i; this.acks[i] = x.n; } });
+    this.queue.forEach((q, i) => {
+      const x = q.shift(), st = this.stats[i];
+      if (x) { this.inputs[i] = x.i; this.acks[i] = x.n; } else if (this.acks[i]) st.dry++;
+      if (this.acks[i]) { st.ticks++; st.waiting += q.length; }
+    });
     this.sim.step(this.inputs);
     this.ticks++;
     if (this.ticks % this.snapEvery !== 0) { this.tape.feed(this.sim); this.collect(); return null; }

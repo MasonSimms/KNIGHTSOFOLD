@@ -301,9 +301,17 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
 
 const tmp = { x: 0, y: 0 };
 
+/** The hand lets go of its club (if it still holds it). On the server a club only changes hands once it is out of every hand, so this
+ *  does nothing there; an online copy, which is never told when a club was dropped, can still have the old grip, and a grip left behind
+ *  on a club that has gone to someone else ties the two fighters together and tears them apart. */
+function letGoOfStick(world: World, f: Fighter): void {
+  if (f.grip) { world.removeImpulseJoint(f.grip, true); f.grip = null; }
+}
+
 /** Put the club into the hand (used once, when the fighter is built). */
 function attachStick(world: World, f: Fighter): void {
   const stick = f.stick!;
+  letGoOfStick(world, f); // (an online copy can still have the old grip: the server never says when a weapon was dropped)
   if (!stick.body.isDynamic()) stick.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true); // (a spear stuck in the ground: pulled out)
   const L = T.fighter.armLength;
   const W = stick.weapon ?? T.stick;
@@ -371,8 +379,9 @@ export function takeIn(world: World, f: Fighter, part: Part): void {
 }
 
 /** A fighter's loose club (lying where they dropped it) becomes a plain object in the world that anyone can pick up. */
-export function dropToWorld(f: Fighter): Part {
+export function dropToWorld(f: Fighter, world?: World): Part {
   const part = f.stick!;
+  if (world) letGoOfStick(world, f);
   f.parts.splice(f.parts.indexOf(part), 1);
   const i = f.attackers.findIndex((a) => a.part === part);
   if (i >= 0) f.attackers.splice(i, 1);
@@ -401,6 +410,7 @@ function reassign(part: Part, from: Fighter, to: Fighter): void {
  */
 export function giveStick(world: World, from: Fighter, to: Fighter): void {
   if (from !== to) {
+    letGoOfStick(world, from);
     const take = from.stick!, mine = to.stick;
     from.stick = null;
     to.stick = null;

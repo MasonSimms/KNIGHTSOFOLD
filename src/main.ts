@@ -357,7 +357,7 @@ function frame(now: number) {
     if (roundSeenAt && now - roundSeenAt >= (T.transition.freezeFrames / 60) * 1000) { roundSeenAt = 0; lastAlpha = alpha; void eraChange(); }
   }
   lastAlpha = alpha;
-  renderer.draw(alpha, ft / 1000, predictor?.active ? { slot: mySlot, alpha: acc / T.sim.dt } : undefined);
+  renderer.draw(alpha, ft / 1000, predictor?.active ? { slot: mySlot, alpha: acc / T.sim.dt, dx: predictor.shift.x, dy: predictor.shift.y } : undefined);
   updateHud(view);
   { // the music: the era's instruments in a fight, swelling with the excitement (how much is happening, how much everyone moves)
     const alive = view.fighters.filter((f) => f.controlled && !f.limp);

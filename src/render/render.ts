@@ -567,8 +567,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         shake = Math.max(shake, T.parry.shake);
       }
     },
-    /** Draw the world between its last two states (alpha). own: online prediction moves your fighter on its own ticks (its own alpha). */
-    draw(alpha: number, frameSeconds: number, own?: { slot: number; alpha: number }, target?: RenderTexture) {
+    /** Draw the world between its last two states (alpha). own: online prediction moves your fighter on its own ticks (its own alpha), drawn
+     *  shifted by (dx, dy) while it slides to a fresh guess. */
+    draw(alpha: number, frameSeconds: number, own?: { slot: number; alpha: number; dx: number; dy: number }, target?: RenderTexture) {
       drawnAt = performance.now();
       scale = Math.min(app.screen.width / A.viewW, app.screen.height / A.viewH);
       vignette.width = app.screen.width;
@@ -671,10 +672,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         e.group.filters = Q.blur && e.vis > 0.02 ? [e.blur] : null; // no filter cost unless they are dodging
         const layer = f.inBack ? backLayer : fighterLayer;
         if (e.group.parent !== layer) layer.addChild(e.group);
-        const a = own && f.index === own.slot ? own.alpha : alpha;
+        const mine = own && f.index === own.slot, a = mine ? own.alpha : alpha, sx = mine ? own.dx : 0, sy = mine ? own.dy : 0;
         f.parts.forEach((p, i) => {
           const k = c[i];
-          k.position.set(lerp(p.px, p.cx, a), lerp(p.py, p.cy, a));
+          k.position.set(lerp(p.px, p.cx, a) + sx, lerp(p.py, p.cy, a) + sy);
           k.rotation = p.pa + wrap(p.ca - p.pa) * a + (p === f.stick ? fx.twirl(f.index) : 0); // (an emptied gun twirls round in the hand)
           if (p === f.stick && f.grip) e.hand = f.side;
           if (p.role === 'stick') k.scale.set(p.flipped ? -1 : 1, e.hand);

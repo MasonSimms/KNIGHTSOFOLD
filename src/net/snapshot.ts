@@ -32,9 +32,11 @@ export interface Snapshot {
 /** What the server says a fighter is doing that only it decides (a hit, a grab): 0 = free, moving on their own buttons (prediction may run). */
 export function fighterState(f: Fighter): number {
   return (f.knock > 0 ? 1 : 0) | (f.stun > 0 ? 2 : 0) | (f.carried > 0 || f.slamBy >= 0 ? 4 : 0) | (f.hold ? 8 : 0) | (f.limp ? 16 : 0) | (f.inBack ? 32 : 0)
-    | (f.burning > 0 ? 64 : 0) | (f.stick?.burning ? 128 : 0); // (on fire, and their weapon on fire: for the picture)
+    | (f.burning > 0 ? 64 : 0) | (f.stick?.burning ? 128 : 0) // (on fire, and their weapon on fire: for the picture)
+    | (f.grip ? HOLDING : 0); // their weapon is in their hand (a page moving its own fighter must let go when the server says it was thrown or knocked away)
 }
 
+export const HOLDING = 256;
 const TELEPORT = 4; // metres moved between two snapshots (50 ms) that can only be a teleport
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
@@ -71,7 +73,9 @@ export class Mirror {
   waits = 0; // ...and frames on which it ran out even of that and the picture had to wait: what a player sees as a stutter (the overlay shows it)
   private calm = 0; // seconds since the buffer last ran short
   private lastFrame = -1; // the newest snapshot's tick at the last update (to tell a flowing stream from a stalled one)
-  constructor(readonly sim: Sim, delay = T.net.blendTicks, readonly keep = 60) { this.delay = delay; } // keep: snapshots held (a replay clip holds all of its own)
+  constructor(readonly sim: Sim, delay = T.net.blendTicks, readonly keep = 60) { this.delay = delay; }
+  /** The server tick being shown now (the newest snapshot's minus the buffer, give or take). */
+  get shown(): number { return this.head; } // keep: snapshots held (a replay clip holds all of its own)
 
   push(s: Snapshot): void {
     if (this.fresh) { // a new client (or one that rejoined): build the round the server is in, with its era's weapon and arena

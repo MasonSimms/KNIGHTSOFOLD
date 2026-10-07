@@ -4,6 +4,7 @@ import { PROPS } from '../content/props';
 import { tuning as T } from '../content/tuning';
 import { Mirror } from '../net/snapshot';
 import { Room } from '../net/room';
+import { placeLoose } from './fighter';
 import { hashSim } from './hash';
 import { NEUTRAL } from './types';
 import type { PlayerInput, SimEvent } from './types';
@@ -19,6 +20,7 @@ async function duel(seed = 3) {
 /** Put a loose item straight into fighter `who`'s hand (dropping what they held). */
 function arm(sim: Sim, who: number, kind: string) {
   const f = sim.fighters[who], t = f.torso.body.translation();
+  if (f.stick) placeLoose(sim.world, f, t.x - 3 * f.side, t.y, 0); // (in the game only an empty hand picks things up: the club they held goes down behind them, out of the line of fire)
   sim.spawnItem(kind, t.x, t.y - 1.5);
   (sim as unknown as Internals).acquire(f, { kind: 'prop', index: sim.props.length - 1 });
   return f.stick!;

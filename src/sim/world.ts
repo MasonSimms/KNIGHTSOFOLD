@@ -771,7 +771,7 @@ export class Sim {
       cutJoint(this.world, g, item.k === 0 ? g.elbow : g.legs[item.k - 1].knee); // the rest of the limb stays behind: only the thigh (or upper arm) is taken
       this.dropCut(g, item.k);
     }
-    if (f.stick) this.props.push(dropToWorld(f)); // your own club, lying loose, is left behind for anyone
+    if (f.stick) this.props.push(dropToWorld(f, this.world)); // your own club, lying loose, is left behind for anyone
     takeIn(this.world, f, part);
     this.version++;
   }

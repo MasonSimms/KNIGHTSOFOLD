@@ -1,0 +1,145 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { it } from 'vitest';
+import { botLook } from '../content/looks';
+import { tuning as T } from '../content/tuning';
+import { Predictor } from '../net/predict';
+import { Room } from '../net/room';
+import { Mirror } from '../net/snapshot';
+import type { Snapshot } from '../net/snapshot';
+import { Bot } from '../sim/bot';
+import { makeRng } from '../sim/rng';
+import type { PlayerInput } from '../sim/types';
+import { Sim } from '../sim/world';
+
+// npm run netlab: one player plays the real game over a pretend internet connection and reports/NETLAB.md says how it went for them.
+// Their buttons are pressed by a bot brain; three bots on the server fight them (rounds, deaths, weapons dropping in: all of it). Both
+// ends are the real code: the server's Room, and the page's Mirror and Predictor, run as main.ts runs them (inputs on a 60 Hz clock,
+// snapshots blended on the screen's clock). Each line below is a kind of connection. Run it before and after any online change.
+// One way, in ms; jitter: up to this much extra per message; loss: share of messages lost (over a WebSocket a lost one is sent again,
+// and everything behind it waits: a stall of about a round trip). PLACEHOLDER lines until the playtest night's `fly logs` say what's real.
+const LINES = [
+  { name: 'Wired, nearby', ms: 15, jitter: 2, loss: 0 },
+  { name: 'Home wifi', ms: 30, jitter: 10, loss: 0.002 },
+  { name: 'Busy wifi', ms: 40, jitter: 30, loss: 0.01 },
+  { name: 'Coast to coast', ms: 45, jitter: 6, loss: 0.002 },
+];
+const SECONDS = Number(process.env.NETLAB_SECONDS) || 90, SEED = Number(process.env.NETLAB_SEED) || 11;
+const DT = 1000 / 60;
+
+/** One direction of a WebSocket: in order, each message late by the latency plus some jitter; a lost one holds up everything behind it. */
+class Pipe<M> {
+  private q: { at: number; m: M }[] = [];
+  private last = 0;
+  constructor(private ms: number, private jitter: number, private loss: number, private rng: () => number) {}
+  send(now: number, m: M): void {
+    let at = now + this.ms + this.rng() * this.jitter;
+    if (this.rng() < this.loss) at += 2 * this.ms + 3 * DT; // sent again after the receiver's next few messages say it is missing
+    this.last = Math.max(this.last, at);
+    this.q.push({ at: this.last, m });
+  }
+  take(now: number): M[] { const out: M[] = []; while (this.q.length && this.q[0].at <= now) out.push(this.q.shift()!.m); return out; }
+}
+
+const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+const pct = (xs: number[], p: number) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : 0; };
+
+async function play(line: (typeof LINES)[number]) {
+  const rng = makeRng(SEED * 31 + line.ms);
+  const server = await Sim.create(SEED, 4, false), client = await Sim.create(SEED, 4, false);
+  server.looks = server.looks.map((l, i) => (i === 0 ? { ...l } : botLook()));
+  server.reset();
+  const room = new Room(server), mirror = new Mirror(client), pred = new Predictor(mirror, 0), brain = new Bot(SEED + 5);
+  const up = new Pipe<{ i: PlayerInput; n: number }>(line.ms, line.jitter, line.loss, rng), down = new Pipe<string>(line.ms, line.jitter, line.loss, rng);
+  const sentAt = new Map<number, number>(), inputDelay: number[] = [], behind: number[] = [], buffer: number[] = [], off: number[] = [], alone: number[] = [];
+  let fightSnaps = 0;
+  let n = 0, acc = 0, lastAck = 0, bytes = 0, snaps = 0, frames = 0, active = 0, shownAlpha = 0;
+  let serverAt = 0, clientAt = 0, lastFrame = 0;
+  const end = SECONDS * 1000;
+  while (Math.min(serverAt, clientAt) < end) {
+    if (serverAt <= clientAt) { // the server's tick
+      for (const x of up.take(serverAt)) room.setInput(0, x.i, x.n);
+      const s = room.tick();
+      if (s) {
+        const ack = s.ack![0];
+        if (ack !== lastAck && sentAt.has(ack)) inputDelay.push(serverAt - sentAt.get(ack)!);
+        lastAck = ack;
+        const msg = JSON.stringify(s);
+        bytes += msg.length; snaps++;
+        down.send(serverAt, msg);
+      }
+      serverAt += DT;
+    } else { // a frame on the player's screen (60 Hz, a little uneven, as a browser's are)
+      const ft = clientAt - lastFrame;
+      lastFrame = clientAt;
+      acc += ft;
+      for (let k = 0; acc >= DT && k < T.sim.maxStepsPerFrame; k++, acc -= DT) {
+        const input = brain.think(server, server.fighters[0]); // (it decides from the server's world: what matters here is when it presses)
+        n++; sentAt.set(n, clientAt); sentAt.delete(n - 600);
+        up.send(clientAt, { i: input, n });
+        pred.tick(input, n, shownAlpha);
+      }
+      if (acc >= DT) acc = 0;
+      for (const m of down.take(clientAt)) {
+        const s = JSON.parse(m) as Snapshot, was = { ...pred.stats };
+        mirror.push(s); pred.reconcile(s);
+        // (only in a fight: a new round or a respawn puts everyone somewhere new, and the guess simply jumps there with it)
+        if (pred.stats.checks > was.checks && !s.roundOver && !s.ev.some((e) => e.t === 'newround' || e.t === 'respawn')) {
+          const d = pred.stats.off - was.off, me = s.f[0].p, near = s.f.some((g, i) => i > 0 && g.p.length && Math.hypot(g.p[0] - me[0], g.p[1] - me[1]) < 2.5);
+          off.push(d); if (!near) alone.push(d);
+          if (pred.stats.snaps > was.snaps) fightSnaps++;
+        }
+      }
+      const shown = mirror.update(ft / 1000);
+      shownAlpha = shown.alpha;
+      frames++;
+      if (pred.active) active++;
+      if (clientAt > 3000) { behind.push((serverAt / DT - mirror.shown) * DT); buffer.push(mirror.delay); } // how old what you see of the others is (ms)
+      clientAt += DT + (rng() - 0.5) * 2;
+    }
+  }
+  const st = room.stats[0], P = pred.stats, minutes = SECONDS / 60;
+  return {
+    line, desyncs: mirror.desyncs, snapBytes: bytes / snaps,
+    inputMs: avg(inputDelay), input95: pct(inputDelay, 0.95), waiting: st.waiting / Math.max(1, st.ticks), dry: st.dry / Math.max(1, st.ticks), folded: st.folded,
+    predicting: active / frames, offCm: avg(off) * 100, aloneCm: avg(alone) * 100, aloneShare: alone.length / Math.max(1, off.length), off95: pct(off, 0.95) * 100, worstCm: Math.max(0, ...off) * 100, snapsPerMin: fightSnaps / minutes, roundSnaps: P.snaps - fightSnaps,
+    behindMs: avg(behind), behind95: pct(behind, 0.95), bufferTicks: avg(buffer), stallsPerMin: mirror.waits / minutes, starvedPerMin: mirror.starved / minutes,
+  };
+}
+
+it('net lab', async () => {
+  const rows: Awaited<ReturnType<typeof play>>[] = [];
+  for (const line of LINES) { const t0 = performance.now(); rows.push(await play(line)); console.log(`${line.name}: done in ${((performance.now() - t0) / 1000).toFixed(0)} s`); }
+  const f0 = (x: number) => x.toFixed(0), f1 = (x: number) => x.toFixed(1), f2 = (x: number) => x.toFixed(2);
+  const table = (head: string[], body: string[][]) => [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...body.map((r) => `| ${r.join(' | ')} |`)].join('\n');
+  const out = `# Net lab (${new Date().toISOString().slice(0, 16).replace('T', ' ')})
+
+${SECONDS} s of the real game per connection, one player online against three bots on the server (seed ${SEED}). Made by npm run netlab
+(src/tools/netlab.lab.ts). The connections are guesses until the playtest night's server log says what friends really have.
+
+## Your own buttons
+How long a press takes to be used by the server (one way across the wire plus the wait in the server's queue), and what the server's
+queue of your inputs did. Every input waiting in it is another tick (17 ms) before your press counts for everyone else.
+
+${table(['Connection', 'Ping', 'Press to server (avg / 95%)', 'Inputs waiting (avg)', 'Ticks with none arrived', 'Folded'],
+  rows.map((r) => [r.line.name, `${2 * r.line.ms} ms`, `${f0(r.inputMs)} / ${f0(r.input95)} ms`, f2(r.waiting), `${f1(r.dry * 100)}%`, f0(r.folded)]))}
+
+## Your own fighter (prediction)
+Your fighter moves the moment you press, guessed on your screen; the server checks the guess every snapshot. Off = how far the guess was
+from the server in a fight (it is pulled back smoothly); snaps = jumps straight to the server (more than ${T.net.predict.snap} m off; the
+jumps at a new round are counted apart, they are meant). Predicting =
+share of the time your fighter was moved by your own screen (the rest: knocked down, held, dead, between rounds: the server moves you).
+
+${table(['Connection', 'Predicting', 'Off (avg / 95%)', 'Off with nobody near (share of the time)', 'Worst', 'Snaps a minute', '(at new rounds)'],
+  rows.map((r) => [r.line.name, `${f0(r.predicting * 100)}%`, `${f1(r.offCm)} / ${f0(r.off95)} cm`, `${f1(r.aloneCm)} cm (${f0(r.aloneShare * 100)}%)`, `${f0(r.worstCm)} cm`, f1(r.snapsPerMin), String(r.roundSnaps)]))}
+
+## Everyone else
+What you see of the others is this far in the past (the wire plus the blend buffer). Stalls = times a minute the picture of them had to
+wait for a snapshot; carried on = times it ran past the newest one and carried the motion on instead.
+
+${table(['Connection', 'Others shown (avg / 95%)', 'Buffer (ticks)', 'Stalls a minute', 'Carried on a minute', 'Desyncs', 'Data down'],
+  rows.map((r) => [r.line.name, `${f0(r.behindMs)} / ${f0(r.behind95)} ms`, f1(r.bufferTicks), f1(r.stallsPerMin), f1(r.starvedPerMin), String(r.desyncs), `${f0(r.snapBytes * 60 / 1024)} KB/s`]))}
+`;
+  mkdirSync('reports', { recursive: true });
+  writeFileSync('reports/NETLAB.md', out);
+  console.log(out);
+}, 60 * 60 * 1000);
