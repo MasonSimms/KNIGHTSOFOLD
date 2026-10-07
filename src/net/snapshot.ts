@@ -53,7 +53,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
 }
 
 /** Events that change which parts exist or who holds what: the only ones a client must replay to keep its parts in step. */
-export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround', 'gone', 'back', 'spawn', 'shot', 'snap', 'break', 'shatter']);
+export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround', 'gone', 'back', 'spawn', 'shot', 'snap', 'break', 'shatter', 'boom']);
 
 /** Client side: a copy of the sim that is never stepped. It replays structural events, then has its poses written in from snapshots. */
 export class Mirror {
@@ -66,7 +66,12 @@ export class Mirror {
   private fresh = true; // nothing shown yet: the first snapshot says which round and era to build
 
   own = -1; // a fighter this page moves itself (prediction): its poses are not written in from snapshots
-  constructor(readonly sim: Sim, readonly delay = T.net.blendTicks, readonly keep = 60) {} // keep: snapshots held (a replay clip holds all of its own)
+  delay: number; // how many ticks the shown world runs behind the newest snapshot: widens when snapshots stall, narrows again when they arrive steadily (see update)
+  starved = 0; // frames on which the shown time ran past the newest snapshot (a stall the buffer did not cover; the motion carries on for a few ticks)
+  waits = 0; // ...and frames on which it ran out even of that and the picture had to wait: what a player sees as a stutter (the overlay shows it)
+  private calm = 0; // seconds since the buffer last ran short
+  private lastFrame = -1; // the newest snapshot's tick at the last update (to tell a flowing stream from a stalled one)
+  constructor(readonly sim: Sim, delay = T.net.blendTicks, readonly keep = 60) { this.delay = delay; } // keep: snapshots held (a replay clip holds all of its own)
 
   push(s: Snapshot): void {
     if (this.fresh) { // a new client (or one that rejoined): build the round the server is in, with its era's weapon and arena
@@ -93,12 +98,22 @@ export class Mirror {
   update(seconds: number): { alpha: number; events: SimEvent[] } {
     const latest = this.snaps.at(-1);
     if (!latest) return { alpha: 1, events: [] };
-    const target = latest.frame - this.delay;
-    if (!this.started) { this.head = target; this.started = true; }
+    const N = T.net;
+    if (!this.started) { this.head = latest.frame - this.delay; this.started = true; }
     this.head += seconds * 60;
-    const err = target - this.head;
-    this.head = Math.abs(err) > 12 ? target : this.head + err * 0.05; // drift back toward the target gently, jump if far off
-    this.head = Math.min(this.head, latest.frame);
+    // A jitter buffer that sizes itself (as Source's interpolation delay does, by hand): every frame the stream fails to stay ahead of the
+    // shown time widens the buffer by that frame, so after a stall the picture runs that much further behind and the next stall of the
+    // same size is covered; a steady stream narrows it again, slowly, down to blendTicks.
+    const starved = this.head > latest.frame, flowing = latest.frame !== this.lastFrame;
+    this.lastFrame = latest.frame;
+    if (starved) { this.starved++; this.delay = Math.min(N.blendMax, this.delay + seconds * 60); this.calm = 0; }
+    else if ((this.calm += seconds) > N.blendRelax) { this.calm = 0; this.delay = Math.max(N.blendTicks, this.delay - 1); }
+    const err = latest.frame - this.delay - this.head;
+    // Behind the target (a tab that was hidden): jump. Ahead of it while the stream flows (the buffer just widened): run slow, never slower
+    // than half speed, until the stream has built the buffer up. During a stall time runs on at full speed, so the buffer measures the whole
+    // stall and the next one like it is covered: past the newest snapshot the motion carries on for a moment (show extrapolates), then waits.
+    if (err > 12) this.head = latest.frame - this.delay; else if (flowing || err > 0) this.head += Math.max(err * 0.05, -0.5 * seconds * 60);
+    if (this.head > latest.frame + N.extrapolateTicks) { this.waits++; this.head = latest.frame + N.extrapolateTicks; }
     return this.show(this.head);
   }
 
@@ -113,8 +128,12 @@ export class Mirror {
     let ai = -1;
     this.snaps.forEach((s, i) => { if (s.frame <= at) ai = i; });
     if (ai < 0) return { alpha: 1, events: due };
-    const a = this.snaps[ai], b = this.snaps[ai + 1] ?? a;
-    const alpha = b === a ? 1 : Math.min(1, Math.max(0, (at - a.frame) / (b.frame - a.frame)));
+    let a = this.snaps[ai], b = this.snaps[ai + 1] ?? a;
+    // Past the newest snapshot (the stream stalled): carry the last motion on, alpha above 1 between the last two (only while they have
+    // the same parts: across a death or a new round the older poses do not match what is built now).
+    const prev = this.snaps[ai - 1];
+    if (b === a && at > a.frame && prev && prev.props.length === a.props.length && prev.f.every((x, i) => x.p.length === a.f[i].p.length)) { b = a; a = prev; }
+    const alpha = b === a ? 1 : Math.max(0, (at - a.frame) / (b.frame - a.frame));
     const sim = this.sim;
     const looksNow = JSON.stringify(a.looks);
     if (looksNow !== this.lastLooks) { this.lastLooks = looksNow; sim.version++; } // someone picked a new hat or colour: the renderer must redraw the fighters

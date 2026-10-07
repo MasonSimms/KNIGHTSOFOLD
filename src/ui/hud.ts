@@ -31,6 +31,9 @@ export function updateHud(sim: Sim): void {
   showPodium(sim, sim.matchOver);
 }
 
+/** Take the round's banner away (the museum slides on to the next painting: it belongs to the one before). */
+export function clearBanner(): void { banner.textContent = ''; lastBanner = ''; }
+
 /** The end of a match: busts on pedestals, the winner crowned in the middle and highest, under a warm light. */
 function showPodium(sim: Sim, on: boolean): void {
   if (!on) { if (podium) podium.style.display = 'none'; podiumKey = ''; return; }

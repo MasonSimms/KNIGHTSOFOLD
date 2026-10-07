@@ -524,6 +524,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       } else if (e.t === 'dismember') {
         ring(e.x, e.y, 0xffffff);
         splat(e.x, e.y, T.splat.radiusMax * 0.8, playerColor(e.victim));
+      } else if (e.t === 'boom') {
+        shake = Math.max(shake, T.shake.max * T.special.blastShake);
       } else if (e.t === 'crush') {
         const v = entries.find((x) => x.f.index === e.victim);
         if (v) v.crushed = true;

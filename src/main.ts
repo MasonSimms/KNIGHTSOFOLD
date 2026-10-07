@@ -24,7 +24,7 @@ import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
 import { runHome } from './ui/home';
-import { updateHud } from './ui/hud';
+import { clearBanner, updateHud } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 import { applySettings, loadSettings, runSettings } from './ui/settings';
@@ -50,6 +50,7 @@ query.get('eyes')?.split(',').forEach((e, i) => { if (sim.looks[i]) sim.looks[i]
 // Open http://localhost:5173/?lag=100 to play through a pretend network: the real sim runs as a "server" in this page, your inputs and its
 // snapshots each take 100 ms to arrive, and what you see is a client copy built only from those snapshots (solo vs the dummy; R is off).
 const lagMs = Number(query.get('lag')) || 0;
+const stallMs = Number(query.get('stall')) || 0; // ...and ?lag=100&stall=200: every 2 s the snapshots stop for 200 ms and then arrive in a bunch (wifi): watch the F3 overlay's buffer widen to cover it
 const room = lagMs ? new Room(sim) : null;
 let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 2)) : null;
 // Open http://localhost:5173/?online to play for real: make or join a room, the host starts. (Needs the room server: npm run server.)
@@ -66,7 +67,7 @@ if (onlineParam !== null) {
   const attach = (c: NetClient) => {
     c.onMsg = (msg) => {
       if (msg.t === 'snap') { m.push(msg.s); predictor?.reconcile(msg.s); }
-      else if (msg.t === 'pong') { ping = performance.now() - msg.n; showPing(ping); }
+      else if (msg.t === 'pong') { ping = performance.now() - msg.n; showPing(ping, m.delay > T.net.blendTicks + 3); } // (amber when the round trip is long, or the line is shaky and the picture runs further behind to cover it)
       else if (msg.t === 'clip') { pendingClip = msg.c; clipAt = performance.now(); } // the round's best moment: it plays in the museum
       else if (msg.t === 'start') { mySlot = msg.you; if (predictor) { predictor.stop(); predictor.slot = msg.you; } if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
       else if (msg.t === 'over') void backToRoom(c); // the match is over (or the host ended it): back to the room's Hall, ready for a rematch
@@ -105,6 +106,8 @@ if (onlineParam !== null) {
   isHost = r.host;
   attach(net);
   setInterval(() => net?.send({ t: 'ping', n: performance.now() }), 2000); // the round trip, shown in a corner
+  // Out of sight (another tab) the page stops sending controls, and the server would hold your last press for as long as you are away: let go.
+  addEventListener('visibilitychange', () => { if (document.hidden) net?.send({ t: 'in', i: NEUTRAL, n: ++inputSeq }); });
 }
 let desyncsSeen = 0, resyncAt = 0;
 const view = mirror ? mirror.sim : sim; // what is drawn
@@ -158,6 +161,7 @@ async function eraChange() {
   await museum.slide();
   await museum.zoomIn();
   if (!net && !room) sim.finishRoundPause(); // (here the next round starts now; online the server has been waiting the same time)
+  clearBanner();
   museum.close();
   replaying = false; last = performance.now(); acc = 0;
 }
@@ -316,7 +320,7 @@ function frame(now: number) {
       for (const e of predictor?.tick(lastInput, n, shownAlpha) ?? []) play(e);
       room.setInput(2, flail(sim.frame, 2)); room.setInput(3, flail(sim.frame, 3));
       const s = room.tick();
-      if (s) toClient.push({ at: now + lagMs, s: JSON.parse(JSON.stringify(s)) }); // through the "wire"
+      if (s) toClient.push({ at: now + lagMs + (stallMs && now % 2000 < stallMs ? stallMs - (now % 2000) : 0), s: JSON.parse(JSON.stringify(s)) }); // through the "wire" (held back during a pretend stall)
       continue;
     }
     if (net) { const n = ++inputSeq; net.send({ t: 'in', i: lastInput, n }); for (const e of predictor?.tick(lastInput, n, shownAlpha) ?? []) play(e); continue; } // online: the server runs the fight; we send our controls (and, predicting, move our own fighter at once)
@@ -349,6 +353,7 @@ function frame(now: number) {
     alpha = shownAlpha = shown.alpha;
     for (const e of shown.events) if (!(e.t === 'shot' && e.owner === mySlot && predictor?.active)) play(e); // (your own shot already flashed and banged when you clicked)
     if (shown.events.some((e) => e.t === 'round') && view.matchActive) roundSeenAt = now; // online: the round is won; the museum in half a second
+    if (net && shown.events.some((e) => e.t === 'newround')) notice(''); // ("You join at the start of the next round": this is it)
     if (roundSeenAt && now - roundSeenAt >= (T.transition.freezeFrames / 60) * 1000) { roundSeenAt = 0; lastAlpha = alpha; void eraChange(); }
   }
   lastAlpha = alpha;
@@ -371,7 +376,7 @@ function frame(now: number) {
       `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: ${view.fighters.map((f) => (f.controlled ? 'P' + (f.index + 1) : 'dummy') + ' ' + Math.max(0, f.hp).toFixed(0)).join('  ')}   players ${players}`,
       `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} charge ${view.fighters[mySlot].charge}/${T.charge.maxFrames} dodge-ready-in ${(view.fighters[mySlot].dodgeCooldown / 60).toFixed(1)}s`,
       `era ${eraById(view.era).name}   outfit ${eraById(view.era).outfits[view.outfits[mySlot]]}`,
-      net ? `ONLINE: you are fighter ${mySlot + 1}, ping ${Math.round(ping)} ms, ${mirror!.desyncs} desyncs` : room ? `PRETEND NETWORK: ${lagMs} ms each way, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
+      net ? `ONLINE: you are fighter ${mySlot + 1}, ping ${Math.round(ping)} ms, buffer ${mirror!.delay.toFixed(1)} ticks, ${mirror!.waits} stalls, ${mirror!.desyncs} desyncs` : room ? `PRETEND NETWORK: ${lagMs} ms each way, buffer ${mirror!.delay.toFixed(1)} ticks, ${mirror!.waits} stalls, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
     ]);
     frames = 0; msSum = 0; simMsSum = 0; statTime = now;
   }

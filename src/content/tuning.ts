@@ -515,6 +515,20 @@ export const tuning = {
     kick: 0.6, // the kick out of it, as a share of a normal jump (weak: a pit's edge should be low)
     drownDepth: 1.1, // sinking this far below the surface finishes you (m)
   },
+  special: {
+    // Weapons that do more than hit (owner, batch one; sim/special.ts, world.ts hit and blast). PLACEHOLDER numbers until the playtest.
+    spearFly: 6, // a loose spear faster than this (m/s) turns its point into the way it flies...
+    spearTurn: 14, // ...this quickly
+    spearStick: 7, // it sticks into the ground or a wall when it arrives at least this fast (m/s)...
+    spearPointFirst: 0.5, // ...within this angle (radians) of point-first
+    spearThrown: 1.8, // a thrown spear hits this many times harder than a swung one
+    blastRadius: 3, // a grenade's reach (m)
+    blastPush: 14, // how hard it throws things outward at its middle (m/s), less further out
+    blastLift: 5, // ...and up (m/s)
+    blastImpact: 40, // how hard it hurts right next to it (a full club hit is about 45), less further out
+    blastScenery: 4, // breakable scenery takes the blast this many times harder (a barrel within about 1.8 m breaks)
+    blastShake: 0.6, // how much it shakes the picture (as a share of tuning.shake.max)
+  },
   light: {
     // Dynamic light (owner; render/light.ts): fires and lanterns light the scene and cast each fighter's shadow away from them, flickering
     // with the flame; a lantern put out darkens the room (only the background: light never hides anyone). PLACEHOLDER numbers.
@@ -680,7 +694,10 @@ export const tuning = {
     // Online (owner: cut the lag cheaply before trying prediction). From pressing a key to seeing your fighter move online takes your ping,
     // plus a wait for the next snapshot, plus the blend buffer. A snapshot is about 1.3 KB: 60 a second is about 0.6 Mbit/s per player.
     snapEvery: 1, // the server sends a snapshot every this many 60 Hz ticks (1 = 60 a second; was 3 = 20 a second)
-    blendTicks: 3, // your screen shows the world this many ticks behind the newest snapshot, to blend smoothly (3 = 50 ms; was 6 = 100 ms). Raise it if online play stutters on a shaky connection
+    blendTicks: 3, // your screen shows the world at least this many ticks behind the newest snapshot, to blend smoothly (3 = 50 ms; was 6 = 100 ms)
+    blendMax: 18, // on a shaky line (snapshots arriving late in bunches) the buffer widens by itself to cover the stalls, up to this many ticks (300 ms)...
+    blendRelax: 3, // ...and narrows again by one tick every this many seconds that it arrives steadily (back down to blendTicks). Slower than most wifi hiccups repeat, so it holds its width between them
+    extrapolateTicks: 3, // when snapshots stop coming the motion carries on for up to this many ticks (50 ms) before the picture waits (0 = wait at once)
     inputQueue: 3, // the server keeps at most this many of a player's inputs waiting (one is used per tick, so a quick tap is never lost); more than that and the oldest are folded together
     // Prediction (online, the Settings switch "Online controls: Instant"): your own fighter moves at once and is nudged toward the server.
     predict: { blend: 0.25, blendPerMetre: 0.6, blendMax: 0.6, snap: 1.5, deadzone: 0.01, history: 180, drive: 12 }, // blend: share of the difference closed each snapshot (plus blendPerMetre for every metre off, at most blendMax); snap: metres off before it jumps straight there; deadzone: closer than this is left alone; history: inputs remembered; drive: how firmly the others are held to where the server shows them, for bumping into (per second)
@@ -805,7 +822,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, rope: 0xb09a6a, gangplank: 0x7a5232 } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

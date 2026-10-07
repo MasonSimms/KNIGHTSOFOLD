@@ -19,6 +19,7 @@ import { buildTrain, stepTrain } from './train';
 import type { Passing } from './train';
 import { applyJets } from './tower';
 import { applyWind } from './wind';
+import { aimSpears, fuses, goneOff, stickSpears } from './special';
 import type { Jet } from './tower';
 import { breakProp, damageScenery, fire, moveBullets, predictShot, shatter, snapPart, spendShot } from './guns';
 import type { Bullet } from './guns';
@@ -61,7 +62,7 @@ const decodeItem = (e: { v: number; victim: number }): Item => (e.v < 0 ? { kind
 /** What killed a fighter, so the death can be staged to fit (crushed, blown apart, a limb lost). */
 /** A training change at frame f: an item dropped in at (x, y), or (no item) the loose things cleared away. */
 export interface Edit { f: number; item?: string; x?: number; y?: number }
-export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam' | 'shot' | 'crush' | 'fire'; part?: Part; head?: boolean; nx: number; ny: number }
+export interface Cause { how: 'club' | 'fist' | 'stomp' | 'body' | 'slam' | 'shot' | 'crush' | 'fire' | 'blast'; part?: Part; head?: boolean; nx: number; ny: number }
 
 export class Sim {
   frame = 0;
@@ -428,6 +429,27 @@ export class Sim {
     this.ripFree(part);
     this.events.push({ t: 'cut', x, y, v: 0, owner, victim: -1 });
   }
+  /** A grenade goes off (special.ts): everything near is thrown outward (harder the nearer), fighters are hurt by how near they were, and
+   *  breakable scenery breaks. `by`: who threw it. */
+  blast(x: number, y: number, by: number): void {
+    const B = T.special, R = B.blastRadius;
+    const push = (b: RAPIER.RigidBody): number => {
+      const t = b.translation(), dx = t.x - x, dy = t.y - y, d = Math.hypot(dx, dy);
+      if (d > R || !b.isDynamic()) return d;
+      const k = 1 - d / R, s = d || 1;
+      b.applyImpulse({ x: (dx / s) * B.blastPush * k * b.mass(), y: ((dy / s) * B.blastPush - B.blastLift) * k * b.mass() }, true);
+      return d;
+    };
+    for (const f of this.fighters) {
+      let near = Infinity;
+      for (const p of f.parts) near = Math.min(near, push(p.body));
+      if (f.limp || near > R) continue;
+      const impact = B.blastImpact * (1 - near / R), t = f.torso.body.translation();
+      this.wound(f, damageFor(impact), impact, t.x, t.y, by, false, true, { how: 'blast', nx: Math.sign(t.x - x) || 1, ny: -0.5 });
+    }
+    for (const p of [...this.props]) { const d = push(p.body); if (d < R && p.hp !== undefined && this.props.includes(p)) damageScenery(this, p, B.blastImpact * B.blastScenery * (1 - d / R)); }
+  }
+
   /** Fire's damage (fire.ts): a little hidden health at a time, no stagger; it can finish you. */
   scorch(f: Fighter, dmg: number): void {
     if (f.limp) return;
@@ -541,6 +563,7 @@ export class Sim {
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     if (this.passing.length) stepTrain(this, this.passing);
     applyWind(this);
+    aimSpears(this);
     this.moveRopeEnds();
     this.world.step();
     if (this.chase) stepChase(this, this.chase);
@@ -556,6 +579,8 @@ export class Sim {
     this.resolveBodySlams();
     this.resolveCrushes();
     this.shatterMugs();
+    stickSpears(this);
+    fuses(this);
     moveBullets(this);
     applyJets(this);
     applyFire(this);
@@ -611,6 +636,7 @@ export class Sim {
     else if (e.t === 'shot') { if (f) spendShot(f); }
     else if (e.t === 'snap') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) snapPart(this, p, e.v, h); }
     else if (e.t === 'break') { const p = this.props[e.victim]; if (p) breakProp(this, p, false); }
+    else if (e.t === 'boom') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) goneOff(this, p, h); }
     else if (e.t === 'shatter') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) shatter(this, p, h, false); }
   }
 
@@ -758,7 +784,7 @@ export class Sim {
   /** An outstretched empty hand locks onto the first part of another fighter it touches (not a club, not the floppy second arm). */
   /** What an object is, if a hand can take it: a prop, a club nobody is holding, or a limb that has come off. */
   private itemOf(part: Part): Item | null {
-    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && part.body.isDynamic() && !part.links?.length && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
+    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && (part.body.isDynamic() || !!part.weapon?.spear) && !part.links?.length && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
     const g = this.fighters[part.owner];
     if (!g) return null;
     if (part.role === 'stick') return g.stick === part && !g.grip && g.dropCooldown <= 0 ? { kind: 'stick', from: g.index } : null;
@@ -1126,6 +1152,7 @@ export class Sim {
   private clash(f: Fighter, att: Attacker, holder: Fighter, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }): void {
     const c = this.contact(att.part, vp, pt, n);
     if (att.kind === 'stick' && this.parry(f, att, holder, c, pt)) return;
+    if (vp.weapon?.material === 'shield') return; // a shield takes the blow: it is not knocked out of the hand
     const impact = impactValue(c.closing, (att.kind === 'stick' ? att.part.weapon ?? T.stick : T.fist).impactFactor);
     this.tryDisarm(f, holder, vp, pt, impact, c.nx, c.ny, c.sa, c.sb);
   }
@@ -1189,8 +1216,8 @@ export class Sim {
   private hit(f: Fighter, att: Attacker, victim: Fighter | undefined, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }, head: boolean): void {
     if (!victim || victim.limp || this.detached(victim, vp)) return;
     const { nx, ny, closing, sa, sb } = this.contact(att.part, vp, pt, n);
-    const W = att.kind === 'stick' ? att.part.weapon ?? T.stick : T.fist;
-    const impact = impactValue(closing, W.impactFactor);
+    const W = att.kind === 'stick' ? att.part.weapon ?? T.stick : T.fist, own = att.kind === 'stick' ? att.part.weapon : undefined;
+    const impact = impactValue(closing, W.impactFactor) * (own?.spear && !f.grip ? T.special.spearThrown : 1); // (a spear thrown point-first)
     this.tryDisarm(f, victim, vp, pt, impact, nx, ny, sa, sb); // a great hit on the hand or arm can knock the club out
     let dmg = damageFor(impact, head ? T.combat.headMult : 1);
     if (dmg <= 0) return;
@@ -1204,8 +1231,8 @@ export class Sim {
     victim.stun = T.combat.stunFrames;
     if (victim.hold && impact >= T.grab.breakImpact) letGo(this.world, victim, false, this.events); // a good hit on a grabber, from the one they hold or anyone else, breaks the hold
     const killing = victim.hp <= 0;
-    const k = knockbackFor(impact) * (att.kind === 'fist' ? T.fist.knockbackMul : 1); // punches shove much less than a club
-    shove(victim, nx * k, ny * k - impact * T.combat.knockbackUp);
+    const k = knockbackFor(impact) * (att.kind === 'fist' ? T.fist.knockbackMul : 1) * (own?.push ?? 1), pull = own?.pull ? -1 : 1; // punches shove much less than a club; a shield shoves more; the gravity hammer pulls
+    shove(victim, pull * nx * k, pull * ny * k - impact * T.combat.knockbackUp);
     if (!killing) this.knockdown(victim, impact, nx);
     // A hit tips the victim backward (head swings away from the blow) a little: smooth and funny, not a random flip.
     victim.torso.body.applyTorqueImpulse(-Math.sign(nx || 1) * impact * T.combat.spinScale * (0.8 + 0.4 * this.rng()), true);
