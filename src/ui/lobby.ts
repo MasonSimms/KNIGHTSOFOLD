@@ -39,7 +39,7 @@ const home = () => { forgetSession(); location.href = location.pathname; }; // b
  */
 export function runLobby(url: string, existing?: NetClient): Promise<{ client: NetClient; seed: number; you: number; queued: boolean; host: boolean }> {
   notice('');
-  const root = openMenu('door', `<button class="back" title="Back">${BACK}</button><h1>Knights of Old</h1><div class="body">${existing ? 'Back to the room...' : 'Connecting...'}</div><div class="err"></div>`);
+  const root = openMenu('door', `<button class="back" title="Back">${BACK}</button><h1>Old Masters</h1><div class="body">${existing ? 'Back to the room...' : 'Connecting...'}</div><div class="err"></div>`);
   const body = root.querySelector('.body') as HTMLElement, err = root.querySelector('.err') as HTMLElement;
   (root.querySelector('.back') as HTMLElement).onclick = home;
 

@@ -4,7 +4,7 @@ Living plan. Keep it current like DECISIONS.md. The full formatted version (with
 
 ## Status (update weekly)
 - Last updated: 2026-10-06 (direction round: name, showcase eras, demo, specials)
-- Name: **Old Masters** (no subtitle; owner, 2026-10-06). Owner to do: a trademark lawyer's check before the page goes up. Backup: Epochalypse.
+- Name: **Old Masters** (no subtitle; owner, 2026-10-06). Owner to do: a trademark lawyer's check before the page goes up. No backup: Epochalypse is risky too (a 2026 tabletop RPG has the name, and it is the 2038 date bug's nickname), so a new naming round only if the lawyer says no.
 - Wishlists: 0 (no Steam page yet). Owner: write the Steamworks number here every Monday.
 - Steam page: not created. Steamworks account: not created.
 - Next marketing deadline: Wild West, Cavemen and Pirates in final paint by 2026-11-01 (art handoffs 10-15, 10-20, 10-25); Coming Soon page public by 2026-11-15.

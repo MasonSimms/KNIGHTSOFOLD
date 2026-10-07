@@ -152,7 +152,7 @@ function openFile(): Promise<Moment | null> {
         const f = JSON.parse(await input.files![0].text()) as ReplayFile;
         if (f.kind !== FILE_KIND || f.v !== 1 || !f.rec?.inputs) throw new Error('not a replay');
         ok({ rec: f.rec, from: f.from, to: f.to, at: f.at, score: 0, title: f.title, era: f.era });
-      } catch { alert('That is not a Knights of Old replay file.'); ok(null); }
+      } catch { alert('That is not an Old Masters replay file.'); ok(null); }
     };
     addEventListener('focus', () => setTimeout(() => { if (!input.files?.length) ok(null); }, 600), { once: true }); // (cancelled)
     input.click();
