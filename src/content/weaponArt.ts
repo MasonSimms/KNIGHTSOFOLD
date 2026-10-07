@@ -1,0 +1,84 @@
+// What each weapon looks like (art-guide/visuals/weapons.png): a few flat shapes per weapon, which the painter shades and paints over
+// (render/painter/sprites.ts paintedWeapon). Drawn lying flat, the grip end on the left (x = 0) and the tip on the right (x = len, the
+// length it was drawn at: the picture is stretched to the weapon's real length), y across with up negative. Metres. A piece marked
+// `grip` is what the hand holds: weaponArt.test.ts checks the hand (gripFromEnd) lands on one. Looks only: the physics is still the rod.
+
+/** A colour ramp from the lit side (top) to the shadow side; a fourth colour adds a sheen (steel). */
+export type Paint = readonly string[];
+export type Piece =
+  /** A strip from (x0, y0) to (x1, y1), half-width w0 narrowing (or widening) to w1, bowed sideways by `bend` at its middle. */
+  | { k: 'rod'; a: [number, number]; b: [number, number]; w: [number, number]; bend?: number; c: Paint; grip?: true; glow?: true }
+  /** A round thing: radius r (rx across the length when it is an oval), with `spikes` points round it (a mace, a flail's star). */
+  | { k: 'ball'; x: number; y?: number; r: number; rx?: number; spikes?: number; c: Paint; glow?: true; grip?: true }
+  | { k: 'poly'; pts: [number, number][]; c: Paint; grip?: true }
+  /** Chain links from x0 to x1 (looks only until chain physics: weapons batch two). */
+  | { k: 'chain'; x: [number, number]; r: number; c: Paint };
+export interface WeaponArt { len: number; pieces: Piece[] }
+
+const WOOD = ['#B58251', '#7E5233', '#45291A'], DARKWOOD = ['#7A4A2C', '#52301C', '#28160B'], LEATHER = ['#7A5238', '#4E3322', '#24150C'];
+const BONE = ['#F7F0DE', '#DCCDA8', '#9C8A66'], CREAM = ['#F8F1DE', '#E6D9B8', '#A89A78'], STONE = ['#C9C3B6', '#958E83', '#57524A'];
+const STEEL = ['#F3F6F8', '#AEB6BF', '#D3D9DF', '#5F666E'], IRON = ['#9DA3A9', '#686E75', '#353A3F'], GREY = ['#B9BDC0', '#7F8487', '#C6CACD', '#44484B'];
+const GOLD = ['#F8E08E', '#E2B33C', '#8C6A1C'], BRASS = ['#E9C977', '#B48C38', '#6A501E'], BRONZE = ['#F2C66C', '#C8943A', '#74521A'];
+const BLACK = ['#55505A', '#2C2932', '#110F15'], NAVY = ['#46548A', '#283260', '#121831'], RED = ['#E45B4C', '#C8282C', '#741315'];
+const LACQUER = ['#9A3428', '#641C14', '#2E0C08'], OLIVE = ['#86906A', '#5C6646', '#323A24'], BAMBOO = ['#DCE38E', '#ABB95A', '#6C7830'];
+const ROPE = ['#DCC48E', '#B49A62', '#76603A'], VIOLET = ['#ABADCC', '#7C7FA6', '#45486C'], SPADE = ['#A3A598', '#75786C', '#45473F'];
+const CYAN = ['#F4FFFF', '#7FF2F4', '#1FA9B8'], PINK = ['#FFF0FB', '#F45FD4', '#A21F8A'], PURPLE = ['#6A58C0', '#3E2E8C', '#1C1448'];
+const ICE = ['#F2FAFF', '#B9DCF0', '#5FA8D4'], SHIELD = ['#C4D4DE', '#94AABA', '#5E7484'];
+
+const rod = (x0: number, x1: number, w0: number, w1: number, c: Paint, o: { y?: [number, number]; bend?: number; grip?: true; glow?: true } = {}): Piece =>
+  ({ k: 'rod', a: [x0, o.y?.[0] ?? 0], b: [x1, o.y?.[1] ?? 0], w: [w0, w1], bend: o.bend, c, grip: o.grip, glow: o.glow });
+const ball = (x: number, r: number, c: Paint, o: { y?: number; rx?: number; spikes?: number; glow?: true; grip?: true } = {}): Piece => ({ k: 'ball', x, r, c, ...o });
+const poly = (c: Paint, pts: [number, number][], grip?: true): Piece => ({ k: 'poly', pts, c, grip });
+const blade = (x0: number, x1: number, w: number, c: Paint, point = 0.12): Piece => poly(c, [[x0, -w], [x1 - point, -w * 0.85], [x1, 0], [x1 - point, w * 0.85], [x0, w]]); // straight, double-edged, pointed
+const half = (cx: number, cy: number, r: number, a0: number, a1: number, n = 10): [number, number][] => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + ((a1 - a0) * i) / n; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r] as [number, number]; });
+const stock = (x1: number, c: Paint): Piece => poly(c, [[0, -0.035], [0, 0.07], [0.1, 0.055], [x1, 0.022], [x1, -0.022]], true); // a long gun's butt, deepest at the back
+
+export const WEAPON_ART: Record<string, WeaponArt> = {
+  // the signature weapons (weapons.ts)
+  'bone-club': { len: 1.05, pieces: [ball(0.02, 0.028, BONE), rod(0, 0.26, 0.022, 0.024, LEATHER, { grip: true }), rod(0.24, 0.92, 0.024, 0.05, BONE), ball(0.94, 0.064, BONE, { y: -0.03 }), ball(0.96, 0.056, BONE, { y: 0.034 })] },
+  katana: { len: 1.25, pieces: [rod(0, 0.28, 0.02, 0.02, BLACK, { grip: true }), ...[0.06, 0.13, 0.2].map((x) => ball(x, 0.008, CREAM)), ball(0.285, 0.042, GOLD, { rx: 0.012 }), rod(0.29, 0.33, 0.018, 0.018, GOLD), rod(0.31, 1.25, 0.019, 0.003, STEEL, { y: [0, -0.05], bend: -0.025 })] },
+  rifle: { len: 1.15, pieces: [stock(0.36, WOOD), rod(0.34, 0.86, 0.022, 0.02, WOOD), rod(0.3, 1.15, 0.012, 0.011, IRON, { y: [-0.028, -0.028] }), ball(0.42, 0.03, IRON, { y: 0.045, rx: 0.035 })] },
+  shovel: { len: 1.05, pieces: [ball(0.015, 0.05, WOOD, { rx: 0.016 }), rod(0, 0.66, 0.018, 0.018, WOOD, { grip: true }), rod(0.6, 0.7, 0.02, 0.03, IRON), poly(SPADE, [[0.67, -0.075], [0.93, -0.07], [1.05, 0], [0.93, 0.07], [0.67, 0.075]])] },
+  machete: { len: 1.05, pieces: [rod(0, 0.27, 0.022, 0.022, BLACK, { grip: true }), ball(0.07, 0.007, BRASS), ball(0.18, 0.007, BRASS), poly(GREY, [[0.26, -0.03], [0.95, -0.042], [1.04, -0.02], [1.05, 0.006], [0.98, 0.042], [0.26, 0.03]]), rod(0.3, 0.99, 0.004, 0.004, CREAM, { y: [0.026, 0.036] })] },
+  baton: { len: 1.05, pieces: [rod(0, 1.05, 0.024, 0.024, BLACK, { grip: true }), poly(BLACK, [[0.19, 0.02], [0.23, 0.02], [0.23, 0.12], [0.19, 0.12]])] },
+  'energy-staff': { len: 1.4, pieces: [rod(0, 1.4, 0.016, 0.016, VIOLET), rod(0.06, 0.24, 0.022, 0.022, NAVY, { grip: true }), rod(0.6, 0.8, 0.022, 0.022, NAVY), ball(0.01, 0.034, CYAN, { glow: true }), ball(1.39, 0.034, CYAN, { glow: true })] },
+  longbow: { len: 1.3, pieces: [rod(0, 1.3, 0.003, 0.003, CREAM), rod(0, 1.3, 0.016, 0.012, WOOD, { bend: -0.1, grip: true }), rod(0.6, 0.7, 0.02, 0.02, LEATHER, { y: [-0.1, -0.1] })] },
+  bat: { len: 1.05, pieces: [ball(0.02, 0.032, WOOD, { rx: 0.018 }), rod(0, 0.36, 0.018, 0.022, WOOD, { grip: true }), rod(0.05, 0.22, 0.021, 0.022, CREAM), rod(0.32, 1.02, 0.022, 0.05, WOOD), ball(1.0, 0.05, WOOD, { rx: 0.03 })] },
+  khopesh: { len: 1.05, pieces: [rod(0, 0.28, 0.018, 0.018, BLACK, { grip: true }), rod(0.01, 0.04, 0.022, 0.022, GOLD), rod(0.24, 0.28, 0.022, 0.022, GOLD), rod(0.27, 0.56, 0.012, 0.016, BRONZE), rod(0.53, 1.05, 0.026, 0.012, BRONZE, { y: [-0.005, 0.06], bend: -0.15 })] },
+  gladius: { len: 1.05, pieces: [ball(0.025, 0.036, CREAM), rod(0.02, 0.21, 0.018, 0.018, DARKWOOD, { grip: true }), ball(0.225, 0.045, CREAM, { rx: 0.022 }), blade(0.24, 1.05, 0.032, STEEL, 0.15), rod(0.28, 0.85, 0.005, 0.004, CREAM)] },
+  axe: { len: 1.05, pieces: [rod(0, 0.95, 0.018, 0.018, WOOD, { grip: true }), rod(0, 0.04, 0.021, 0.021, DARKWOOD), poly(STEEL, [[0.8, -0.025], [0.9, -0.03], [0.97, -0.12], [1.03, -0.115], [1.0, 0], [1.03, 0.115], [0.97, 0.12], [0.9, 0.03], [0.8, 0.025]])] },
+  longsword: { len: 1.2, pieces: [ball(0.025, 0.032, IRON), rod(0.02, 0.22, 0.016, 0.016, LEATHER, { grip: true }), ball(0.235, 0.09, IRON, { rx: 0.016 }), blade(0.25, 1.2, 0.024, STEEL), rod(0.28, 1.0, 0.004, 0.003, CREAM)] },
+  cutlass: { len: 1.05, pieces: [rod(0, 0.22, 0.017, 0.017, DARKWOOD, { grip: true }), ball(0.24, 0.062, GOLD, { rx: 0.036 }), poly(STEEL, [[0.26, -0.03], [0.95, -0.046], [1.05, -0.03], [1.03, 0.02], [0.26, 0.025]])] },
+  'stone-axe': { len: 1.0, pieces: [rod(0, 0.9, 0.018, 0.018, WOOD, { grip: true }), ball(0.9, 0.075, STONE, { rx: 0.1 }), rod(0.82, 0.9, 0.006, 0.006, LEATHER, { y: [-0.05, 0.05] }), rod(0.82, 0.9, 0.006, 0.006, LEATHER, { y: [0.05, -0.05] })] },
+
+  // the era pickups (props.ts)
+  'stone-hammer': { len: 0.8, pieces: [rod(0, 0.62, 0.018, 0.018, WOOD, { grip: true }), poly(STONE, [[0.55, -0.09], [0.62, -0.11], [0.78, -0.1], [0.8, 0], [0.78, 0.1], [0.62, 0.11], [0.55, 0.09]]), rod(0.6, 0.72, 0.007, 0.007, LEATHER, { y: [-0.07, 0.07] }), rod(0.6, 0.72, 0.007, 0.007, LEATHER, { y: [0.07, -0.07] })] },
+  tusk: { len: 1.3, pieces: [rod(0, 1.3, 0.045, 0.004, BONE, { y: [0, -0.12], bend: 0.05, grip: true }), rod(0, 0.06, 0.046, 0.044, ['#D8C39A', '#B39C70', '#7A6844'])] },
+  sceptre: { len: 1.3, pieces: [rod(0.05, 1.18, 0.014, 0.014, NAVY, { grip: true }), rod(0.3, 0.33, 0.018, 0.018, GOLD), rod(0.7, 0.73, 0.018, 0.018, GOLD), poly(GOLD, [[0, -0.05], [0.07, -0.012], [0.07, 0.012], [0, 0.05], [0.04, 0]]), poly(GOLD, [[1.15, -0.01], [1.22, -0.07], [1.3, -0.09], [1.26, -0.03], [1.2, 0.015]])] },
+  flail: { len: 0.9, pieces: [rod(0, 0.37, 0.02, 0.02, GOLD, { grip: true }), rod(0.02, 0.05, 0.024, 0.024, BRASS), rod(0.32, 0.36, 0.024, 0.024, BRASS), { k: 'chain', x: [0.36, 0.78], r: 0.022, c: GOLD }, ball(0.82, 0.05, GOLD, { spikes: 7 })] },
+  trident: { len: 1.5, pieces: [rod(0, 1.32, 0.014, 0.014, WOOD, { grip: true }), ball(1.31, 0.075, IRON, { rx: 0.014 }), ...[-0.065, 0, 0.065].map((y) => rod(1.31, 1.5, 0.01, 0.002, STEEL, { y: [y, y] }))] },
+  'round-shield': { len: 0.62, pieces: [ball(0.31, 0.31, IRON), ball(0.31, 0.288, CREAM), poly(RED, half(0.31, 0, 0.288, -Math.PI / 2, Math.PI / 2, 16).map(([x, y]) => [Math.max(x, 0.35), y])), ball(0.31, 0.065, IRON, { grip: true })] }, // (held from behind, at its boss)
+  'chain-mace': { len: 0.9, pieces: [rod(0, 0.33, 0.02, 0.02, WOOD, { grip: true }), rod(0.3, 0.36, 0.024, 0.024, IRON), { k: 'chain', x: [0.36, 0.72], r: 0.02, c: IRON }, ball(0.8, 0.07, IRON, { spikes: 8 })] },
+  spear: { len: 1.5, pieces: [rod(0, 1.32, 0.012, 0.012, WOOD, { grip: true }), rod(0, 0.03, 0.013, 0.013, IRON), rod(1.27, 1.31, 0.015, 0.015, LEATHER), poly(STEEL, [[1.3, -0.008], [1.36, -0.03], [1.5, 0], [1.36, 0.03], [1.3, 0.008]])] },
+  'great-axe': { len: 1.1, pieces: [rod(0, 1.0, 0.02, 0.02, WOOD, { grip: true }), poly(STEEL, [[0.84, -0.03], [0.92, -0.03], [0.98, -0.17], [1.08, -0.17], [1.05, 0], [1.08, 0.17], [0.98, 0.17], [0.92, 0.03], [0.84, 0.03]])] },
+  mace: { len: 0.8, pieces: [rod(0, 0.2, 0.02, 0.02, LEATHER, { grip: true }), rod(0.15, 0.62, 0.016, 0.016, IRON), ball(0.67, 0.072, STEEL, { spikes: 8 }), rod(0.72, 0.8, 0.014, 0, STEEL)] },
+  lance: { len: 1.9, pieces: [rod(0, 0.32, 0.025, 0.025, CREAM, { grip: true }), rod(0.4, 1.9, 0.045, 0.004, CREAM), poly(STEEL, [[0.3, -0.03], [0.38, -0.11], [0.42, -0.11], [0.42, 0.11], [0.38, 0.11], [0.3, 0.03]]), ...[[0.7, 0.037], [1.0, 0.029], [1.3, 0.02], [1.6, 0.012]].map(([x, w]) => rod(x - 0.03, x + 0.03, 0.012, 0.01, RED, { y: [-w, w] }))] },
+  naginata: { len: 1.6, pieces: [rod(0, 1.3, 0.013, 0.013, LACQUER, { grip: true }), rod(1.27, 1.33, 0.017, 0.017, GOLD), rod(1.32, 1.6, 0.022, 0.002, STEEL, { y: [0, -0.07], bend: 0.02 })] },
+  'iron-fan': { len: 0.5, pieces: [poly(BLACK, [[0.12, 0], [0.5, -0.17], [0.53, -0.08], [0.54, 0], [0.53, 0.08], [0.5, 0.17]]), ...[-0.15, -0.075, 0, 0.075, 0.15].map((y) => rod(0.13, 0.51, 0.004, 0.003, GOLD, { y: [0, y] })), ball(0.42, 0.045, RED), rod(0, 0.16, 0.016, 0.016, IRON, { grip: true })] },
+  pistol: { len: 0.45, pieces: [rod(0.1, 0.4, 0.016, 0.016, WOOD), rod(0.12, 0.45, 0.011, 0.011, BRASS, { y: [-0.014, -0.014] }), poly(WOOD, [[0, 0.02], [0.02, 0.075], [0.07, 0.08], [0.14, 0.02], [0.14, -0.02], [0.02, -0.015]], true), ball(0.035, 0.02, BRASS, { y: 0.07 }), poly(IRON, [[0.13, -0.02], [0.15, -0.055], [0.18, -0.05], [0.17, -0.02]])] },
+  'boat-hook': { len: 1.3, pieces: [rod(0, 0.48, 0.008, 0.008, ROPE, { bend: 0.03, grip: true }), rod(0.48, 0.96, 0.008, 0.008, ROPE, { bend: -0.03 }), rod(0.95, 1.2, 0.012, 0.012, IRON), rod(1.15, 1.3, 0.01, 0.003, IRON, { y: [0, -0.07], bend: 0.02 }), rod(1.15, 1.3, 0.01, 0.003, IRON), rod(1.15, 1.3, 0.01, 0.003, IRON, { y: [0, 0.07], bend: -0.02 })] },
+  revolver: { len: 0.4, pieces: [poly(WOOD, [[0, 0], [0.02, 0.075], [0.07, 0.08], [0.11, 0.01], [0.11, -0.02]], true), rod(0.08, 0.2, 0.028, 0.028, IRON), ball(0.17, 0.032, STEEL, { rx: 0.045 }), rod(0.2, 0.4, 0.012, 0.012, IRON, { y: [-0.01, -0.01] }), poly(IRON, [[0.07, -0.025], [0.06, -0.05], [0.09, -0.045], [0.1, -0.025]])] },
+  pickaxe: { len: 1.0, pieces: [rod(0, 0.96, 0.018, 0.018, WOOD, { grip: true }), rod(0.9, 0.98, 0.026, 0.026, IRON), rod(0.94, 0.99, 0.025, 0.003, IRON, { y: [0, -0.22], bend: 0.03 }), rod(0.94, 0.99, 0.025, 0.003, IRON, { y: [0, 0.22], bend: -0.03 })] },
+  'bayonet-rifle': { len: 1.6, pieces: [stock(0.4, WOOD), rod(0.38, 1.2, 0.02, 0.018, WOOD), rod(0.3, 1.25, 0.01, 0.01, IRON, { y: [-0.022, -0.022] }), rod(1.2, 1.6, 0.012, 0.001, STEEL, { y: [-0.022, -0.022] })] },
+  grenade: { len: 0.6, pieces: [rod(0, 0.43, 0.015, 0.015, WOOD, { grip: true }), ball(0.01, 0.016, CREAM), rod(0.42, 0.6, 0.055, 0.055, OLIVE), rod(0.41, 0.44, 0.057, 0.057, IRON)] },
+  'bamboo-stick': { len: 1.4, pieces: [rod(0, 1.4, 0.02, 0.02, BAMBOO, { grip: true }), ...[0.25, 0.55, 0.85, 1.15].map((x) => rod(x - 0.012, x + 0.012, 0.024, 0.024, ['#BCC46E', '#8A9842', '#56601F']))] },
+  'bayonet-knife': { len: 0.4, pieces: [rod(0, 0.13, 0.016, 0.016, BLACK, { grip: true }), ball(0.14, 0.03, IRON, { rx: 0.01 }), poly(STEEL, [[0.15, -0.014], [0.34, -0.012], [0.4, 0], [0.34, 0.014], [0.15, 0.014]])] },
+  'combat-knife': { len: 0.4, pieces: [rod(0, 0.13, 0.017, 0.017, BLACK, { grip: true }), ball(0.14, 0.03, IRON, { rx: 0.012 }), poly(STEEL, [[0.15, -0.02], [0.33, -0.022], [0.4, -0.008], [0.36, 0.015], [0.15, 0.02]])] },
+  'riot-shield': { len: 0.12, pieces: [poly(SHIELD, [[0, -0.47], [0.02, -0.5], [0.1, -0.5], [0.12, -0.47], [0.12, 0.47], [0.1, 0.5], [0.02, 0.5], [0, 0.47]], true), rod(0.02, 0.05, 0.006, 0.006, ICE, { y: [-0.4, -0.3] }), rod(0.07, 0.1, 0.006, 0.006, ICE, { y: [0.25, 0.35] })] },
+  'plasma-blade': { len: 0.7, pieces: [rod(0, 0.2, 0.018, 0.018, IRON, { grip: true }), rod(0.18, 0.23, 0.022, 0.022, STEEL), rod(0.23, 0.7, 0.016, 0.012, PINK, { glow: true })] },
+  'gravity-hammer': { len: 1.0, pieces: [rod(0, 0.8, 0.016, 0.016, IRON, { grip: true }), poly(PURPLE, [[0.78, -0.1], [1.0, -0.1], [1.0, 0.1], [0.78, 0.1]]), ball(0.89, 0.04, ['#FFFFFF', '#E6D8FF', '#A88CF0'], { glow: true })] },
+  'wizard-staff': { len: 1.5, pieces: [rod(0, 1.4, 0.016, 0.02, DARKWOOD, { bend: 0.02, grip: true }), rod(1.38, 1.5, 0.02, 0.012, DARKWOOD, { y: [0, -0.06], bend: 0.05 }), ball(1.44, 0.03, ICE, { glow: true })] },
+  'war-hammer': { len: 1.0, pieces: [rod(0, 0.86, 0.017, 0.017, WOOD, { grip: true }), rod(0.6, 0.86, 0.019, 0.019, IRON), rod(0.9, 0.9, 0.045, 0.04, IRON, { y: [0.02, -0.12] }), rod(0.9, 0.9, 0.03, 0.002, IRON, { y: [0.02, 0.16] }), rod(0.93, 1.0, 0.015, 0, IRON)] },
+  crowbar: { len: 0.8, pieces: [rod(0, 0.7, 0.012, 0.012, RED, { grip: true }), rod(0, 0.04, 0.006, 0.012, IRON), rod(0.66, 0.8, 0.012, 0.006, RED, { y: [0, 0.07], bend: -0.05 })] },
+  'lead-pipe': { len: 1.0, pieces: [rod(0, 1.0, 0.022, 0.022, GREY, { grip: true }), rod(0, 0.06, 0.027, 0.027, IRON), rod(0.88, 1.0, 0.03, 0.03, IRON)] },
+};

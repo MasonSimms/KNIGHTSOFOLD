@@ -20,6 +20,9 @@ No files: the Pirates ship (hull, rail, mast, sail, rigging, pennant) and the ne
 ## Hats, hairstyles and eyes (2026-10-06)
 No files: the 12 hats and 7 hairstyles are drawn and then oil-painted at runtime by our own code (paintedHat and paintedStrip in src/render/painter/sprites.ts; what sways is moved by src/render/dangle.ts), and the 10 eye styles are vector shapes (drawEyes in src/render/render.ts). Designed from the owner's Looks v1 catalogue (art-guide/looks-v1.png and LOOKS_HANDOFF.md, from the owner's design window: direction only, not shipped). No image or sound is AI-generated; the code was written with Claude.
 
+## Weapons (2026-10-07)
+No files: every weapon (the 15 era weapons and every pickup) is a few flat shapes written as data (src/content/weaponArt.ts), drawn and then oil-painted at runtime by our own code (paintedWeapon in src/render/painter/sprites.ts). Designed from the owner's weapon sheet (art-guide/visuals/weapons.png, from the owner's design window: direction only, not shipped). No image is AI-generated; the code was written with Claude.
+
 ## AI-generated content
 None yet. Log tool, version, prompt and seed for every AI-generated image or sound.
 

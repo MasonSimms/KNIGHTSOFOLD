@@ -2,6 +2,7 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { Collider, ImpulseJoint, RevoluteImpulseJoint, RigidBody, World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import type { GunSpec, Material, Weapon } from '../content/weapons';
+import { gripOf } from '../content/props';
 import type { PlayerInput, SimEvent } from './types';
 
 export type Shape =
@@ -345,7 +346,7 @@ export function createProp(world: World, x: number, y: number, angle: number, sp
   return {
     body, shapes, colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
-    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: spec.grip !== undefined ? spec.grip * spec.len : Math.min(0.2, spec.len * 0.25), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse },
+    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse },
     ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}), ...(spec.back ? { back: true } : {}),
   };
 }

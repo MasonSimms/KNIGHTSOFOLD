@@ -16,7 +16,8 @@ import { windAt } from '../sim/wind';
 import { createLight } from './light';
 import { makeGoogly, makeHat } from './hat';
 import type { HatView } from './hat';
-import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
+import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, paintedWeapon, PPM, VARIANTS } from './painter/sprites';
+import { ITEMS } from '../content/props';
 import { paintingFor } from '../content/paintings';
 import type { Eyes } from '../content/looks';
 import { tuning as T } from '../content/tuning';
@@ -141,7 +142,19 @@ export function updatePainted(p: Painted, partRot: number, variant: number): voi
     p.b.texture = p.tex[variant];
     const phi = partRot + (p.s.k === 'cap' ? p.s.rot : 0), d = Math.cos(phi) * LX + Math.sin(phi) * LY, t = Math.min(1, Math.max(0, (d + 0.2) / 0.4));
     p.b.alpha = t * t * (3 - 2 * t);
-  } else p.a.rotation = -partRot; // a ball keeps its highlight at the upper left
+  } else if (p.s.k === 'ball') p.a.rotation = -partRot; // a ball keeps its highlight at the upper left
+}
+/** A weapon with its own picture (content/weaponArt.ts) instead of a plain rod: one sprite on the part. `tint`: its dark underpaint or
+ *  its shadow. Null when it has none (a plank, a leg). */
+export function addWeapon(parent: Container, p: Part, tint?: number): Painted | null {
+  const P = T.finish.paint, w = p.weapon, art = w && paintedWeapon(w.id, w.length, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+  if (!art) return null;
+  const sp = new Sprite(art.tex[0]);
+  sp.anchor.set(art.ax, art.ay);
+  sp.scale.set(1 / PPM);
+  if (tint !== undefined) sp.tint = tint;
+  parent.addChild(sp);
+  return { s: p.shapes[0], tex: art.tex, a: sp, b: null };
 }
 
 /** The cape: a rope mesh along a short chain of points that swings with the fighter (looks only: the simulation never sees it). */
@@ -202,6 +215,7 @@ interface Entry {
   blur: BlurFilter; // softens the fighter as they slip back into the background plane (dodge)
   crushed: boolean; // flattened by a stomp or a crash
   sq: number; // how flat (0..1, eases toward 1 once crushed)
+  hand: number; // which way up their weapon is drawn: the way they faced when they last held it (so a blade's edge stays on top)
 }
 
 /** Graphics quality levels. High = everything; Medium = no extra resolution on high-density screens; Low = for slower computers. */
@@ -386,6 +400,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     const col = p.role === 'stick' ? T.colors.stick : p.role === 'off' ? mix(hex, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(hex, 0x000000, 0.18) : hex;
     if (s.k !== 'box') prewarm.push(() => paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0));
   }
+  for (const it of ITEMS) prewarm.push(() => paintedWeapon(it.id, it.spec.len, K0)); // every weapon's picture
   for (const hat of HATS) for (const c of COLORS) prewarm.push(() => { const k = new Container(); makeHat(hat, k, 0, 0, T.fighter.headRadius, c.hex); k.destroy({ children: true }); }); // and every hat (painted once; the cap, top hat and beanie per colour)
   // Only while nothing is being drawn (a menu is up): one job can take over 100 ms, a visible freeze in a fight. Anything still unpainted
   // when it is needed is painted then, as before the warm-up.
@@ -397,17 +412,18 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   let scale = 1, shake = 0, builtVersion = -1;
   const entries: Entry[] = [];
 
-  const propEntries: { p: Part; k: Container; painted: Painted[]; under: Graphics }[] = [];
+  const propEntries: { p: Part; k: Container; painted: Painted[]; under: Container }[] = [];
   let boil = 0, variant = 0; // the painted fighters "boil": their brush strokes change a few times a second
 
   function rebuild() {
     for (const e of propEntries) e.k.destroy({ children: true });
     propEntries.length = 0;
     for (const p of sim.props) {
-      const k = new Container(), under = new Graphics();
-      for (const s of p.shapes) under.addChild(drawShape(s, UNDER));
+      const k = new Container(), under = new Container();
       k.addChild(under);
-      const painted = p.shapes.map((s, i) => addPainted(k, s, i > 0 && p.weapon?.gun ? T.colors.stick : thingColor(p)));
+      const art = addWeapon(k, p);
+      if (art) addWeapon(under, p, UNDER); else for (const s of p.shapes) under.addChild(drawShape(s, UNDER));
+      const painted = art ? [art] : p.shapes.map((s, i) => addPainted(k, s, i > 0 && p.weapon?.gun ? T.colors.stick : thingColor(p)));
       if (p.weapon?.id === 'pane') k.alpha = T.finish.glassAlpha; // (glass: you see through it)
       propLayer.addChild(k);
       propEntries.push({ p, k, painted, under });
@@ -449,12 +465,13 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         k.zIndex = p.role === 'off' ? -2 : p.role === 'stick' ? -0.5 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs; a held club is behind the hand and arm so it looks gripped
         const color = p.role === 'stick' ? thingColor(p) : base;
         const shade = p.role === 'off' ? mix(color, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(color, 0x000000, 0.18) : color;
-        painted.push(p.shapes.map((s, i) => addPainted(k, s, p.role === 'stick' && i > 0 && p.weapon?.gun ? T.colors.stick : shade)));
-        for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
+        const art = p.role === 'stick' ? addWeapon(k, p) : null;
+        painted.push(art ? [art] : p.shapes.map((s, i) => addPainted(k, s, p.role === 'stick' && i > 0 && p.weapon?.gun ? T.colors.stick : shade)));
+        if (art) addWeapon(u, p, UNDER); else for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
         underAll.addChild(u);
         under.push(u);
         const sh = new Container();
-        for (const s of p.shapes) sh.addChild(drawShape(s, 0x000000));
+        if (art) addWeapon(sh, p, 0x000000); else for (const s of p.shapes) sh.addChild(drawShape(s, 0x000000));
         shadeC.addChild(sh);
         soft.push(sh);
         // The hat goes on the head: the head part once it has come off, otherwise the head ball on the torso.
@@ -474,7 +491,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
       if (bot) cape.rope.parent!.visible = false;
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, eyes, hat: hatView, googly, head, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
+      entries.push({ f, group, c, eyes, hat: hatView, googly, head, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0, hand: f.side });
     }
     builtVersion = sim.version;
   }
@@ -651,15 +668,18 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           const k = c[i];
           k.position.set(lerp(p.px, p.cx, a), lerp(p.py, p.cy, a));
           k.rotation = p.pa + wrap(p.ca - p.pa) * a + (p === f.stick ? fx.twirl(f.index) : 0); // (an emptied gun twirls round in the hand)
-          if (p.role === 'stick') k.scale.x = p.flipped ? -1 : 1;
+          if (p === f.stick && f.grip) e.hand = f.side;
+          if (p.role === 'stick') k.scale.set(p.flipped ? -1 : 1, e.hand);
           k.tint = tint;
           const u = e.under[i];
           u.position.set(k.x + off, k.y + off);
           u.rotation = k.rotation;
+          u.scale.copyFrom(k.scale);
           for (const q of e.painted[i]) updatePainted(q, k.rotation, variant);
           const sh = e.soft[i];
           sh.position.set(k.x + so.x, k.y + so.y);
           sh.rotation = k.rotation;
+          sh.scale.copyFrom(k.scale);
         });
         e.shade.alpha = (1 - e.vis) * so.a; // a fighter slipping into the background plane leaves the play plane's shadow behind
         for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face

@@ -59,6 +59,9 @@ for (const id of ['flail', 'trident', 'chain-mace', 'great-axe', 'mace', 'nagina
 for (const id of ['bamboo-stick', 'bayonet-knife', 'combat-knife', 'iron-fan']) PROPS[id].material = 'light';
 PROPS['stone-hammer'].material = 'stone';
 
+/** Where the hand holds a loose thing picked up as a club, metres from its back end. */
+export const gripOf = (s: { len: number; grip?: number }): number => (s.grip !== undefined ? s.grip * s.len : Math.min(0.2, s.len * 0.25));
+
 export const PROP_KINDS = Object.keys(PROPS); // a 'spawn' event names its prop by position in this list
 
 /** Everything that can be dropped in from the training menu: every era's weapon, then the pickups and the loose objects. */

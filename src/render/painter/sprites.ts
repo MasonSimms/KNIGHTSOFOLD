@@ -8,6 +8,8 @@ import { blur, licSmooth, makeRandom, newImg, relight, sobel } from './core';
 import type { Img } from './core';
 import { paintLayer } from './strokes';
 import type { Hat } from '../../content/looks';
+import { WEAPON_ART } from '../../content/weaponArt';
+import type { Paint } from '../../content/weaponArt';
 
 /** A canvas to paint on away from the page: OffscreenCanvas, or an ordinary canvas where the browser has none (Safari before 16.4). */
 const offscreen = (w: number, h: number): OffscreenCanvas => (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h }) as unknown as OffscreenCanvas);
@@ -618,4 +620,79 @@ export function paintedMammoth(len: number, h: number, K: SpriteKnobs): { tex: T
   const out = paintFlat(img, alpha, ang, 5107, K, 1);
   cache.set(key, out);
   return { tex: out[0], ppm: k };
+}
+
+/** A weapon's own picture (content/weaponArt.ts), painted like the fighters (3 variants for the boil): lying flat, grip end on the left,
+ *  lit from above. `len` = the weapon's real length (the picture is stretched to it). Anchor the sprite at (ax, ay), the middle of the
+ *  rod (the part's centre). Null for anything without a picture (a plank, a leg). */
+export function paintedWeapon(id: string, len: number, K: SpriteKnobs): { tex: Texture[]; ax: number; ay: number } | null {
+  const art = WEAPON_ART[id];
+  if (!art) return null;
+  const s = (PPM * len) / art.len; // canvas px per metre of the drawing
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const grow = (x: number, y: number, r: number) => { x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); y0 = Math.min(y0, y - r); y1 = Math.max(y1, y + r); };
+  for (const p of art.pieces) {
+    if (p.k === 'rod') { const r = Math.max(...p.w) + Math.abs(p.bend ?? 0); grow(...p.a, r); grow(...p.b, r); }
+    else if (p.k === 'ball') grow(p.x, p.y ?? 0, Math.max(p.r, p.rx ?? 0) * (p.spikes ? 1.5 : 1));
+    else if (p.k === 'poly') for (const [x, y] of p.pts) grow(x, y, 0);
+    else { grow(p.x[0], 0, p.r); grow(p.x[1], 0, p.r); }
+  }
+  const M = PAD + (art.pieces.some((p) => 'glow' in p && p.glow) ? 10 : 0), W = Math.ceil((x1 - x0) * s + 2 * M), H = Math.ceil((y1 - y0) * s + 2 * M), N = W * H;
+  const ox = M - x0 * s, oy = M - y0 * s, P = (x: number, y: number): [number, number] => [ox + x * s, oy + y * s];
+  const at = { ax: (ox + (art.len / 2) * s) / W, ay: oy / H }, key = `weapon|${id}|${len}|${JSON.stringify(K)}`, hit = cache.get(key);
+  if (hit) return { tex: hit, ...at };
+  const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
+  /** Down a piece from its top edge to its bottom edge: lit, then shade (steel catches a second sheen low down). */
+  const ramp = (c: Paint, ys: number[]) => { const gr = g.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys) + 0.01); c.forEach((col, i) => gr.addColorStop(i / (c.length - 1), col)); return gr; };
+  const shape = (pts: [number, number][]) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); };
+  const balls: { x: number; y: number; r: number }[] = [];
+  for (const p of art.pieces) {
+    if ('glow' in p && p.glow) { g.shadowColor = p.c[1]; g.shadowBlur = 10; }
+    if (p.k === 'rod') { // a quadratic curve from a to b whose middle is pushed `bend` sideways; its outline follows it at the width
+      const [ax, ay] = p.a, [bx, by] = p.b, d = Math.hypot(bx - ax, by - ay) || 1e-6, bend = 2 * (p.bend ?? 0);
+      const cx = (ax + bx) / 2 - ((by - ay) / d) * bend, cy = (ay + by) / 2 + ((bx - ax) / d) * bend, top: [number, number][] = [], bot: [number, number][] = [];
+      for (let i = 0; i <= 20; i++) {
+        const t = i / 20, u = 1 - t, x = u * u * ax + 2 * u * t * cx + t * t * bx, y = u * u * ay + 2 * u * t * cy + t * t * by;
+        const tx = u * (cx - ax) + t * (bx - cx), ty = u * (cy - ay) + t * (by - cy), tl = Math.hypot(tx, ty) || 1e-6, w = p.w[0] + (p.w[1] - p.w[0]) * t;
+        top.push(P(x + (ty / tl) * w, y - (tx / tl) * w)); bot.unshift(P(x - (ty / tl) * w, y + (tx / tl) * w));
+      }
+      const pts = [...top, ...bot];
+      shape(pts); g.fillStyle = ramp(p.c, pts.map((q) => q[1])); g.fill();
+    } else if (p.k === 'ball') {
+      const [cx, cy] = P(p.x, p.y ?? 0), r = p.r * s, rx = (p.rx ?? p.r) * s;
+      g.beginPath(); g.ellipse(cx, cy, rx, r, 0, 0, Math.PI * 2);
+      for (let i = 0; i < (p.spikes ?? 0); i++) { // spikes: a point standing out from the ball every so often
+        const a = (i / p.spikes!) * Math.PI * 2 - Math.PI / 2, e = 0.32;
+        g.moveTo(cx + Math.cos(a - e) * rx * 0.9, cy + Math.sin(a - e) * r * 0.9); g.lineTo(cx + Math.cos(a) * rx * 1.5, cy + Math.sin(a) * r * 1.5); g.lineTo(cx + Math.cos(a + e) * rx * 0.9, cy + Math.sin(a + e) * r * 0.9);
+      }
+      g.fillStyle = lit(g, cx, cy, Math.max(r, rx), p.c[0], p.c[1], p.c[p.c.length - 1]); g.fill();
+      balls.push({ x: cx, y: cy, r: Math.max(r, rx) * (p.spikes ? 1.5 : 1) });
+    } else if (p.k === 'poly') {
+      const pts = p.pts.map(([x, y]) => P(x, y));
+      shape(pts); g.fillStyle = ramp(p.c, pts.map((q) => q[1])); g.fill();
+    } else { // chain: links alternately face on (a ring) and edge on (a bar)
+      const n = Math.max(2, Math.round((p.x[1] - p.x[0]) / (p.r * 1.5))), step = ((p.x[1] - p.x[0]) * s) / n, r = p.r * s;
+      g.lineWidth = r * 0.45;
+      for (let i = 0; i < n; i++) {
+        const [cx, cy] = P(p.x[0], 0), x = cx + (i + 0.5) * step;
+        g.strokeStyle = g.fillStyle = ramp(p.c, [cy - r, cy + r]);
+        g.beginPath();
+        if (i % 2) { g.ellipse(x, cy, step * 0.62, r * 0.25, 0, 0, Math.PI * 2); g.fill(); } else { g.ellipse(x, cy, step * 0.62, r, 0, 0, Math.PI * 2); g.stroke(); }
+      }
+    }
+    g.shadowBlur = 0;
+  }
+  const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N);
+  let seed = 0;
+  for (const ch of id) seed = (seed * 31 + ch.charCodeAt(0)) & 0xffff;
+  const R = makeRandom(seed);
+  for (let i = 0; i < N; i++) {
+    alpha[i] = d[4 * i + 3] / 255;
+    for (let c = 0; c < 3; c++) img.c[c][i] = d[4 * i + c] / 255;
+    const x = i % W, y = (i / W) | 0, b = balls.find((q) => Math.hypot(x - q.x, y - q.y) < q.r);
+    ang[i] = (b ? Math.atan2(y - b.y, x - b.x) + Math.PI / 2 : 0) + R.normal() * 0.05; // brushed along the weapon, round the round things
+  }
+  const out = paintFlat(img, alpha, ang, 8009 + seed, K);
+  cache.set(key, out);
+  return { tex: out, ...at };
 }
