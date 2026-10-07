@@ -26,7 +26,7 @@ export const makeChain = (links: number): Chain => ({ x: new Float64Array(links)
  * One step of a chain: each point keeps its momentum, falls, trails away from the facing, flutters and is blown by the wind (m/s), each link
  * turns toward its rest (the first toward the spec's rest angle on the head, the others toward the line of the link before), then the links
  * get their lengths back. The anchor is pinned to the head, so a spinning or knocked head whips the chain round.
- * The stiffness is cubed, so the scale from cloth (0) to rigid (1) is even: a link turning even a fifth of the way back every frame is stiff.
+ * The stiffness is squared, so the scale from cloth (0) to rigid (1) is even: a link turning even a fifth of the way back every frame is stiff.
  */
 export function stepChain(c: Chain, spec: DangleSpec, head: Head, dt: number, time: number, wind = 0): void {
   const D = T.finish.dangle, n = spec.links, seg = spec.length / (n - 1), h = Math.min(dt, D.maxDt), toR = 1 / T.fighter.headRadius;
@@ -42,7 +42,7 @@ export function stepChain(c: Chain, spec: DangleSpec, head: Head, dt: number, ti
     c.y[i] += vy + (grav + Math.cos(time * D.flutterRate * 0.7 + i) * flutter * 0.5) * h * h;
   }
   c.x[0] = c.px[0] = ax; c.y[0] = c.py[0] = ay;
-  const k = spec.stiffness >= 1 ? 1 : 1 - Math.pow(1 - spec.stiffness ** 3, h * 60);
+  const k = spec.stiffness >= 1 ? 1 : 1 - Math.pow(1 - spec.stiffness ** 2, h * 60);
   for (let i = 1; i < n; i++) {
     let dx = rx, dy = ry;
     if (i > 1) { dx = c.x[i - 1] - c.x[i - 2]; dy = c.y[i - 1] - c.y[i - 2]; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d; }

@@ -70,6 +70,7 @@ export async function paintPortrait(look: Look, seat: number, opts: { bare?: boo
   for (let v = 0; v < VARIANTS; v++) {
     painted.forEach((p) => updatePainted(p, 0, v));
     for (const c of capes) c.texture = capeTex[v];
+    for (let i = 0; i < 90; i++) hat?.step(0, 0, 0, 1, 1 / 60, v * 2.1 + i / 60, 0.25 * Math.sin(v * 2.1 + i / 40)); // what sways settles, in a slight breeze that differs per variant
     hat?.show(v, 1);
     const fg = a.renderer.extract.canvas({ target: stage, frame: new Rectangle(0, 0, W, H) }) as HTMLCanvasElement;
     const c = document.createElement('canvas');

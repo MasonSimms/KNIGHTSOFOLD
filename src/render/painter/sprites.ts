@@ -308,6 +308,32 @@ export function paintedHat(hat: Hat, headR: number, tint: number, K: SpriteKnobs
   return { tex: out, ax: ox / W, ay: oy / H };
 }
 
+/**
+ * The strip a swaying part is drawn with (a feather, a jester point, a veil, a lock of hair), laid out flat for a rope mesh: x runs from the
+ * root to the tip, y across (its height is the widest it gets). Narrowing from `width[0]` to `width[1]` head radii, lit along its top edge,
+ * the second colour down its middle (a quill, a lighter strand) or, braided, in alternating lumps. Strokes run along it. Sized for a head
+ * of radius `headR` metres.
+ */
+export function paintedStrip(d: { length: number; width: [number, number]; colors: [string, string?]; braided?: boolean }, headR: number, K: SpriteKnobs): Texture[] {
+  const key = `strip|${d.length}|${d.width}|${d.colors}|${!!d.braided}|${headR.toFixed(3)}|${JSON.stringify(K)}`, hit = cache.get(key);
+  if (hit) return hit;
+  const s = headR * PPM, L = d.length * s, W = Math.ceil(L + 2 * PAD), H = Math.ceil(Math.max(d.width[0], d.width[1]) * s + 2 * PAD), cy = H / 2, N = W * H;
+  const a = rgb(d.colors[0]), b = rgb(d.colors[1] ?? d.colors[0]), img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), lumps = Math.max(3, Math.round(d.length * 4));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, t = Math.min(1, Math.max(0, (x - PAD) / L)), dy = y + 0.5 - cy;
+    let hw = ((d.width[0] + (d.width[1] - d.width[0]) * t) * s) / 2;
+    if (d.braided) hw *= 0.82 + 0.18 * Math.abs(Math.sin((t * lumps + (dy < 0 ? 0.5 : 0)) * Math.PI)); // the plait's lumps, offset side to side
+    alpha[i] = Math.min(1, Math.max(0, hw - Math.abs(dy) + 0.5)) * Math.min(1, Math.max(0, x - PAD + 1)) * Math.min(1, Math.max(0, PAD + L - x + 1));
+    const across = hw > 0 ? dy / hw : 0, second = d.braided ? Math.floor(t * lumps + (dy < 0 ? 0.5 : 0)) % 2 === 1 : Math.abs(across) < 0.2;
+    const shade = 1.08 - 0.28 * (across + 1) / 2; // lit along the top edge
+    for (let c = 0; c < 3; c++) img.c[c][i] = Math.min(1, (second ? b : a)[c] * shade);
+    ang[i] = across * 0.15; // along the strip
+  }
+  const out = paintFlat(img, alpha, ang, 6007 + Math.round(L), K);
+  cache.set(key, out);
+  return out;
+}
+
 /** A few painted paint splats (white, tinted when used): a cluster of blobs with drips running down. Anchor them at (0.5, 0.35). */
 export function paintedSplats(K: SpriteKnobs, count = 6): Texture[] {
   const key = `splats|${count}|${JSON.stringify(K)}`;

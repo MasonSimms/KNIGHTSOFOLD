@@ -14,7 +14,7 @@ import { createPassing } from './passing';
 import { createJets } from './jets';
 import { windAt } from '../sim/wind';
 import { createLight } from './light';
-import { makeHat } from './hat';
+import { makeGoogly, makeHat } from './hat';
 import type { HatView } from './hat';
 import { CAPE, paintedBox, paintedCape, paintedFront, paintedShape, paintedSplats, paintedStreaks, PPM, VARIANTS } from './painter/sprites';
 import { paintingFor } from '../content/paintings';
@@ -39,8 +39,8 @@ const BIG = 100;
 
 /** Eye whites on a body this light (Bone, the dummy) get a thin dark rim, or they vanish into the face. */
 export const rimEyes = (body: number) => (0.2126 * ((body >> 16) & 255) + 0.7152 * ((body >> 8) & 255) + 0.0722 * (body & 255)) / 255 > 0.8;
-/** A googly eye's loose pupil (render.ts moves it): its rest spot and how far it can roam inside the white, in pixels of the eyes' Graphics (BIG). */
-export interface LoosePupil { g: Graphics; x: number; y: number; room: number }
+/** A googly eye's loose pupil (render/hat.ts makeGoogly moves it): the middle of its eye and the pixels per head radius in the eyes' Graphics, and how far it can roam from the middle (head radii). */
+export interface LoosePupil { g: Graphics; x: number; y: number; unit: number; room: number }
 
 /** Big painted eyes (art direction, as in the package's fighters): cream discs with dark pupils, drawn at the head's centre; the caller
  * flips them with the facing. They stay crisp (the package keeps eyes out of the paint). Sizes in head radii (LOOKS_HANDOFF.md). Fierce: a
@@ -84,7 +84,7 @@ export function drawEyes(headR: number, eyes: Eyes = 'round', body = 0xd8402a): 
       const p = new Graphics().circle(0, 0, r * pr).fill(ink);
       p.position.set(x + r * ox, r * oy);
       inner.addChild(p);
-      (c.pupils ??= []).push({ g: p, x, y: 0, room: e - r * pr });
+      (c.pupils ??= []).push({ g: p, x, y: 0, unit: r, room: (e - r * pr) / r });
     } else g.poly(cut(x + r * ox, r * oy, r * pr, top)).fill(ink);
     if (eyes === 'fierce' || eyes === 'sad') line(x - inward * e * 1.2, x + inward * e * 1.15, top, 0.1);
     if (eyes === 'sleepy' || eyes === 'sly') line(x - e * 1.05, x + e * 1.05, top, 0.07);
@@ -197,6 +197,8 @@ interface Entry {
   shade: Container; // all of this fighter's soft shadow
   eyes: Container[]; // painted eyes: they look the way the fighter faces
   hat: HatView | null; // the player's hat, on the head
+  googly: Pick<HatView, 'step'> | null; // googly eyes' loose pupils
+  head: Container | null; // the container the head is in (what sways on the head follows it)
   blur: BlurFilter; // softens the fighter as they slip back into the background plane (dodge)
   crushed: boolean; // flattened by a stomp or a crash
   sq: number; // how flat (0..1, eases toward 1 once crushed)
@@ -431,7 +433,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const base = fighterColor(f);
       group.sortableChildren = true;
       const c: Container[] = [], eyes: Container[] = [], painted: Painted[][] = [], under: Container[] = [], soft: Container[] = [], shadeC = new Container();
-      let hatView: HatView | null = null;
+      let hatView: HatView | null = null, googly: Entry['googly'] = null, head: Entry['head'] = null;
       shadows.addChild(shadeC);
       const underAll = new Container();
       underAll.zIndex = -10;
@@ -457,13 +459,18 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (hat && onHead) {
           hatView = makeHat(hat, k, 0, p.role === 'torso' ? T.fighter.headY : 0, T.fighter.headRadius, color);
         }
-        if (onHead) { const ey = bot ? drawRobotHead(T.fighter.headRadius, base) : drawEyes(T.fighter.headRadius, f.controlled ? sim.looks[f.index]?.eyes : 'round', base); ey.position.set(0, p.role === 'torso' ? T.fighter.headY : 0); k.addChild(ey); eyes.push(ey); }
+        if (onHead) {
+          const hy = p.role === 'torso' ? T.fighter.headY : 0, ey = bot ? drawRobotHead(T.fighter.headRadius, base) : drawEyes(T.fighter.headRadius, f.controlled ? sim.looks[f.index]?.eyes : 'round', base);
+          ey.position.set(0, hy); k.addChild(ey); eyes.push(ey);
+          googly = bot ? null : makeGoogly(ey, 0, hy, T.fighter.headRadius);
+          head = k;
+        }
         group.addChild(k);
         c.push(k);
       }
       if (bot) cape.rope.parent!.visible = false;
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, eyes, hat: hatView, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
+      entries.push({ f, group, c, eyes, hat: hatView, googly, head, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0 });
     }
     builtVersion = sim.version;
   }
@@ -649,6 +656,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         });
         e.shade.alpha = (1 - e.vis) * so.a; // a fighter slipping into the background plane leaves the play plane's shadow behind
         for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
+        if (e.head) { const k = e.head; e.hat?.step(k.x, k.y, k.rotation, f.side, frameSeconds, now, wind); e.googly?.step(k.x, k.y, k.rotation, f.side, frameSeconds, now, wind); } // (what sways on the head)
         e.hat?.show(variant, f.side);
         const torso = c[0], tc = Math.cos(torso.rotation), ts = Math.sin(torso.rotation), cx = -f.side * T.finish.cape.backX, cy = T.finish.cape.shoulderY;
         stepCape(e.cape, torso.x + tc * cx - ts * cy, torso.y + ts * cx + tc * cy, f.side, frameSeconds, boil / T.finish.boilFps, variant, wind);
