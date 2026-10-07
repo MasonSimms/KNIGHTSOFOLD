@@ -44,7 +44,18 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
   const version = tuningFingerprint(); // a page must have the same gameplay numbers, or its copy of the fight would not match ours
   // A web address too: /health is for the host's checks (Fly.io); anything else is the game page (when there is one to serve).
   const site = opts.site ? siteHandler(opts.site) : null;
+  const oops = new Map<string, number[]>(); // per address: when it last reported a page error (a few a minute at most)
   const http = createServer((req, res) => {
+    if (req.method === 'POST' && req.url === '/oops') { // a page reports an error in its browser: into the log (fly logs), where it can be read
+      const ip = String(req.headers['fly-client-ip'] ?? req.socket.remoteAddress ?? ''), now = Date.now(), recent = (oops.get(ip) ?? []).filter((t) => now - t < 60_000);
+      let body = '';
+      req.on('data', (d: Buffer) => { if (body.length < 2048) body += d.toString().slice(0, 2048 - body.length); });
+      req.on('end', () => {
+        if (recent.length < 10) { oops.set(ip, [...recent, now]); console.log(`page error: ${body.replace(/[\r\n]+/g, ' | ').replace(/[^\x20-\x7e]/g, '?')}`); }
+        res.writeHead(204); res.end();
+      });
+      return;
+    }
     if (site && req.url?.split('?')[0] !== '/health') return void site(req, res);
     res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
     res.end(req.url === '/health' ? `ok ${rooms.size} rooms` : 'Knights of Old room server');

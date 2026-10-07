@@ -9,6 +9,9 @@ import type { Img } from './core';
 import { paintLayer } from './strokes';
 import type { Hat } from '../../content/looks';
 
+/** A canvas to paint on away from the page: OffscreenCanvas, or an ordinary canvas where the browser has none (Safari before 16.4). */
+const offscreen = (w: number, h: number): OffscreenCanvas => (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h }) as unknown as OffscreenCanvas);
+
 export const PPM = 160; // texture pixels per metre (the view is 100 px per metre at 1080p)
 export const VARIANTS = 3;
 const PAD = 4; // px of transparent margin
@@ -73,7 +76,7 @@ function paintFlat(img: Img, alpha: Float32Array, ang: Float32Array, seed0: numb
   for (let vnt = 0; vnt < variants; vnt++) {
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })!, hb = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!, hr = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!, hb = offscreen(W, H).getContext('2d', { willReadFrequently: true })!, hr = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
     const id = ctx.createImageData(W, H);
     for (let i = 0; i < N; i++) { id.data[4 * i] = smoothBase.c[0][i] * 255; id.data[4 * i + 1] = smoothBase.c[1][i] * 255; id.data[4 * i + 2] = smoothBase.c[2][i] * 255; id.data[4 * i + 3] = 255; }
     ctx.putImageData(id, 0, 0);
@@ -303,7 +306,7 @@ export function paintedHat(hat: Hat, headR: number, tint: number, K: SpriteKnobs
   const s = headR * PPM, W = Math.ceil(2 * HAT_BOX.x * s + 2 * PAD), H = Math.ceil((HAT_BOX.up + HAT_BOX.down) * s + 2 * PAD), ox = PAD + HAT_BOX.x * s, oy = PAD + HAT_BOX.up * s;
   const key = `hat|${hat}|${back}|${tint}|${headR.toFixed(3)}|${JSON.stringify(K)}`, hit = cache.get(key);
   if (hit) return { tex: hit, ax: ox / W, ay: oy / H };
-  const N = W * H, g = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
+  const N = W * H, g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
   const along = draw(g, (x, y) => [ox + x * s, oy + y * s], s, tint);
   const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(hat.length * 7919 + Math.round(s));
   for (let i = 0; i < N; i++) {
@@ -350,7 +353,7 @@ export function paintedSplats(K: SpriteKnobs, count = 6): Texture[] {
   const out: Texture[] = [];
   for (let n = 0; n < count; n++) {
     const W = 112, H = 144, cx = W / 2, cy = H * 0.35, N = W * H, R = makeRandom(9001 + n * 31);
-    const c = new OffscreenCanvas(W, H), g = c.getContext('2d', { willReadFrequently: true })!;
+    const c = offscreen(W, H), g = c.getContext('2d', { willReadFrequently: true })!;
     g.fillStyle = '#fff'; g.strokeStyle = '#fff'; g.lineCap = 'round';
     for (let i = 0; i < 16; i++) { const a = R.range(0, Math.PI * 2), d = R.range(0, 30); g.beginPath(); g.arc(cx + Math.cos(a) * d * 1.1, cy + Math.sin(a) * d, R.range(5, 17), 0, Math.PI * 2); g.fill(); }
     for (let i = 0; i < 3; i++) { const x = cx + R.range(-24, 24); g.lineWidth = R.range(4, 8); g.beginPath(); g.moveTo(x, cy); g.lineTo(x + R.range(-4, 4), cy + R.range(30, 80)); g.stroke(); }
@@ -379,7 +382,7 @@ export function paintedStreaks(K: SpriteKnobs, count = 4): Texture[] {
   const out: Texture[] = [];
   for (let n = 0; n < count; n++) {
     const W = 260, H = 44, cy = H / 2, N = W * H, R = makeRandom(7001 + n * 17);
-    const c = new OffscreenCanvas(W, H), g = c.getContext('2d', { willReadFrequently: true })!;
+    const c = offscreen(W, H), g = c.getContext('2d', { willReadFrequently: true })!;
     g.fillStyle = '#fff';
     g.beginPath(); // a tapered body: full width at the head, a thin wavy tail
     const head = R.range(14, 18), tail = R.range(1.5, 3), wob = R.range(0.5, 2.5);
@@ -412,7 +415,7 @@ export function paintedFront(kind: 'grass' | 'sign', greens: string[], K: Sprite
   const hit = cache.get(key);
   if (hit) return hit[0];
   const W = kind === 'grass' ? 220 : 200, H = kind === 'grass' ? 150 : 190, N = W * H, R = makeRandom(kind === 'grass' ? 31 : 37);
-  const c = new OffscreenCanvas(W, H), g = c.getContext('2d', { willReadFrequently: true })!;
+  const c = offscreen(W, H), g = c.getContext('2d', { willReadFrequently: true })!;
   const lean = new Float32Array(N); // brush direction per pixel, filled in as the shapes are drawn
   if (kind === 'grass') {
     for (let i = 0; i < 46; i++) { // tapered blades from the ground, the tall ones lighter (lit), bending a little
@@ -457,7 +460,7 @@ export function paintedHull(w: number, depth: number, water: number, c: HullPain
   const hit = cache.get(key);
   if (hit) return { tex: hit[0], ax, ay, ppm: k };
   const X = (m: number) => pad + m * k, Y = (m: number) => pad + (up + m) * k; // metres along the deck from its left end; metres below the deck
-  const g = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
+  const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
   const poly = (pts: number[][], fill: string) => { g.fillStyle = fill; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.fill(); };
   const mx = w * 0.46, side = water + 0.35;
   // rigging, mast, yard, furled sail, crow's nest, pennant (above the deck, behind the fighters)

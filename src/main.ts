@@ -29,6 +29,9 @@ import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lob
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 import { applySettings, loadSettings, runSettings } from './ui/settings';
 import { applyTraining, leaveTraining, loadTraining, runTraining } from './ui/training';
+import { reportErrors } from './ui/oops';
+
+reportErrors(); // (a crash in someone's browser shows on their screen and reaches the server's log)
 
 const T = tuning;
 // Open http://localhost:5173/?stress to add two scripted flailing fighters: a 4-fighter frame-time check, not AI.
