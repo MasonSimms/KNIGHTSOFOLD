@@ -30,12 +30,14 @@ You do the sign-up (it needs your email and a card); every other step is a comma
 
 ## Updating it later
 
-After any change: `fly deploy`. That updates the page and the server together (they must always match: a page from another version
-is told "the game has been updated: reload"). Anyone in a fight while it updates is told to make a new room in a minute.
+After any change: `npm run deploy`. That updates the page and the server together (they must always match: a page from another version
+is told "the game has been updated: reload"). A deploy restarts the server and ends every fight on it (the 2026-10-06 playtest lost its
+match that way), so `npm run deploy` first asks the live server and refuses while anyone is fighting. `npm run deploy -- --force` goes
+up anyway: anyone in a fight is told to make a new room in a minute.
 
 ## Checking on it
 
-- `https://knightsofold.fly.dev/health` says `ok` and how many rooms are open.
+- `https://knightsofold.fly.dev/health` says `ok`, how many rooms are open and how many are in a fight.
 - `fly logs` shows what the server is doing; `fly status` whether it is awake.
 - One 4-player room costs roughly 10% of one small CPU core; this machine holds about 5-6 rooms at once (`MAX_ROOMS` in `fly.toml`).
 
