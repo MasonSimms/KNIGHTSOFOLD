@@ -21,6 +21,9 @@ const GUN_LOCKER: Record<string, PropSpec> = {
   'buffalo-rifle': { len: 1.4, thick: 0.07, mass: 2.4, factor: 2.3, material: 'wood', toughness: 5, grip: 0.2, gun: { ammo: 1, cooldown: 0, speed: 120, calibre: 4, impact: 40, push: 9, recoil: 16, kick: 30 } }, // one huge, very fast shot; the kick spins you
   'trench-gun': { len: 1.1, thick: 0.08, mass: 2.1, factor: 2.6, material: 'metal', grip: 0.27, gun: { ammo: 5, cooldown: 34, speed: 46, calibre: 1, impact: 21, push: 2.3, recoil: 8, kick: 14, pellets: 5, spread: 0.22 } }, // a pump shotgun
   beanbag: { len: 1.05, thick: 0.08, mass: 2.0, factor: 1.8, material: 'wood', toughness: 4, grip: 0.29, gun: { ammo: 4, cooldown: 34, speed: 40, calibre: 1, impact: 2, push: 24, recoil: 6, kick: 10, look: { color: 0xc9a46a, orb: 0.09 } } }, // a big shove, almost no hurt
+  'lewis-gun': { len: 1.3, thick: 0.12, mass: 4.0, factor: 2.6, material: 'metal', grip: 0.18, gun: { ammo: 30, cooldown: 5, speed: 70, calibre: 2, impact: 17, push: 1.4, recoil: 3, kick: 4.5, hold: true, spreadPerShot: 0.015 } }, // hold to fire; every shot shoves you back
+  'jungle-carbine': { len: 1.0, thick: 0.08, mass: 2.2, factor: 2.1, material: 'metal', grip: 0.3, gun: { ammo: 18, cooldown: 26, speed: 75, calibre: 2, impact: 18, push: 1.6, recoil: 4, kick: 5, burst: 3, burstGap: 4, spreadPerShot: 0.05 } }, // 3-shot bursts
+  smg: { len: 0.65, thick: 0.08, mass: 2.0, factor: 1.8, material: 'metal', grip: 0.28, gun: { ammo: 30, cooldown: 4, speed: 70, calibre: 1, impact: 15, push: 1.0, recoil: 2, kick: 2, hold: true, spreadPerShot: 0.04 } }, // hold to fire, little hits, it wanders
   'plasma-repeater': { len: 1.0, thick: 0.1, mass: 2.2, factor: 2.0, material: 'metal', grip: 0.28, gun: { ammo: 12, cooldown: 14, speed: 12, calibre: 2, impact: 22, push: 14, recoil: 4, kick: 4, look: { color: 0xe04bb0, orb: 0.16 } } }, // slow magenta balls you can dodge; a big shove
 };
 export const PROPS: Record<string, PropSpec> = {

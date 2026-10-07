@@ -513,6 +513,7 @@ export const tuning = {
     snapFling: 1.5, // how hard the loose half of a snapped weapon flies off
     breakSpread: 3, // how fast the pieces of broken scenery fly apart (m/s)
     steady: 0.15, // how quickly the hand steadies a gun on the aim (share of the error corrected each frame)
+    sprayMax: 8, // a held trigger or a burst wanders more each shot (props.ts spreadPerShot), up to this many shots' worth
   },
   water: {
     // The sea (maps with arena.sea; see sim/water.ts). Everything in it floats: fighters, weapons, barrels, lost limbs, the dead.

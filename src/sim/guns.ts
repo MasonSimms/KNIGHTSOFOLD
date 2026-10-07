@@ -41,15 +41,16 @@ export function fire(sim: Sim, f: Fighter): void {
   // right on top of the gun)
   const ft = f.torso.body.translation(), tx = ft.x + Math.cos(f.aim) * f.reach, ty = ft.y + Math.sin(f.aim) * f.reach;
   const toPoint = Math.atan2(ty - my, tx - mx), ok = f.reach > 0 && Math.hypot(tx - mx, ty - my) > 0.4 && Math.abs(Math.atan2(Math.sin(toPoint - f.aim), Math.cos(toPoint - f.aim))) < 0.6;
-  const a = ok ? toPoint : f.aim, c = Math.cos(a), s = Math.sin(a);
-  const n = G.pellets ?? 1, spread = G.spread ?? 0, rng = makeRng(sim.nextBullet * 7919 + sim.frame); // (a scattergun: n pellets in a cone, scattered by the seeded dice)
+  const rng = makeRng(sim.nextBullet * 7919 + sim.frame); // (scatter and wander, by the seeded dice)
+  const a = (ok ? toPoint : f.aim) + (G.spreadPerShot ?? 0) * Math.min(f.spray, T.guns.sprayMax) * (2 * rng() - 1), c = Math.cos(a), s = Math.sin(a);
+  const n = G.pellets ?? 1, spread = G.spread ?? 0; // (a scattergun: n pellets in a cone)
   for (let k = 0; k < n; k++) {
     const off = n === 1 ? 0 : G.fixedFan ? spread * ((2 * k) / (n - 1) - 1) : spread * (2 * rng() - 1), pc = Math.cos(a + off), ps = Math.sin(a + off);
     sim.bullets.push({ id: sim.nextBullet++, x: mx, y: my, px: mx, py: my, vx: pc * G.speed, vy: ps * G.speed, ox: mx, oy: my, owner: f.index, gun: p.weapon!.id, calibre: G.calibre, impact: G.impact, push: G.push, age: 0, bounced: false, wet: false });
   }
   b.applyImpulse({ x: -c * G.recoil, y: -s * G.recoil }, true); // the gun (and the arm) kicks back...
   shove(f, -c * G.kick, -s * G.kick); // ...and the whole body is pushed back (bigger guns more)
-  f.gunCool = G.cooldown;
+  ready(f);
   sim.events.push({ t: 'shot', x: mx, y: my, v: a, owner: f.index, victim: -1, w: p.weapon!.id });
   spendShot(f);
   if (p.flipped) sim.events.push({ t: 'empty', x: mx, y: my, v: 0, owner: f.index, victim: -1, w: p.weapon!.id }); // the last one: a dry click, a puff, the gun turned round
@@ -65,8 +66,16 @@ export function predictShot(f: Fighter): SimEvent | null {
   const b = p.body, t = b.translation(), g = b.rotation(), half = lenOf(p) / 2, c = Math.cos(f.aim), s = Math.sin(f.aim);
   b.applyImpulse({ x: -c * G.recoil, y: -s * G.recoil }, true);
   shove(f, -c * G.kick, -s * G.kick);
-  f.gunCool = G.cooldown;
+  ready(f);
   return { t: 'shot', x: t.x + Math.cos(g) * half, y: t.y + Math.sin(g) * half, v: f.aim, owner: f.index, victim: -1, w: p.weapon!.id };
+}
+
+/** After a shot: the wait for the next one (the gap inside a burst, or the gun's cooldown), and one more shot in a row. */
+function ready(f: Fighter): void {
+  const G = f.stick!.weapon!.gun!;
+  f.burst = f.burst > 0 ? f.burst - 1 : (G.burst ?? 1) - 1;
+  f.gunCool = f.burst > 0 ? (G.burstGap ?? 1) : G.cooldown;
+  f.spray++;
 }
 
 /** One shot used (the server's 'shot', or the online copy replaying it): the last one turns the gun round: an empty gun is a club. */

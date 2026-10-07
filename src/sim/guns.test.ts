@@ -199,4 +199,19 @@ describe('guns', () => {
     const gaps = duck.slice(1).map((a, k) => a - duck[k]);
     for (const g of gaps) expect(g).toBeCloseTo(gaps[0], 5);
   }, 30_000);
+
+  it('a gun that holds keeps firing while the button is held and stops when you let go; a burst gun fires its burst from one click', async () => {
+    const sim = await duel(6);
+    const lewis = arm(sim, 0, 'lewis-gun'), G = PROPS['lewis-gun'].gun!;
+    let shots = 0;
+    for (let i = 0; i < 80; i++) { sim.step([{ ...NEUTRAL, aim: -1.2, attack: i < 40 }, NEUTRAL]); shots += sim.events.filter((e) => e.t === 'shot').length; }
+    expect(shots).toBeGreaterThanOrEqual(Math.floor(40 / G.cooldown) - 1); // about one every cooldown while held...
+    expect(shots).toBeLessThanOrEqual(Math.ceil(40 / G.cooldown) + 1); // ...and none after letting go
+    expect(lewis.ammo).toBe(G.ammo - shots);
+    const carbine = arm(sim, 0, 'jungle-carbine'), C = PROPS['jungle-carbine'].gun!, at: number[] = [];
+    for (let i = 0; i < 60; i++) { sim.step([{ ...NEUTRAL, aim: -1.2, attack: i === 5 }, NEUTRAL]); if (sim.events.some((e) => e.t === 'shot')) at.push(i); }
+    expect(at.length).toBe(C.burst);
+    expect(at[1] - at[0]).toBe(C.burstGap);
+    expect(carbine.ammo).toBe(C.ammo - C.burst!);
+  }, 30_000);
 });
