@@ -40,6 +40,7 @@ The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not
 3. **Standing Stones**: a Stonehenge-like structure whose rocks can fall and crush players. Stone weapons. (Needs: big loose rock bodies balanced on the uprights, crushing by weight: the crush death exists.) **BUILT 2026-10-06** (cavemen map 4): two stone doorways; the uprights stand a step behind the fighters, the 3 m capstones lie loose on top and a hard knock (about a flung body) tips one onto whoever is under it; stone axes.
 4. **Mammoth Chase** (a moving map): everyone keeps running to the right while a woolly mammoth chases from the left; touching the mammoth kills you. (Needs: a scrolling map, the mammoth as a moving body.) **BUILT 2026-10-06** (cavemen map 5): a treadmill floor at 2.2 m/s, a painted placeholder mammoth that tosses you out of the picture, boulders and logs riding in, the painting sliding by.
 5. **Vine Ravine** BUILT (a log bridge over a gorge, cut it or break it). Not on the owner's list of four: kept as the fifth until the owner says otherwise.
+The original plain cave map is retired (owner, 2026-10-06: five arenas per era).
 Old ideas, not on the list: Mammoth Ribcage (rib bones as platforms you can pull free), Boulder Slope (a rolling boulder), Volcano Rim (lava and falling rocks).
 
 ## 2. Ancient Egypt
@@ -99,6 +100,7 @@ The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not
 4. **Saloon Brawl**: a bar fight inside the saloon, with beer glasses and bar stools to throw. **BUILT 2026-10-06** (westerns map 4): walls both sides, a bar counter to jump onto, a balcony from it, four stools, four mugs that shatter; fists, stools and mugs only.
 5. **Water Tower**: on top of a water tower. **BUILT 2026-10-06** (westerns map 5): the tank top with a narrow catwalk each side 1.6 m below; shoot the tank's side and water jets out for 4 s, blasting whoever it catches off balance and off the catwalk.
 Revolvers SHOOT (owner, 2026-10-06; built: see DECISIONS.md).
+The old western street (the era's first map) is retired (owner, 2026-10-06: five arenas per era).
 
 ## 9. World War I
 Pickups: **Bayonet Rifle** (long, good lunge), **Stick Grenade** (thrown, goes off after a short time with a push, not a kill).
@@ -134,8 +136,8 @@ Pickups: **Plasma Blade** (short, huge impact), **Gravity Hammer** (a hit pulls 
 
 ---
 
-## Specials (random, 15%)
-Already chosen: **Fantasy Archers** (longbow-as-staff) and **Mobsters** (bat). Each needs 5 arenas to stand in for a whole chapter. Ideas to fill the list: Zombie Apocalypse, Ancient Greece (hoplites with spear and shield), Wizards, Dinosaur Age (cavemen with raptors), Robots.
+## Specials (random, about 8%: about one a match)
+In the game at launch (owner, 2026-10-06): **Fantasy Archers** (longbow-as-staff) and **Mobsters** (bat), and only these two. Each needs 5 arenas to stand in for a whole chapter; they are built last. Ideas to fill the list: Zombie Apocalypse, Ancient Greece (hoplites with spear and shield), Wizards, Dinosaur Age (cavemen with raptors), Robots.
 
 ## What the engine needs (in build order, cheapest first)
 1. **Match schedule**: a pure function of the match seed (like eraFor now): 12 slots in chronological era order, each slot picks one arena at random from its era's 5 (a special occasionally swaps in at a slot). Replaces today's random era every round. (small, sim/era.ts and eras.ts; 5 fixed arenas per era, no more `alt` maps)
@@ -147,6 +149,6 @@ Already chosen: **Fantasy Archers** (longbow-as-staff) and **Mobsters** (bat). E
 7. **New weapon behaviours**: shield (parry), thrown objects, grab at range (lasso, grapple), entangle (net). Each is a one-time engine feature, then data rows.
 
 ## Open questions for the owner
-1. Confirm the assumption above: a match is 12 rounds (one arena per era), with the 60-arena pool for replay variety.
+1. Settled: a match is 12 rounds (one arena per era); see DECISIONS.md, MATCH END AND REMATCH.
 2. Weapon spawns: should they appear anywhere on the map or only at fixed spots per arena (data)? Recommended: fixed spots plus a few random airdrops.
-3. Do specials stay about 15% per slot?
+3. Settled 2026-10-06: specials at about 8% per slot.

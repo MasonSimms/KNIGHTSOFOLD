@@ -32,10 +32,17 @@ local fights (Phase 2) and online (Phase 3). Steps, in order:
 
 If the night says the controls feel laggy, "prediction" (your own fighter moves before the server answers) is the next job.
 
-## Next: the free web demo
+Date (owner, 2026-10-06): Sunday 2026-10-11. Building does not pause for it.
 
-All 12 eras with 2 arenas each (24 arenas), real art, weapon drops tuned by playtests, then a landing page and a Steam wishlist
-link. The full game (5 arenas per era, 60 in all) is the Steam version.
+## Next: weapons, then the showcase eras (owner, 2026-10-06; full order in DECISIONS.md)
+
+Weapons first: real painted shapes for every weapon, then the grappling hook, then chain weapons. Then Pirates' 4 other arenas,
+the round-break screens, and costumes for the showcase eras (Wild West, Cavemen, Pirates: final paint by 2026-11-01).
+
+## The demo
+
+The 3 showcase eras with all their arenas, local and online, with a wishlist button: a Steam demo and the same build on itch.io,
+by 2027-01-25. The full game is 12 eras x 5 arenas plus 2 specials x 5 (about 70).
 
 ## Later (unchanged from DESIGN.pdf)
 

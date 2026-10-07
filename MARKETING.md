@@ -3,11 +3,12 @@
 Living plan. Keep it current like DECISIONS.md. The full formatted version (with the timeline picture) is the "Knights of Old — Steam Launch Marketing Plan" doc in the owner's Claude artifacts; this file is the copy every Claude session reads.
 
 ## Status (update weekly)
-- Last updated: 2026-10-05 (plan created)
+- Last updated: 2026-10-06 (direction round: name, showcase eras, demo, specials)
+- Name: **Old Masters** (no subtitle; owner, 2026-10-06). Owner to do: a trademark lawyer's check before the page goes up. Backup: Epochalypse.
 - Wishlists: 0 (no Steam page yet). Owner: write the Steamworks number here every Monday.
 - Steam page: not created. Steamworks account: not created.
-- Next marketing deadline: Coming Soon page public by 2026-11-15.
-- Launch scope DECIDED (owner, 2026-10-06): the full game, 12 eras x 5 arenas (about 60). Not Early Access unless the pace slips. Risk: about 2.5 new arenas a week until March.
+- Next marketing deadline: Wild West, Cavemen and Pirates in final paint by 2026-11-01 (art handoffs 10-15, 10-20, 10-25); Coming Soon page public by 2026-11-15.
+- Launch scope DECIDED (owner, 2026-10-06): the full game, 12 eras x 5 arenas, plus the 2 specials (Fantasy Archers, Mobsters) x 5: about 70 arenas, 27 built. Not Early Access unless the pace slips.
 
 ## Launch window
 - Target launch: Tuesday 2027-03-09 (one week after Steam Next Fest). Fallback: Tuesday 2027-04-13.
@@ -30,9 +31,9 @@ Living plan. Keep it current like DECISIONS.md. The full formatted version (with
 Source: https://partner.steamgames.com/doc/marketing/upcoming_events/nextfest/feb_2027 and https://www.pcgamer.com/games/steam-reveals-all-the-sale-dates-and-themed-events-for-the-first-half-of-2027/
 
 ## What development must deliver for marketing (the links between the two sides)
-- By 2026-11-01: 2-3 eras in FINAL paint (capsule art, screenshots and trailer are made from them). Placeholder eras are never shown in marketing.
+- By 2026-11-01: the showcase eras, Wild West, Cavemen and Pirates, in FINAL paint (capsule art, screenshots and trailer are made from them). Placeholder eras are never shown in marketing.
 - By 2026-11-15: a build stable enough to record trailer footage of 4-player fights.
-- By 2027-01-25: the demo (separate Steam app): 2-3 eras, local + Remote Play Together, a wishlist prompt on the end screen. The same demo goes on itch.io as the free browser version.
+- By 2027-01-25: the demo (separate Steam app): the 3 showcase eras with all their arenas, local + online + Remote Play Together, a wishlist prompt on the end screen. The same demo goes on itch.io as the free browser version. knightsofold.fly.dev stays friends-only until then.
 - By 2027-03-09: launch build (Electron + Steamworks.js, Steam Deck check, achievements optional).
 - Every playtest is recorded (OBS) so it can be cut into clips.
 - ASSETS.md stays exact: the Steam AI disclosure is answered from it.
@@ -68,9 +69,10 @@ Use a UTM link per platform (?utm_source=tiktok); Steamworks reports wishlists p
 
 ## Store page checklist
 - [ ] Steamworks signup, $100 app fee, tax and bank forms
-- [ ] Name check: Steam search + USPTO trademark search for "Knights of Old"
-- [ ] Capsule art in every required size
-- [ ] 5+ screenshots, each a different era, each a fight in progress
+- [x] Name chosen: Old Masters. Web check done 2026-10-06 (no exact game title; Valley of the Old Masters on Steam is nearby; a live OLD MASTERS mark covers paint finishes)
+- [ ] Trademark lawyer's check of "Old Masters" (owner)
+- [ ] Capsule art in every required size, re-run with the new name (tools/store-art/capsules.py takes the name as an argument)
+- [ ] 5+ screenshots from the 3 showcase eras, each a different arena, each a fight in progress
 - [ ] 3-5 GIFs for the description
 - [ ] Trailer 30-60 s, action in the first 2 seconds
 - [ ] Short description + feature list
@@ -94,3 +96,4 @@ Use a UTM link per platform (?utm_source=tiktok); Steamworks reports wishlists p
 ## Log
 - 2026-10-05: Plan created. Launch target 2027-03-09, Early Access recommended, launch scope still open.
 - 2026-10-06: Launch scope decided: full game (12 x 5). Pirates: Ship Deck built (a floating ship that rocks, a sea you can swim in for a few seconds): a good trailer and GIF moment (someone knocked overboard, kicking back up the side).
+- 2026-10-06: Direction round. The name is Old Masters. Showcase eras are Wild West, Cavemen and Pirates. The demo is those 3 eras. Specials are in at launch (about 70 arenas). Weapons are built next; real weapon shapes come first, and they appear in every screenshot.
