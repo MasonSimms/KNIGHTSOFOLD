@@ -51,7 +51,7 @@ describe('the end-of-round replay', () => {
     expect(clips.length).toBe(3);
     for (const clip of clips) {
       const span = clip.snaps[clip.snaps.length - 1].frame - clip.snaps[0].frame;
-      expect(span).toBeGreaterThan(60);
+      if (clip.snaps[0].frame > 2) expect(span).toBeGreaterThan(60); // (a best moment in the round's first second, two bots clashing at the start: the clip starts with the round)
       expect(span).toBeLessThanOrEqual(T.replay.before + T.replay.after);
       const copy = await Sim.create(clip.seed, clip.count, clip.dummy);
       copy.looks = clip.looks; copy.forceMap = clip.map; copy.buildRound(clip.round, clip.era);

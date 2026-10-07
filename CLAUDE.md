@@ -59,6 +59,7 @@ Judging game feel. Expose tuning variants behind flags and describe how to test 
 ## Commands
 - `npm run dev` start the game at http://localhost:5173 (edit `src/content/tuning.ts` while it runs: the world resets with the new numbers)
 - `npm test` run tests, `npm run typecheck` check types, `npm run build` production build
+- `npm run deploy` put the new version live (never plain `fly deploy`: a deploy restarts the server and ends every fight, so this refuses while anyone is fighting)
 
 ## Model and effort advisor
 You cannot change your own model or effort. The owner does that with `/model` and `/effort`. Your job is to say when a change would help.

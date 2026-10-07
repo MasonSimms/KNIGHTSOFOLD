@@ -58,7 +58,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     }
     if (site && req.url?.split('?')[0] !== '/health') return void site(req, res);
     res.writeHead(200, { 'content-type': 'text/plain', 'cache-control': 'no-store' });
-    res.end(req.url === '/health' ? `ok ${rooms.size} rooms` : 'Knights of Old room server');
+    res.end(req.url === '/health' ? `ok ${rooms.size} rooms, ${[...rooms.values()].filter((r) => r.game && r.present.length).length} fighting` : 'Knights of Old room server'); // (npm run deploy will not go up while anyone is fighting)
   });
   const wss = new WebSocketServer({ server: http, maxPayload: 4096 }); // inputs are tiny: anything bigger is junk
   await new Promise<void>((ok) => http.listen(port, ok));

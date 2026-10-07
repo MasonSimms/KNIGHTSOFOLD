@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "build:server": "rolldown server/index.ts --platform node --format esm --file dist-server/index.js --external ws",
     "server": "npm run build:server && node dist-server/index.js",
+    "deploy": "node server/deploy.mjs",
     "lab": "vitest run --config vitest.lab.config.ts"
   },
   "dependencies": {
