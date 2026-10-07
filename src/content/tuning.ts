@@ -514,6 +514,7 @@ export const tuning = {
     breakSpread: 3, // how fast the pieces of broken scenery fly apart (m/s)
     steady: 0.15, // how quickly the hand steadies a gun on the aim (share of the error corrected each frame)
     bounceKeep: 0.5, // a falling shot (a lobbed grenade round) keeps this share of its speed when it bounces
+    brace: { spring: 300, damping: 30 }, // the other hand steadying a gun on the aim: how hard it turns the barrel toward the aim (1/s²), and how much it calms its swing (1/s)
     sprayMax: 8, // a held trigger or a burst wanders more each shot (props.ts spreadPerShot), up to this many shots' worth
   },
   water: {

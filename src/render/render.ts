@@ -727,6 +727,13 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (st.weapon?.lasso) ropes.ellipse(hx, hy, 0.16, 0.1).stroke({ width: 0.03, color: T.colors.things.rope ?? 0xb09a6a }); // the loop
         else ropes.circle(hx, hy, 0.06).fill(0x3a3e43);
       }
+      for (const e of entries) { // a gun in hand: the Marksman's thin aim line while it is held still; a charging gun glowing at its mouth
+        const st = e.f.stick, G = st?.weapon?.gun, c = st && e.f.grip && G && !st.flipped ? e.c[e.f.parts.indexOf(st)] : undefined;
+        if (!c || !G || (!G.aimLine && !e.f.gunCharge)) continue;
+        const half = ((st!.weapon?.length ?? 1) / 2) * c.scale.x, ca = Math.cos(c.rotation), sa = Math.sin(c.rotation), tx = c.x + ca * half, ty = c.y + sa * half;
+        if (G.aimLine && Math.hypot(st!.cx - st!.px, st!.cy - st!.py) < 0.01) ropes.moveTo(tx, ty).lineTo(tx + ca * 16, ty + sa * 16).stroke({ width: 0.035, color: 0xd8402a, alpha: 0.55 });
+        if (e.f.gunCharge && G.charge) ropes.circle(tx, ty, 0.04 + 0.14 * (e.f.gunCharge / G.charge)).fill({ color: G.look?.color ?? 0xffffff, alpha: 0.5 });
+      }
       sea.draw(sim, alpha);
       fx.draw(sim, alpha, frameSeconds, wind);
       flames.draw(sim, alpha, frameSeconds, variant, wind);

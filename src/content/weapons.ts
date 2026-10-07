@@ -56,6 +56,9 @@ export interface GunSpec {
   blast?: { radius: number; push: number; impact: number; fuse: number }; // it goes off where it stops, or after `fuse` frames in the air (0: only where it stops): world.ts blast
   selfBlast?: boolean; // ...and its blast can hurt the one who fired it (it always pushes them: a rocket jump)
   ignites?: boolean; // it sets alight what it hits: a fighter, or wood (sim/fire.ts)
+  charge?: number; // hold the button this many frames and it fires itself (let go sooner: no shot)
+  pierce?: boolean; // the shot goes through walls and everything, hitting every fighter on its line once
+  aimLine?: boolean; // (picture only) a thin line along the barrel while the gun is held still
   look?: { color: number; orb?: number }; // how its shots look (picture only): their colour, and a glowing ball this wide (m) instead of a streak
 }
 

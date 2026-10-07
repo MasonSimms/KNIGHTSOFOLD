@@ -150,6 +150,7 @@ export interface Fighter {
   gunCool: number; // frames until the gun can fire again
   burst: number; // shots still to come in this burst (a burst gun: sim/guns.ts)
   spray: number; // shots fired in a row without letting go (a held trigger or a burst wanders more each one)
+  gunCharge: number; // frames a gun that charges (the Rail Gun) has been held ready
   aim: number; // where the player is aiming (radians): a bullet flies exactly there
   gunTrim: number; // how much the wrist corrects to hold a gun on the aim
   reach: number; // how far away the cursor is (m; 0 = not known): the point a gun shoots at
@@ -292,7 +293,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, drift: 0, swimKick: 0, carried: 0, slamming: false, dove: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, netRequest: false, tangled: 0, gunCool: 0, burst: 0, spray: 0, aim: 0, gunTrim: 0, reach: 0,
+    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, netRequest: false, tangled: 0, gunCool: 0, burst: 0, spray: 0, gunCharge: 0, aim: 0, gunTrim: 0, reach: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -788,7 +789,9 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const gun = armed && f.stick?.weapon?.gun && (f.stick.ammo ?? 0) > 0 && !f.stick.flipped ? f.stick.weapon.gun : null;
   if (f.gunCool > 0) f.gunCool--;
   if (!gun) f.burst = 0;
-  if (gun && f.controlled && f.gunCool === 0 && ((attack && (!f.trigger || gun.hold)) || f.burst > 0)) f.fireRequest = true; // (a held trigger keeps firing a gun that holds; a burst finishes by itself)
+  if (gun && f.controlled && f.gunCool === 0 && !gun.charge && ((attack && (!f.trigger || gun.hold)) || f.burst > 0)) f.fireRequest = true; // (a held trigger keeps firing a gun that holds; a burst finishes by itself)
+  if (gun?.charge && f.controlled && attack && f.gunCool === 0) { if (++f.gunCharge >= gun.charge) { f.fireRequest = true; f.gunCharge = 0; } } // held long enough, it fires
+  else f.gunCharge = 0;
   if (!attack && f.burst === 0) f.spray = 0;
   // A grappling hook in the hand: a click throws it; holding the click reels in, letting go lets go (the world does it: sim/hook.ts).
   const hooker = armed && !!f.stick?.weapon?.hook;
@@ -1053,6 +1056,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   if (gun) { // a loaded gun: the arm straight out, the wrist lines the barrel up with the aim, and steadies it (trims out what the arm's weight leaves)
     f.gunTrim = clamp(f.gunTrim + T.guns.steady * wrapAngle(input.aim - f.stick!.body.rotation()), 0.6);
     U = aimR; E = 0; W = s * (wrapAngle(input.aim - f.fore.body.rotation()) + f.gunTrim);
+    const gb = f.stick!.body, B = T.guns.brace, L = f.stick!.weapon!.length, lever = L / 2 - f.stick!.weapon!.gripFromEnd; // the other hand under the barrel: it holds a long, heavy gun on the aim
+    gb.applyTorqueImpulse(gb.mass() * (L * L / 12 + lever * lever) * (B.spring * wrapAngle(input.aim - gb.rotation()) - B.damping * gb.angvel()) * T.sim.dt, true);
   } // a loaded gun: the arm straight out, and the wrist lines the barrel up with the aim (whatever the arm's sag)
   else if (armed) {
     if (slamming) {

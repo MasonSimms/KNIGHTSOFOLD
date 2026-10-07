@@ -28,6 +28,7 @@ export interface Bullet {
   owner: number; gun: string; calibre: number; impact: number; push: number;
   age: number; bounced: boolean; wet: boolean;
   bounces: number; // bounces left (props.ts gun.bounces)
+  hit?: number[]; // a piercing shot: the fighters it has already gone through
 }
 
 const ray = new RAPIER.Ray({ x: 0, y: 0 }, { x: 1, y: 0 });
@@ -108,6 +109,7 @@ export function moveBullets(sim: Sim): void {
       continue;
     }
     let travel = sp * dt, stopped = false, last: Collider | undefined;
+    if (S?.pierce) { pierce(sim, u, sp, travel); travel = 0; }
     for (let bounce = 0; bounce < 3 && travel > 1e-4 && !stopped; bounce++) {
       ray.origin.x = u.x; ray.origin.y = u.y; ray.dir.x = u.vx / sp; ray.dir.y = u.vy / sp;
       const hit = sim.world.castRayAndGetNormal(ray, travel, true, undefined, undefined, undefined, undefined, (c) => meets(sim, u, c));
@@ -190,6 +192,25 @@ function strike(sim: Sim, u: Bullet, c: Collider, dx: number, dy: number, nx: nu
   }
   push(1); // a body on the ground
   return 'stop';
+}
+
+/** A piercing shot (the Rail Gun) flies one frame: through walls, weapons and everything, hitting each fighter on its line once and
+ *  shoving loose things aside. */
+function pierce(sim: Sim, u: Bullet, sp: number, travel: number): void {
+  const x0 = u.x, y0 = u.y, dx = u.vx / sp, dy = u.vy / sp, met: [number, Collider, number, number][] = [];
+  ray.origin.x = x0; ray.origin.y = y0; ray.dir.x = dx; ray.dir.y = dy;
+  sim.world.intersectionsWithRay(ray, travel, true, (h) => { met.push([h.timeOfImpact, h.collider, h.normal.x, h.normal.y]); return true; }, undefined, undefined, undefined, undefined, (c) => meets(sim, u, c));
+  met.sort((a, b) => a[0] - b[0]);
+  for (const [toi, c, nx, ny] of met) {
+    const body = c.parent(), part = body ? sim.partByBody.get(body.handle) : undefined;
+    if (!part || (isWeapon(part) && part.owner >= 0 && sim.fighters[part.owner]?.grip)) continue; // (the ground, walls and weapons in hands: straight through)
+    const who = part.role === 'prop' || isWeapon(part) ? -1 : part.owner;
+    if (who >= 0 && (u.hit ??= []).includes(who)) continue;
+    if (who >= 0) u.hit!.push(who);
+    u.x = x0 + dx * toi; u.y = y0 + dy * toi;
+    strike(sim, u, c, dx, dy, nx, ny);
+  }
+  u.x = x0 + dx * travel; u.y = y0 + dy * travel;
 }
 
 /** Mirror the shot about the surface it met (normal nx, ny), keeping `keep` of its speed, and lift it just off the surface. */

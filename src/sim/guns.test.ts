@@ -247,6 +247,46 @@ describe('guns', () => {
     expect(up, 'a rocket jump').toBeLessThan(-6);
   }, 30_000);
 
+  it('a rail gun fires only once held long enough, and goes through everyone in line', async () => {
+    const sim = await Sim.create(9, 3, false);
+    const idle = [NEUTRAL, NEUTRAL, NEUTRAL];
+    for (let i = 0; i < 30; i++) sim.step(idle);
+    const gun = arm(sim, 0, 'rail-gun'), G = PROPS['rail-gun'].gun!, me = sim.fighters[0], x0 = me.torso.body.translation().x;
+    placeNear(sim, 1, x0 + 2.5 * me.side);
+    placeNear(sim, 2, x0 + 4.5 * me.side);
+    const aimAt = () => { const a = me.torso.body.translation(), b = sim.fighters[1].torso.body.translation(); return { aim: Math.atan2(b.y - a.y, b.x - a.x), reach: 4 }; };
+    for (let i = 0; i < 20; i++) sim.step([{ ...NEUTRAL, ...aimAt() }, NEUTRAL, NEUTRAL]);
+    let shots = 0;
+    for (let i = 0; i < G.charge! - 6; i++) { sim.step([{ ...NEUTRAL, ...aimAt(), attack: true }, NEUTRAL, NEUTRAL]); shots += sim.events.filter((e) => e.t === 'shot').length; }
+    sim.step([{ ...NEUTRAL, ...aimAt() }, NEUTRAL, NEUTRAL]);
+    expect(shots, 'let go too soon: no shot').toBe(0);
+    const hit = new Set<number>();
+    for (let i = 0; i < G.charge! + 10; i++) {
+      sim.step([{ ...NEUTRAL, ...aimAt(), attack: true }, NEUTRAL, NEUTRAL]);
+      shots += sim.events.filter((e) => e.t === 'shot').length;
+      for (const e of sim.events) if (e.t === 'hit' && e.how === 'shot') hit.add(e.victim);
+    }
+    expect(shots).toBe(1);
+    expect(gun.ammo).toBe(G.ammo - 1);
+    expect([...hit].sort()).toEqual([1, 2]);
+  }, 30_000);
+
+  it('every gun, long and heavy ones too, is held steady on the aim (the other hand under the barrel)', async () => {
+    for (const kind of Object.keys(PROPS).filter((k) => PROPS[k].gun)) {
+      const sim = await duel(3);
+      const gun = arm(sim, 0, kind);
+      let off = 0, shake = 0;
+      for (let i = 0; i < 90; i++) {
+        sim.step([{ ...NEUTRAL, aim: -0.4 }, NEUTRAL]);
+        if (i < 60) continue;
+        off = Math.max(off, Math.abs(Math.atan2(Math.sin(gun.body.rotation() + 0.4), Math.cos(gun.body.rotation() + 0.4))));
+        shake = Math.max(shake, Math.hypot(gun.cx - gun.px, gun.cy - gun.py));
+      }
+      expect(off, kind).toBeLessThan(0.05);
+      expect(shake, kind).toBeLessThan(0.005);
+    }
+  }, 60_000);
+
   it('a flare sets the fighter it hits alight', async () => {
     const sim = await duel(8);
     arm(sim, 0, 'flare-pistol');
