@@ -264,12 +264,19 @@ export const tuning = {
     stun: 25, // ...and loses their footing for this many frames
     cutSpeed: 6, // m/s a blade must be moving to cut the rope
   },
+  tractor: {
+    // The Tractor Beam (sim/hook.ts, gun `beam`: its range, reel and fling are in props.ts). PLACEHOLDER numbers.
+    speed: 300, drop: 0, minLength: 0.8, // the beam reaches out at once, straight
+    yank: 0, stun: 20, // a fighter caught is held helpless this long at first (frames)
+    cutSpeed: 1000, // (a beam cannot be cut)
+  },
   effects: {
     // The Space Age ray guns (sim/effects.ts; each gun's own numbers are in props.ts). PLACEHOLDER numbers.
     iceFriction: 0.02, // a frozen fighter slides like an ice block (their usual grip is put back after)
     bubbleDrift: 1.5, // a bubble drifts with the wind at up to this speed (m/s, at full wind)
     bubbleEase: 0.15, // how quickly a bubble takes on its float (share of the difference each frame)
     popHurt: 0.5, // any hurt bigger than this pops a bubble
+    holeCore: 0.6, // a black hole's pull fades out within this distance of its middle (m), so what it holds swirls instead of shaking
   },
   netting: {
     // The net (sim/tangle.ts, weapon `net`). PLACEHOLDER numbers.

@@ -17,6 +17,7 @@ export interface Snapshot {
   f: { hp: number; back: boolean; p: number[]; st?: number }[]; // per fighter: hp, on the background plane, x, y, angle for each part, and state flags (FREE: see fighterState)
   simFrame?: number; // the round's own frame (the waves follow it)
   hk?: number[]; // grappling hooks out: owner, x, y, caught (1/0) for each (sim.hookLines)
+  zn?: number[]; // black holes open: x, y, frames left for each (sim.zones)
   bl?: number[]; // bullets in flight: id, x, y, start x, start y, shooter for each (for drawing them)
   era: string;
   map: number;
@@ -53,6 +54,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
     pf: sim.props.flatMap((p, i) => (p.burning ? [i] : [])),
     jt: sim.jets.flatMap((j) => [r3(j.x), r3(j.y), j.dir, j.left]),
     hk: sim.hookLines.length ? sim.hookLines.slice() : undefined,
+    zn: sim.zones.length ? sim.zones.flatMap((z) => [r3(z.x), r3(z.y), z.left]) : undefined,
     bl: sim.bullets.flatMap((u) => [u.id, r3(u.x), r3(u.y), r3(u.ox), r3(u.oy), u.owner]),
   };
 }
@@ -196,6 +198,7 @@ export class Mirror {
     if (a.boats) { const ab = a.boats, bb = b.boats ?? ab; sim.boats.forEach((s, k) => { if (ab.length > k * 3 + 2) Object.assign(s, { px: ab[k * 3], py: ab[k * 3 + 1], pa: ab[k * 3 + 2], cx: bb[k * 3], cy: bb[k * 3 + 1], ca: bb[k * 3 + 2] }); }); }
     if (b.simFrame !== undefined) sim.frame = b.simFrame;
     sim.hookLines = (b.hk ?? a.hk ?? []).slice();
+    sim.zones = []; for (let k = 0, zn = b.zn ?? []; k + 2 < zn.length; k += 3) sim.zones.push({ x: zn[k], y: zn[k + 1], left: zn[k + 2], owner: -1, radius: 0, strength: 0, pop: 0 }); // (to draw them)
     sim.jets = []; for (let k = 0, jt = a.jt ?? []; k < jt.length; k += 4) sim.jets.push({ x: jt[k], y: jt[k + 1], dir: jt[k + 2], left: jt[k + 3] });
     // Bullets: each one between where it was in the two snapshots (one new in the later one appears there).
     sim.bullets.length = 0;

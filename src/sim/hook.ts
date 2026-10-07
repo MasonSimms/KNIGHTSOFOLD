@@ -1,7 +1,9 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { Collider, ImpulseJoint, RigidBody } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
+import { shove, fighterMass } from './fighter';
 import type { Fighter, Part } from './fighter';
+import { spendShot } from './guns';
 import type { Sim } from './world';
 
 // The grappling hook (owner, 2026-10-07; the Pirates' boat hook, weapon field `hook`): click and the hook flies along your aim; it catches on
@@ -21,7 +23,18 @@ export interface Hook {
   ax: number; ay: number; // where on it (that body's own frame)
   length: number; // the rope's length now (reeling shortens it)
   victim: number; // the fighter it caught (-1: none)
+  held: number; // frames it has held what it caught
 }
+
+/** What throws a hook: a grappling hook, a lasso, a loaded tractor beam. */
+const hooks = (p: Part) => !!p.weapon?.hook || (!!p.weapon?.gun?.beam && (p.ammo ?? 0) > 0 && !p.flipped);
+/** Its numbers: a tractor beam's are its own (props.ts gun.beam) on tuning.tractor's. */
+function specOf(p: Part) {
+  const B = p.weapon?.gun?.beam;
+  return B ? { ...T.tractor, range: B.range, reel: B.reel } : p.weapon?.lasso ? T.lasso : T.hook;
+}
+/** Only people and loose things: a lasso, a tractor beam (the scenery is passed by). */
+const picky = (p: Part | null | undefined) => !!p?.weapon?.lasso || !!p?.weapon?.gun?.beam;
 
 const ray = new RAPIER.Ray({ x: 0, y: 0 }, { x: 1, y: 0 });
 /** The hook's end of the weapon (the far end), in the world. */
@@ -37,17 +50,24 @@ export function moveHooks(sim: Sim): void {
     if (!f.hookRequest) continue;
     f.hookRequest = false;
     const p = f.stick;
-    if (!p || !f.grip || !p.weapon?.hook || sim.hooks.some((h) => h.owner === f.index)) continue;
-    const H = p.weapon.lasso ? T.lasso : T.hook;
+    if (!p || !f.grip || !hooks(p) || sim.hooks.some((h) => h.owner === f.index)) continue;
+    const H = specOf(p);
     const s = tipOf(p), ft = f.torso.body.translation(), tx = ft.x + Math.cos(f.aim) * f.reach, ty = ft.y + Math.sin(f.aim) * f.reach;
     const a = f.reach > 0 && Math.hypot(tx - s.x, ty - s.y) > 0.4 ? Math.atan2(ty - s.y, tx - s.x) : f.aim; // (at the point you aim at, as a gun is)
-    sim.hooks.push({ owner: f.index, x: s.x, y: s.y, vx: Math.cos(a) * H.speed, vy: Math.sin(a) * H.speed, flown: 0, joint: null, body: null, ax: 0, ay: 0, length: 0, victim: -1 });
-    sim.events.push({ t: 'hookThrow', x: s.x, y: s.y, v: a, owner: f.index, victim: -1 });
+    sim.hooks.push({ owner: f.index, x: s.x, y: s.y, vx: Math.cos(a) * H.speed, vy: Math.sin(a) * H.speed, flown: 0, joint: null, body: null, ax: 0, ay: 0, length: 0, victim: -1, held: 0 });
+    if (p.weapon?.gun?.beam) { sim.events.push({ t: 'shot', x: s.x, y: s.y, v: a, owner: f.index, victim: -1, w: p.weapon.id }); spendShot(f); } // (a tractor beam: one catch, one shot)
+    else sim.events.push({ t: 'hookThrow', x: s.x, y: s.y, v: a, owner: f.index, victim: -1 });
   }
   for (let i = sim.hooks.length - 1; i >= 0; i--) {
     const h = sim.hooks[i], f = sim.fighters[h.owner], p = f?.stick;
-    if (!f || !p || !f.grip || !p.weapon?.hook || f.limp || (h.joint && !f.trigger) || (h.body && !sim.world.getRigidBody(h.body.handle))) { unhook(sim, i); continue; } // let go, lost the hook, down, or what it held is gone
-    const s = tipOf(p), H = p.weapon.lasso ? T.lasso : T.hook;
+    const beam = p?.weapon?.gun?.beam;
+    if (!f || !p || !f.grip || !(p.weapon?.hook || beam) || f.limp || (h.joint && !f.trigger) || (beam && h.held > beam.hold) || (h.body && !sim.world.getRigidBody(h.body.handle))) { // let go, lost the hook, down, or what it held is gone
+      if (beam && h.joint && f && !f.limp && h.body && sim.world.getRigidBody(h.body.handle)) fling(sim, h, f, beam.fling); // (a tractor beam lets go with a fling)
+      unhook(sim, i);
+      continue;
+    }
+    if (h.joint) h.held++;
+    const s = tipOf(p), H = specOf(p);
     if (!h.joint) { // in flight
       const sp = Math.hypot(h.vx, h.vy), step = sp * dt;
       ray.origin.x = h.x; ray.origin.y = h.y; ray.dir.x = h.vx / sp; ray.dir.y = h.vy / sp;
@@ -78,7 +98,7 @@ export function moveHooks(sim: Sim): void {
 /** Can the hook catch on this? Anything but the thrower and what is in the background. */
 function catches(sim: Sim, f: Fighter, c: Collider): boolean {
   const body = c.parent(), part = body ? sim.partByBody.get(body.handle) : undefined;
-  if (!part) return !f.stick?.weapon?.lasso; // the ground, a wall, a ledge, a ship (a lasso flies past them)
+  if (!part) return !picky(f.stick); // the ground, a wall, a ledge, a ship (a lasso or a tractor beam passes them by)
   if (part.back) return false;
   if (part.owner === f.index) return false;
   const g = part.owner >= 0 ? sim.fighters[part.owner] : undefined;
@@ -97,7 +117,7 @@ function catchOn(sim: Sim, h: Hook, f: Fighter, c: Collider, x: number, y: numbe
   const body = c.parent()!, t = body.translation(), r = body.rotation(), dx = x - t.x, dy = y - t.y;
   h.body = body; h.x = x; h.y = y;
   h.ax = Math.cos(r) * dx + Math.sin(r) * dy; h.ay = -Math.sin(r) * dx + Math.cos(r) * dy;
-  const H = f.stick?.weapon?.lasso ? T.lasso : T.hook;
+  const H = specOf(f.stick!);
   h.length = Math.max(H.minLength, Math.hypot(x - s.x, y - s.y));
   tie(sim, h, f.stick!);
   const part = sim.partByBody.get(body.handle), victim = part && part.role !== 'prop' && part.owner >= 0 ? sim.fighters[part.owner] : undefined;
@@ -108,6 +128,14 @@ function catchOn(sim: Sim, h: Hook, f: Fighter, c: Collider, x: number, y: numbe
     h.victim = victim.index;
   }
   sim.events.push({ t: 'hook', x, y, v: 0, owner: f.index, victim: victim?.index ?? -1 });
+}
+
+/** A tractor beam lets go: what it held is thrown along the aim. */
+function fling(sim: Sim, h: Hook, f: Fighter, speed: number): void {
+  const c = Math.cos(f.aim), s = Math.sin(f.aim), v = h.victim >= 0 ? sim.fighters[h.victim] : undefined;
+  if (v) shove(v, c * speed * fighterMass(v), s * speed * fighterMass(v));
+  else { const m = h.body!.mass(); h.body!.applyImpulse({ x: c * speed * m, y: s * speed * m }, true); }
+  sim.events.push({ t: 'throw', x: h.x, y: h.y, v: speed, owner: f.index, victim: v?.index ?? -1 });
 }
 
 /** (Re)make the rope at its present length, from the hook's end of the weapon to where it caught. */

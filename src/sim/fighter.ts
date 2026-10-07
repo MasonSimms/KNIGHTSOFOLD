@@ -799,12 +799,12 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const gun = armed && f.stick?.weapon?.gun && (f.stick.ammo ?? 0) > 0 && !f.stick.flipped ? f.stick.weapon.gun : null;
   if (f.gunCool > 0) f.gunCool--;
   if (!gun) f.burst = 0;
-  if (gun && f.controlled && f.gunCool === 0 && !gun.charge && ((attack && (!f.trigger || gun.hold)) || f.burst > 0)) f.fireRequest = true; // (a held trigger keeps firing a gun that holds; a burst finishes by itself)
+  if (gun && f.controlled && f.gunCool === 0 && !gun.charge && !gun.beam && ((attack && (!f.trigger || gun.hold)) || f.burst > 0)) f.fireRequest = true; // (a held trigger keeps firing a gun that holds; a burst finishes by itself)
   if (gun?.charge && f.controlled && attack && f.gunCool === 0) { if (++f.gunCharge >= gun.charge) { f.fireRequest = true; f.gunCharge = 0; } } // held long enough, it fires
   else f.gunCharge = 0;
   if (!attack && f.burst === 0) f.spray = 0;
   // A grappling hook in the hand: a click throws it; holding the click reels in, letting go lets go (the world does it: sim/hook.ts).
-  const hooker = armed && !!f.stick?.weapon?.hook;
+  const hooker = armed && (!!f.stick?.weapon?.hook || !!gun?.beam); // (a tractor beam too: sim/hook.ts)
   if (hooker && f.controlled && attack && !f.trigger) f.hookRequest = true;
   const netter = armed && !!f.stick?.weapon?.net; // a net: a click throws it (sim/tangle.ts)
   if (netter && f.controlled && attack && !f.trigger) f.netRequest = true;

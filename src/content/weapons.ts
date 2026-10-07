@@ -59,6 +59,8 @@ export interface GunSpec {
   charge?: number; // hold the button this many frames and it fires itself (let go sooner: no shot)
   pierce?: boolean; // the shot goes through walls and everything, hitting every fighter on its line once
   aimLine?: boolean; // (picture only) a thin line along the barrel while the gun is held still
+  zone?: { after: number; frames: number; radius: number; strength: number; pop: number }; // the shot stops after `after` frames (or where it hits) and pulls everything within `radius` toward it (m/s², less in its very middle) for `frames`, then pops them outward (m/s): sim/effects.ts
+  beam?: { range: number; reel: number; fling: number; hold: number }; // a tractor beam: hold the button to catch a fighter or loose thing up to `range` away and reel it in (m/s); let go (or after `hold` frames) and it is flung along your aim (m/s). One catch uses one shot (sim/hook.ts)
   effect?: { kind: 'swap' | 'freeze' | 'bubble'; frames?: number; rise?: number }; // what the shot does to what it stops in (sim/effects.ts): swap places; an ice block for `frames`; a bubble rising at `rise` m/s for `frames`
   look?: { color: number; orb?: number }; // how its shots look (picture only): their colour, and a glowing ball this wide (m) instead of a streak
 }

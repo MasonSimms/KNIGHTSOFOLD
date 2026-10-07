@@ -7,7 +7,7 @@ import { damageFor } from './combat';
 import { createProp, dropToWorld, isWeapon, shove, takeIn } from './fighter';
 import type { Fighter, Part } from './fighter';
 import { surfaceY } from './water';
-import { zap } from './effects';
+import { openZone, zap } from './effects';
 import { makeRng } from './rng';
 import { leak } from './tower';
 import type { Sim } from './world';
@@ -104,8 +104,9 @@ export function moveBullets(sim: Sim): void {
     if (S?.gravity) u.vy += T.sim.gravity * S.gravity * dt;
     if (S?.thrust) { const k = 1 + (S.thrust * dt) / Math.max(1, Math.hypot(u.vx, u.vy)); u.vx *= k; u.vy *= k; }
     const sp = Math.hypot(u.vx, u.vy);
-    if ((sp < G.minSpeed && (u.wet || !S?.gravity)) || u.age > G.maxFrames || (S?.blast?.fuse && u.age >= S.blast.fuse)) { // spent (a shell with a fuse goes off in the air)
+    if ((sp < G.minSpeed && (u.wet || !(S?.gravity || S?.zone))) || u.age > G.maxFrames || (S?.blast?.fuse && u.age >= S.blast.fuse) || (S?.zone && u.age >= S.zone.after)) { // spent (a shell with a fuse goes off in the air; a black hole opens)
       if (S?.blast) explode(sim, u, S);
+      if (S?.zone) openZone(sim, u.x, u.y, u.owner, S.zone);
       sim.bullets.splice(i, 1);
       continue;
     }
@@ -231,6 +232,7 @@ function land(sim: Sim, u: Bullet, S: GunSpec, c: Collider | undefined): void {
     if (v ? !v.limp : !!part.burning) sim.events.push({ t: 'ignite', x: u.x, y: u.y, v: 0, owner: u.owner, victim: v?.index ?? -1 });
   }
   if (S.effect && part) zap(sim, u.owner, part, S.effect, u.x, u.y);
+  if (S.zone) openZone(sim, u.x, u.y, u.owner, S.zone);
   if (S.blast) explode(sim, u, S);
 }
 

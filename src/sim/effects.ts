@@ -15,6 +15,38 @@ import type { Sim } from './world';
 const ice = new WeakMap<Fighter, [Collider, number][]>(); // a frozen fighter's colliders and their own friction (put back when it thaws)
 const popAt = new WeakMap<Fighter, number>(); // the hidden health a bubble was blown at: any hurt below it pops it
 
+/** A black hole, open (a gun's `zone`): pulling everything in, then popping. */
+export interface Zone { x: number; y: number; left: number; owner: number; radius: number; strength: number; pop: number }
+
+/** A black hole shot stops (props.ts gun.zone): it opens where it is. */
+export function openZone(sim: Sim, x: number, y: number, owner: number, z: NonNullable<GunSpec['zone']>): void {
+  sim.zones.push({ x, y, left: z.frames, owner, radius: z.radius, strength: z.strength, pop: z.pop });
+  sim.events.push({ t: 'zap', x, y, v: 0, owner, victim: -1, w: 'hole' });
+}
+
+/** Each frame: every open black hole pulls on every body near it (fighters, weapons, loose things); run out, it pops them outward. */
+function moveZones(sim: Sim): void {
+  const dt = T.sim.dt;
+  for (let i = sim.zones.length - 1; i >= 0; i--) {
+    const z = sim.zones[i];
+    if (--z.left <= 0) {
+      sim.zones.splice(i, 1);
+      sim.events.push({ t: 'zap', x: z.x, y: z.y, v: 1, owner: z.owner, victim: -1, w: 'holepop' });
+      sim.blast(z.x, z.y, z.owner, { radius: z.radius, push: z.pop, impact: 0 }, z.owner);
+      continue;
+    }
+    const pull = (b: { translation(): { x: number; y: number }; mass(): number; isDynamic(): boolean; applyImpulse(i: { x: number; y: number }, w: boolean): void }) => {
+      if (!b.isDynamic()) return;
+      const t = b.translation(), dx = z.x - t.x, dy = z.y - t.y, d = Math.hypot(dx, dy);
+      if (d > z.radius || d < 1e-3) return;
+      const a = z.strength * Math.min(1, d / T.effects.holeCore) * b.mass() * dt; // (fading in its very middle, so things swirl rather than shake)
+      b.applyImpulse({ x: (dx / d) * a, y: (dy / d) * a }, true);
+    };
+    for (const f of sim.fighters) for (const p of f.parts) pull(p.body);
+    for (const p of sim.props) pull(p.body);
+  }
+}
+
 /** A shot with an effect stopped in `part` (a fighter's body, or a loose thing). */
 export function zap(sim: Sim, owner: number, part: Part, effect: NonNullable<GunSpec['effect']>, x: number, y: number): void {
   const shooter = sim.fighters[owner], f = part.role !== 'prop' && part.owner >= 0 && part.role !== 'stick' && part.role !== 'flail' ? sim.fighters[part.owner] : undefined;
@@ -51,6 +83,7 @@ function moveAll(parts: Part[], dx: number, dy: number, vx: number, vy: number):
 /** Each frame, before the physics: the frozen move as one rigid block; the bubbled float up and drift; both run out (a hurt pops a bubble). */
 export function moveEffects(sim: Sim): void {
   const E = T.effects;
+  moveZones(sim);
   for (const f of sim.fighters) {
     if (f.frozen > 0) {
       if (--f.frozen === 0 || f.limp) thaw(f);

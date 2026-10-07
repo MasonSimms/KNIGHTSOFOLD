@@ -23,6 +23,7 @@ import { aimSpears, fuses, goneOff, stickSpears } from './special';
 import { moveHooks } from './hook';
 import { moveNets } from './tangle';
 import { moveEffects } from './effects';
+import type { Zone } from './effects';
 import type { Hook } from './hook';
 import type { Jet } from './tower';
 import { breakProp, damageScenery, fire, moveBullets, predictShot, shatter, snapPart, spendShot } from './guns';
@@ -82,6 +83,7 @@ export class Sim {
   bullets: Bullet[] = []; // bullets in flight (sim/guns.ts)
   hooks: Hook[] = []; // grappling hooks out (sim/hook.ts)
   hookLines: number[] = []; // ...as they are drawn: owner, x, y, caught (1/0) for each (an online copy has these from the snapshot only)
+  zones: Zone[] = []; // black holes open (sim/effects.ts; an online copy has where they are from the snapshot, to draw them)
   nextBullet = 0;
   private seed: number;
   private tmpV = { x: 0, y: 0 };
@@ -234,6 +236,7 @@ export class Sim {
     this.bullets = [];
     this.hooks = [];
     this.hookLines = [];
+    this.zones = [];
     this.nextBullet = 0;
     this.partByBody.clear();
 

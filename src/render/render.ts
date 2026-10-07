@@ -709,6 +709,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const color = p.weapon?.id === 'flail' ? 0xd9a93a : 0x6a7077;
         for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; ropes.circle(tx + (hx - tx) * t, ty + (hy - ty) * t, 0.02).stroke({ width: 0.012, color }); }
       }
+      for (const z of sim.zones) { // a black hole: a dark middle, a violet rim, rings closing in on it
+        const t = (performance.now() / 1000) % 1;
+        for (let r = 0; r < 3; r++) { const k = 1 - ((t + r / 3) % 1); ropes.circle(z.x, z.y, 0.3 + 2.6 * k).stroke({ width: 0.03, color: 0x8a5cff, alpha: 0.5 * (1 - k) }); }
+        ropes.circle(z.x, z.y, 0.34).fill({ color: 0x8a5cff, alpha: 0.6 }).circle(z.x, z.y, 0.26).fill(0x0b0814);
+      }
       for (const f of sim.fighters) { // the ray guns' effects (sim/effects.ts): a block of ice round the frozen, a bubble round the floating
         if ((!f.frozen && !f.bubble) || f.limp) continue;
         const cx = lerp(f.torso.px, f.torso.cx, alpha), cy = lerp(f.torso.py, f.torso.cy, alpha);
@@ -728,6 +733,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const e = entries[H[k]], st = e?.f.stick, c = st ? e.c[e.f.parts.indexOf(st)] : undefined;
         if (!e || !st || !c) continue;
         const half = ((st.weapon?.length ?? 1) / 2) * c.scale.x, tx = c.x + Math.cos(c.rotation) * half, ty = c.y + Math.sin(c.rotation) * half, hx = H[k + 1], hy = H[k + 2];
+        if (st.weapon?.gun?.beam) { ropes.moveTo(tx, ty).lineTo(hx, hy).stroke({ width: 0.16, color: 0x8a5cff, alpha: 0.25 }).moveTo(tx, ty).lineTo(hx, hy).stroke({ width: 0.04, color: 0xd9c8ff, alpha: 0.9 }); continue; } // a tractor beam: a violet ray
         const sag = (H[k + 3] ? 0.02 : 0.12) * Math.hypot(hx - tx, hy - ty);
         ropes.moveTo(tx, ty).quadraticCurveTo((tx + hx) / 2, (ty + hy) / 2 + sag, hx, hy).stroke({ width: 0.035, color: T.colors.things.rope ?? 0xb09a6a });
         if (st.weapon?.lasso) ropes.ellipse(hx, hy, 0.16, 0.1).stroke({ width: 0.03, color: T.colors.things.rope ?? 0xb09a6a }); // the loop
