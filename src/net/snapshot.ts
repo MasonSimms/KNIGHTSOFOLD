@@ -27,6 +27,7 @@ export interface Snapshot {
   outfits: number[];
   looks: Look[]; // everyone's colour and hat (so a player who joins late or rejoins sees the right ones)
   ev: SimEvent[];
+  back?: [number, SimEvent[]][]; // the structural events of the last few ticks again, by tick (on the fast lane a snapshot can be lost: the next ones bring its events)
 }
 
 /** What the server says a fighter is doing that only it decides (a hit, a grab): 0 = free, moving on their own buttons (prediction may run). */
@@ -61,7 +62,8 @@ export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround
 export class Mirror {
   desyncs = 0; // how many times a snapshot's part count disagreed with ours: should stay 0 (it means a missed or misordered event)
   private snaps: Snapshot[] = [];
-  private applied = -1; // server tick of the newest snapshot whose events were replayed
+  private evAt = new Map<number, SimEvent[]>(); // events by server tick, not yet shown: each snapshot's own, and repeated in the next ones (back)
+  private known = new Set<number>(); // ticks whose events have come in (the same snapshot comes by both lanes: its events count once)
   private head = 0; // the server tick being shown (it runs `delay` ticks behind the newest snapshot, so there is always a pair to blend)
   private started = false;
   private lastLooks = '';
@@ -82,25 +84,44 @@ export class Mirror {
 
   /** A snapshot from the server; `at` = when it arrived (ms, this page's clock). */
   push(s: Snapshot, at = performance.now()): void {
-    this.late.push(at - s.frame * (1000 / 60));
-    if (this.late.length > T.net.jitter.window) this.late.shift();
-    this.want = this.target();
     if (this.fresh) { // a new client (or one that rejoined): build the round the server is in, with its era's weapon and arena
       this.fresh = false;
       if (s.round !== this.sim.round || s.era !== this.sim.era) this.sim.buildRound(s.round, s.era);
     }
-    if (s.frame > (this.snaps.at(-1)?.frame ?? -1)) this.snaps.push(s);
+    this.note(s.frame, s.ev);
+    for (const [f, ev] of s.back ?? []) this.note(f, ev);
+    if (s.frame <= (this.snaps.at(-1)?.frame ?? -1)) return; // (the same snapshot by the other lane, or one overtaken: its events are in, its poses are old)
+    this.late.push(at - s.frame * (1000 / 60));
+    if (this.late.length > T.net.jitter.window) this.late.shift();
+    this.want = this.target();
+    this.snaps.push(s);
     while (this.snaps.length > this.keep) { // only the last second is kept. A page that is not drawing (a hidden tab) still gets every snapshot:
       const old = this.snaps.shift()!; // one it never showed still has its deaths and pickups made, or the copy would never match again
-      if (old.frame <= this.applied) continue;
-      for (const e of old.ev) if (STRUCTURAL.has(e.t)) this.sim.mirrorEvent(e);
-      this.applied = old.frame;
+      this.replay(old.frame, null);
+    }
+    if (this.known.size > 2400) for (const f of this.known) if (f < s.frame - 1200) this.known.delete(f);
+  }
+
+  /** The events of server tick `frame` have come in (the first time only). */
+  private note(frame: number, ev: SimEvent[]): void {
+    if (this.known.has(frame)) return;
+    this.known.add(frame);
+    if (ev.length) this.evAt.set(frame, ev);
+  }
+
+  /** Replay the events up to tick `at`, in tick order: structural ones rebuild the parts here; `due` collects them all, to be shown and heard. */
+  private replay(at: number, due: SimEvent[] | null): void {
+    if (!this.evAt.size) return;
+    for (const f of [...this.evAt.keys()].sort((x, y) => x - y)) {
+      if (f > at) break;
+      for (const e of this.evAt.get(f)!) { due?.push(e); if (STRUCTURAL.has(e.t)) this.sim.mirrorEvent(e); }
+      this.evAt.delete(f);
     }
   }
 
   /** Start over from a fresh build (a rejoining client): forget everything and replay from the next catch-up snapshot. */
   reset(): void {
-    this.snaps = []; this.applied = -1; this.started = false; this.fresh = true; this.late = [];
+    this.snaps = []; this.started = false; this.fresh = true; this.late = []; this.evAt.clear(); this.known.clear();
     this.sim.gone.fill(false);
     this.sim.reset();
   }
@@ -144,14 +165,10 @@ export class Mirror {
   /** Show the world at server tick `at` (exact: used directly by tests). */
   show(at: number): { alpha: number; events: SimEvent[] } {
     const due: SimEvent[] = [];
-    for (const s of this.snaps) {
-      if (s.frame > at || s.frame <= this.applied) continue;
-      for (const e of s.ev) { due.push(e); if (STRUCTURAL.has(e.t)) this.sim.mirrorEvent(e); }
-      this.applied = s.frame;
-    }
     let ai = -1;
     this.snaps.forEach((s, i) => { if (s.frame <= at) ai = i; });
     if (ai < 0) return { alpha: 1, events: due };
+    this.replay(this.snaps[ai].frame, due); // (up to the snapshot whose poses are shown: its parts are the ones those events make)
     let a = this.snaps[ai], b = this.snaps[ai + 1] ?? a;
     // Past the newest snapshot (the stream stalled): carry the last motion on, alpha above 1 between the last two (only while they have
     // the same parts: across a death or a new round the older poses do not match what is built now).

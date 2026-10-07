@@ -11,6 +11,7 @@ import type { PlayerInput, SimEvent } from './sim/types';
 import { NetClient, serverUrl } from './net/client';
 import { Mirror } from './net/snapshot';
 import { Predictor } from './net/predict';
+import { FastLane } from './net/fast';
 import type { Snapshot } from './net/snapshot';
 import { Room } from './net/room';
 import { Spotter } from './replay/highlights';
@@ -58,6 +59,10 @@ let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 
 let net: NetClient | null = null, mySlot = 0, inputSeq = 0, ping = 0, isHost = false;
 let predictor: Predictor | null = null, shownAlpha = 0; // online: your own fighter moved at once (the Settings switch 'Controls: Instant')
 const netStats = { since: performance.now(), pings: 0, pingSum: 0, pingMax: 0, frames: 0, slow: 0 }; // online: this page's connection lately (sent to the server's log)
+let fast: FastLane | null = null; // online: the fast lane (UDP) beside the WebSocket, once it opens (net/fast.ts)
+const recentIn: [number, PlayerInput][] = []; // the last few inputs, sent again with each one by the fast lane (where one can be lost)
+/** Online: send this tick's controls by both lanes. */
+const sendInput = (i: PlayerInput, n: number) => { net?.send({ t: 'in', i, n }); fast?.send({ t: 'in', i, n, r: recentIn.slice() }); recentIn.push([n, i]); if (recentIn.length > 4) recentIn.shift(); };
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
   const url = serverUrl(onlineParam);
@@ -66,9 +71,14 @@ if (onlineParam !== null) {
   const m = new Mirror(await Sim.create(r.seed, 4, false)); // online is always 4 fighters: empty seats are parked out of sight
   mirror = m;
   if (r.queued) notice('You join at the start of the next round');
+  const snap = (s: Snapshot) => { m.push(s); predictor?.reconcile(s); }; // (by either lane: the second copy of a snapshot is ignored)
   const attach = (c: NetClient) => {
+    fast?.close();
+    fast = new FastLane(c, (msg) => { if (msg.t === 'snap') snap(msg.s); });
+    void fast.start();
     c.onMsg = (msg) => {
-      if (msg.t === 'snap') { m.push(msg.s); predictor?.reconcile(msg.s); }
+      if (msg.t === 'snap') snap(msg.s);
+      else if (msg.t === 'rtc') void fast?.signal(msg);
       else if (msg.t === 'pong') { ping = performance.now() - msg.n; netStats.pings++; netStats.pingSum += ping; netStats.pingMax = Math.max(netStats.pingMax, ping); showPing(ping, m.delay > T.net.blendTicks + 3); } // (amber when the round trip is long, or the line is shaky and the picture runs further behind to cover it)
       else if (msg.t === 'clip') { pendingClip = msg.c; clipAt = performance.now(); } // the round's best moment: it plays in the museum
       else if (msg.t === 'start') { mySlot = msg.you; if (predictor) { predictor.stop(); predictor.slot = msg.you; } if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
@@ -112,12 +122,12 @@ if (onlineParam !== null) {
   let was = { waits: 0, starved: 0, checks: 0, off: 0, snaps: 0 };
   setInterval(() => {
     const P = predictor?.stats ?? { checks: 0, off: 0, snaps: 0 }, checks = P.checks - was.checks, secs = Math.max(1, (performance.now() - netStats.since) / 1000);
-    if (net && !paused) net.send({ t: 'stats', ping: netStats.pings ? netStats.pingSum / netStats.pings : ping, pingMax: netStats.pingMax, buffer: m.delay, stalls: m.waits - was.waits, carried: m.starved - was.starved, off: checks ? ((P.off - was.off) / checks) * 100 : 0, snaps: P.snaps - was.snaps, fps: netStats.frames / secs, slow: netStats.slow, hidden: hiddenSeconds() });
+    if (net && !paused) net.send({ t: 'stats', ping: netStats.pings ? netStats.pingSum / netStats.pings : ping, pingMax: netStats.pingMax, buffer: m.delay, stalls: m.waits - was.waits, carried: m.starved - was.starved, off: checks ? ((P.off - was.off) / checks) * 100 : 0, snaps: P.snaps - was.snaps, fps: netStats.frames / secs, slow: netStats.slow, hidden: hiddenSeconds(), fast: !!fast?.open });
     was = { waits: m.waits, starved: m.starved, checks: P.checks, off: P.off, snaps: P.snaps };
     Object.assign(netStats, { since: performance.now(), pings: 0, pingSum: 0, pingMax: 0, frames: 0, slow: 0 });
   }, 30_000);
   // Out of sight (another tab) the page stops sending controls, and the server would hold your last press for as long as you are away: let go.
-  addEventListener('visibilitychange', () => { if (document.hidden) net?.send({ t: 'in', i: NEUTRAL, n: ++inputSeq }); });
+  addEventListener('visibilitychange', () => { if (document.hidden) sendInput(NEUTRAL, ++inputSeq); });
 }
 let desyncsSeen = 0, resyncAt = 0;
 const view = mirror ? mirror.sim : sim; // what is drawn
@@ -333,7 +343,7 @@ function frame(now: number) {
       if (s) toClient.push({ at: now + lagMs + (stallMs && now % 2000 < stallMs ? stallMs - (now % 2000) : 0), s: JSON.parse(JSON.stringify(s)) }); // through the "wire" (held back during a pretend stall)
       continue;
     }
-    if (net) { const n = ++inputSeq; net.send({ t: 'in', i: lastInput, n }); for (const e of predictor?.tick(lastInput, n, shownAlpha) ?? []) play(e); continue; } // online: the server runs the fight; we send our controls (and, predicting, move our own fighter at once)
+    if (net) { const n = ++inputSeq; sendInput(lastInput, n); for (const e of predictor?.tick(lastInput, n, shownAlpha) ?? []) play(e); continue; } // online: the server runs the fight; we send our controls (and, predicting, move our own fighter at once)
     const inputs = [lastInput, NEUTRAL, flail(sim.frame, 2), flail(sim.frame, 3)];
     if (mode === 'local') for (let k = 0; k < devices.length; k++) { const d = devices[k]; inputs[k] = d === 'kb' ? lastInput : d === 'bot' ? NEUTRAL : padInput(k, d, pads); } // (a bot presses its own buttons inside the sim)
     else if (players > 1) for (let k = 1; k < players; k++) inputs[k] = readPadInput(k, pads[k]);
@@ -387,7 +397,7 @@ function frame(now: number) {
       `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: ${view.fighters.map((f) => (f.controlled ? 'P' + (f.index + 1) : 'dummy') + ' ' + Math.max(0, f.hp).toFixed(0)).join('  ')}   players ${players}`,
       `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} charge ${view.fighters[mySlot].charge}/${T.charge.maxFrames} dodge-ready-in ${(view.fighters[mySlot].dodgeCooldown / 60).toFixed(1)}s`,
       `era ${eraById(view.era).name}   outfit ${eraById(view.era).outfits[view.outfits[mySlot]]}`,
-      net ? `ONLINE: you are fighter ${mySlot + 1}, ping ${Math.round(ping)} ms, buffer ${mirror!.delay.toFixed(1)} ticks, ${mirror!.waits} stalls, ${mirror!.desyncs} desyncs` : room ? `PRETEND NETWORK: ${lagMs} ms each way, buffer ${mirror!.delay.toFixed(1)} ticks, ${mirror!.waits} stalls, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
+      net ? `ONLINE: you are fighter ${mySlot + 1}, ${fast?.open ? 'fast lane' : 'WebSocket only'}, ping ${Math.round(ping)} ms, buffer ${mirror!.delay.toFixed(1)} ticks, ${mirror!.waits} stalls, ${mirror!.desyncs} desyncs` : room ? `PRETEND NETWORK: ${lagMs} ms each way, buffer ${mirror!.delay.toFixed(1)} ticks, ${mirror!.waits} stalls, ${mirror!.desyncs} desyncs` : `F3 hide   R reset   edit src/content/tuning.ts to tune live`,
     ]);
     frames = 0; msSum = 0; simMsSum = 0; statTime = now;
   }

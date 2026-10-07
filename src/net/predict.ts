@@ -69,6 +69,7 @@ export class Predictor {
 
   /** A snapshot from the server: what it says about you, and how far your guess was off. */
   reconcile(s: Snapshot): void {
+    if (this.last && s.frame <= this.last.frame && s.frame > this.last.frame - 120) return; // (the same snapshot by the other lane, or an older one overtaken; far older is a new fight)
     const me = s.f[this.slot];
     this.state = me?.st ?? 16;
     this.round = s.round;

@@ -399,6 +399,29 @@ describe('room server', () => {
     expect(lines[1]).toMatch(/ping 0 ms \(worst 0\), buffer 99.0 ticks, stalls 0/);
   });
 
+  it('the fast lane: a page opens a WebRTC data channel through its WebSocket, snapshots come by it, and an input sent by both lanes counts once', async () => {
+    const { host, game } = await fightOf(2, { fastPort: 17777 });
+    const rtc = await import('node-datachannel');
+    const pc = new rtc.PeerConnection('page', { iceServers: [] }); // (playing the browser)
+    pc.onLocalDescription((sdp, type) => { if (type === 'offer') host.send({ t: 'rtc', sdp }); });
+    pc.onLocalCandidate((candidate, mid) => host.send({ t: 'rtc', candidate: candidate.replace(/^a=/, ''), mid }));
+    const dc = pc.createDataChannel('fast', { unordered: true, maxRetransmits: 0 }); // (this makes the offer: listen first)
+    const got: { t: string; s?: { ack?: number[] } }[] = [];
+    dc.onMessage((m) => got.push(JSON.parse(String(m))));
+    const used = new Set<unknown>();
+    const pump = setInterval(() => { for (const m of host.msgs) if (m.t === 'rtc' && !used.has(m)) { used.add(m); try { if (m.sdp) pc.setRemoteDescription(m.sdp, 'answer'); else if (m.candidate) pc.addRemoteCandidate(m.candidate, m.mid ?? '0'); } catch { /* an address it cannot use */ } } }, 5);
+    try {
+      for (let i = 0; i < 300 && !(dc.isOpen() && got.some((x) => x.t === 'snap')); i++) await sleep(20);
+      expect(dc.isOpen()).toBe(true);
+      expect(got.some((x) => x.t === 'snap')).toBe(true); // snapshots by the fast lane
+      const i = { moveX: 1, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false };
+      for (let n = 1; n <= 5; n++) { dc.sendMessage(JSON.stringify({ t: 'in', i, n, r: n > 1 ? [[n - 1, i]] : [] })); host.send({ t: 'in', i, n }); } // (each by both lanes)
+      const s = await host.wait('snap', (m) => m.s.ack?.[0] === 5);
+      expect(s.s.ack![0]).toBe(5);
+      expect(game.room.stats[0].folded).toBeLessThanOrEqual(5 - T.net.inputQueue); // the second copies were dropped, not queued (all ten would have folded seven)
+    } finally { clearInterval(pump); dc.close(); pc.close(); }
+  }, 20_000);
+
   it('every snapshot says which of each player\'s inputs it used', async () => {
     const { host } = await fightOf(2);
     for (let n = 1; n <= 5; n++) host.send({ t: 'in', n, i: { moveX: 1, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false } });

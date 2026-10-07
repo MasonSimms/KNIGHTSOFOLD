@@ -52,6 +52,39 @@ describe('online mirror', () => {
     expect(seen.has('pickup')).toBe(true);
   }, 120_000);
 
+  it.each([4, 5])('seed %i: over the fast lane (snapshots lost, repeated by the WebSocket a little later, out of order) the copy still matches through deaths, pickups and new rounds', async (seed) => {
+    const { room, mirror, server, client } = await pair(seed, 4, false);
+    const ref = new Mirror(await Sim.create(seed, 4, false)); // (a copy fed every snapshot, in order: what the events should be)
+    const inputs = fuzzer(seed * 11 + 3), rng = makeRng(seed);
+    const slow: { at: number; s: Snapshot }[] = [];
+    let worst = 0, rounds = 0, lost = 0;
+    const seen: string[] = [], truth: string[] = [];
+    const key = (e: { t: string; owner: number; x: number }) => `${e.t}${e.owner}@${e.x.toFixed(2)}`;
+    for (let i = 0; i < 2400; i++) {
+      for (let k = 0; k < 4; k++) room.setInput(k, inputs(4)[k]);
+      const s = room.tick();
+      if (!s) continue;
+      const fast = rng(), copy = wire(s);
+      if (fast < 0.1) lost++; // lost on the fast lane (1 in 10: far worse than real)
+      else if (fast < 0.15) slow.push({ at: i + 2, s: wire(s) }); // overtaken: it turns up two ticks late
+      else mirror.push(copy);
+      slow.push({ at: i + 8, s: copy }); // ...and the WebSocket brings every one again, later
+      while (slow.length && slow[0].at <= i) mirror.push(slow.shift()!.s);
+      ref.push(wire(s));
+      for (const e of ref.show(s.frame).events) if (e.t === 'die' || e.t === 'fall' || e.t === 'pickup') truth.push(key(e));
+      const { events } = mirror.show(s.frame - 1);
+      for (const e of events) if (e.t === 'die' || e.t === 'fall' || e.t === 'pickup') seen.push(key(e));
+      rounds = Math.max(rounds, client.round);
+      if (server.round === client.round) worst = Math.max(worst, gap(server, client, true));
+    }
+    expect(lost).toBeGreaterThan(100);
+    expect(mirror.desyncs).toBe(0);
+    expect(rounds).toBeGreaterThan(1);
+    expect(seen.slice(0, truth.length - 2)).toEqual(truth.slice(0, truth.length - 2)); // every death and pickup shown once, in order (the last may be a tick behind)
+    expect(truth.length).toBeGreaterThan(2);
+    expect(worst).toBeLessThan(1.5); // (a tick behind the server, while fighters fly about)
+  }, 120_000);
+
   it('a client that stops drawing for a few seconds (a hidden tab) is still in step when it looks again', async () => {
     const { room, mirror, server, client } = await pair(2, 4, false);
     const inputs = fuzzer(23);
@@ -202,16 +235,15 @@ describe('online mirror', () => {
       for (let k = 0; k < 4; k++) room.setInput(k, inputs(4)[k]);
       const s = room.tick();
       if (s) { const stall = now < 30 && i % 120 < 12 ? 0.2 - (i % 120) / 60 : 0; lastArrival = Math.max(lastArrival + 0.0001, now + 0.05 + stall); inflight.push({ at: lastArrival, s: wire(s) }); }
-      while (inflight.length && inflight[0].at <= now) mirror.push(inflight.shift()!.s);
+      while (inflight.length && inflight[0].at <= now) { const x = inflight.shift()!; mirror.push(x.s, x.at * 1000); } // (stamped with the pretend clock)
       const before = mirror.waits;
       mirror.update(1 / 60);
       if (mirror.waits > before) waitsBy[now < 6 ? 0 : now < 30 ? 1 : 2]++;
-      if (i === 1799) expect(mirror.delay).toBeGreaterThanOrEqual(10); // 200 ms of stall needs about 12 ticks of buffer (it probes a tick narrower now and then)
+      if (i === 1799) expect(mirror.delay).toBeGreaterThanOrEqual(8); // 200 ms of stall is about 12 ticks: the buffer covers all but its worst twentieth (net.jitter.percentile), the rest is carried over (extrapolateTicks)
     }
     expect(mirror.desyncs).toBe(0);
-    expect(waitsBy[0]).toBeGreaterThan(0); // the first stalls catch it out...
-    expect(waitsBy[1]).toBe(0); // ...then the buffer covers them
+    expect(waitsBy[1]).toBe(0); // the buffer learns from the first stall (its snapshots come in a late bunch) and covers the rest
     expect(waitsBy[2]).toBe(0);
-    expect(mirror.delay).toBe(T.net.blendTicks); // 40 s of a steady line: back to the minimum
+    expect(mirror.delay).toBeCloseTo(T.net.blendTicks, 2); // 40 s of a steady line: back to the minimum
   }, 120_000);
 });

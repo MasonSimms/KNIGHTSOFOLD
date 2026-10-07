@@ -6,7 +6,7 @@ import type { Clip } from '../replay/tape';
 // Messages between a browser and the room server: one JSON object per WebSocket message.
 /** Bump when the messages change. A page and a server with different versions (or different gameplay numbers) refuse to play together:
  *  their copies of the fight would not match. */
-export const PROTOCOL = 4;
+export const PROTOCOL = 5;
 
 export type ClientMsg =
   | { t: 'hello'; v: number; tuning: string } // the first message: which version of the game this page is (PROTOCOL, and the gameplay numbers' fingerprint)
@@ -18,10 +18,11 @@ export type ClientMsg =
   | { t: 'bot'; at: number } // host only, in the lobby: put a bot in empty seat `at`, or take away the bot sitting there
   | { t: 'start' } // host only
   | { t: 'end' } // host only: back to the lobby
-  | { t: 'in'; i: PlayerInput; n?: number } // my controls, sent every tick; n counts them (the snapshot says which one the server used last: prediction needs it)
+  | { t: 'in'; i: PlayerInput; n?: number; r?: [number, PlayerInput][] } // my controls, sent every tick; n counts them (the snapshot says which one the server used last: prediction needs it). r: the few before it again (over the fast lane, where one can be lost)
+  | { t: 'rtc'; sdp?: string; candidate?: string; mid?: string } // opening the fast lane (server/fast.ts): this page's offer, then its addresses
   | { t: 'resync' } // my copy of the fight went wrong (a missed event): send me all of it again
   | { t: 'ping'; n: number } // send n straight back (to measure the round trip)
-  | { t: 'stats'; ping: number; pingMax: number; buffer: number; stalls: number; carried: number; off: number; snaps: number; fps: number; slow: number; hidden: number }; // every 30 s in a fight: how this page's connection is going (into the server's log, fly logs: what real connections are like)
+  | { t: 'stats'; ping: number; pingMax: number; buffer: number; stalls: number; carried: number; off: number; snaps: number; fps: number; slow: number; hidden: number; fast?: boolean }; // every 30 s in a fight: how this page's connection is going (into the server's log, fly logs: what real connections are like)
 
 export type ServerMsg =
   | { t: 'lobby'; code: string; n: number; you: number; host: boolean; token: string; looks: (Look | null)[]; ready: boolean[] } // who is in the room and who is ready (sent to everyone whenever it changes); `token` is your private key to rejoin
@@ -30,7 +31,8 @@ export type ServerMsg =
   | { t: 'over'; why: string } // the host ended the fight (or everyone left): back to the menu
   | { t: 'pong'; n: number }
   | { t: 'clip'; c: Clip } // the replay of the round just over: everyone watches it (about 5 s) before the next round
-  | { t: 'error'; why: string; fatal?: boolean }; // fatal: this page cannot play here (an old version, the server restarting): the connection closes
+  | { t: 'error'; why: string; fatal?: boolean } // fatal: this page cannot play here (an old version, the server restarting): the connection closes
+  | { t: 'rtc'; sdp?: string; candidate?: string; mid?: string }; // the fast lane: the server's answer, then its address
 
 export const MAX_PLAYERS = 4;
 export const MIN_PLAYERS = 2; // to start a fight

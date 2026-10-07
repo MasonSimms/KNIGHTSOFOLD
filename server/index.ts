@@ -13,6 +13,8 @@ import { tuning as T } from '../src/content/tuning';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { siteHandler } from './site';
+import { fastLanes } from './fast';
+import type { Lane } from './fast';
 
 // The room server: 4-letter room codes, up to 4 players, the host starts the fight, the real sim runs here at 60 Hz.
 // People can join a fight under way (they appear next round) and come back after a drop (same seat, same score).
@@ -33,12 +35,13 @@ class GameRoom {
   get present(): Seat[] { return this.seats.filter((s): s is Seat => !!s?.ws); } // connected players, lowest seat first: the first is the host
 }
 
-export interface ServerOptions { maxRooms?: number; reserveMs?: number; emptyMs?: number; graceMs?: number; createLimit?: number; site?: string } // site: a folder with the built game page to serve too
+export interface ServerOptions { maxRooms?: number; reserveMs?: number; emptyMs?: number; graceMs?: number; createLimit?: number; site?: string; fastPort?: number; publicIp?: string } // site: a folder with the built game page to serve too; fastPort: the UDP port of the fast lane (server/fast.ts), publicIp: the address pages dial it on
 export interface Server { port: number; rooms: Map<string, GameRoom>; close(why?: string): Promise<void> }
 
 export async function startServer(port: number, opts: ServerOptions = {}): Promise<Server> {
   const maxRooms = opts.maxRooms ?? 20, reserveMs = opts.reserveMs ?? RESERVE_MS, emptyMs = opts.emptyMs ?? EMPTY_MS, graceMs = opts.graceMs ?? GRACE_MS;
   const rooms = new Map<string, GameRoom>();
+  const makeLane = opts.fastPort ? await fastLanes(opts.fastPort, opts.publicIp) : null, lanes = new WeakMap<WebSocket, Lane>(); // the fast lane of each connection that opened one
   const where = new WeakMap<WebSocket, { room: GameRoom; seat: Seat }>();
   const conn = new WeakMap<WebSocket, { ip: string; hello: boolean }>(); // who is on the other end, and whether their page is the right version
   const createLimit = opts.createLimit ?? CREATE_LIMIT.rooms, created = new Map<string, number[]>(); // per address: when it made its last rooms
@@ -118,8 +121,18 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
 
   function seatPlayer(r: GameRoom, ws: WebSocket, seat: Seat) {
     seat.ws = ws;
+    if (r.game) r.game.room.forgetInputs(slotOf(r, seat)); // (a new page counts its inputs from 1)
     where.set(ws, { room: r, seat });
     r.emptySince = 0;
+  }
+
+  /** A page's controls, by either lane (each input counts once: Room.setInput), with the few before it again (r) after a loss. */
+  function takeInput(ws: WebSocket, m: { i?: unknown; n?: unknown; r?: unknown }) {
+    const at = where.get(ws), g = at?.room.game;
+    if (!at || !g) return;
+    const slot = slotOf(at.room, at.seat);
+    if (Array.isArray(m.r)) for (const x of m.r.slice(-8)) if (Array.isArray(x) && Number.isInteger(x[0])) g.room.setInput(slot, cleanInput(x[1]), x[0]);
+    g.room.setInput(slot, cleanInput(m.i), Number.isInteger(m.n) ? (m.n as number) : 0);
   }
 
   function onMessage(ws: WebSocket, raw: string) {
@@ -139,10 +152,15 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       const v = (x: unknown, hi: number) => (typeof x === 'number' && Number.isFinite(x) ? Math.max(0, Math.min(hi, x)) : 0), r0 = Math.round;
       const slot = slotOf(at.room, at.seat), st = at.room.game.room.stats[slot], was = at.seat.inputsWas ?? { ticks: 0, dry: 0, folded: 0 }, ticks = Math.max(1, st.ticks - was.ticks);
       at.seat.inputsWas = { ticks: st.ticks, dry: st.dry, folded: st.folded };
-      return void console.log(`net ${at.room.code} seat ${slot}: ping ${r0(v(m.ping, 9999))} ms (worst ${r0(v(m.pingMax, 9999))}), buffer ${v(m.buffer, 99).toFixed(1)} ticks, stalls ${r0(v(m.stalls, 9999))}, carried on ${r0(v(m.carried, 99999))} frames, guess off ${r0(v(m.off, 9999))} cm, snaps ${r0(v(m.snaps, 9999))}, ${r0(v(m.fps, 999))} fps (${r0(v(m.slow, 99999))} slow frames), hidden ${r0(v(m.hidden, 99999))} s | its inputs: ${(100 * (st.dry - was.dry) / ticks).toFixed(1)}% of ticks none had come, ${st.folded - was.folded} folded`);
+      return void console.log(`net ${at.room.code} seat ${slot}: ping ${r0(v(m.ping, 9999))} ms (worst ${r0(v(m.pingMax, 9999))}), buffer ${v(m.buffer, 99).toFixed(1)} ticks, stalls ${r0(v(m.stalls, 9999))}, carried on ${r0(v(m.carried, 99999))} frames, guess off ${r0(v(m.off, 9999))} cm, snaps ${r0(v(m.snaps, 9999))}, ${r0(v(m.fps, 999))} fps (${r0(v(m.slow, 99999))} slow frames), ${m.fast ? 'fast lane' : 'WebSocket only'}, hidden ${r0(v(m.hidden, 99999))} s | its inputs: ${(100 * (st.dry - was.dry) / ticks).toFixed(1)}% of ticks none had come, ${st.folded - was.folded} folded`);
     }
     if (m.t === 'in') {
-      if (at?.room.game) at.room.game.room.setInput(slotOf(at.room, at.seat), cleanInput(m.i), Number.isInteger(m.n) ? m.n : 0);
+      takeInput(ws, m);
+    } else if (m.t === 'rtc') { // a page opening its fast lane (in a room only)
+      if (!makeLane || !at) return;
+      let lane = lanes.get(ws);
+      if (!lane) { lane = makeLane((x) => send(ws, x), (raw) => { try { const f = JSON.parse(raw); if (f?.t === 'in') takeInput(ws, f); } catch { /* junk */ } }); lanes.set(ws, lane); }
+      lane.signal(m);
     } else if (m.t === 'resync') {
       if (at?.room.game) sendStart(at.room, at.seat, false, seeds.get(at.room)!, true);
     } else if (m.t === 'create') {
@@ -247,6 +265,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       const at = where.get(ws);
       if (at) console.log(`left room ${at.room.code} seat ${at.room.seats.indexOf(at.seat)}${at.room.game ? ' during a fight' : ''}: ${why || `closed by the browser (${code}${reason.length ? ' ' + reason.toString().slice(0, 60) : ''})`}, last heard from ${Math.round((Date.now() - lastMsg) / 1000)} s before, ${Math.round(ws.bufferedAmount / 1024)} KB still waiting to go to it`);
       leave(ws);
+      lanes.get(ws)?.close();
     });
     ws.on('error', () => ws.terminate());
   });
@@ -269,7 +288,10 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
         health.work += w; health.workMax = Math.max(health.workMax, w); health.ticks++;
         if (!s) continue;
         const msg = JSON.stringify({ t: 'snap', s });
-        for (const p of r.present) if (p.ws!.readyState === WebSocket.OPEN && p.ws!.bufferedAmount < 1_000_000) p.ws!.send(msg); // a slow client just misses snapshots
+        for (const p of r.present) {
+          if (p.ws!.readyState === WebSocket.OPEN && p.ws!.bufferedAmount < 1_000_000) p.ws!.send(msg); // a slow client just misses snapshots
+          lanes.get(p.ws!)?.send(msg); // ...and by the fast lane too, where it has one: whichever comes first is used
+        }
         const clip = r.game.room.takeClip();
         if (clip) { const c = JSON.stringify({ t: 'clip', c: clip }); for (const p of r.present) if (p.ws!.readyState === WebSocket.OPEN) p.ws!.send(c); } // the round's replay (about 150 KB, once a round)
       }
@@ -306,7 +328,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
 // Started directly (node dist-server/index.js): listen on $PORT.
 if (process.argv[1] && /dist-server[\\/]index\.js$/.test(process.argv[1])) {
   const page = fileURLToPath(new URL('../dist', import.meta.url)); // the built game page next to the server (npm run build)
-  const s = await startServer(Number(process.env.PORT) || 8080, { maxRooms: Number(process.env.MAX_ROOMS) || 20, site: existsSync(page) ? page : undefined });
+  const s = await startServer(Number(process.env.PORT) || 8080, { maxRooms: Number(process.env.MAX_ROOMS) || 20, site: existsSync(page) ? page : undefined, fastPort: Number(process.env.RTC_PORT) || 7777, publicIp: process.env.RTC_PUBLIC_IP || undefined });
   console.log(`Knights of Old room server listening on port ${s.port}${existsSync(page) ? ' (and serving the game page)' : ''}`);
   // Stopped (a new version going up, or the host stopping an idle machine): tell everyone, then go.
   const stop = async () => { console.log('stopping'); await s.close('The server is restarting. Make a new room in a minute.'); process.exit(0); };

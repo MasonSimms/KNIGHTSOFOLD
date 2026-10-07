@@ -16,6 +16,8 @@ export class Room {
   private pending: SimEvent[] = [];
   private log: SimEvent[] = []; // structural events since the round began, so a late joiner can catch up
   private tape = new Tape(); // the round, for its end-of-round replay
+  private lastN: number[]; // per player: the number of the newest input taken (the same input comes over both lanes: the second is dropped)
+  private recent: [number, SimEvent[]][] = []; // structural events of the last few ticks, repeated in every snapshot (Snapshot.back)
   /** Per player, how their buttons have been arriving (the server log, npm run netlab): ticks counted, inputs left waiting summed over
    *  them (each one waiting is a tick of delay), ticks with none arrived (the last one used again), inputs folded into the next. */
   stats: { ticks: number; waiting: number; dry: number; folded: number }[];
@@ -24,6 +26,7 @@ export class Room {
     this.inputs = sim.fighters.map(() => NEUTRAL);
     this.queue = sim.fighters.map(() => []);
     this.acks = sim.fighters.map(() => 0);
+    this.lastN = sim.fighters.map(() => 0);
     this.stats = sim.fighters.map(() => ({ ticks: 0, waiting: 0, dry: 0, folded: 0 }));
     // Between rounds everyone sees the museum: the freeze, the camera pulling back, the replay in the painting, the slide to the next
     // painting and into it (render/museum.ts). The next round waits for all of it.
@@ -36,6 +39,7 @@ export class Room {
   setInput(slot: number, input: PlayerInput, n = 0): void {
     const q = this.queue[slot];
     if (!q) return;
+    if (n > 0) { if (n <= this.lastN[slot]) return; this.lastN[slot] = n; } // (already taken: it came the other way first)
     q.push({ i: input, n });
     while (q.length > T.net.inputQueue) this.fold(slot);
   }
@@ -63,11 +67,18 @@ export class Room {
     s.ack = this.acks.slice();
     this.pending = [];
     this.tape.feed(this.sim, s);
-    return s;
+    const mine = s.ev.filter((e) => STRUCTURAL.has(e.t));
+    while (this.recent.length && this.recent[0][0] <= this.ticks - T.net.eventRepeat) this.recent.shift();
+    const back = this.recent.slice();
+    if (mine.length) this.recent.push([this.ticks, mine]);
+    return back.length ? { ...s, back } : s; // (the replay keeps the snapshot without them)
   }
 
   /** The replay of the round just over, once it is ready (send it to everyone). */
   takeClip(): Clip | null { return this.tape.take(); }
+
+  /** A new page took this seat (a rejoin, a reload): its inputs count from 1 again. */
+  forgetInputs(slot: number): void { this.lastN[slot] = 0; if (this.queue[slot]) this.queue[slot].length = 0; }
 
   /** A player left: their fighter dies now and they are out of every later round. */
   removePlayer(slot: number): void {

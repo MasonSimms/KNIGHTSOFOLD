@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:server": "rolldown server/index.ts --platform node --format esm --file dist-server/index.js --external ws",
+    "build:server": "rolldown server/index.ts --platform node --format esm --file dist-server/index.js --external ws --external node-datachannel",
     "server": "npm run build:server && node dist-server/index.js",
     "deploy": "node server/deploy.mjs",
     "lab": "vitest run --config vitest.lab.config.ts balance",
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@dimforge/rapier2d-deterministic-compat": "^0.21.0",
+    "node-datachannel": "^0.33.4",
     "pixi.js": "^8.22.0",
     "ws": "^8.22.0"
   },
