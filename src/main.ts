@@ -158,10 +158,10 @@ async function eraChange() {
   const next = museum.newCanvas();
   await drawNextRound(next);
   museum.hangNext(next);
+  clearBanner();
   await museum.slide();
   await museum.zoomIn();
   if (!net && !room) sim.finishRoundPause(); // (here the next round starts now; online the server has been waiting the same time)
-  clearBanner();
   museum.close();
   replaying = false; last = performance.now(); acc = 0;
 }
