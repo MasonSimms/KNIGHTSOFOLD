@@ -147,6 +147,9 @@ export interface Fighter {
   hauled: boolean; // caught on someone else's grappling hook (being reeled in)
   netRequest: boolean; // clicked with a net in hand: the world throws it this frame (sim/tangle.ts)
   tangled: number; // frames left caught in a net: no attacking, grabbing, jumping or dodging, only a shuffle
+  frozen: number; // frames left in a block of ice (a Freeze Ray: sim/effects.ts)
+  bubble: number; // frames left floating in a bubble (a Bubble Blaster: sim/effects.ts)
+  bubbleRise: number; // ...how fast it rises (m/s)
   gunCool: number; // frames until the gun can fire again
   burst: number; // shots still to come in this burst (a burst gun: sim/guns.ts)
   spray: number; // shots fired in a row without letting go (a held trigger or a burst wanders more each one)
@@ -293,7 +296,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, drift: 0, swimKick: 0, carried: 0, slamming: false, dove: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, netRequest: false, tangled: 0, gunCool: 0, burst: 0, spray: 0, gunCharge: 0, aim: 0, gunTrim: 0, reach: 0,
+    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, netRequest: false, tangled: 0, frozen: 0, bubble: 0, bubbleRise: 0, gunCool: 0, burst: 0, spray: 0, gunCharge: 0, aim: 0, gunTrim: 0, reach: 0,
     spawnX: x, spawnY: y,
   };
 
@@ -432,6 +435,12 @@ export function takeIn(world: World, f: Fighter, part: Part): void {
 }
 
 /** A fighter's loose club (lying where they dropped it) becomes a plain object in the world that anyone can pick up. */
+/** The parts still on the fighter's body: not a weapon lying where they dropped it, not a limb they lost. */
+export function attachedParts(f: Fighter): Part[] {
+  return f.parts.filter((p) => !(isWeapon(p) && !f.grip) && !(f.armLost && (p.role === 'upper' || p.role === 'fore'))
+    && !f.legs.some((l, i) => f.legLost[i] && (p === l.thigh || p === l.shin)));
+}
+
 export function dropToWorld(f: Fighter, world?: World): Part {
   const part = f.stick!;
   if (world) letGoOfStick(world, f);
@@ -707,6 +716,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   const body = f.torso.body;
 
   if (f.stun > 0) f.stun--;
+  if (f.frozen > 0 || f.bubble > 0) input = { ...input, moveX: 0, jump: false, attack: false, dodge: false, drop: false, crouch: false }; // frozen solid, or in a bubble: helpless (sim/effects.ts)
   if (f.tangled > 0) { f.tangled--; input = { ...input, attack: false, jump: false, dodge: false, drop: false, moveX: input.moveX * T.netting.walk }; } // caught in a net (sim/tangle.ts)
   if (f.crashWait > 0) f.crashWait--;
   if (f.knock > 0) { // knocked down: tumbling and limp until it passes, or until they are calm and on the ground (then they get up at once)
@@ -927,7 +937,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     if (f.tuck > 0) f.tuck--;
     // Coming down is quicker than going up (owner: the jump felt floaty): extra pull while you fall on your own. Not while knocked down,
     // flung, held or holding someone (carries and slams keep their own arcs), so big hits and throws still fly.
-    if (!grounded && !swimming && f.knock === 0 && f.thrown === 0 && f.carried === 0 && !f.held && !f.hooked && body.linvel(tmp).y > 0) shove(f, 0, (M.fallGravity - 1) * T.sim.gravity * fighterMass(f) * dt);
+    if (!grounded && !swimming && f.knock === 0 && f.thrown === 0 && f.carried === 0 && !f.held && !f.hooked && !f.bubble && body.linvel(tmp).y > 0) shove(f, 0, (M.fallGravity - 1) * T.sim.gravity * fighterMass(f) * dt);
     // Wall slide: in the air, pushing toward a wall, you slide down it slowly instead of dropping.
     if (!grounded && f.wall !== 0 && input.moveX * f.wall > 0.2) {
       for (const p of f.parts) {

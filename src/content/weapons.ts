@@ -59,6 +59,7 @@ export interface GunSpec {
   charge?: number; // hold the button this many frames and it fires itself (let go sooner: no shot)
   pierce?: boolean; // the shot goes through walls and everything, hitting every fighter on its line once
   aimLine?: boolean; // (picture only) a thin line along the barrel while the gun is held still
+  effect?: { kind: 'swap' | 'freeze' | 'bubble'; frames?: number; rise?: number }; // what the shot does to what it stops in (sim/effects.ts): swap places; an ice block for `frames`; a bubble rising at `rise` m/s for `frames`
   look?: { color: number; orb?: number }; // how its shots look (picture only): their colour, and a glowing ball this wide (m) instead of a streak
 }
 

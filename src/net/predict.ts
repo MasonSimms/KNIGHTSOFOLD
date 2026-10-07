@@ -1,7 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { RigidBody } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
-import { isWeapon } from '../sim/fighter';
+import { attachedParts, isWeapon } from '../sim/fighter';
 import type { Fighter, Part } from '../sim/fighter';
 import type { PlayerInput, SimEvent } from '../sim/types';
 import { HOLDING } from './snapshot';
@@ -16,7 +16,7 @@ import type { Mirror, Snapshot } from './snapshot';
 // off), it starts from the newest place the server has you and quickly replays the buttons the server has not used yet, so the guess is
 // where the server will have you; on screen your fighter slides there from where it was drawn (shift) instead of jumping.
 
-const SERVER_ONLY = 1 | 2 | 4 | 8 | 16 | 512 | 1024; // knocked, stunned, held, holding someone, dead, on a grappling hook's rope, tangled in a net (snapshot.fighterState)
+const SERVER_ONLY = 1 | 2 | 4 | 8 | 16 | 512 | 1024 | 2048 | 4096; // knocked, stunned, held, holding someone, dead, on a grappling hook's rope, tangled in a net, frozen, in a bubble (snapshot.fighterState)
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -147,10 +147,7 @@ export class Predictor {
   }
 
   /** The parts that move with you (not a club you dropped, not a limb you lost). */
-  private mine(f: Fighter): Part[] {
-    return f.parts.filter((p) => !(isWeapon(p) && !f.grip) && !(f.armLost && (p.role === 'upper' || p.role === 'fore'))
-      && !f.legs.some((l, i) => f.legLost[i] && (p === l.thigh || p === l.shin)));
-  }
+  private mine(f: Fighter): Part[] { return attachedParts(f); }
 }
 
 /**

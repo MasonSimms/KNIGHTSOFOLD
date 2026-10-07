@@ -3,6 +3,7 @@ import { Excitement } from './audio/intensity';
 import { setMusicEra, updateMusic } from './audio/music';
 import { eraById } from './content/eras';
 import { asEyes, asHat, botLook } from './content/looks';
+import { PROPS } from './content/props';
 import { tuning } from './content/tuning';
 import { connectedPads, flushInput, readInput, readPadInput, wasPressed } from './input/input';
 import { createRenderer } from './render/render';
@@ -206,7 +207,7 @@ function play(e: SimEvent) {
   renderer.onEvent(e);
   excitement.event(e);
   if (e.t === 'hit') sfx.hit(e.v, !!e.head);
-  else if (e.t === 'shot') sfx.shot(e.w === 'pistol');
+  else if (e.t === 'shot') sfx.shot((PROPS[e.w ?? '']?.gun?.kick ?? 0) >= 20); // (the big guns: the big bang)
   else if (e.t === 'break' && e.w === 'pane') sfx.shatter();
   else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.(); // some events (respawn, new round) have no sound
 }

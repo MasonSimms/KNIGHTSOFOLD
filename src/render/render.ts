@@ -709,6 +709,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const color = p.weapon?.id === 'flail' ? 0xd9a93a : 0x6a7077;
         for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; ropes.circle(tx + (hx - tx) * t, ty + (hy - ty) * t, 0.02).stroke({ width: 0.012, color }); }
       }
+      for (const f of sim.fighters) { // the ray guns' effects (sim/effects.ts): a block of ice round the frozen, a bubble round the floating
+        if ((!f.frozen && !f.bubble) || f.limp) continue;
+        const cx = lerp(f.torso.px, f.torso.cx, alpha), cy = lerp(f.torso.py, f.torso.cy, alpha);
+        if (f.frozen) ropes.roundRect(cx - 0.5, cy - 1.0, 1.0, 2.0, 0.18).fill({ color: 0xbfe6f5, alpha: 0.42 }).stroke({ width: 0.03, color: 0xeaf8ff, alpha: 0.8 });
+        if (f.bubble) ropes.circle(cx, cy + 0.15, 1.05).fill({ color: 0xd8f0ff, alpha: 0.16 }).stroke({ width: 0.025, color: 0xffffff, alpha: 0.55 }).circle(cx - 0.4, cy - 0.35, 0.14).fill({ color: 0xffffff, alpha: 0.5 });
+      }
       for (const f of sim.fighters) { // tangled in a net: the mesh over them
         if (!f.tangled || f.limp) continue;
         const cx = lerp(f.torso.px, f.torso.cx, alpha), cy = lerp(f.torso.py, f.torso.cy, alpha) + 0.1, R = 0.55;

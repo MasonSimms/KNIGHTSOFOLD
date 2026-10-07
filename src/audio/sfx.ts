@@ -106,6 +106,7 @@ export const sfx = {
   hookThrow() { play('hookThrow', (p) => { burst(0.12, 0.15); tone('triangle', 700 * p, 300 * p, 0.12, 0.08); }); }, // a grappling hook whirls out
   hook() { play('hook', (p) => { tone('square', 900 * p, 600 * p, 0.05, 0.25); burst(0.04, 0.2); }); }, // ...and bites
   unhook() { play('unhook', (p) => { tone('triangle', 400 * p, 700 * p, 0.08, 0.08); }); }, // ...let go (or cut)
+  zap() { play('zap', (p) => { tone('sine', 900 * p, 1500 * p, 0.18, 0.12); tone('triangle', 450 * p, 220 * p, 0.2, 0.08); }); }, // a ray gun's effect lands (swap, freeze, bubble, pop)
   tangle() { play('tangle', (p) => { burst(0.18, 0.25); tone('triangle', 260 * p, 180 * p, 0.15, 0.1); }); }, // a net wraps round someone
   thunk() { play('thunk', (p) => { tone('square', 220 * p, 110 * p, 0.07, 0.35); burst(0.05, 0.3); }); }, // a spear sticks in
   leak() { play('leak', (p) => { burst(0.6, 0.3); tone('sine', 900 * p, 700 * p, 0.3, 0.06); }); }, // a bullet through the water tower: a gush

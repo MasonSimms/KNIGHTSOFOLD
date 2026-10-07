@@ -264,6 +264,13 @@ export const tuning = {
     stun: 25, // ...and loses their footing for this many frames
     cutSpeed: 6, // m/s a blade must be moving to cut the rope
   },
+  effects: {
+    // The Space Age ray guns (sim/effects.ts; each gun's own numbers are in props.ts). PLACEHOLDER numbers.
+    iceFriction: 0.02, // a frozen fighter slides like an ice block (their usual grip is put back after)
+    bubbleDrift: 1.5, // a bubble drifts with the wind at up to this speed (m/s, at full wind)
+    bubbleEase: 0.15, // how quickly a bubble takes on its float (share of the difference each frame)
+    popHurt: 0.5, // any hurt bigger than this pops a bubble
+  },
   netting: {
     // The net (sim/tangle.ts, weapon `net`). PLACEHOLDER numbers.
     speed: 11, // m/s it is thrown at (on top of how you are moving)

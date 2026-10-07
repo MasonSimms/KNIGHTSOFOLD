@@ -22,6 +22,7 @@ import { applyWind } from './wind';
 import { aimSpears, fuses, goneOff, stickSpears } from './special';
 import { moveHooks } from './hook';
 import { moveNets } from './tangle';
+import { moveEffects } from './effects';
 import type { Hook } from './hook';
 import type { Jet } from './tower';
 import { breakProp, damageScenery, fire, moveBullets, predictShot, shatter, snapPart, spendShot } from './guns';
@@ -586,6 +587,7 @@ export class Sim {
     applyWind(this);
     moveHooks(this);
     moveNets(this);
+    moveEffects(this);
     aimSpears(this);
     this.moveRopeEnds();
     this.world.step();

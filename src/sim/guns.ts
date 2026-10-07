@@ -7,6 +7,7 @@ import { damageFor } from './combat';
 import { createProp, dropToWorld, isWeapon, shove, takeIn } from './fighter';
 import type { Fighter, Part } from './fighter';
 import { surfaceY } from './water';
+import { zap } from './effects';
 import { makeRng } from './rng';
 import { leak } from './tower';
 import type { Sim } from './world';
@@ -229,6 +230,7 @@ function land(sim: Sim, u: Bullet, S: GunSpec, c: Collider | undefined): void {
     else if (!v && (part.weapon?.material ?? 'wood') === 'wood' && !part.weapon?.gun) part.burning = T.fire.woodFrames;
     if (v ? !v.limp : !!part.burning) sim.events.push({ t: 'ignite', x: u.x, y: u.y, v: 0, owner: u.owner, victim: v?.index ?? -1 });
   }
+  if (S.effect && part) zap(sim, u.owner, part, S.effect, u.x, u.y);
   if (S.blast) explode(sim, u, S);
 }
 
