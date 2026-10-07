@@ -4,6 +4,7 @@ import { hashSim } from './hash';
 import { NEUTRAL } from './types';
 import type { PlayerInput } from './types';
 import { surfaceY } from './water';
+import { ownerGroups, ropeGroups, syncStickGroups } from './fighter';
 import { Sim } from './world';
 
 // The sea and the ship (Pirates: Ship Deck). Every number here comes from tuning.water, tuning.swim and tuning.boat.
@@ -23,14 +24,14 @@ function moveTo(sim: Sim, who: number, x: number, y: number): void {
   const f = sim.fighters[who], t = f.torso.body.translation(), dx = x - t.x, dy = y - t.y;
   for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + dx, y: q.y + dy }, true); p.body.setLinvel({ x: 0, y: 0 }, true); p.body.setAngvel(0, true); }
 }
-const deckTop = (sim: Sim) => sim.boat!.body.translation().y - T.boat.depth / 2;
+const deckTop = (sim: Sim) => sim.boats[0].body.translation().y - T.boat.depth / 2;
 
 describe('the sea and the ship', () => {
   it('the ship floats with its deck where the platform is, level and in the middle, with the fighters standing on it', async () => {
     const sim = await ship();
-    expect(sim.boat).toBeTruthy();
+    expect(sim.boats[0]).toBeTruthy();
     run(sim, 300);
-    const A = sim.arena, b = sim.boat!.body;
+    const A = sim.arena, b = sim.boats[0].body;
     expect(Math.abs(deckTop(sim) - A.platformTop)).toBeLessThan(0.3);
     expect(Math.abs(b.rotation())).toBeLessThan(0.08);
     expect(Math.abs(b.translation().x - (A.platformX + A.platformW / 2))).toBeLessThan(0.5);
@@ -43,12 +44,12 @@ describe('the sea and the ship', () => {
     const A = sim.arena, end = A.platformX + A.platformW - 0.6;
     for (let i = 0; i < 4; i++) moveTo(sim, i, end - i * 0.5, A.platformTop - T.stand.height - 0.1);
     run(sim, 150);
-    const tipped = sim.boat!.body.rotation();
+    const tipped = sim.boats[0].body.rotation();
     console.log(`four fighters at one end tip the deck ${(tipped * 180 / Math.PI).toFixed(1)} degrees`);
     expect(Math.abs(tipped)).toBeGreaterThan(0.05);
     for (let i = 0; i < 4; i++) moveTo(sim, i, 1 + i * 0.01, A.platformTop - 6); // all off (they fall into the sea, well away from the ship)
     run(sim, 240);
-    expect(Math.abs(sim.boat!.body.rotation())).toBeLessThan(Math.abs(tipped) / 3);
+    expect(Math.abs(sim.boats[0].body.rotation())).toBeLessThan(Math.abs(tipped) / 3);
   });
 
   it('a fighter in the water floats for the swim time, then sinks: a knock-off', async () => {
@@ -101,6 +102,78 @@ describe('the sea and the ship', () => {
       const sim = await ship(4);
       const A = sim.arena;
       moveTo(sim, 3, 2.5, surfaceY(A, 0, 2.5)); // one of them in the water
+      run(sim, 900, (k) => ({ ...NEUTRAL, moveX: Math.sin(sim.frame / (40 + k * 7)), jump: sim.frame % (50 + k * 11) === 0, aim: k, attack: sim.frame % 90 < 20 }));
+      return hashSim(sim);
+    };
+    expect(await play()).toBe(await play());
+  }, 30_000);
+});
+
+// Ship to Ship (Pirates map 1): two ships tied by two ropes; cut both and they drift apart.
+describe('ship to ship', () => {
+  beforeAll(() => { T.props.lying = true; }); // (the gangplank is one of the map's loose things)
+  afterAll(() => { T.props.lying = false; });
+  async function ships(count = 2): Promise<Sim> {
+    const sim = await Sim.create(3, count, false);
+    sim.forceEra = 'pirates'; sim.forceMap = 1;
+    sim.reset();
+    return sim;
+  }
+  const gap = (sim: Sim) => { const [a, b] = sim.boats; return b.body.translation().x - b.w / 2 - (a.body.translation().x + a.w / 2); };
+  const ropes = (sim: Sim) => { const links = sim.props.filter((p) => p.weapon?.id === 'rope'); return [links.slice(0, T.rope.links), links.slice(T.rope.links)]; };
+  const cut = (sim: Sim, rope: number) => { const l = ropes(sim)[rope][Math.floor(T.rope.links / 2)], t = l.body.translation(); sim.shootLoose(l, t.x, t.y, -1); };
+
+  it('two ships float side by side, tied by sagging ropes, with the gangplank across the gap', async () => {
+    const sim = await ships(4);
+    expect(sim.boats.length).toBe(2);
+    run(sim, 180);
+    for (const b of sim.boats) expect(Math.abs(b.body.rotation())).toBeLessThan(0.12);
+    expect(Math.abs(gap(sim) - 1.5)).toBeLessThan(0.5);
+    const A = sim.arena;
+    for (const r of ropes(sim)) for (const l of r) { expect(l.links?.length).toBeGreaterThan(0); expect(l.body.translation().y).toBeLessThan(A.platformTop); } // still tied, above the deck
+    const plank = sim.props.find((p) => p.weapon?.id === 'gangplank')!;
+    expect(Math.abs(plank.body.translation().y - A.platformTop)).toBeLessThan(0.4);
+    for (const f of sim.fighters) { expect(f.grounded).toBe(true); expect(f.wet).toBe(0); }
+  });
+
+  it('one rope cut, they stay together; both cut, they drift apart and the gangplank falls in', async () => {
+    const sim = await ships();
+    run(sim, 60);
+    cut(sim, 0);
+    run(sim, 240);
+    expect(gap(sim)).toBeLessThan(2.2);
+    cut(sim, 1);
+    run(sim, 720);
+    console.log(`both ropes cut: the gap opens to ${gap(sim).toFixed(2)} m`);
+    expect(gap(sim)).toBeGreaterThan(3.5);
+    const plank = sim.props.find((p) => p.weapon?.id === 'gangplank')!;
+    expect(plank.body.translation().y).toBeGreaterThan(sim.arena.platformTop + 0.4); // in the sea
+  }, 30_000);
+
+  it('a brawl on the ships never levers them over (a rope follows its ships but never pulls them)', async () => {
+    const sim = await ships(4);
+    let worst = 0;
+    for (let k = 0; k < 1200; k++) {
+      run(sim, 1, (i) => ({ ...NEUTRAL, moveX: Math.sin(sim.frame / (30 + i * 9)), jump: sim.frame % (40 + i * 13) === 0, aim: -0.6 - i * 0.5, attack: sim.frame % 70 < 25 }));
+      for (const b of sim.boats) worst = Math.max(worst, Math.abs(b.body.rotation()));
+    }
+    console.log(`worst tilt in a 20 s brawl: ${(worst * 180 / Math.PI).toFixed(1)} degrees`);
+    expect(worst).toBeLessThan(0.26); // 15 degrees (four fighters piled on one end of the long ship tip it about 17)
+  }, 30_000);
+
+  it('a weapon meets a rope, a body passes through it', async () => {
+    const meets = (a: number, b: number) => ((a >>> 16) & b & 0xffff) !== 0 && ((b >>> 16) & a & 0xffff) !== 0;
+    const sim = await ships();
+    const f = sim.fighters[0];
+    syncStickGroups(f);
+    expect(meets(ropeGroups, f.stick!.colliders[0].collisionGroups())).toBe(true);
+    expect(meets(ropeGroups, ownerGroups(0))).toBe(false);
+    expect(meets(ropeGroups, ropeGroups)).toBe(false); // (the two ropes cross without tangling)
+  });
+
+  it('is deterministic: the same fight across the two ships twice gives the same state', async () => {
+    const play = async () => {
+      const sim = await ships(4);
       run(sim, 900, (k) => ({ ...NEUTRAL, moveX: Math.sin(sim.frame / (40 + k * 7)), jump: sim.frame % (50 + k * 11) === 0, aim: k, attack: sim.frame % 90 < 20 }));
       return hashSim(sim);
     };

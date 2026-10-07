@@ -22,7 +22,7 @@ export interface Snapshot {
   props: number[]; // x, y, angle of every loose prop (planks, logs...)
   pf?: number[]; // which loose props are on fire (their places in the list)
   jt?: number[]; // water tower leaks: x, y, direction, frames left for each
-  boat?: number[]; // x, y, angle of the ship, on a map with one
+  boats?: number[]; // x, y, angle of each ship, on a map with them
   ack?: number[]; // per player: the number of their last input this tick used
   outfits: number[];
   looks: Look[]; // everyone's colour and hat (so a player who joins late or rejoins sees the right ones)
@@ -43,7 +43,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
     frame, round: sim.round, roundOver: sim.roundOver, roundWinner: sim.roundWinner, scores: sim.scores.slice(), ev, matchOver: sim.matchOver, matchWinner: sim.matchWinner,
     era: sim.era, map: sim.map, outfits: sim.outfits.slice(),
     props: sim.props.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }), looks: sim.looks.map((l) => ({ ...l })),
-    boat: sim.boat ? [r3(sim.boat.body.translation().x), r3(sim.boat.body.translation().y), r3(sim.boat.body.rotation())] : undefined,
+    boats: sim.boats.length ? sim.boats.flatMap((s) => [r3(s.body.translation().x), r3(s.body.translation().y), r3(s.body.rotation())]) : undefined,
     f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, st: fighterState(f), p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
     simFrame: sim.frame,
     pf: sim.props.flatMap((p, i) => (p.burning ? [i] : [])),
@@ -131,7 +131,7 @@ export class Mirror {
         p.cx = pb[j * 3]; p.cy = pb[j * 3 + 1]; p.ca = pb[j * 3 + 2];
       });
     }
-    if (sim.boat && a.boat) { const bb = b.boat ?? a.boat; Object.assign(sim.boat, { px: a.boat[0], py: a.boat[1], pa: a.boat[2], cx: bb[0], cy: bb[1], ca: bb[2] }); }
+    if (a.boats) { const ab = a.boats, bb = b.boats ?? ab; sim.boats.forEach((s, k) => { if (ab.length > k * 3 + 2) Object.assign(s, { px: ab[k * 3], py: ab[k * 3 + 1], pa: ab[k * 3 + 2], cx: bb[k * 3], cy: bb[k * 3 + 1], ca: bb[k * 3 + 2] }); }); }
     if (b.simFrame !== undefined) sim.frame = b.simFrame;
     sim.jets = []; for (let k = 0, jt = a.jt ?? []; k < jt.length; k += 4) sim.jets.push({ x: jt[k], y: jt[k + 1], dir: jt[k + 2], left: jt[k + 3] });
     // Bullets: each one between where it was in the two snapshots (one new in the later one appears there).

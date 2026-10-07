@@ -47,7 +47,8 @@ export const tuning = {
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
     scenery: [] as { kind: string; x: number; up: number }[], // breakable scenery that belongs to the map (barrels, crates): always there, unlike the loose weapons (owner: environments have destructible elements)
     sea: null as null | { level: number }, // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
-    boat: false, // the main platform is a floating ship's deck instead of solid ground (needs a sea; see tuning.boat)
+    boats: [] as { x: number; w: number }[], // floating ships instead of solid ground (needs a sea; see tuning.boat): each deck from x, w wide, its top at the platform top
+    ropes: [] as { x0: number; up0: number; x1: number; up1: number }[], // ropes (see tuning.rope) from (x0, up0 m above the deck) to (x1, up1), each end tied to the ship under it; cut every one and the ships drift apart
     tar: [] as { x: number; w: number; level: number }[], // tar pits (see tuning.tar): from x, w wide (a gap in the ground), the surface `level` m below the platform top
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
     roll: 0, // the painting slides by at this speed (m/s): a moving map (the train, the mammoth chase)
@@ -450,6 +451,14 @@ export const tuning = {
     throughGlass: 0.75, // thrown through a shop window, you keep this share of your speed
     shatterSpeed: 6, // a mug smashes when its speed changes this much in one frame (m/s): thrown into something, or broken over a head
   },
+  rope: {
+    // A rope (arena.ropes; Ship to Ship lashes two ships together): a sagging chain of short links. A weapon passes through it only if
+    // it hits too softly: a club hit of tuning.bridge.cutImpact or more, or a bullet, cuts it there. Bodies pass through ropes.
+    links: 6,
+    thick: 0.05,
+    linkMass: 0.25, // kg per link
+    slack: 1.15, // the rope is this much longer than the straight line between its ends, so it sags (and two ships rocking apart do not pull it taut)
+  },
   bridge: {
     // A bridge is a chain of planks: it can be cut, it snaps if someone slams into it, and every plank that comes free is a club.
     plankMass: 3,
@@ -569,6 +578,8 @@ export const tuning = {
     rollDamping: 1.2, // how quickly rocking settles (per second)
     home: 0.4, // how strongly it drifts back to the middle (per second squared, per metre away)
     drift: 0.8, // how quickly sideways drifting settles (per second)
+    apart: 1.25, // two ships with every rope between them cut drift this far apart, each (m): Ship to Ship's 1.5 m gap opens to 4
+    apartSpeed: 0.4, // ...at this speed (m/s)
   },
   knock: {
     // A BIG hit knocks the fighter down: they go limp, spin head over heels in proportion to the blow, cannot act, bounce off walls and the
@@ -794,7 +805,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, rope: 0xb09a6a, gangplank: 0x7a5232 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

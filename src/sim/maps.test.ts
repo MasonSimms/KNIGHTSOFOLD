@@ -23,7 +23,9 @@ describe('maps', () => {
       sim.fighters.forEach((f, i) => {
         const p = f.torso.body.translation(), why = `${players} players, fighter ${i}`;
         expect(f.hp, why).toBeGreaterThan(0);
-        const floor = sim.boat ? sim.boat.body.translation().y - T.boat.depth / 2 : floorAt(sim.arena, xs[i]); // (a ship's deck sits lower with people on it; a roof can be higher)
+        const ship = sim.boats.find((s) => Math.abs(xs[i] - s.home0) <= s.w / 2);
+        const c = ship?.body.translation(), a = ship?.body.rotation() ?? 0; // (the deck where you stand: it sits lower with people on it, and tips)
+        const floor = ship && c ? c.y + (xs[i] - c.x) * Math.sin(a) - (T.boat.depth / 2) * Math.cos(a) : floorAt(sim.arena, xs[i]); // (a ship's deck sits lower with people on it; a roof can be higher)
         expect(Math.abs(floor - T.stand.height - p.y), why).toBeLessThan(0.15); // still at standing height on the floor
         if (!sim.arena.chase) expect(Math.abs(p.x - xs[i]), why).toBeLessThan(0.5); // (a treadmill carries you)
       });
@@ -50,8 +52,8 @@ describe('maps', () => {
   // Owner: you should never get stuck on a map. Walk (and hop) from one end of the ground to the other.
   it.each(maps)('%s map %i: you can walk and hop across it without getting stuck', async (era, map) => {
     if (arenaFor(era, map).chase || arenaFor(era, map).train) return; // (a treadmill: you run to stand still, chase.test.ts; the train sweeps you off, train.test.ts)
-    // What must be jumped: tar pits, and gaps between the ground slabs with no bridge or stepping stone (the alleys between roofs).
-    const A0 = arenaFor(era, map), sorted = [...A0.ground].sort((a, b) => a.x - b.x), pits: { x: number; w: number; run: number; down?: boolean }[] = A0.tar.map((p) => ({ x: p.x, w: p.w, run: 0.6 }));
+    // What must be jumped: tar pits, and gaps between the ground slabs (or ships) with no bridge or stepping stone (the alleys between roofs).
+    const A0 = arenaFor(era, map), sorted = [...A0.ground, ...A0.boats.map((b) => ({ ...b, up: 0 }))].sort((a, b) => a.x - b.x), pits: { x: number; w: number; run: number; down?: boolean }[] = A0.tar.map((p) => ({ x: p.x, w: p.w, run: 0.6 }));
     for (let i = 1; i < sorted.length; i++) {
       const g0 = sorted[i - 1].x + sorted[i - 1].w, g1 = sorted[i].x;
       const crossed = (A0.bridge && A0.bridge.x0 <= g0 + 0.1 && A0.bridge.x1 >= g1 - 0.1) || A0.ledges.some((l) => l.up < 0.3 && l.x < g1 && l.x + l.w > g0);

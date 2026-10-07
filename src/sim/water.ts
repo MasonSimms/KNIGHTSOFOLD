@@ -7,11 +7,14 @@ import type { Arena } from './world';
 
 // The sea (owner: a pirate era with a boat and water physics; the same water later carries the Nile barge, the longship, the paddy...).
 // Everything in the water floats and is slowed by it. A fighter can swim for a few seconds (tuning.swim), then sinks: going under is a
-// knock-off. A ship (arena.boat) is a real floating body: weight on one end tips it, waves rock it, and it always rights itself.
+// knock-off. A ship (arena.boats) is a real floating body: weight on one end tips it, waves rock it, and it always rights itself.
 // Waves are a pure function of the frame, so a round plays the same every time.
 
-/** A floating ship: its hull body, and its pose last frame and this frame (for the renderer to blend between). */
-export interface Boat { body: RigidBody; w: number; depth: number; homeX: number; px: number; py: number; pa: number; cx: number; cy: number; ca: number }
+/**
+ * A floating ship: its hull body, where it drifts back to (homeX: its starting place home0, moved `away` toward `dir` once every rope
+ * tying it to another ship is cut), and its pose last frame and this frame (for the renderer to blend between).
+ */
+export interface Boat { body: RigidBody; w: number; depth: number; homeX: number; home0: number; dir: number; away: number; px: number; py: number; pa: number; cx: number; cy: number; ca: number }
 
 /** The tar pit holding x, if any (arena.tar). */
 export function tarAt(A: Arena, x: number): Arena['tar'][number] | null {
@@ -41,9 +44,9 @@ function slopeAt(A: Arena, frame: number, x: number): number {
   return s;
 }
 
-/** The ship: the main platform, as a hull floating with its deck at the platform top. */
-export function buildBoat(world: World, A: Arena): Boat {
-  const B = T.boat, w = A.platformW, d = B.depth, x = A.platformX + w / 2, y = A.platformTop + d / 2;
+/** A ship: a hull floating with its deck from x0, w wide, at the platform top. */
+export function buildBoat(world: World, A: Arena, x0: number, w: number): Boat {
+  const B = T.boat, d = B.depth, x = x0 + w / 2, y = A.platformTop + d / 2;
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setCanSleep(false));
   // The deck on top; the sides go straight down to just under the waterline (no overhang: a swimmer can kick straight up beside it and
   // climb aboard), then slope in to the keel.
@@ -52,7 +55,7 @@ export function buildBoat(world: World, A: Arena): Boat {
   const desc = RAPIER.ColliderDesc.convexHull(hull)!.setFriction(A.friction).setCollisionGroups(terrainGroups)
     .setMassProperties(B.mass, { x: 0, y: 0 }, (B.mass * (w * w + d * d)) / 12);
   world.createCollider(desc, body);
-  return { body, w, depth: d, homeX: x, px: x, py: y, pa: 0, cx: x, cy: y, ca: 0 };
+  return { body, w, depth: d, homeX: x, home0: x, dir: Math.sign(x - A.viewW / 2), away: 0, px: x, py: y, pa: 0, cx: x, cy: y, ca: 0 };
 }
 
 const tv = { x: 0, y: 0 };
@@ -91,7 +94,7 @@ function floatBoat(A: Arena, frame: number, boat: Boat, fighters: Fighter[]): vo
  * The sea, each frame before the fighters move: everything floats, the ship rides the waves, and each fighter's time in the water is
  * counted (f.wet for the controls: swimming and the kick out; f.sinking once the swim has run out).
  */
-export function applyWater(A: Arena, frame: number, fighters: Fighter[], props: Part[], boat: Boat | null): void {
+export function applyWater(A: Arena, frame: number, fighters: Fighter[], props: Part[], boats: Boat[]): void {
   if (!A.sea && !A.tar.length) return;
   for (const f of fighters) {
     for (const p of f.parts) {
@@ -104,5 +107,5 @@ export function applyWater(A: Arena, frame: number, fighters: Fighter[], props: 
     else if (f.grounded) f.wetFrames = 0;
   }
   for (const p of props) { const W = liquidAt(A, p.body.translation().x); if (W) floatBody(A, frame, p.body, W.propFloat, W); }
-  if (boat) floatBoat(A, frame, boat, fighters);
+  for (const b of boats) floatBoat(A, frame, b, fighters);
 }

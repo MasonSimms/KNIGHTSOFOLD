@@ -48,8 +48,7 @@ export class Bot {
     if (now < this.started || this.nextThink - now > 60) { this.nextThink = now; this.busyUntil = 0; this.started = now; this.target = null; this.plan = { kind: 'idle' }; } // a new round: the clock started again
 
     // The stage floor: ground slabs (and a bridge across a gap) as spans; an end with a wall right at it is safe.
-    const ship = sim.boat?.body.translation().x; // (a ship's deck drifts: where it is now)
-    const spans = ship !== undefined ? [[ship - A.platformW / 2, ship + A.platformW / 2]] : (A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]).map((g) => [g.x, g.x + g.w]);
+    const spans = sim.boats.length ? sim.boats.map((s) => { const x = s.body.translation().x; return [x - s.w / 2, x + s.w / 2]; }) /* (a ship drifts: where it is now) */ : (A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]).map((g) => [g.x, g.x + g.w]);
     if (A.bridge) spans.push([A.bridge.x0, A.bridge.x1]);
     for (const l of A.ledges) if (l.up < 0.3) spans.push([l.x, l.x + l.w]); // a stepping stone level with the floor
     const lo = Math.min(...spans.map((s) => s[0])), hi = Math.max(...spans.map((s) => s[1]));
@@ -82,6 +81,8 @@ export class Bot {
       out.moveX = p.x < lo ? 1 : p.x > hi ? -1 : p.x < (lo + hi) / 2 ? -1 : 1; // (in the water under the deck: out from under it first, at the nearer end)
       look = { x: (lo + hi) / 2, y: A.platformTop - 1 };
       if (this.jumpFrames === 0) this.hop(); // keep trying: a wall jump or a late jump catches it
+    } else if (plan.kind === 'fetch' && sim.partByBody.get(plan.part.body.handle) !== plan.part) {
+      this.start({ kind: 'idle' }, now); // it is gone (smashed, shot in two): reading a removed body crashes the physics
     } else if (plan.kind === 'fetch') {
       const t = plan.part.body.translation();
       look = { x: t.x, y: t.y };

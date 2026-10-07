@@ -6,7 +6,7 @@ import type { Clip } from '../replay/tape';
 // Messages between a browser and the room server: one JSON object per WebSocket message.
 /** Bump when the messages change. A page and a server with different versions (or different gameplay numbers) refuse to play together:
  *  their copies of the fight would not match. */
-export const PROTOCOL = 2;
+export const PROTOCOL = 3;
 
 export type ClientMsg =
   | { t: 'hello'; v: number; tuning: string } // the first message: which version of the game this page is (PROTOCOL, and the gameplay numbers' fingerprint)

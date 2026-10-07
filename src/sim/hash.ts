@@ -13,7 +13,7 @@ export function hashSim(sim: Sim): string {
   mix(sim.frame);
   for (const p of sim.props) { const t = p.body.translation(); mix(t.x); mix(t.y); mix(p.body.rotation()); }
   for (const b of sim.bullets) { mix(b.x); mix(b.y); mix(b.vx); mix(b.vy); }
-  if (sim.boat) { const b = sim.boat.body, t = b.translation(), v = b.linvel(); mix(t.x); mix(t.y); mix(b.rotation()); mix(v.x); mix(v.y); mix(b.angvel()); }
+  for (const s of sim.boats) { const b = s.body, t = b.translation(), v = b.linvel(); mix(t.x); mix(t.y); mix(b.rotation()); mix(v.x); mix(v.y); mix(b.angvel()); }
   for (const f of sim.fighters) {
     mix(f.hp);
     for (const p of f.parts) {

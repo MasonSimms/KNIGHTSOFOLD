@@ -2,7 +2,7 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import { damageFor, impactValue, knockbackFor } from './combat';
-import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, setBackPlane, shove, syncStickGroups, terrainGroups } from './fighter';
+import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, ropeGroups, setBackPlane, shove, syncStickGroups, terrainGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { eraById } from '../content/eras';
 import { ITEMS, PROPS, PROP_KINDS } from '../content/props';
@@ -92,7 +92,9 @@ export class Sim {
   map = 0; // which of the era's maps this round is on
   props: Part[] = []; // loose objects in the world (planks, logs...): anyone can pick them up
   private bridge: Part[] = []; // the planks of this round's bridge, in order
-  boat: Boat | null = null; // this round's ship, on a map with one (see water.ts)
+  boats: Boat[] = []; // this round's ships, on a map with them (see water.ts)
+  private ropes: Part[][] = []; // the links of each rope, in order (arena.ropes)
+  private ropeEnds: { body: RAPIER.RigidBody; ship: Boat; x: number; y: number }[] = []; // rope ends tied on a ship: where on it (see buildRope)
   chase: Chase | null = null; // this round's treadmill and mammoth, on the Mammoth Chase (see chase.ts)
   passing: Passing[] = []; // the signs and tunnels coming past the train (see train.ts)
   jets: Jet[] = []; // water leaking from the water tower's tank (see tower.ts)
@@ -209,6 +211,8 @@ export class Sim {
     this.map = this.forceMap ?? mapFor(this.seed, this.round, this.era);
     this.props = [];
     this.bridge = [];
+    this.ropes = [];
+    this.ropeEnds = [];
     this.cutLinks.clear();
     this.brains = [null, null, null, null]; // bots start each round fresh (so a round can be replayed from its own start: see src/replay)
     this.weapon = T.eras.changeGameplay ? weaponById(this.arena.weapon || eraById(this.era).weapon) : { id: 'club', name: 'Club', ...T.stick };
@@ -228,14 +232,15 @@ export class Sim {
     this.world.timestep = T.sim.dt;
     this.world.numSolverIterations = T.sim.solverIterations;
     this.world.numInternalPgsIterations = T.sim.pgsIterations;
-    const slabs = A.boat || A.chase ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor; on a treadmill, its moving sections)
-    this.boat = A.boat && A.sea ? buildBoat(this.world, A) : null;
+    const slabs = A.boats.length || A.chase ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor; on a treadmill, its moving sections)
+    this.boats = A.sea ? A.boats.map((b) => buildBoat(this.world, A, b.x, b.w)) : [];
     const grounds = slabs.map((g: Arena['ground'][number]) => {
       const th = g.thick ?? A.platformThickness, body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop - (g.up ?? 0) + th / 2));
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, th / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
       return { ...g, body };
     });
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
+    for (const r of A.ropes) this.ropes.push(this.buildRope(r, A));
     this.chase = A.chase ? buildChase(this) : null;
     this.passing = A.train ? buildTrain(this) : [];
     this.jets = [];
@@ -312,6 +317,69 @@ export class Sim {
     const slabY = A.platformTop + A.platformThickness / 2; // ground bodies are centred here
     if (left) links[0].push(joint(left.body, b.x0 - (left.x + left.w / 2), y - slabY, this.bridge[0].body, -len / 2, 0));
     if (right) links[n - 1].push(joint(right.body, b.x1 - (right.x + right.w / 2), y - slabY, this.bridge[n - 1].body, len / 2, 0));
+  }
+
+  /**
+   * A rope from (x0, up0) to (x1, up1): a chain of short links hanging in a sag (tuning.rope.slack longer than the straight line), each end
+   * tied to the ship under it (or, with no ship there, to a fixed point). Its links are loose things like the bridge's planks: a club or a
+   * bullet cuts one free (hitProp, shootLoose).
+   */
+  private buildRope(r: { x0: number; up0: number; x1: number; up1: number }, A: Arena): Part[] {
+    const R = T.rope, n = R.links, x0 = r.x0, y0 = A.platformTop - r.up0, x1 = r.x1, y1 = A.platformTop - r.up1;
+    const want = Math.hypot(x1 - x0, y1 - y0) * R.slack, at = (t: number, sag: number) => ({ x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t + 4 * sag * t * (1 - t) });
+    const curve = (sag: number) => { const pts = Array.from({ length: 65 }, (_, i) => at(i / 64, sag)), len = [0]; for (let i = 1; i < pts.length; i++) len.push(len[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)); return { pts, len }; };
+    let lo = 0, hi = want; // the sag that makes the curve as long as the rope
+    for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (curve(mid).len[64] < want) lo = mid; else hi = mid; }
+    const { pts, len } = curve(lo), total = len[64];
+    const along = (d: number) => { let i = 1; while (i < 64 && len[i] < d) i++; const t = (d - len[i - 1]) / (len[i] - len[i - 1] || 1); return { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * t, y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * t }; };
+    const knots = Array.from({ length: n + 1 }, (_, i) => along((total * i) / n));
+    const rope: Part[] = [], links: RAPIER.ImpulseJoint[][] = Array.from({ length: n }, () => []);
+    const tie = (a: RAPIER.RigidBody, ax: number, ay: number, c: RAPIER.RigidBody, cx: number, cy: number) => this.world.createImpulseJoint(RAPIER.JointData.revolute({ x: ax, y: ay }, { x: cx, y: cy }), a, c, true);
+    for (let i = 0; i < n; i++) {
+      const a = knots[i], b = knots[i + 1], l = Math.hypot(b.x - a.x, b.y - a.y);
+      const p = createProp(this.world, (a.x + b.x) / 2, (a.y + b.y) / 2, Math.atan2(b.y - a.y, b.x - a.x), { kind: 'rope', len: l, thick: R.thick, mass: R.linkMass });
+      for (const c of p.colliders) c.setCollisionGroups(ropeGroups);
+      p.links = links[i];
+      rope.push(p);
+      this.props.push(p);
+      this.partByBody.set(p.body.handle, p);
+    }
+    for (let i = 0; i + 1 < n; i++) {
+      const la = rope[i].shapes[0], lb = rope[i + 1].shapes[0], ha = la.k === 'cap' ? la.hl + la.r : 0, hb = lb.k === 'cap' ? lb.hl + lb.r : 0;
+      const j = tie(rope[i].body, ha, 0, rope[i + 1].body, -hb, 0);
+      links[i].push(j); links[i + 1].push(j);
+    }
+    // each end: tied to the ship under it, or to a fixed point
+    // Each end is tied to a point carried along with the ship under it (moveRopeEnds), not to the ship itself: a rope tied high in the
+    // rigging went taut as the two ships rocked apart and levered them over into a V, so a rope follows its ships but never pulls them.
+    const end = (pt: { x: number; y: number }, link: Part, sign: number) => {
+      const sh = link.shapes[0], h = sh.k === 'cap' ? sh.hl + sh.r : 0;
+      const ship = this.boats.find((s) => Math.abs(pt.x - s.homeX) <= s.w / 2);
+      const body = this.world.createRigidBody((ship ? RAPIER.RigidBodyDesc.kinematicPositionBased() : RAPIER.RigidBodyDesc.fixed()).setTranslation(pt.x, pt.y));
+      if (ship) { const c = ship.body.translation(); this.ropeEnds.push({ body, ship, x: pt.x - c.x, y: pt.y - c.y }); }
+      return tie(body, 0, 0, link.body, sign * h, 0);
+    };
+    links[0].push(end(knots[0], rope[0], -1));
+    links[n - 1].push(end(knots[n], rope[n - 1], 1));
+    return rope;
+  }
+
+  /** Before the physics: each rope end moves to where its tie point on the ship is now. */
+  private moveRopeEnds(): void {
+    for (const e of this.ropeEnds) {
+      const t = e.ship.body.translation(), a = e.ship.body.rotation(), c = Math.cos(a), s = Math.sin(a);
+      e.body.setNextKinematicTranslation({ x: t.x + e.x * c - e.y * s, y: t.y + e.x * s + e.y * c });
+    }
+  }
+
+  /** Once every rope is cut, the ships it held drift apart (each toward its own side, tuning.boat.apart at most). */
+  private driftApart(): void {
+    if (!this.ropes.length || !this.ropes.every((r) => r.some((p) => !p.links?.length))) return;
+    const B = T.boat;
+    for (const b of this.boats) {
+      b.away = Math.min(B.apart, b.away + B.apartSpeed * T.sim.dt);
+      b.homeX = b.home0 + b.dir * b.away;
+    }
   }
 
   /** Free a bridge plank: every joint holding it is removed (once). */
@@ -445,7 +513,8 @@ export class Sim {
   step(inputs: PlayerInput[]): void {
     this.events.length = 0;
     this.frame++;
-    applyWater(this.arena, this.frame, this.fighters, this.props, this.boat);
+    applyWater(this.arena, this.frame, this.fighters, this.props, this.boats);
+    this.driftApart();
 
     for (const f of this.fighters) {
       if (f.held) {
@@ -472,6 +541,7 @@ export class Sim {
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     if (this.passing.length) stepTrain(this, this.passing);
     applyWind(this);
+    this.moveRopeEnds();
     this.world.step();
     if (this.chase) stepChase(this, this.chase);
     this.capSpeeds();
@@ -501,7 +571,7 @@ export class Sim {
   predictStep(slot: number, input: PlayerInput): SimEvent[] {
     const f = this.fighters[slot];
     if (!f || f.limp) return [];
-    applyWater(this.arena, this.frame, [f], [], null);
+    applyWater(this.arena, this.frame, [f], [], []);
     controlFighter(this.world, f, input, this.predictEvents, 0);
     this.predictEvents.length = 0; // (no sounds or paint from a guess: the server's events bring those)
     const shown: SimEvent[] = []; // ...except a shot of your own: its flash, bang and kick are at once (owner: instant feel)
@@ -563,11 +633,12 @@ export class Sim {
   /** Training: take every loose weapon and object off the map (a bridge keeps its planks; clubs dropped by fighters stay). */
   clearLoose(): void {
     this.edits.push({ f: this.frame });
-    for (const p of this.props.filter((q) => !this.bridge.includes(q))) {
+    const kept = (q: Part) => this.bridge.includes(q) || this.ropes.some((r) => r.includes(q));
+    for (const p of this.props.filter((q) => !kept(q))) {
       this.partByBody.delete(p.body.handle);
       this.world.removeRigidBody(p.body);
     }
-    this.props = this.props.filter((q) => this.bridge.includes(q));
+    this.props = this.props.filter(kept);
     this.version++;
   }
 
@@ -902,7 +973,7 @@ export class Sim {
   }
 
   /** The ground, a wall, or a ship's deck: what a body can be slammed into. */
-  private solid(b: RAPIER.RigidBody): boolean { return b.isFixed() || b.isKinematic() || b === this.boat?.body; } // (a sign or tunnel passing the train is a wall)
+  private solid(b: RAPIER.RigidBody): boolean { return b.isFixed() || b.isKinematic() || this.boats.some((s) => s.body === b); } // (a sign or tunnel passing the train is a wall)
 
   /** A big hit knocks the fighter down: they tumble (spin in proportion to the blow, head swinging back from it) and lose control for a while. */
   private knockdown(v: Fighter, impact: number, nx: number): void {
@@ -996,8 +1067,7 @@ export class Sim {
   }
 
   private snapshot(): void {
-    const b = this.boat;
-    if (b) { const t = b.body.translation(); b.px = b.cx; b.py = b.cy; b.pa = b.ca; b.cx = t.x; b.cy = t.y; b.ca = b.body.rotation(); }
+    for (const b of this.boats) { const t = b.body.translation(); b.px = b.cx; b.py = b.cy; b.pa = b.ca; b.cx = t.x; b.cy = t.y; b.ca = b.body.rotation(); }
     for (const p of this.props) { const t = p.body.translation(); p.px = p.cx; p.py = p.cy; p.pa = p.ca; p.cx = t.x; p.cy = t.y; p.ca = p.body.rotation(); }
     for (const f of this.fighters) {
       for (const p of f.parts) {

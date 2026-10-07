@@ -147,11 +147,15 @@ export const GROUP_WORLD = 1; // loose things in the world: bridge planks, props
 /** The fixed scenery: the ground, ledges and walls. A weapon in a hand passes through it (owner: platforms must never block a swing, as in
  * Stick Fight and SpiderHeck; a held club also used to hook a ledge and leave you hanging from it). */
 const GROUP_TERRAIN = 0x2000;
-/** Rapier groups: high 16 bits = membership, low 16 = filter. Fighters ignore their own parts, hit everything else. */
+/** Ropes (arena.ropes): bodies pass through them; weapons and loose things meet them (so a blade cuts one). */
+const GROUP_ROPE = 0x1000;
+/** Rapier groups: high 16 bits = membership, low 16 = filter. Fighters ignore their own parts and ropes, hit everything else. */
 export function ownerGroups(owner: number): number {
   const mem = 1 << (owner + 1);
-  return ((mem << 16) | (0xffff & ~mem)) >>> 0;
+  return ((mem << 16) | (0xffff & ~mem & ~GROUP_ROPE)) >>> 0;
 }
+/** A rope's links: they meet fighters' weapons (syncStickGroups lets them back in), loose things and the ground, never another rope. */
+export const ropeGroups = ((GROUP_ROPE << 16) | GROUP_WORLD | GROUP_TERRAIN | 0x1e) >>> 0;
 export const worldGroups = ((GROUP_WORLD << 16) | 0xffff) >>> 0;
 export const terrainGroups = ((GROUP_TERRAIN << 16) | 0xffff) >>> 0;
 /** The background plane: touches the ground and loose things only, so it passes through every fighter and weapon. */
@@ -159,10 +163,11 @@ export const backGroups = ((0x8000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 /** The floppy second arm: touches the floor and walls only, never a fighter or a weapon. */
 const offGroups = ((0x4000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 
-/** A weapon in a hand passes through the scenery; a loose one (dropped, knocked out of a hand) lands on it like anything else. Every frame. */
+/** A weapon in a hand passes through the scenery; a loose one (dropped, knocked out of a hand) lands on it like anything else. Every frame.
+ * A fighter's weapon (unlike the fighter) meets ropes. */
 export function syncStickGroups(f: Fighter): void {
   if (!f.stick) return;
-  const g = ((f.inBack ? backGroups : ownerGroups(f.index)) & ~(f.grip ? GROUP_TERRAIN : 0)) >>> 0;
+  const g = ((f.inBack ? backGroups : ownerGroups(f.index) | GROUP_ROPE) & ~(f.grip ? GROUP_TERRAIN : 0)) >>> 0;
   for (const c of f.stick.colliders) if (c.collisionGroups() !== g) c.setCollisionGroups(g);
 }
 
@@ -795,7 +800,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   // ---- movement and jumping ----
   senseContacts(world, f);
   const grounded = f.grounded;
-  f.belt = !grounded ? f.drift : f.groundBody?.isKinematic() ? f.groundBody.linvel().x : 0; // (read now: the floor of last frame may have been broken since; in the air, the wind)
+  f.belt = !grounded ? f.drift : f.groundBody && !f.groundBody.isFixed() ? f.groundBody.linvel().x : 0; // (any floor that moves, a treadmill or a ship, is walked on, not the world; read now: the floor of last frame may have been broken since; in the air, the wind)
   { // landing: the knees give for a moment, deeper the harder you land, and you spring back up (owner: more fluid movement)
     const LD = T.landDip;
     if (!grounded) f.fallVy = Math.max(0, body.linvel(tmp).y);

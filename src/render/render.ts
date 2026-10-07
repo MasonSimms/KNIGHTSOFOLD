@@ -250,7 +250,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     tintWash.clear().rect(0, 0, 1, 1).fill(st.tint);
     tintWash.alpha = st.tintAlpha;
     platform.clear();
-    for (const g of A.boat ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW } as Arena['ground'][number]]) platform.rect(g.x, A.platformTop - (g.up ?? 0), g.w, g.thick ?? A.platformThickness).fill(era.platform);
+    for (const g of A.boats.length ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW } as Arena['ground'][number]]) platform.rect(g.x, A.platformTop - (g.up ?? 0), g.w, g.thick ?? A.platformThickness).fill(era.platform);
     for (const l of A.ledges) platform.rect(l.x, A.platformTop - l.up, l.w, A.ledgeThick).fill(era.platform).stroke({ width: 0.04, color: T.colors.platformEdge });
     walls.clear();
     for (const w of wallsOf(A)) {

@@ -86,7 +86,7 @@ Pickups: **Naginata** (very long, sweeping), **Tessen** (iron war fan: short, fa
 ## 7. Pirates (decided: normal era; water and boat physics)
 Pickups: **Flintlock Pistol** (clubbed with, or thrown), **Grappling Hook** (a hook and rope: hang it on something and swing).
 1. **Ship Deck** (BUILT 2026-10-06, the era's main map): the main set piece: a hull floating on the water that rocks as people jump, with mast, rigging and barrels on deck. (Barrels not yet: the mast and rigging are painted, not physical.)
-2. **Ship to Ship**: two boats side by side joined by a gangplank (a plank prop). Cut the ropes and they drift apart.
+2. **Ship to Ship**: two boats side by side joined by a gangplank (a plank prop). Cut the ropes and they drift apart. **BUILT 2026-10-06** (pirates map 1): two 8 m ships, a 1.5 m gap, a 2.6 m gangplank lying across it and two ropes in an X from each ship's rigging to the other's rail; a blade or a bullet cuts a rope, and with both cut the ships drift apart (the gap opens to about 4 m) and the gangplank falls in.
 3. **Harbour Pier**: a wooden pier on posts over shallow water, with barrels and crates. A broken plank is a gap and a club.
 4. **Sinking Wreck**: a hull that slowly tilts and sinks as the round goes on. The high side is safe and moves.
 5. **Tidal Cove**: a treasure cove where the tide rises and falls with the frame counter. The sand platform shrinks as the water comes in.

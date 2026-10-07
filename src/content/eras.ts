@@ -15,7 +15,8 @@ export interface EraArena {
   spawnX?: number[]; // where you and the training dummy start, playing alone (metres)
   fightSpawnX?: number[]; // where the fighters of a 2-4 player fight start (metres; for maps where the standard spots would be over a gap)
   sea?: { level: number }; // water under the stage (see tuning.arena.sea)
-  boat?: boolean; // the platform is a floating ship (see tuning.boat)
+  boats?: { x: number; w: number }[]; // floating ships instead of ground (see tuning.boat)
+  ropes?: { x0: number; up0: number; x1: number; up1: number }[]; // ropes tied between them (see tuning.rope)
   tar?: { x: number; w: number; level: number }[]; // tar pits (see tuning.arena.tar)
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
   weapon?: string; // this map's own weapon (weapons.ts), instead of the era's
@@ -63,7 +64,12 @@ export const eras: Era[] = [
   { id: 'vikings', name: 'Vikings', special: false, pickups: ['spear', 'great-axe'], sky: 0x6f8aa0, platform: 0x6a5a48, wall: 0x4a4a4e, weapon: 'axe', arena: { platformW: 13.75, props: [{ kind: 'log', x: 11.75, up: 0 }] }, outfits: ['jarl', 'raider', 'shieldmaiden', 'berserker'] },
   { id: 'medieval', name: 'Medieval Knights', special: false, pickups: ['mace', 'lance'], sky: 0x7a8aa6, platform: 0x7a7a78, wall: 0x56565a, weapon: 'longsword', arena: { walls: [/* the castle wall across a moat: fall in and wall-jump out */ { side: -1, up: 2.5, gap: 1.2 }], ledges: [{ x: 6.25, up: 1.8, w: 2.0 }, { x: 15.75, up: 1.8, w: 2.0 }], scenery: [{ kind: 'crate', x: 18.1, up: 0 }] }, outfits: ['knight', 'squire', 'archer', 'bishop'] },
   { id: 'samurai', name: 'Samurai Knights', special: false, pickups: ['iron-fan', 'naginata'], style: { blur: 7, grain: 0.025 }, sky: 0x8a6f86, platform: 0x6b4a3a, wall: 0x4a3a34, weapon: 'katana', arena: { platformX: 6.625, platformW: 10.75, walls: [/* Dojo Ridge: narrow walls both sides */ { side: -1, up: 2.0, gap: 1.0 }, { side: 1, up: 2.0, gap: 1.0 }], fightSpawnX: [7.2, 16.8, 10.4, 13.6] }, alt: [{ name: 'Rope Bridge', ground: [{ x: 5.25, w: 3.5 }, { x: 15.25, w: 3.5 }], bridge: { x0: 8.75, x1: 15.25, planks: 8 } }], outfits: ['armoured lord', 'ronin', 'ashigaru', 'monk'] },
-  { id: 'pirates', name: 'Pirates', special: false, pickups: ['pistol', 'boat-hook'], sky: 0x5a9aa8, platform: 0x6a4a30, wall: 0x4a3626, weapon: 'cutlass', arena: { name: 'Ship Deck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boat: true, props: [{ kind: 'plank', x: 10.0, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, outfits: ['captain', 'buccaneer', 'first mate', 'cabin boy'] },
+  { id: 'pirates', name: 'Pirates', special: false, pickups: ['pistol', 'boat-hook'], sky: 0x5a9aa8, platform: 0x6a4a30, wall: 0x4a3626, weapon: 'cutlass', arena: { name: 'Ship Deck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boats: [{ x: 5.75, w: 12.5 }], props: [{ kind: 'plank', x: 10.0, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, alt: [
+    // Ship to Ship (owner, 2026-10-06): two ships lashed side by side, a gangplank across the 1.5 m gap and two ropes in an X from each
+    // ship's rigging to the other's rail. Cut both ropes (a blade or a bullet) and the ships drift apart; the gangplank falls in.
+    { name: 'Ship to Ship', sea: { level: 0.9 }, boats: [{ x: 3.25, w: 8 }, { x: 12.75, w: 8 }], fightSpawnX: [6.75, 17.25, 9.25, 14.75],
+      ropes: [{ x0: 9.5, up0: 2.8, x1: 13.2, up1: 0.4 }, { x0: 14.5, up0: 2.8, x1: 10.8, up1: 0.4 }],
+      props: [{ kind: 'gangplank', x: 12.0, up: 0 }], scenery: [{ kind: 'barrel', x: 4.5, up: 0 }, { kind: 'barrel', x: 19.5, up: 0 }] }], outfits: ['captain', 'buccaneer', 'first mate', 'cabin boy'] },
   { id: 'westerns', name: 'The Wild West', special: false, pickups: ['revolver', 'pickaxe'], sky: 0xc9915a, platform: 0x8a6240, wall: 0x6a4a34, weapon: 'rifle', arena: { walls: [/* the saloon wall */ { side: 1, up: 3.0, gap: 0 }], ledges: [{ x: 10.6, up: 1.8, w: 2.8 }], props: [{ kind: 'plank', x: 8.75, up: 0 }], scenery: [{ kind: 'barrel', x: 6.0, up: 0 }, { kind: 'crate', x: 18.0, up: 0 }] }, alt: [
     // The Train (owner's list): on the roofs of a moving train, no weapons; signs and tunnel mouths come at you (a whistle first): get
     // down or be swept off; throw people into them

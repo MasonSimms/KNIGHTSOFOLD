@@ -42,7 +42,7 @@ export class Predictor {
       for (const c of p.colliders) { const gr = c.collisionGroups(); if (gr & meBit) c.setCollisionGroups(((gr & 0xffff0000) | (gr & 0xffff & ~meBit)) >>> 0); }
     }
     for (const p of sim.props) drive(p.body, p, alpha);
-    if (sim.boat) follow(sim.boat.body, { px: sim.boat.px, py: sim.boat.py, pa: sim.boat.pa, cx: sim.boat.cx, cy: sim.boat.cy, ca: sim.boat.ca }, alpha);
+    for (const s of sim.boats) follow(s.body, { px: s.px, py: s.py, pa: s.pa, cx: s.cx, cy: s.cy, ca: s.ca }, alpha);
     for (const p of mine) { if (!p.body.isDynamic()) p.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true); if (p.body.gravityScale() !== 1) p.body.setGravityScale(1, true); }
     const shown = sim.predictStep(this.slot, input);
     for (const p of mine) { const t = p.body.translation(); p.px = p.cx; p.py = p.cy; p.pa = p.ca; p.cx = t.x; p.cy = t.y; p.ca = p.body.rotation(); }

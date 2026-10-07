@@ -15,7 +15,8 @@ export function createSea(ring: (x: number, y: number, color: number) => void) {
   const hull = new Container(), water = new Container(); // hull: in the play plane, behind everyone; water: in front of the play plane
   const mask = new Graphics(), crest = new Graphics(), pts: number[] = [];
   water.addChild(mask, crest);
-  let ship: Sprite | null = null, sea: Sprite | null = null;
+  const ships: Sprite[] = [];
+  let sea: Sprite | null = null;
   const pits: Sprite[] = []; // tar pits: still, black, glossy
   const wasWet: boolean[] = [];
 
@@ -23,7 +24,7 @@ export function createSea(ring: (x: number, y: number, color: number) => void) {
     hull, water,
     /** Paint this round's ship and water (a new round or a new era). */
     build(sim: Sim) {
-      ship?.destroy(); sea?.destroy(); ship = sea = null;
+      ships.splice(0).forEach((s) => s.destroy()); sea?.destroy(); sea = null;
       pits.splice(0).forEach((s) => s.destroy());
       const A = sim.arena, P = T.finish.paint, K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under };
       water.visible = !!A.sea || A.tar.length > 0;
@@ -47,23 +48,23 @@ export function createSea(ring: (x: number, y: number, color: number) => void) {
       sea.alpha = T.finish.water.alpha;
       sea.mask = mask;
       water.addChildAt(sea, 0);
-      if (sim.boat) {
-        const h2 = paintedHull(sim.boat.w, sim.boat.depth, A.sea.level, { ...pa.plat, hot: pa.hot }, K);
-        ship = new Sprite(h2.tex);
+      for (const b of sim.boats) {
+        const h2 = paintedHull(b.w, b.depth, A.sea.level, { ...pa.plat, hot: pa.hot }, K), ship = new Sprite(h2.tex);
         ship.anchor.set(h2.ax, h2.ay);
         ship.scale.set(1 / h2.ppm);
         hull.addChild(ship);
+        ships.push(ship);
       }
     },
     draw(sim: Sim, alpha: number) {
-      const A = sim.arena, b = sim.boat;
+      const A = sim.arena;
       for (const f of sim.fighters) { // into the water (or the tar): a ring where they went in
         const wet = f.wet > T.swim.wetAt;
         if (wet && !wasWet[f.index]) { const t = f.torso.body.translation(); ring(t.x, surfaceY(A, sim.frame, t.x), f.tar ? 0x3a2c20 : 0xffffff); }
         wasWet[f.index] = wet;
       }
       if (!A.sea || !sea) return;
-      if (ship && b) { ship.position.set(lerp(b.px, b.cx, alpha), lerp(b.py, b.cy, alpha)); ship.rotation = b.pa + wrap(b.ca - b.pa) * alpha; }
+      sim.boats.forEach((b, k) => { const ship = ships[k]; if (ship) { ship.position.set(lerp(b.px, b.cx, alpha), lerp(b.py, b.cy, alpha)); ship.rotation = b.pa + wrap(b.ca - b.pa) * alpha; } });
       // the surface, between the last two frames
       const at = sim.frame - 1 + alpha, step = 0.3;
       pts.length = 0;

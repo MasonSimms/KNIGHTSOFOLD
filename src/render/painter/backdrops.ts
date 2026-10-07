@@ -13,7 +13,7 @@ const KEEP = 4; // painted backdrops kept (each is a texture of about 3.5 MB)
 
 /** The solid ground of an arena in design px (1920 x 1080 = the whole view). */
 export function geoOf(A: Arena): ArenaGeo {
-  const s = 1920 / A.viewW, slabs = (A.boat || A.train ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]).map((g: Arena['ground'][number]) => ({ x: g.x * s, w: g.w * s, y: (A.platformTop - (g.up ?? 0)) * s, th: (g.thick ?? A.platformThickness) * s })); // (a ship is not painted in: it moves; nor is a train: the land moves past it)
+  const s = 1920 / A.viewW, slabs = (A.boats.length || A.train ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]).map((g: Arena['ground'][number]) => ({ x: g.x * s, w: g.w * s, y: (A.platformTop - (g.up ?? 0)) * s, th: (g.thick ?? A.platformThickness) * s })); // (a ship is not painted in: it moves; nor is a train: the land moves past it)
   const walls = wallsOf(A).map((w) => ({ x: w.x * s, w: A.wallThickness * s, top: w.top * s }));
   return { slabs, ledges: A.ledges.map((l) => ({ x: l.x * s, y: (A.platformTop - l.up) * s, w: l.w * s })), ledgeThick: A.ledgeThick * s, top: A.platformTop * s, thick: A.platformThickness * s, walls, ...(A.sea ? { sea: (A.platformTop + A.sea.level) * s } : {}) };
 }

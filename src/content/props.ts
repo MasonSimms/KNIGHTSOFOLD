@@ -48,6 +48,7 @@ export const PROPS: Record<string, PropSpec> = {
   stool: { len: 0.6, thick: 0.3, mass: 2.2, factor: 2.5, toughness: 3 },
   mug: { len: 0.22, thick: 0.16, mass: 0.5, factor: 2.2, material: 'light', shatters: true },
   pane: { len: 0.2, thick: 1.6, mass: 1, material: 'light', box: true, fixed: true, breaks: { hp: 8, into: [], min: 8 } },
+  gangplank: { len: 2.6, thick: 0.12, mass: 6, factor: 2.4, toughness: 4 }, // Ship to Ship: laid across from one ship to the other; it falls in when they drift apart (added last: a 'spawn' event names a prop by its place in this list)
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 for (const id of ['stone-hammer', 'sceptre', 'flail', 'trident', 'chain-mace', 'great-axe', 'mace', 'iron-fan', 'pickaxe', 'grenade', 'plasma-blade', 'gravity-hammer', 'war-hammer', 'crowbar', 'lead-pipe', 'riot-shield']) PROPS[id].material = 'metal';
