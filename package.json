@@ -12,7 +12,8 @@
     "server": "npm run build:server && node dist-server/index.js",
     "deploy": "node server/deploy.mjs",
     "lab": "vitest run --config vitest.lab.config.ts balance",
-    "netlab": "vitest run --config vitest.lab.config.ts netlab"
+    "netlab": "vitest run --config vitest.lab.config.ts netlab",
+    "chaos": "vitest run --config vitest.lab.config.ts chaos"
   },
   "dependencies": {
     "@dimforge/rapier2d-deterministic-compat": "^0.21.0",

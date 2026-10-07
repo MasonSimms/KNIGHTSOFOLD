@@ -163,6 +163,27 @@ describe('guns', () => {
     expect(await run()).toBe(await run());
   }, 60_000);
 
+  it('shooting a wooden weapon lying where its owner threw it snaps it (no crash), and an online copy snaps the same one', async () => {
+    const server = await duel(11), client = await Sim.create(11, 2, false);
+    for (let i = 0; i < 30; i++) client.step([NEUTRAL, NEUTRAL]);
+    const at = server.fighters[0].torso.body.translation(), x = at.x + 2.5 * server.fighters[0].side, y = server.arena.platformTop - 0.1;
+    for (const s2 of [server, client]) { arm(s2, 0, 'revolver'); arm(s2, 1, 'plank'); placeLoose(s2.world, s2.fighters[1], x, y, 0); } // (still fighter 1's, lying on the floor)
+    const room = new Room(server), mirror = new Mirror(client, 0);
+    let snapped = false;
+    for (let i = 0; i < 300 && !snapped; i++) {
+      const a = server.fighters[0].torso.body.translation(), p = server.fighters[1].stick?.body.translation() ?? { x, y };
+      room.setInput(0, { ...NEUTRAL, aim: Math.atan2(p.y - a.y, p.x - a.x), reach: Math.hypot(p.y - a.y, p.x - a.x), attack: i % 25 < 2 && i > 20 });
+      const snap = room.tick();
+      if (snap) { mirror.push(JSON.parse(JSON.stringify(snap))); mirror.show(snap.frame); }
+      snapped ||= server.events.some((e) => e.t === 'snap');
+    }
+    expect(snapped).toBe(true);
+    for (let i = 0; i < 30; i++) { const snap = room.tick(); if (snap) { mirror.push(JSON.parse(JSON.stringify(snap))); mirror.show(snap.frame); } }
+    expect(server.fighters[1].stick).toBeNull(); // (gone from its owner: two loose halves now)
+    expect(mirror.desyncs).toBe(0);
+    expect(client.props.length).toBe(server.props.length);
+  }, 30_000);
+
   it('a bot with a gun keeps its distance, aims and shoots, and hits', async () => {
     const sim = await Sim.create(12, 2, false);
     sim.looks[0] = botLook();

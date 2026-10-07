@@ -245,8 +245,8 @@ function crack(sim: Sim, part: Part, u: Bullet, holder: Fighter | undefined): vo
   if (part.cracks < tough) { sim.events.push({ t: 'splinter', x: u.x, y: u.y, v: 0, owner: u.owner, victim: holder?.index ?? -1 }); return; }
   const t = part.body.translation(), a = part.body.rotation();
   const along = (u.x - t.x) * Math.cos(a) + (u.y - t.y) * Math.sin(a); // where along it the bullet hit
-  const index = holder ? -1 : sim.props.indexOf(part);
-  sim.events.push({ t: 'snap', x: u.x, y: u.y, v: along, owner: holder?.index ?? -1, victim: index });
+  const index = holder ? -1 : sim.props.indexOf(part), owner = holder ?? sim.fighters.find((g) => g.stick === part); // (a weapon lying where it was thrown is still its owner's)
+  sim.events.push({ t: 'snap', x: u.x, y: u.y, v: along, owner: owner?.index ?? -1, victim: index, ...(owner && !holder ? { how: 'loose' } : {}) });
   snapPart(sim, part, along, holder);
 }
 

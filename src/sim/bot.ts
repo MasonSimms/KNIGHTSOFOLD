@@ -107,7 +107,8 @@ export class Bot {
       out.moveX = Math.abs(dx) < G.gunKeep ? -Math.sign(dx) * 0.7 : Math.abs(dx) > G.gunMax ? Math.sign(dx) * 0.6 : 0; // not too close, not too far
       const want = Math.atan2(look.y - p.y, look.x - p.x);
       out.reach = Math.hypot(look.x - p.x, look.y - p.y);
-      if (Math.abs(wrap(want - this.aim)) < G.gunAimTol && me.gunCool === 0 && age % 6 < 2) out.attack = true; // squeeze off a shot when it is on them
+      const holds = !!me.stick?.weapon?.gun?.charge; // (a gun that charges: hold the button while it is on them)
+      if (Math.abs(wrap(want - this.aim)) < G.gunAimTol && me.gunCool === 0 && (holds || age % 6 < 2)) out.attack = true; // squeeze off a shot when it is on them
       if (!this.loaded(me) || age > 150) this.start({ kind: 'idle' }, now);
     } else if (plan.kind === 'swing') {
       out.moveX = Math.abs(dx) > 1.2 ? Math.sign(dx) * 0.6 : Math.abs(dx) < 0.7 ? -Math.sign(dx) * 0.8 : 0; // too close for a club: step back for room

@@ -419,6 +419,7 @@ export class Sim {
   // ---- for guns.ts ----
   /** Take a part out of the world for good (a snapped weapon, broken scenery): from the hand holding it, or from the loose things. */
   removeBody(part: Part, holder: Fighter | undefined): void {
+    holder ??= this.fighters.find((g) => g.stick === part); // (a weapon lying where it was thrown or dropped is still its owner's part)
     if (holder && holder.stick === part) {
       if (holder.grip) { this.world.removeImpulseJoint(holder.grip, true); holder.grip = null; }
       dropToWorld(holder);
@@ -656,7 +657,7 @@ export class Sim {
     else if (e.t === 'spawn') this.addProp(PROP_KINDS[e.v], e.x, e.y);
     else if (e.t === 'newround') { this.round++; this.build(); }
     else if (e.t === 'shot') { if (f) spendShot(f); }
-    else if (e.t === 'snap') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) snapPart(this, p, e.v, h); }
+    else if (e.t === 'snap') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) snapPart(this, p, e.v, e.how === 'loose' ? undefined : h); } // ('loose': their weapon, lying where it was thrown)
     else if (e.t === 'break') { const p = this.props[e.victim]; if (p) breakProp(this, p, false); }
     else if (e.t === 'boom') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) goneOff(this, p, h); }
     else if (e.t === 'shatter') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) shatter(this, p, h, false); }
