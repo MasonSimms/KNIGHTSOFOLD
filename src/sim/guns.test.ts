@@ -214,4 +214,45 @@ describe('guns', () => {
     expect(at[1] - at[0]).toBe(C.burstGap);
     expect(carbine.ammo).toBe(C.ammo - C.burst!);
   }, 30_000);
+
+  it('a lobbed round falls, bounces once and goes off; a ray bolt bounces off the ground and flies on; a rocket under your feet throws you up', async () => {
+    const sim = await duel(7);
+    arm(sim, 0, 'thumper');
+    let boom = -1, bounced = false, fell = false;
+    for (let i = 0; i < 150 && boom < 0; i++) {
+      sim.step([{ ...NEUTRAL, aim: 0.35, attack: i === 2 }, NEUTRAL]); // (at the floor a few metres ahead)
+      const u = sim.bullets[0];
+      if (u && u.vy > 2) fell = true;
+      if (u && u.bounces === 0) bounced = true;
+      if (sim.events.some((e) => e.t === 'boom')) boom = i;
+    }
+    expect(fell, 'it arcs down').toBe(true);
+    expect(bounced, 'it bounced').toBe(true);
+    expect(boom).toBeGreaterThan(0);
+    const ray = await duel(7);
+    arm(ray, 0, 'ray-pistol');
+    let sparked = false, flewOn = false;
+    for (let i = 0; i < 40; i++) {
+      ray.step([{ ...NEUTRAL, aim: 0.6, attack: i === 10 }, NEUTRAL]); // (at the floor in front)
+      if (ray.events.some((e) => e.t === 'spark')) sparked = true;
+      if (sparked && ray.bullets.length && ray.bullets[0].vy < 0) flewOn = true;
+    }
+    expect(flewOn, 'off the ground and on up').toBe(true);
+    const rocket = await duel(7);
+    arm(rocket, 0, 'rocket-tube');
+    const me = rocket.fighters[0];
+    for (let i = 0; i < 25; i++) rocket.step([{ ...NEUTRAL, aim: Math.PI / 2 }, NEUTRAL]); // (pointing straight down)
+    let up = 0;
+    for (let i = 0; i < 40; i++) { rocket.step([{ ...NEUTRAL, aim: Math.PI / 2, attack: i === 0 }, NEUTRAL]); up = Math.min(up, me.torso.body.linvel().y); }
+    expect(up, 'a rocket jump').toBeLessThan(-6);
+  }, 30_000);
+
+  it('a flare sets the fighter it hits alight', async () => {
+    const sim = await duel(8);
+    arm(sim, 0, 'flare-pistol');
+    placeNear(sim, 1, sim.fighters[0].torso.body.translation().x + 2.2 * sim.fighters[0].side);
+    const ev = shoot(sim, 60);
+    expect(ev.some((e) => e.t === 'ignite' && e.victim === 1)).toBe(true);
+    expect(sim.fighters[1].burning).toBeGreaterThan(0);
+  }, 30_000);
 });

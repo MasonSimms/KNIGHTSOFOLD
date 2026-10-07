@@ -449,23 +449,25 @@ export class Sim {
   }
   /** A grenade goes off (special.ts): everything near is thrown outward (harder the nearer), fighters are hurt by how near they were, and
    *  breakable scenery breaks. `by`: who threw it. */
-  blast(x: number, y: number, by: number): void {
-    const B = T.special, R = B.blastRadius;
+  /** A blast at (x, y) (a grenade; a gun's `blast`, props.ts): everything near is thrown outward and hurt, less further out. `spare`: the one
+   *  it throws but never hurts (who fired it). */
+  blast(x: number, y: number, by: number, o = { radius: T.special.blastRadius, push: T.special.blastPush, impact: T.special.blastImpact }, spare = -1): void {
+    const B = T.special, R = o.radius;
     const push = (b: RAPIER.RigidBody): number => {
       const t = b.translation(), dx = t.x - x, dy = t.y - y, d = Math.hypot(dx, dy);
       if (d > R || !b.isDynamic()) return d;
       const k = 1 - d / R, s = d || 1;
-      b.applyImpulse({ x: (dx / s) * B.blastPush * k * b.mass(), y: ((dy / s) * B.blastPush - B.blastLift) * k * b.mass() }, true);
+      b.applyImpulse({ x: (dx / s) * o.push * k * b.mass(), y: ((dy / s) * o.push - B.blastLift) * k * b.mass() }, true);
       return d;
     };
     for (const f of this.fighters) {
       let near = Infinity;
       for (const p of f.parts) near = Math.min(near, push(p.body));
-      if (f.limp || near > R) continue;
-      const impact = B.blastImpact * (1 - near / R), t = f.torso.body.translation();
+      if (f.limp || near > R || f.index === spare) continue;
+      const impact = o.impact * (1 - near / R), t = f.torso.body.translation();
       this.wound(f, damageFor(impact), impact, t.x, t.y, by, false, true, { how: 'blast', nx: Math.sign(t.x - x) || 1, ny: -0.5 });
     }
-    for (const p of [...this.props]) { const d = push(p.body); if (d < R && p.hp !== undefined && this.props.includes(p)) damageScenery(this, p, B.blastImpact * B.blastScenery * (1 - d / R)); }
+    for (const p of [...this.props]) { const d = push(p.body); if (d < R && p.hp !== undefined && this.props.includes(p)) damageScenery(this, p, o.impact * B.blastScenery * (1 - d / R)); }
   }
 
   /** Fire's damage (fire.ts): a little hidden health at a time, no stagger; it can finish you. */

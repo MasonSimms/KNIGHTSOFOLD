@@ -204,7 +204,7 @@ export class Mirror {
       let j = -1;
       for (let q = 0; q < ab.length; q += 6) if (ab[q] === bb[k]) { j = q; break; }
       const x = bb[k + 1], y = bb[k + 2];
-      sim.bullets.push({ id: bb[k], x, y, px: j >= 0 ? ab[j + 1] : x, py: j >= 0 ? ab[j + 2] : y, vx: 0, vy: 0, ox: bb[k + 3], oy: bb[k + 4], owner: bb[k + 5], gun: '', calibre: 0, impact: 0, push: 0, age: 0, bounced: false, wet: false });
+      sim.bullets.push({ id: bb[k], x, y, px: j >= 0 ? ab[j + 1] : x, py: j >= 0 ? ab[j + 2] : y, vx: 0, vy: 0, ox: bb[k + 3], oy: bb[k + 4], owner: bb[k + 5], gun: '', calibre: 0, impact: 0, push: 0, age: 0, bounced: false, wet: false, bounces: 0 });
     }
     sim.fighters.forEach((f, i) => {
       const pa = a.f[i]?.p, pb = b.f[i]?.p;

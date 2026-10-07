@@ -50,6 +50,12 @@ export interface GunSpec {
   burst?: number; // one pull fires this many shots, `burstGap` frames apart
   burstGap?: number;
   spreadPerShot?: number; // each shot in a row wanders up to this much more off the aim (radians; from the start again when you let go)
+  gravity?: number; // the shot falls (1 = like everything else: a lob) or, below 0, floats up
+  thrust?: number; // the shot speeds up as it flies (m/s each second: a rocket)
+  bounces?: number; // it bounces off the ground and walls this many times (a falling shot loses speed each bounce: tuning.guns.bounceKeep)
+  blast?: { radius: number; push: number; impact: number; fuse: number }; // it goes off where it stops, or after `fuse` frames in the air (0: only where it stops): world.ts blast
+  selfBlast?: boolean; // ...and its blast can hurt the one who fired it (it always pushes them: a rocket jump)
+  ignites?: boolean; // it sets alight what it hits: a fighter, or wood (sim/fire.ts)
   look?: { color: number; orb?: number }; // how its shots look (picture only): their colour, and a glowing ball this wide (m) instead of a streak
 }
 

@@ -513,6 +513,7 @@ export const tuning = {
     snapFling: 1.5, // how hard the loose half of a snapped weapon flies off
     breakSpread: 3, // how fast the pieces of broken scenery fly apart (m/s)
     steady: 0.15, // how quickly the hand steadies a gun on the aim (share of the error corrected each frame)
+    bounceKeep: 0.5, // a falling shot (a lobbed grenade round) keeps this share of its speed when it bounces
     sprayMax: 8, // a held trigger or a burst wanders more each shot (props.ts spreadPerShot), up to this many shots' worth
   },
   water: {

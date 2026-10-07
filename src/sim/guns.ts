@@ -2,8 +2,9 @@ import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { Collider } from '@dimforge/rapier2d-deterministic-compat';
 import { PROPS } from '../content/props';
 import { tuning as T } from '../content/tuning';
+import type { GunSpec } from '../content/weapons';
 import { damageFor } from './combat';
-import { createProp, dropToWorld, shove, takeIn } from './fighter';
+import { createProp, dropToWorld, isWeapon, shove, takeIn } from './fighter';
 import type { Fighter, Part } from './fighter';
 import { surfaceY } from './water';
 import { makeRng } from './rng';
@@ -26,6 +27,7 @@ export interface Bullet {
   ox: number; oy: number; // where it was fired from (its trail starts there)
   owner: number; gun: string; calibre: number; impact: number; push: number;
   age: number; bounced: boolean; wet: boolean;
+  bounces: number; // bounces left (props.ts gun.bounces)
 }
 
 const ray = new RAPIER.Ray({ x: 0, y: 0 }, { x: 1, y: 0 });
@@ -46,7 +48,7 @@ export function fire(sim: Sim, f: Fighter): void {
   const n = G.pellets ?? 1, spread = G.spread ?? 0; // (a scattergun: n pellets in a cone)
   for (let k = 0; k < n; k++) {
     const off = n === 1 ? 0 : G.fixedFan ? spread * ((2 * k) / (n - 1) - 1) : spread * (2 * rng() - 1), pc = Math.cos(a + off), ps = Math.sin(a + off);
-    sim.bullets.push({ id: sim.nextBullet++, x: mx, y: my, px: mx, py: my, vx: pc * G.speed, vy: ps * G.speed, ox: mx, oy: my, owner: f.index, gun: p.weapon!.id, calibre: G.calibre, impact: G.impact, push: G.push, age: 0, bounced: false, wet: false });
+    sim.bullets.push({ id: sim.nextBullet++, x: mx, y: my, px: mx, py: my, vx: pc * G.speed, vy: ps * G.speed, ox: mx, oy: my, owner: f.index, gun: p.weapon!.id, calibre: G.calibre, impact: G.impact, push: G.push, age: 0, bounced: false, wet: false, bounces: G.bounces ?? 0 });
   }
   b.applyImpulse({ x: -c * G.recoil, y: -s * G.recoil }, true); // the gun (and the arm) kicks back...
   shove(f, -c * G.kick, -s * G.kick); // ...and the whole body is pushed back (bigger guns more)
@@ -96,18 +98,26 @@ export function moveBullets(sim: Sim): void {
       if (!u.wet) { u.wet = true; sim.events.push({ t: 'splash', x: u.x, y: u.y, v: Math.hypot(u.vx, u.vy), owner: u.owner, victim: -1 }); }
       u.vx *= G.waterSlow; u.vy *= G.waterSlow;
     }
+    const S = PROPS[u.gun]?.gun; // (what fired it: some shots fall, speed up, go off)
+    if (S?.gravity) u.vy += T.sim.gravity * S.gravity * dt;
+    if (S?.thrust) { const k = 1 + (S.thrust * dt) / Math.max(1, Math.hypot(u.vx, u.vy)); u.vx *= k; u.vy *= k; }
     const sp = Math.hypot(u.vx, u.vy);
-    if (sp < G.minSpeed || u.age > G.maxFrames) { sim.bullets.splice(i, 1); continue; }
-    let travel = sp * dt, stopped = false;
+    if ((sp < G.minSpeed && (u.wet || !S?.gravity)) || u.age > G.maxFrames || (S?.blast?.fuse && u.age >= S.blast.fuse)) { // spent (a shell with a fuse goes off in the air)
+      if (S?.blast) explode(sim, u, S);
+      sim.bullets.splice(i, 1);
+      continue;
+    }
+    let travel = sp * dt, stopped = false, last: Collider | undefined;
     for (let bounce = 0; bounce < 3 && travel > 1e-4 && !stopped; bounce++) {
       ray.origin.x = u.x; ray.origin.y = u.y; ray.dir.x = u.vx / sp; ray.dir.y = u.vy / sp;
       const hit = sim.world.castRayAndGetNormal(ray, travel, true, undefined, undefined, undefined, undefined, (c) => meets(sim, u, c));
       if (!hit) { u.x += ray.dir.x * travel; u.y += ray.dir.y * travel; break; }
       u.x += ray.dir.x * hit.timeOfImpact; u.y += ray.dir.y * hit.timeOfImpact;
       travel -= hit.timeOfImpact;
+      last = hit.collider;
       if (strike(sim, u, hit.collider, ray.dir.x, ray.dir.y, hit.normal.x, hit.normal.y) === 'stop') stopped = true;
     }
-    if (stopped) { sim.bullets.splice(i, 1); continue; }
+    if (stopped) { if (S) land(sim, u, S, last); sim.bullets.splice(i, 1); continue; }
     if (u.x < 0 || u.x > A.viewW || u.y < 0 || u.y > A.viewH) { // out of the picture: it cracks the frame where it leaves
       const ex = Math.max(0, Math.min(A.viewW, u.x)), ey = Math.max(0, Math.min(A.viewH, u.y));
       sim.events.push({ t: 'exit', x: ex, y: ey, v: u.calibre, owner: u.owner, victim: -1 });
@@ -133,15 +143,21 @@ function strike(sim: Sim, u: Bullet, c: Collider, dx: number, dy: number, nx: nu
   const G = T.guns, body = c.parent()!, part = sim.partByBody.get(body.handle), at = { x: u.x, y: u.y };
   const push = (k: number) => body.applyImpulseAtPoint({ x: dx * u.push * k, y: dy * u.push * k }, at, true);
   const ev = (t: 'spark' | 'splinter' | 'impact', victim = -1) => sim.events.push({ t, x: u.x, y: u.y, v: Math.atan2(ny, nx), owner: u.owner, victim });
+  if (!part && u.bounces > 0 && (nx || ny)) { // a bouncing shot: off the ground or the wall it goes (not when fired from inside it: no surface)
+    const S = PROPS[u.gun]?.gun;
+    u.bounces--;
+    bounce(u, nx, ny, S?.gravity ? G.bounceKeep : 1);
+    ev(S?.gravity ? 'impact' : 'spark');
+    return 'on';
+  }
   if (!part) { leak(sim, u.x, u.y, nx); ev('impact'); return 'stop'; } // the ground or a wall: a puff of dust (the water tower's tank: a leak)
   const holder = part.owner >= 0 && part.role !== 'prop' ? sim.fighters[part.owner] : undefined;
   if (part.role === 'flail') { push(G.blockPush); ev('spark', holder?.index ?? -1); return 'stop'; } // a flail's iron (or gold) head in someone's hand: it stops the bullet
   if (part.role === 'stick' && holder && holder.grip && holder.stick === part) { // a weapon in someone's hand
     const m = part.weapon?.material ?? 'wood';
     if (m === 'shield') { // sent back the way it came: now it can hit anyone, the shooter too
-      const d = u.vx * nx + u.vy * ny; // (mirrored about the surface)
-      u.vx -= 2 * d * nx; u.vy -= 2 * d * ny;
-      u.bounced = true; u.x += nx * 0.02; u.y += ny * 0.02;
+      bounce(u, nx, ny, 1);
+      u.bounced = true;
       push(G.blockPush); ev('spark', holder.index);
       return 'on';
     }
@@ -174,6 +190,31 @@ function strike(sim: Sim, u: Bullet, c: Collider, dx: number, dy: number, nx: nu
   }
   push(1); // a body on the ground
   return 'stop';
+}
+
+/** Mirror the shot about the surface it met (normal nx, ny), keeping `keep` of its speed, and lift it just off the surface. */
+function bounce(u: Bullet, nx: number, ny: number, keep: number): void {
+  const d = u.vx * nx + u.vy * ny;
+  u.vx = (u.vx - 2 * d * nx) * keep; u.vy = (u.vy - 2 * d * ny) * keep;
+  u.x += nx * 0.02; u.y += ny * 0.02;
+}
+
+/** Where a shot stopped: a flare sets alight what it hit; a shell goes off. */
+function land(sim: Sim, u: Bullet, S: GunSpec, c: Collider | undefined): void {
+  const body = c?.parent(), part = body ? sim.partByBody.get(body.handle) : undefined;
+  if (S.ignites && part) {
+    const v = part.owner >= 0 && part.role !== 'prop' && !isWeapon(part) ? sim.fighters[part.owner] : undefined;
+    if (v && !v.limp) v.burning = T.fire.burnFrames;
+    else if (!v && (part.weapon?.material ?? 'wood') === 'wood' && !part.weapon?.gun) part.burning = T.fire.woodFrames;
+    if (v ? !v.limp : !!part.burning) sim.events.push({ t: 'ignite', x: u.x, y: u.y, v: 0, owner: u.owner, victim: v?.index ?? -1 });
+  }
+  if (S.blast) explode(sim, u, S);
+}
+
+/** A shell goes off where it is: the blast (world.ts), seen and heard everywhere ('boom' with no grenade to take away). */
+function explode(sim: Sim, u: Bullet, S: GunSpec): void {
+  sim.events.push({ t: 'boom', x: u.x, y: u.y, v: S.blast!.radius, owner: -1, victim: -1 });
+  sim.blast(u.x, u.y, u.owner, S.blast!, S.selfBlast ? -1 : u.owner);
 }
 
 /** A wooden thing takes a bullet: a crack, or, shot enough, it snaps in two. */
