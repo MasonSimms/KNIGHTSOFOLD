@@ -413,6 +413,8 @@ export const tuning = {
     knock: 3.5, // m/s: it knocks them back this fast (away from the puncher), however hard it landed: about 2.5-3 m back
     lift: 1.5, // m/s: ...and this much up, off their feet a little
     hurt: 0.5, // share of a fist's usual damage it does
+    disarmsGuns: true, // a quick punch knocks a gun out of the hand it lands on (owner, 2026-10-07; clubs only come loose on a hit to the hand: tuning.disarm)
+    gunFling: 4, // m/s: ...and the gun flies off this fast, the way the punch went (and half that up)
   },
   grab: {
     // Unarmed left-click, HELD: your hand reaches out along the aim and grabs whatever part of a fighter it touches.
@@ -832,6 +834,7 @@ export const tuning = {
   },
   finish: {
     vignetteAlpha: 0.35,
+    dusk: { seconds: 10, wash: 0.45, vignette: 0.6, color: 0x1a0d08, throb: 0.15, rate: 1.2 }, // sudden death (match.suddenDeath): over `seconds` the picture darkens (wash: how dark, in colour) and its edges close in (vignette), throbbing (share, beats a second)
     // Painted backdrops (art-guide/ART_STYLE.md): each round's backdrop and ground are painted with oil strokes in a background worker.
     // width = painting resolution; under = smooth underpaint showing through the strokes (higher = smoother); relief = paint thickness;
     // bristle = how streaky a stroke is; jitter = colour wobble between strokes. Each era can scale these (content/paintings.ts, brush).

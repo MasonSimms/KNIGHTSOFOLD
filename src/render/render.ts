@@ -307,7 +307,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     ctx.fillRect(0, 0, 256, 256);
   }));
   vignette.alpha = T.finish.vignetteAlpha;
-  game.addChild(grain, tintWash, vignette);
+  const dusk = new Graphics().rect(0, 0, 1, 1).fill(0xffffff); // sudden death: the painting darkens (tinted and sized in draw())
+  dusk.alpha = 0;
+  game.addChild(grain, tintWash, dusk, vignette);
   const box = new Graphics(); // the picture's frame on screen: zoomed in, nothing may spill outside it
   game.addChild(box);
   const frame = createFrame(game, { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under }); // the gold frame, over everything (screen space)
@@ -587,8 +589,14 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const px = app.screen.height / 1080;
       actors.filterArea = new Rectangle(0, 0, app.screen.width, app.screen.height);
       setOilScale(oil, app.screen.height / 1080);
-      grain.width = tintWash.width = app.screen.width;
-      grain.height = tintWash.height = app.screen.height;
+      grain.width = tintWash.width = dusk.width = app.screen.width;
+      grain.height = tintWash.height = dusk.height = app.screen.height;
+      { // sudden death (tuning.match.suddenDeath): as everyone left drains, the edges close in and the picture darkens, throbbing
+        const D = T.finish.dusk, late = sim.matchActive && !sim.roundOver ? (sim.frame - T.match.suddenDeath.after) * T.sim.dt : 0, k = Math.min(1, Math.max(0, late) / D.seconds);
+        dusk.tint = D.color;
+        dusk.alpha = k * D.wash * (1 + D.throb * Math.sin(performance.now() * 0.001 * Math.PI * 2 * D.rate));
+        vignette.alpha = T.finish.vignetteAlpha + (1 - T.finish.vignetteAlpha) * k * D.vignette;
+      }
       paintBlur.strength = T.finish.paintBlur * px;
       if (sim.round !== shownRound) { // a new round: the picture is clean again (the paint lasts the whole round)
         shownRound = sim.round;

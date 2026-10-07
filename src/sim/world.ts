@@ -150,9 +150,16 @@ export class Sim {
 
   /** The arena of the current round: the standard one, or the era's own layout (a pure function of the era, so a client can ask without building anything). */
   get arena(): Arena {
-    const key = `${this.era}|${this.map}|${T.eras.changeGameplay}`;
-    if (this.arenaCache?.key !== key) this.arenaCache = { key, arena: arenaFor(this.era, this.map) };
+    const guns = this.gunRound(), key = `${this.era}|${this.map}|${T.eras.changeGameplay}|${guns}`;
+    if (this.arenaCache?.key !== key) this.arenaCache = { key, arena: guns ? { ...arenaFor(this.era, this.map), gunsOnly: true } : arenaFor(this.era, this.map) };
     return this.arenaCache.arena;
+  }
+
+  /** Is this round a gun round (owner, 2026-10-07: more gun arenas)? An era's gunRounds share of its rounds is played guns-only on whatever
+   *  map comes up (not a fists-only map), picked from the match seed and the round, so the server and every page agree. */
+  private gunRound(): boolean {
+    const c = T.eras.changeGameplay ? eraById(this.era).gunRounds ?? 0 : 0;
+    return c > 0 && !arenaFor(this.era, this.map).noWeapons && makeRng(((this.seed * 31 + this.round) ^ 0x5bd1e995) >>> 0)() < c;
   }
 
   /** The era and arena of the next round (so the renderer can paint its backdrop ahead of time). */
@@ -1274,6 +1281,10 @@ export class Sim {
     const k = knockbackFor(impact) * (att.kind === 'fist' ? T.fist.knockbackMul : 1) * (own?.push ?? 1), pull = own?.pull ? -1 : 1; // punches shove much less than a club; a shield shoves more; the gravity hammer pulls
     shove(victim, pull * nx * k, pull * ny * k - impact * T.combat.knockbackUp);
     if (punch) { const m = fighterMass(victim); shove(victim, (Math.sign(nx) || f.side) * T.punch.knock * m, -T.punch.lift * m); } // ...back, and a little off their feet
+    if (punch && T.punch.disarmsGuns && victim.grip && victim.stick?.weapon?.gun && !killing) { // ...and their gun flies out of their hand (owner: like Stick Fight)
+      const m = victim.stick.body.mass();
+      this.disarmByShot(victim, (Math.sign(nx) || f.side) * T.punch.gunFling * m, -T.punch.gunFling * 0.5 * m, f.index);
+    }
     if (!killing) this.knockdown(victim, impact, nx);
     // A hit tips the victim backward (head swings away from the blow) a little: smooth and funny, not a random flip.
     victim.torso.body.applyTorqueImpulse(-Math.sign(nx || 1) * impact * T.combat.spinScale * (0.8 + 0.4 * this.rng()), true);

@@ -73,4 +73,35 @@ describe('the race for the guns', () => {
       T.eras.changeGameplay = was.change; T.spawn.enabled = was.spawn;
     }
   }, 30_000);
+
+  it("a quick punch knocks the gun out of a rival's hand", async () => {
+    const sim = await faceOff(34, 1.1);
+    const g = sim.fighters[1], t = at(sim, 1);
+    if (g.stick) placeLoose(sim.world, g, t.x + 4 * g.side, sim.arena.platformTop - 0.1, 0);
+    sim.spawnItem('revolver', t.x, t.y - 1.5);
+    (sim as unknown as Internals).acquire(g, { kind: 'prop', index: sim.props.length - 1 });
+    expect(g.grip).not.toBeNull();
+    let landed = false;
+    for (let i = 0; i < 30 && !landed; i++) { sim.step([toward(sim, { attack: i < 2 }), NEUTRAL]); landed = sim.events.some((e) => e.t === 'hit' && e.how === 'fist'); }
+    expect(landed).toBe(true);
+    expect(g.grip).toBeNull();
+    expect(g.stick?.weapon?.id).toBe('revolver'); // (lying loose now, for whoever gets to it first)
+  }, 30_000);
+
+  it("gun rounds: about half of a gun era's rounds are guns-only, picked the same way every time; the Water Tower always is", async () => {
+    const was = T.eras.changeGameplay;
+    T.eras.changeGameplay = true;
+    try {
+      const sim = await Sim.create(35, 2, false);
+      sim.forceEra = 'ww1'; sim.forceMap = 0; sim.reset();
+      const rounds = (s: Sim) => Array.from({ length: 40 }, (_, r) => { (s as unknown as { round: number }).round = r; return !!s.arena.gunsOnly; });
+      const a = rounds(sim), n = a.filter(Boolean).length;
+      expect(n).toBeGreaterThan(10);
+      expect(n).toBeLessThan(30);
+      expect(rounds(await Sim.create(35, 2, false).then((s) => { s.forceEra = 'ww1'; s.forceMap = 0; s.reset(); return s; }))).toEqual(a);
+      sim.forceEra = 'westerns'; sim.forceMap = 5; sim.reset();
+      expect(sim.arena.name).toBe('Water Tower');
+      expect(rounds(sim).every(Boolean)).toBe(true);
+    } finally { T.eras.changeGameplay = was; }
+  }, 30_000);
 });

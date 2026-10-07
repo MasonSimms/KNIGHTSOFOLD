@@ -24,7 +24,7 @@ export interface EraArena {
   train?: { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }; // a train map (see tuning.arena.train)
   roll?: number; // the painting slides by (m/s)
   noWeapons?: boolean; // fists and throws only
-  gunsOnly?: boolean; // nobody starts armed and only the era's guns drop in, early and often: a race for them (owner, 2026-10-07)
+  gunsOnly?: boolean; // (see also Era.gunRounds) nobody starts armed and only the era's guns drop in, early and often: a race for them (owner, 2026-10-07)
   tower?: { x: number; w: number }; // a water tower's tank (see tuning.arena.tower)
   wind?: { base: number; gust: number; dir: -1 | 1 }; // a windy map (see tuning.arena.wind)
 }
@@ -37,6 +37,7 @@ export interface Era {
   name: string;
   special: boolean;
   pickups?: string[]; // better weapons (props.ts) that spawn in as the round goes on, weakest first
+  gunRounds?: number; // this share of the era's rounds are played guns-only (Arena.gunsOnly) on whatever map comes up, but a fists-only one (owner, 2026-10-07: more gun arenas)
   strong?: number; // the last this many pickups are the strong ones: they come only later in a round (tuning.spawn.strongAfterFrames); the rest are common (default 1)
   style?: Partial<EraStyle>; // painting style tweaks for this era
   sky: number; // arena colours (placeholders)
@@ -115,12 +116,12 @@ export const eras: Era[] = [
         { kind: 'lantern', x: 6.0, up: 2.8 }, { kind: 'lantern', x: 11.5, up: 3.0 }] },
     // Water Tower (owner's list): on the round top of the town's water tower, with a narrow catwalk round it lower down; shoot the tank
     // and water jets out of the hole and shoves whoever it catches. Revolvers come as pickups.
-    { name: 'Water Tower', wind: { base: 2, gust: 8, dir: 1 }, ground: [{ x: 5.0, w: 3.5, up: -1.6, thick: 0.15 }, { x: 8.5, w: 7.0, thick: 3.2 }, { x: 15.5, w: 3.5, up: -1.6, thick: 0.15 }], tower: { x: 8.5, w: 7.0 },
+    { name: 'Water Tower', gunsOnly: true, wind: { base: 2, gust: 8, dir: 1 }, ground: [{ x: 5.0, w: 3.5, up: -1.6, thick: 0.15 }, { x: 8.5, w: 7.0, thick: 3.2 }, { x: 15.5, w: 3.5, up: -1.6, thick: 0.15 }], tower: { x: 8.5, w: 7.0 },
       fightSpawnX: [6.5, 17.5, 10.25, 13.75], spawnX: [10.25, 13.75, 6.5, 17.5] }], outfits: ['sheriff', 'outlaw', 'gambler', 'rancher'] },
-  { id: 'ww1', name: 'World War I', special: false, pickups: ['grenade', 'flare-pistol', 'trench-gun', 'bayonet-rifle', 'lewis-gun'], strong: 2, style: { grain: 0.05 }, sky: 0x7b8576, platform: 0x5a5444, wall: 0x45463c, weapon: 'shovel', arena: { ledges: [/* islands out past each end of the ground, over the void */ { x: 2.25, up: 0.6, w: 2.0 }, { x: 19.75, up: 0.6, w: 2.0 }] }, outfits: ['infantry', 'officer', 'medic', 'trench raider'] },
-  { id: 'vietnam', name: 'Vietnam', special: false, pickups: ['bamboo-stick', 'jungle-carbine', 'thumper', 'bayonet-knife'], strong: 2, sky: 0x5f8a5a, platform: 0x6a5a3c, wall: 0x4a5a3c, weapon: 'machete', arena: { platformW: 12.5, ledges: [{ x: 11.25, up: 1.8, w: 2.0 }], front: [{ kind: 'grass', x: 1.25, y: 13.75, scale: 3.0 }, { kind: 'grass', x: 4.0, y: 13.9, scale: 2.1 }, { kind: 'grass', x: 22.25, y: 13.8, scale: 2.75 }] }, outfits: ['jungle grunt', 'scout', 'radioman', 'tunnel rat'] },
+  { id: 'ww1', name: 'World War I', special: false, gunRounds: 0.5, pickups: ['grenade', 'flare-pistol', 'trench-gun', 'bayonet-rifle', 'lewis-gun'], strong: 2, style: { grain: 0.05 }, sky: 0x7b8576, platform: 0x5a5444, wall: 0x45463c, weapon: 'shovel', arena: { ledges: [/* islands out past each end of the ground, over the void */ { x: 2.25, up: 0.6, w: 2.0 }, { x: 19.75, up: 0.6, w: 2.0 }] }, outfits: ['infantry', 'officer', 'medic', 'trench raider'] },
+  { id: 'vietnam', name: 'Vietnam', special: false, gunRounds: 0.5, pickups: ['bamboo-stick', 'jungle-carbine', 'thumper', 'bayonet-knife'], strong: 2, sky: 0x5f8a5a, platform: 0x6a5a3c, wall: 0x4a5a3c, weapon: 'machete', arena: { platformW: 12.5, ledges: [{ x: 11.25, up: 1.8, w: 2.0 }], front: [{ kind: 'grass', x: 1.25, y: 13.75, scale: 3.0 }, { kind: 'grass', x: 4.0, y: 13.9, scale: 2.1 }, { kind: 'grass', x: 22.25, y: 13.8, scale: 2.75 }] }, outfits: ['jungle grunt', 'scout', 'radioman', 'tunnel rat'] },
   { id: 'modern', name: 'Modern Warfare', special: false, pickups: ['combat-knife', 'smg', 'beanbag', 'marksman', 'riot-shield', 'rocket-tube'], strong: 3, sky: 0x7a8794, platform: 0x585d63, wall: 0x42474c, weapon: 'baton', arena: { gunsOnly: true, platformX: 6.0, platformW: 12.0, walls: [/* a building across the alley */ { side: 1, up: 3.0, gap: 1.4 }], ledges: [{ x: 10.75, up: 1.8, w: 2.5 }] }, outfits: ['rifleman', 'sniper', 'operator', 'engineer'] },
-  { id: 'scifi', name: 'Space Age', special: false, pickups: ['plasma-blade', 'ray-pistol', 'plasma-repeater', 'freeze-ray', 'swap-pistol', 'bubble-blaster', 'tractor-beam', 'gravity-hammer', 'rail-gun', 'black-hole'], strong: 3, style: { blur: 3, haze: 0.06, grain: 0.02 }, sky: 0x3a3f6b, platform: 0x4a5a7a, wall: 0x2e3350, weapon: 'energy-staff', arena: { platformX: 5.875, platformW: 12.25, ledges: [{ x: 6.75, up: 1.8, w: 2.0 }, { x: 15.25, up: 1.8, w: 2.0 }, { x: 10.75, up: 3.6, w: 2.5 }] }, outfits: ['pilot', 'android', 'marine', 'scientist'] },
+  { id: 'scifi', name: 'Space Age', special: false, gunRounds: 0.5, pickups: ['plasma-blade', 'ray-pistol', 'plasma-repeater', 'freeze-ray', 'swap-pistol', 'bubble-blaster', 'tractor-beam', 'gravity-hammer', 'rail-gun', 'black-hole'], strong: 3, style: { blur: 3, haze: 0.06, grain: 0.02 }, sky: 0x3a3f6b, platform: 0x4a5a7a, wall: 0x2e3350, weapon: 'energy-staff', arena: { platformX: 5.875, platformW: 12.25, ledges: [{ x: 6.75, up: 1.8, w: 2.0 }, { x: 15.25, up: 1.8, w: 2.0 }, { x: 10.75, up: 3.6, w: 2.5 }] }, outfits: ['pilot', 'android', 'marine', 'scientist'] },
   // Intermittent specials (the list will grow):
   { id: 'fantasy', name: 'Fantasy Archers', special: true, pickups: ['wizard-staff', 'war-hammer'], sky: 0x5a7a8a, platform: 0x5a6a3a, wall: 0x3e4a30, weapon: 'longbow', arena: { ledges: [{ x: 7.5, up: 1.8, w: 2.25 }, { x: 14.25, up: 1.8, w: 2.25 }] }, outfits: ['ranger', 'elf', 'hunter', 'druid'] },
   { id: 'mobsters', name: 'Mobsters', special: true, pickups: ['crowbar', 'lead-pipe'], sky: 0x4a3a4a, platform: 0x5a4a44, wall: 0x372c34, weapon: 'bat', arena: { platformX: 6.25, platformW: 11.5, fightSpawnX: [7.75, 16.25, 10.5, 13.5], walls: [/* the alley's brick wall */ { side: -1, up: 2.5, gap: 0 }], scenery: [{ kind: 'crate', x: 6.8, up: 0 }, { kind: 'barrel', x: 17.1, up: 0 }] }, outfits: ['boss', 'enforcer', 'accountant', 'getaway driver'] },
