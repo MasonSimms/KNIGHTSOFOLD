@@ -132,8 +132,8 @@ describe('room server', () => {
     expect(host.msgs.filter((m) => m.t === 'snap').every((m) => m.t === 'snap' && m.s.f.every((f) => f.p.every(Number.isFinite)))).toBe(true);
   });
 
-  it('a player who drops out dies that round; the fight goes on for the others and nobody can farm points alone', async () => {
-    const { host, others, code } = await fightOf(2);
+  it('a player who drops out (for longer than the grace) dies that round; the fight goes on for the others and nobody can farm points alone', async () => {
+    const { host, others, code } = await fightOf(2, { graceMs: 200 });
     others[0].close();
     const gone = await host.wait('snap', (m) => m.s.ev.some((e) => e.t === 'gone' && e.owner === 1), 3000);
     expect(gone.s.ev.some((e) => e.t === 'die' || e.t === 'fall')).toBe(true);
@@ -180,8 +180,8 @@ describe('room server', () => {
     expect(game.sim.fighters.every((f) => !f.limp)).toBe(true);
   }, 20000);
 
-  it('a dropped player gets their seat and score back by token, and a new round starts with them in it', async () => {
-    const { code, all, starts, game } = await fightOf(3);
+  it('a dropped player (longer than the grace) gets their seat and score back by token, and a new round starts with them in it', async () => {
+    const { code, all, starts, game } = await fightOf(3, { graceMs: 100 });
     game.sim.scores[1] = 7;
     const token = starts[1].token;
     all[1].ws.terminate(); // a hard drop, no goodbye
@@ -211,8 +211,24 @@ describe('room server', () => {
     await again.wait('start');
     await sleep(100);
     expect(all[1].closed).toBe(true); // the old connection was closed
-    expect(game.sim.fighters[1].limp).toBe(true); // they were counted as gone for a moment...
-    expect(game.sim.gone[1]).toBe(false); // ...and are back
+    expect(game.sim.fighters[1].limp).toBe(false); // their fighter never died: the new connection simply drives it
+    expect(game.sim.gone[1]).toBe(false);
+  });
+
+  it('a short drop (within the grace) does not kill you: your fighter stands still, and back in time you go on with the same round', async () => {
+    const { code, all, starts, game } = await fightOf(2);
+    all[1].ws.terminate();
+    await sleep(300);
+    expect(game.sim.fighters[1].limp).toBe(false); // still standing
+    expect(game.sim.gone[1]).toBe(false);
+    const back = await connect();
+    back.send({ t: 'rejoin', code, token: starts[1].token });
+    const start = await back.wait('start');
+    expect(start.you).toBe(1);
+    expect(start.queued).toBe(false); // not 'next round': now
+    await sleep(200);
+    expect(game.sim.fighters[1].limp).toBe(false);
+    expect(game.sim.gone[1]).toBe(false);
   });
 
   it('a wrong token cannot take a seat', async () => {

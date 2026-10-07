@@ -3,7 +3,8 @@ import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { botLook, COLORS, EYES, HATS } from '../src/content/looks';
 import type { Look } from '../src/content/looks';
-import { cleanInput, CREATE_LIMIT, EMPTY_MS, MAX_PLAYERS, MIN_PLAYERS, PROTOCOL, RESERVE_MS } from '../src/net/protocol';
+import { cleanInput, CREATE_LIMIT, EMPTY_MS, GRACE_MS, MAX_PLAYERS, MIN_PLAYERS, PROTOCOL, RESERVE_MS } from '../src/net/protocol';
+import { NEUTRAL } from '../src/sim/types';
 import { tuningFingerprint } from '../src/replay/recording';
 import type { ClientMsg, ServerMsg } from '../src/net/protocol';
 import { Room } from '../src/net/room';
@@ -32,11 +33,11 @@ class GameRoom {
   get present(): Seat[] { return this.seats.filter((s): s is Seat => !!s?.ws); } // connected players, lowest seat first: the first is the host
 }
 
-export interface ServerOptions { maxRooms?: number; reserveMs?: number; emptyMs?: number; createLimit?: number; site?: string } // site: a folder with the built game page to serve too
+export interface ServerOptions { maxRooms?: number; reserveMs?: number; emptyMs?: number; graceMs?: number; createLimit?: number; site?: string } // site: a folder with the built game page to serve too
 export interface Server { port: number; rooms: Map<string, GameRoom>; close(why?: string): Promise<void> }
 
 export async function startServer(port: number, opts: ServerOptions = {}): Promise<Server> {
-  const maxRooms = opts.maxRooms ?? 20, reserveMs = opts.reserveMs ?? RESERVE_MS, emptyMs = opts.emptyMs ?? EMPTY_MS;
+  const maxRooms = opts.maxRooms ?? 20, reserveMs = opts.reserveMs ?? RESERVE_MS, emptyMs = opts.emptyMs ?? EMPTY_MS, graceMs = opts.graceMs ?? GRACE_MS;
   const rooms = new Map<string, GameRoom>();
   const where = new WeakMap<WebSocket, { room: GameRoom; seat: Seat }>();
   const conn = new WeakMap<WebSocket, { ip: string; hello: boolean }>(); // who is on the other end, and whether their page is the right version
@@ -105,7 +106,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     if (r.game) {
       seat.ws = null; // the seat is kept for them for a while
       seat.leftAt = Date.now();
-      r.game.room.removePlayer(slotOf(r, seat)); // they die this round and sit out until they are back
+      r.game.room.setInput(slotOf(r, seat), NEUTRAL); // their fighter lets go of everything and stands there for the grace (the loop below kills it after): back in time, they go on with this round
       if (!r.present.length) r.emptySince = Date.now();
     } else {
       r.seats = r.seats.filter((s) => s !== seat);
@@ -167,8 +168,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       let slot = r.seats.findIndex((s) => !s || (!s.bot && !s.ws && now - s.leftAt > reserveMs));
       if (slot < 0) slot = r.seats.findIndex((s) => s?.bot); // no free seat: a bot gives its seat to a person (it leaves now, they appear next round)
       if (slot < 0) return send(ws, { t: 'error', why: 'that room is full' });
-      if (r.seats[slot]?.bot) r.game.room.removePlayer(slot);
-      if (r.seats[slot]) r.game.room.sim.scores[slot] = 0; // someone else's old seat: a fresh score
+      if (r.seats[slot]) { r.game.room.removePlayer(slot); r.game.room.sim.scores[slot] = 0; } // a bot's seat, or someone else's old one (its fighter may still be standing in its grace): out now, a fresh score
       r.seats[slot] = seat;
       seatPlayer(r, ws, seat);
       applyLooks(r);
@@ -179,11 +179,12 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       const r = rooms.get(String(m.code).toUpperCase().trim());
       const seat = r?.seats.find((s) => s && s.token === m.token);
       if (!r || !seat) return send(ws, { t: 'error', why: 'that seat is gone' });
-      if (seat.ws) { where.delete(seat.ws); seat.ws.terminate(); seat.ws = null; r.game?.room.removePlayer(slotOf(r, seat)); } // their old connection died without the server noticing yet: this one takes over (restorePlayer below puts them back)
+      if (seat.ws) { where.delete(seat.ws); seat.ws.terminate(); seat.ws = null; } // their old connection died without the server noticing yet: this one takes over
       seatPlayer(r, ws, seat);
       if (r.game) {
-        r.game.room.restorePlayer(slotOf(r, seat), false);
-        sendStart(r, seat, true, seeds.get(r)!);
+        const slot = slotOf(r, seat), queued = r.game.sim.gone[slot]; // back within the grace: their fighter is still standing, they go on with this round; later: next round
+        if (queued) r.game.room.restorePlayer(slot, false);
+        sendStart(r, seat, queued, seeds.get(r)!);
       } else lobby(r);
     } else if (m.t === 'look') {
       if (!at) return;
@@ -259,6 +260,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       }
     }
     for (const r of rooms.values()) if (r.game?.sim.matchOver && r.game.sim.matchFrames >= T.match.crownFrames) endGame(r, 'the match is over'); // the crown has been shown: back to the room
+    for (const r of rooms.values()) if (r.game) r.seats.forEach((s, i) => { if (s && !s.ws && !s.bot && s.leftAt && !r.game!.sim.gone[i] && Date.now() - s.leftAt > graceMs) r.game!.room.removePlayer(i); }); // away longer than the grace: their fighter dies and sits out until they are back
     if (now - sweep > 1000) { // once a second: delete fights nobody is watching (an away player's seat is simply up for grabs after reserveMs: see 'join')
       sweep = now;
       for (const [ip, ts] of created) if (!ts.some((t) => Date.now() - t < CREATE_LIMIT.perMs)) created.delete(ip);

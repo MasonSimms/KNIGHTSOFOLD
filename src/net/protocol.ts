@@ -33,6 +33,7 @@ export type ServerMsg =
 
 export const MAX_PLAYERS = 4;
 export const MIN_PLAYERS = 2; // to start a fight
+export const GRACE_MS = 5_000; // a player whose connection drops mid-fight stands still this long before their fighter dies: back within it, they go on with the same round
 export const RESERVE_MS = 60_000; // how long a player's seat is kept for them after they drop out of a fight
 export const EMPTY_MS = 60_000; // how long a fight with nobody connected is kept before the room is deleted
 export const CREATE_LIMIT = { rooms: 10, perMs: 600_000 }; // one address can make at most this many rooms in this long (stops a script filling the server)

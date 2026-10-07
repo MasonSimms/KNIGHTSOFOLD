@@ -80,7 +80,7 @@ if (onlineParam !== null) {
   const reconnect = async () => {
     notice('Connection lost. Reconnecting...');
     for (let i = 0; i < 30; i++) {
-      await new Promise((ok) => setTimeout(ok, 2000));
+      await new Promise((ok) => setTimeout(ok, i ? 2000 : 500)); // (quickly the first time: within the server's grace your fighter is still standing)
       const saved = loadSession();
       if (!saved) break;
       try { const c = await NetClient.connect(url); net = c; attach(c); c.send({ t: 'rejoin', ...saved }); return; } catch { /* still down: try again */ }

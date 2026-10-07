@@ -92,7 +92,7 @@ Since then, owner-requested Phase 2 additions are built (see DECISIONS.md): real
 
 Stick Fight feel pass (2026-10-05, see DECISIONS.md): camera zoomed out (fighters 8.6% of the screen), side walls only on maps that are about them (arena.walls per map), a 2.2 m jump that falls faster than it rises, every ledge 1.5 m clear above whatever is under it, weapons in a hand pass through the scenery. Owner: the size is right, weapons through the floor are fine. maps.test.ts enforces the map rules: when designing a map, keep them.
 
-Online (Phase 3) groundwork is built ahead of the gate at the owner's request, who cannot playtest right now (remote control): a room server over WebSockets, lobby, client mirror and 100 ms-lag tests; see DECISIONS.md and DEPLOY.md. Not done: deployment (needs the owner's accounts), prediction of your own fighter, and real-connection playtests with friends. Commands: npm run server, then open /?online in two tabs.
+Online (Phase 3) groundwork is built ahead of the gate at the owner's request, who cannot playtest right now (remote control): a room server over WebSockets, lobby, client mirror and 100 ms-lag tests; see DECISIONS.md and DEPLOY.md. Since then: deployed to Fly.io (knightsofold.fly.dev, DEPLOY.md), prediction of your own fighter built (Settings: Controls: Instant, on by default; src/net/predict.ts), a 5 s grace for dropped connections. Not done: real-connection playtests with friends. Commands: npm run server, then open /?online in two tabs.
 
 Still open from earlier phases (all need the owner, none are code): the public URL deploy (Cloudflare Pages account), Firefox and Safari checks, and the painted background for the style test (see ASSETS.md).
 
