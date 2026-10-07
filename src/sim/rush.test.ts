@@ -100,7 +100,7 @@ describe('the race for the guns', () => {
       expect(n).toBeLessThan(30);
       expect(rounds(await Sim.create(35, 2, false).then((s) => { s.forceEra = 'ww1'; s.forceMap = 0; s.reset(); return s; }))).toEqual(a);
       sim.forceEra = 'westerns'; sim.forceMap = 5; sim.reset();
-      expect(sim.arena.name).toBe('Water Tower');
+      expect((sim.arena as { name?: string }).name).toBe('Water Tower');
       expect(rounds(sim).every(Boolean)).toBe(true);
     } finally { T.eras.changeGameplay = was; }
   }, 30_000);
