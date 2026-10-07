@@ -66,6 +66,12 @@ You are the owner's single partner for BOTH development and marketing. Read `MAR
 - At each gate, add one line to MARKETING.md's Log if the result changes what can be shown or promised.
 - Never show placeholder eras in store assets; keep ASSETS.md exact for the AI disclosure.
 
+## Sound and music: the owner's workflow (2026-10-07)
+When the sound milestone starts (ROADMAP.md): Claude gives the owner a spreadsheet of every sound (file name = the id in content/audio.ts,
+what it is, when it plays, length, variants); the owner replies with a folder of files named exactly so; Claude wires them in by name. Music
+is delivered as layers (a base, each era's instruments, intensity layers that build with the fight), never as finished tracks. Do not
+start it until the owner says so.
+
 ## Where humans are required
 Judging game feel. Expose tuning variants behind flags and describe how to test them; never declare something "feels good". Final calls on art, audio, balance.
 

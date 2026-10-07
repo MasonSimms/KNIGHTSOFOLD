@@ -44,6 +44,15 @@ the round-break screens, and costumes for the showcase eras (Wild West, Cavemen,
 The 3 showcase eras with all their arenas, local and online, with a wishlist button: a Steam demo and the same build on itch.io,
 by 2027-01-25. The full game is 12 eras x 5 arenas plus 2 specials x 5 (about 70).
 
+## Milestone: sound and music (owner, 2026-10-07; not started, not scheduled)
+
+The workflow: (1) Claude writes the full list of sounds the game needs, as a spreadsheet: one row per sound, with its file name (the id the
+code uses), what it is, when it plays, roughly how long, and how many variants. (2) The owner makes or finds them and replies with one
+folder of files named exactly as in that list. (3) Claude wires each file in by its name (content/audio.ts) and says what is missing.
+Music comes as LAYERS (stems), not finished tracks: a base layer that always plays, each era's own instruments on top, and layers that
+swell as a fight escalates, so the music changes with the eras and builds with the action (the infrastructure for this exists:
+content/audio.ts, audio/intensity.ts). The sound list should name every layer too.
+
 ## Later (unchanged from DESIGN.pdf)
 
 Steam: Electron wrapper, Steamworks, Steam Deck pass, store page, demo, Next Fest. About a month of store lead time.
