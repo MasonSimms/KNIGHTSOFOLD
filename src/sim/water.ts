@@ -14,7 +14,10 @@ import type { Arena } from './world';
  * A floating ship: its hull body, where it drifts back to (homeX: its starting place home0, moved `away` toward `dir` once every rope
  * tying it to another ship is cut), and its pose last frame and this frame (for the renderer to blend between).
  */
-export interface Boat { body: RigidBody; w: number; depth: number; homeX: number; home0: number; dir: number; away: number; px: number; py: number; pa: number; cx: number; cy: number; ca: number }
+export interface Boat { body: RigidBody; w: number; depth: number; homeX: number; home0: number; dir: number; away: number; sinks?: Sinking; px: number; py: number; pa: number; cx: number; cy: number; ca: number }
+/** A wreck (arena.boats sinks): over its first `seconds` of a round it settles `settle` metres deeper and leans `tilt` radians bow down
+ *  (the right end), slowly at first, then faster as it floods. */
+export interface Sinking { seconds: number; tilt: number; settle: number }
 
 /** The tar pit holding x, if any (arena.tar). */
 export function tarAt(A: Arena, x: number): Arena['tar'][number] | null {
@@ -54,7 +57,7 @@ function slopeAt(A: Arena, frame: number, x: number): number {
 }
 
 /** A ship: a hull floating with its deck from x0, w wide, at the platform top, `depth` from the deck to the keel (a rowboat is shallower). */
-export function buildBoat(world: World, A: Arena, x0: number, w: number, depth = T.boat.depth): Boat {
+export function buildBoat(world: World, A: Arena, x0: number, w: number, depth = T.boat.depth, sinks?: Sinking): Boat {
   const B = T.boat, d = depth, x = x0 + w / 2, y = A.platformTop + d / 2;
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setCanSleep(false));
   // The deck on top; the sides go straight down to just under the waterline (no overhang: a swimmer can kick straight up beside it and
@@ -64,7 +67,7 @@ export function buildBoat(world: World, A: Arena, x0: number, w: number, depth =
   const desc = RAPIER.ColliderDesc.convexHull(hull)!.setFriction(A.friction).setCollisionGroups(terrainGroups)
     .setMassProperties(B.mass, { x: 0, y: 0 }, (B.mass * (w * w + d * d)) / 12);
   world.createCollider(desc, body);
-  return { body, w, depth: d, homeX: x, home0: x, dir: Math.sign(x - A.viewW / 2), away: 0, px: x, py: y, pa: 0, cx: x, cy: y, ca: 0 };
+  return { body, w, depth: d, homeX: x, home0: x, dir: Math.sign(x - A.viewW / 2), away: 0, sinks, px: x, py: y, pa: 0, cx: x, cy: y, ca: 0 };
 }
 
 const tv = { x: 0, y: 0 };
@@ -88,15 +91,16 @@ function floatBoat(A: Arena, frame: number, boat: Boat, fighters: Fighter[]): vo
   const B = T.boat, dt = T.sim.dt, g = T.sim.gravity, b = boat.body, t = b.translation(), v = b.linvel();
   let surf = 0;
   for (let i = 0; i < 5; i++) surf += surfaceY(A, frame, t.x + (i / 4 - 0.5) * boat.w) / 5;
-  const draft = Math.max(0.1, boat.depth - (A.sea?.level ?? 0)); // how deep the empty hull sits at rest
+  const s = boat.sinks, k = s ? Math.min(1, (frame * dt) / s.seconds) ** 2 : 0; // (a wreck: how far it has gone down)
+  const draft = Math.max(0.1, boat.depth - (A.sea?.level ?? 0)) + (s ? s.settle * k : 0); // how deep the empty hull sits at rest
   const sunk = Math.max(0, Math.min(boat.depth, t.y + boat.depth / 2 - surf));
   tv.x = (-B.home * (t.x - boat.homeX) - B.drift * v.x) * B.mass * dt;
   tv.y = (-B.mass * g * (sunk / draft) - B.heaveDamping * B.mass * v.y) * dt;
   b.applyImpulse(tv, true);
   // Rolling: one fighter at the very end tips it by tuning.boat.tilt, so the spring is that fighter's weight times half the deck, per radian.
-  const k = (fighterMass(fighters[0]) * g * (boat.w / 2)) / B.tilt, want = Math.atan(slopeAt(A, frame, t.x)) * B.roll;
+  const spring = (fighterMass(fighters[0]) * g * (boat.w / 2)) / B.tilt, want = Math.atan(slopeAt(A, frame, t.x)) * B.roll + (s ? s.tilt * k : 0);
   const a = Math.atan2(Math.sin(b.rotation()), Math.cos(b.rotation()));
-  b.applyTorqueImpulse((-k * (a - want) - B.rollDamping * b.principalInertia() * b.angvel()) * dt, true);
+  b.applyTorqueImpulse((-spring * (a - want) - B.rollDamping * b.principalInertia() * b.angvel()) * dt, true);
 }
 
 /**

@@ -199,3 +199,20 @@ describe('tidal cove', () => {
     expect(water()).toBeGreaterThan(sand); // a new round: low tide
   }, 30_000);
 });
+
+describe('sinking wreck', () => {
+  it('the wreck goes down over the round: bow under, stern still dry; afloat again next round', async () => {
+    const sim = await Sim.create(3, 2, false);
+    sim.forceEra = 'pirates'; sim.forceMap = 4; sim.reset();
+    const A = sim.arena, s = A.boats[0].sinks!, end = (side: number) => { const b = sim.boats[0].body, t = b.translation(), a = b.rotation(), r = (side * sim.boats[0].w) / 2; return t.y + r * Math.sin(a) - (sim.boats[0].depth / 2) * Math.cos(a); }; // the deck's height at one end
+    const afloat = () => { expect(Math.abs(sim.boats[0].body.rotation())).toBeLessThan(0.08); expect(end(1)).toBeLessThan(surfaceY(A, sim.frame, A.boats[0].x + A.boats[0].w)); };
+    run(sim, 30);
+    afloat(); // level, the bow above the water
+    run(sim, Math.round(s.seconds / T.sim.dt));
+    expect(sim.boats[0].body.rotation()).toBeGreaterThan(s.tilt * 0.4); // leaning bow down (less than `tilt`: whoever stands at the stern holds it up)
+    expect(end(1)).toBeGreaterThan(surfaceY(A, sim.frame, A.boats[0].x + A.boats[0].w)); // the bow is under
+    expect(end(-1)).toBeLessThan(surfaceY(A, sim.frame, A.boats[0].x)); // the stern is not
+    sim.reset(); run(sim, 30);
+    afloat();
+  }, 30_000);
+});

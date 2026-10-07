@@ -15,7 +15,7 @@ export interface EraArena {
   spawnX?: number[]; // where you and the training dummy start, playing alone (metres)
   fightSpawnX?: number[]; // where the fighters of a 2-4 player fight start (metres; for maps where the standard spots would be over a gap)
   sea?: { level: number; tide?: { rise: number; seconds: number } }; // water under the stage (see tuning.arena.sea); tide: it rises `rise` m over the round's first `seconds`
-  boats?: { x: number; w: number; depth?: number }[]; // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth)
+  boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number } }[]; // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
   ropes?: { x0: number; up0: number; x1: number; up1: number }[]; // ropes tied between them (see tuning.rope)
   tar?: { x: number; w: number; level: number }[]; // tar pits (see tuning.arena.tar)
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
@@ -87,7 +87,12 @@ export const eras: Era[] = [
       ground: [{ x: 2.0, w: 3.5, up: 1.8, thick: 8 }, { x: 5.5, w: 6.0, up: 0, thick: 6 }, { x: 11.5, w: 4.0, up: 0.7, thick: 6 }, { x: 15.5, w: 3.0, up: 0, thick: 6 }, { x: 18.5, w: 3.5, up: 1.8, thick: 8 }],
       ledges: [{ x: 7.0, up: 2.2, w: 2.5 }, { x: 15.75, up: 2.2, w: 2.0 }],
       fightSpawnX: [7.5, 16.5, 10.0, 13.5], spawnX: [7.5, 12.5, 16.5, 3.75],
-      props: [{ kind: 'plank', x: 9.0, up: 0 }], scenery: [{ kind: 'chest', x: 14.85, up: 0.7 }, { kind: 'barrel', x: 21.3, up: 1.8 }] }], outfits: ['captain', 'buccaneer', 'first mate', 'cabin boy'] },
+      props: [{ kind: 'plank', x: 9.0, up: 0 }], scenery: [{ kind: 'chest', x: 14.85, up: 0.7 }, { kind: 'barrel', x: 21.3, up: 1.8 }] },
+    // Sinking Wreck (owner, 2026-10-07): the ship is going down. Over the round's first 25 s it settles deeper and leans bow down (the
+    // right end) more and more, slowly at first, then faster as it floods: the bow goes under, the barrels and crate slide toward it,
+    // and the stern stays dry longest. Afloat again at the start of the next round.
+    { name: 'Sinking Wreck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boats: [{ x: 5.75, w: 12.5, sinks: { seconds: 25, tilt: 0.3, settle: 0.55 } }],
+      props: [{ kind: 'plank', x: 9.5, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'crate', x: 12.0, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }], outfits: ['captain', 'buccaneer', 'first mate', 'cabin boy'] },
   { id: 'westerns', name: 'The Wild West', special: false, pickups: ['derringer', 'revolver', 'coach-gun', 'pickaxe', 'buffalo-rifle'], strong: 2, sky: 0xc9915a, platform: 0x8a6240, wall: 0x6a4a34, weapon: 'rifle', arena: { walls: [/* the saloon wall */ { side: 1, up: 3.0, gap: 0 }], ledges: [{ x: 10.6, up: 1.8, w: 2.8 }], props: [{ kind: 'plank', x: 8.75, up: 0 }], scenery: [{ kind: 'barrel', x: 6.0, up: 0 }, { kind: 'crate', x: 18.0, up: 0 }] }, alt: [
     // The Train (owner's list): on the roofs of a moving train, no weapons; signs and tunnel mouths come at you (a whistle first): get
     // down or be swept off; throw people into them

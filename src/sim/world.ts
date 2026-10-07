@@ -246,7 +246,7 @@ export class Sim {
     this.world.numSolverIterations = T.sim.solverIterations;
     this.world.numInternalPgsIterations = T.sim.pgsIterations;
     const slabs = A.chase ? [] : A.ground.length ? A.ground : A.boats.length ? [] : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor, unless the map has ground of its own as well: a pier; on a treadmill, its moving sections)
-    this.boats = A.sea ? A.boats.map((b) => buildBoat(this.world, A, b.x, b.w, b.depth)) : [];
+    this.boats = A.sea ? A.boats.map((b) => buildBoat(this.world, A, b.x, b.w, b.depth, b.sinks)) : [];
     const grounds = slabs.map((g: Arena['ground'][number]) => {
       const th = g.thick ?? A.platformThickness, body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop - (g.up ?? 0) + th / 2));
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, th / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
