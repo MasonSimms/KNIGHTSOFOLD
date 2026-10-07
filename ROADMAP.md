@@ -54,3 +54,4 @@ More than 4 fighters? The free demo's exact eras and arenas. A catch-up weapon r
 
 ## Notes for later (owner asks, not yet scheduled)
 - 2026-10-07: some sound effects should differ for a fighter wearing a helmet (a head hit rings on metal, say). Owner's note; not placed in a phase yet.
+- 2026-10-07: AN ART OVERHAUL will be needed (owner). Not scheduled or scoped yet: what changes, which eras first, and how it fits the showcase eras' final paint (2026-11-01, for the store page on 2026-11-15) are to settle with the owner before it starts.
