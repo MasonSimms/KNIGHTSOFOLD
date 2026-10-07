@@ -1,4 +1,4 @@
-# Knights of Old: how to play
+# Old Masters: how to play
 
 A physics brawl for 2-4 friends through history: cavemen, Egypt, gladiators, Vikings, knights, samurai, pirates, the Wild West, the
 World Wars, Vietnam, modern day and the space age. There is no health bar. Knock your friends off the map, or hit them until they drop.
@@ -6,7 +6,7 @@ The last knight standing wins the round.
 
 ## Joining
 
-1. Open the game link in **Chrome**: `<the link goes here once the game is online>`
+1. Open the game in **Chrome**: https://knightsofold.fly.dev
 2. Click **Online**.
 3. One person clicks **Make a room**, then **Copy invite link** and pastes it in the chat: a click on it takes you straight into the room.
    (Or read out the 4-letter code: everyone else types it and clicks **Join**.)
@@ -27,9 +27,10 @@ moment you press (the server corrects it if needed); Exact waits for the server.
 | **Space** | jump (hold for a higher jump) |
 | **Mouse** | aim your arm and weapon |
 | **Left-click** (with a weapon) | hold to wind up, let go to lunge and swing |
+| **Left-click** (with a gun) | shoot where the mouse points (some guns: hold to keep firing or to charge); empty, it is a club |
 | **Right-click** (with a weapon) | drop it; swing first, then right-click, to throw it |
 | **Right-click** (empty hands) | pick up the weapon you aim at |
-| **Left-click** (empty hands) | tap to punch; hold to grab someone, let go to fling them |
+| **Left-click** (empty hands) | tap to punch (it knocks them back a few steps); hold to grab someone, let go to fling them (they drop their gun) |
 | **Right-click** (holding someone) | toss them |
 | **Jump backwards + hold S** (holding someone) | body slam |
 | **S** | crouch (hold it to lie down) |
@@ -38,7 +39,9 @@ moment you press (the server corrects it if needed); Exact waits for the server.
 
 ## Tips
 
-- Weapons drop in during a round, faster and better as it goes on.
+- Weapons and guns drop in during a round, faster and better as it goes on. Race for them: punch a rival away from a gun, or grab them and throw them to make them drop theirs.
+- Some maps are guns only: everyone starts with bare hands and guns fall from the sky every few seconds.
+- A round that drags on past 45 seconds starts to drain everyone left.
 - A charged swing hits much harder than a flick.
 - Hold your weapon still in front of a swing to block it.
 - Being knocked off the side is the quickest way to lose. Walls on some maps can save you: slide down them and jump.
