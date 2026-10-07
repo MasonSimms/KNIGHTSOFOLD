@@ -769,6 +769,9 @@ export const tuning = {
     // Googly eyes' loose pupils (looks only): how hard they are pulled back to the middle (1/s²), how fast they settle (1/s), and how much
     // speed they keep bouncing off the rim of the eye.
     googly: { spring: 500, damping: 6, bounce: 0.4 },
+    // The afro's squish (looks only): a hard landing or hit squashes the curls wide and short, then they wobble back. spring (1/s²), damping
+    // (1/s), kick = how much a sudden stop of the head squashes it, max = the most it squashes or stretches (0.15 = 15%).
+    afro: { spring: 260, damping: 9, kick: 0.03, max: 0.15 },
     underOffset: 0.025, // metres: the dark underpaint peeking out at the lower right of fighters and objects
     paintBlur: 0.6, // softness of the paint on the picture (pixels at 1080p)
     // The painting style. Every era can override any of these in its `style` row (content/eras.ts).
