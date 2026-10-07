@@ -15,7 +15,7 @@ export interface EraArena {
   spawnX?: number[]; // where you and the training dummy start, playing alone (metres)
   fightSpawnX?: number[]; // where the fighters of a 2-4 player fight start (metres; for maps where the standard spots would be over a gap)
   sea?: { level: number }; // water under the stage (see tuning.arena.sea)
-  boats?: { x: number; w: number }[]; // floating ships instead of ground (see tuning.boat)
+  boats?: { x: number; w: number; depth?: number }[]; // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth)
   ropes?: { x0: number; up0: number; x1: number; up1: number }[]; // ropes tied between them (see tuning.rope)
   tar?: { x: number; w: number; level: number }[]; // tar pits (see tuning.arena.tar)
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
@@ -71,7 +71,15 @@ export const eras: Era[] = [
     // ship's rigging to the other's rail. Cut both ropes (a blade or a bullet) and the ships drift apart; the gangplank falls in.
     { name: 'Ship to Ship', sea: { level: 0.9 }, boats: [{ x: 3.25, w: 8 }, { x: 12.75, w: 8 }], fightSpawnX: [6.75, 17.25, 9.25, 14.75],
       ropes: [{ x0: 9.5, up0: 2.8, x1: 13.2, up1: 0.4 }, { x0: 14.5, up0: 2.8, x1: 10.8, up1: 0.4 }],
-      props: [{ kind: 'gangplank', x: 12.0, up: 0 }], scenery: [{ kind: 'barrel', x: 4.5, up: 0 }, { kind: 'barrel', x: 19.5, up: 0 }] }], outfits: ['captain', 'buccaneer', 'first mate', 'cabin boy'] },
+      props: [{ kind: 'gangplank', x: 12.0, up: 0 }], scenery: [{ kind: 'barrel', x: 4.5, up: 0 }, { kind: 'barrel', x: 19.5, up: 0 }] },
+    // Harbour Pier (owner, 2026-10-07): a stone quay on the left, a pier of planks on two posts out over the sea to a pier-head, and a
+    // rowboat moored off its end (a shallow boat, lower than the pier: the way back up out of the water). The planks are a bridge: a hard
+    // blow or a slam breaks one loose (a gap, and a club). Cut the mooring line and the rowboat drifts off.
+    { name: 'Harbour Pier', sea: { level: 0.5 },
+      ground: [{ x: 2.0, w: 7.0, up: 0.9, thick: 6 }, { x: 10.9, w: 0.2, up: 0.66, thick: 2.4 }, { x: 12.9, w: 0.2, up: 0.66, thick: 2.4 }, { x: 15.0, w: 4.0, up: 0.9, thick: 2.2 }], // (the posts' tops are just under the planks)
+      bridge: { x0: 9.0, x1: 15.0, planks: 6 }, boats: [{ x: 19.3, w: 3.0, depth: 0.9 }], ropes: [{ x0: 18.8, up0: 1.3, x1: 19.8, up1: 0.35 }],
+      fightSpawnX: [6.75, 15.75, 3.75, 18.25], spawnX: [3.75, 8.25, 15.75, 18.25],
+      props: [{ kind: 'plank', x: 5.25, up: 0.9 }], scenery: [{ kind: 'crate', x: 2.45, up: 0.9 }, { kind: 'barrel', x: 21.2, up: 0 }] }], outfits: ['captain', 'buccaneer', 'first mate', 'cabin boy'] },
   { id: 'westerns', name: 'The Wild West', special: false, pickups: ['derringer', 'revolver', 'coach-gun', 'pickaxe', 'buffalo-rifle'], strong: 2, sky: 0xc9915a, platform: 0x8a6240, wall: 0x6a4a34, weapon: 'rifle', arena: { walls: [/* the saloon wall */ { side: 1, up: 3.0, gap: 0 }], ledges: [{ x: 10.6, up: 1.8, w: 2.8 }], props: [{ kind: 'plank', x: 8.75, up: 0 }], scenery: [{ kind: 'barrel', x: 6.0, up: 0 }, { kind: 'crate', x: 18.0, up: 0 }] }, alt: [
     // The Train (owner's list): on the roofs of a moving train, no weapons; signs and tunnel mouths come at you (a whistle first): get
     // down or be swept off; throw people into them

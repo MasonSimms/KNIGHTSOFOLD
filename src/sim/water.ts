@@ -44,9 +44,9 @@ function slopeAt(A: Arena, frame: number, x: number): number {
   return s;
 }
 
-/** A ship: a hull floating with its deck from x0, w wide, at the platform top. */
-export function buildBoat(world: World, A: Arena, x0: number, w: number): Boat {
-  const B = T.boat, d = B.depth, x = x0 + w / 2, y = A.platformTop + d / 2;
+/** A ship: a hull floating with its deck from x0, w wide, at the platform top, `depth` from the deck to the keel (a rowboat is shallower). */
+export function buildBoat(world: World, A: Arena, x0: number, w: number, depth = T.boat.depth): Boat {
+  const B = T.boat, d = depth, x = x0 + w / 2, y = A.platformTop + d / 2;
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setCanSleep(false));
   // The deck on top; the sides go straight down to just under the waterline (no overhang: a swimmer can kick straight up beside it and
   // climb aboard), then slope in to the keel.

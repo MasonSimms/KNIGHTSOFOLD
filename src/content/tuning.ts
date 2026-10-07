@@ -47,7 +47,7 @@ export const tuning = {
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
     scenery: [] as { kind: string; x: number; up: number }[], // breakable scenery that belongs to the map (barrels, crates): always there, unlike the loose weapons (owner: environments have destructible elements)
     sea: null as null | { level: number }, // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
-    boats: [] as { x: number; w: number }[], // floating ships instead of solid ground (needs a sea; see tuning.boat): each deck from x, w wide, its top at the platform top
+    boats: [] as { x: number; w: number; depth?: number }[], // floating ships instead of solid ground (needs a sea; see tuning.boat): each deck from x, w wide, its top at the platform top
     ropes: [] as { x0: number; up0: number; x1: number; up1: number }[], // ropes (see tuning.rope) from (x0, up0 m above the deck) to (x1, up1), each end tied to the ship under it; cut every one and the ships drift apart
     tar: [] as { x: number; w: number; level: number }[], // tar pits (see tuning.tar): from x, w wide (a gap in the ground), the surface `level` m below the platform top
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's

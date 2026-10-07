@@ -245,8 +245,8 @@ export class Sim {
     this.world.timestep = T.sim.dt;
     this.world.numSolverIterations = T.sim.solverIterations;
     this.world.numInternalPgsIterations = T.sim.pgsIterations;
-    const slabs = A.boats.length || A.chase ? [] : A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor; on a treadmill, its moving sections)
-    this.boats = A.sea ? A.boats.map((b) => buildBoat(this.world, A, b.x, b.w)) : [];
+    const slabs = A.chase ? [] : A.ground.length ? A.ground : A.boats.length ? [] : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor, unless the map has ground of its own as well: a pier; on a treadmill, its moving sections)
+    this.boats = A.sea ? A.boats.map((b) => buildBoat(this.world, A, b.x, b.w, b.depth)) : [];
     const grounds = slabs.map((g: Arena['ground'][number]) => {
       const th = g.thick ?? A.platformThickness, body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop - (g.up ?? 0) + th / 2));
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, th / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
@@ -313,9 +313,10 @@ export class Sim {
   }
 
   /** A chain of planks across a gap, each joined to the next and the end ones to the ground. */
-  private buildBridge(b: { x0: number; x1: number; planks: number }, grounds: { x: number; w: number; body: RAPIER.RigidBody }[], A: Arena): void {
+  private buildBridge(b: { x0: number; x1: number; planks: number }, grounds: { x: number; w: number; up?: number; thick?: number; body: RAPIER.RigidBody }[], A: Arena): void {
     const B = T.bridge, n = b.planks, len = (b.x1 - b.x0) / n, r = B.plankThick / 2;
-    const y = A.platformTop + r;
+    const left = grounds.find((g) => Math.abs(g.x + g.w - b.x0) < 1e-6), right = grounds.find((g) => Math.abs(g.x - b.x1) < 1e-6);
+    const y = A.platformTop - (left?.up ?? right?.up ?? 0) + r; // (level with the ground it joins: a raised pier's planks are raised too)
     const joint = (a: RAPIER.RigidBody, ax: number, ay: number, c: RAPIER.RigidBody, cx: number, cy: number) => {
       const j = this.world.createImpulseJoint(RAPIER.JointData.revolute({ x: ax, y: ay }, { x: cx, y: cy }), a, c, true) as RAPIER.RevoluteImpulseJoint;
       j.setLimits(-B.linkLimit, B.linkLimit);
@@ -334,10 +335,9 @@ export class Sim {
       const j = joint(this.bridge[i].body, len / 2, 0, this.bridge[i + 1].body, -len / 2, 0);
       links[i].push(j); links[i + 1].push(j);
     }
-    const left = grounds.find((g) => Math.abs(g.x + g.w - b.x0) < 1e-6), right = grounds.find((g) => Math.abs(g.x - b.x1) < 1e-6);
-    const slabY = A.platformTop + A.platformThickness / 2; // ground bodies are centred here
-    if (left) links[0].push(joint(left.body, b.x0 - (left.x + left.w / 2), y - slabY, this.bridge[0].body, -len / 2, 0));
-    if (right) links[n - 1].push(joint(right.body, b.x1 - (right.x + right.w / 2), y - slabY, this.bridge[n - 1].body, len / 2, 0));
+    const slabY = (g: { up?: number; thick?: number }) => A.platformTop - (g.up ?? 0) + (g.thick ?? A.platformThickness) / 2; // where a ground body is centred
+    if (left) links[0].push(joint(left.body, b.x0 - (left.x + left.w / 2), y - slabY(left), this.bridge[0].body, -len / 2, 0));
+    if (right) links[n - 1].push(joint(right.body, b.x1 - (right.x + right.w / 2), y - slabY(right), this.bridge[n - 1].body, len / 2, 0));
   }
 
   /**

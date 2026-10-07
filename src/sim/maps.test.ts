@@ -25,7 +25,7 @@ describe('maps', () => {
         expect(f.hp, why).toBeGreaterThan(0);
         const ship = sim.boats.find((s) => Math.abs(xs[i] - s.home0) <= s.w / 2);
         const c = ship?.body.translation(), a = ship?.body.rotation() ?? 0; // (the deck where you stand: it sits lower with people on it, and tips)
-        const floor = ship && c ? c.y + (xs[i] - c.x) * Math.sin(a) - (T.boat.depth / 2) * Math.cos(a) : floorAt(sim.arena, xs[i]); // (a ship's deck sits lower with people on it; a roof can be higher)
+        const floor = ship && c ? c.y + (xs[i] - c.x) * Math.sin(a) - (ship.depth / 2) * Math.cos(a) : floorAt(sim.arena, xs[i]); // (a ship's deck sits lower with people on it; a roof can be higher)
         expect(Math.abs(floor - T.stand.height - p.y), why).toBeLessThan(0.15); // still at standing height on the floor
         if (!sim.arena.chase) expect(Math.abs(p.x - xs[i]), why).toBeLessThan(0.5); // (a treadmill carries you)
       });

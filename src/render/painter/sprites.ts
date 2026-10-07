@@ -484,6 +484,7 @@ export function paintedFront(kind: 'grass' | 'sign', greens: string[], K: Sprite
   return out[0];
 }
 
+const T_SHIP = 5; // a boat this long or longer is a ship (mast, rigging, gunports); shorter, a rowboat
 const SEA_PPM = 60; // texture pixels per metre for the ship and the water (big pictures: painted at a little under screen size)
 const rgb = (s: string) => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];
 
@@ -505,26 +506,28 @@ export function paintedHull(w: number, depth: number, water: number, c: HullPain
   const X = (m: number) => pad + m * k, Y = (m: number) => pad + (up + m) * k; // metres along the deck from its left end; metres below the deck
   const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
   const poly = (pts: number[][], fill: string) => { g.fillStyle = fill; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.fill(); };
-  const mx = w * 0.46, side = water + 0.35;
+  const mx = w * 0.46, side = water + 0.35, ship = w >= T_SHIP; // (a rowboat: no mast, rigging, far rail or gunports)
   // rigging, mast, yard, furled sail, crow's nest, pennant (above the deck, behind the fighters)
-  g.strokeStyle = '#3A2A1C'; g.lineWidth = 2;
-  for (const [x0, y0, x1, y1] of [[mx, -mastH, w * 0.06, -0.45], [mx, -mastH, w * 0.94, -0.45], [mx - 1.6, -mastH + 0.7, w * 0.2, -0.45], [mx + 1.6, -mastH + 0.7, w * 0.8, -0.45]]) { g.beginPath(); g.moveTo(X(x0), Y(y0)); g.lineTo(X(x1), Y(y1)); g.stroke(); }
-  poly([[mx - 0.09, -mastH], [mx + 0.09, -mastH], [mx + 0.11, 0], [mx - 0.11, 0]], '#4A3020');
-  poly([[mx - 1.7, -mastH + 0.64], [mx + 1.7, -mastH + 0.64], [mx + 1.7, -mastH + 0.76], [mx - 1.7, -mastH + 0.76]], '#4A3020');
-  g.fillStyle = '#E6D8B8'; g.beginPath(); g.ellipse(X(mx), Y(-mastH + 0.9), 1.55 * k, 0.2 * k, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#C8B48E'; g.beginPath(); g.ellipse(X(mx), Y(-mastH + 0.97), 1.4 * k, 0.1 * k, 0, 0, Math.PI); g.fill();
-  poly([[mx - 0.36, -mastH + 1.55], [mx + 0.36, -mastH + 1.55], [mx + 0.3, -mastH + 1.9], [mx - 0.3, -mastH + 1.9]], c.lipdark);
-  poly([[mx + 0.09, -mastH - 0.05], [mx + 0.95, -mastH + 0.12], [mx + 0.09, -mastH + 0.3]], c.hot);
-  // the far rail: a cap rail on posts, behind the deck
-  for (let x = 0.1; x < w; x += 0.38) poly([[x, -0.45], [x + 0.05, -0.45], [x + 0.05, 0], [x, 0]], c.lipdark);
-  poly([[0, -0.5], [w, -0.5], [w, -0.42], [0, -0.42]], c.lip);
+  if (ship) {
+    g.strokeStyle = '#3A2A1C'; g.lineWidth = 2;
+    for (const [x0, y0, x1, y1] of [[mx, -mastH, w * 0.06, -0.45], [mx, -mastH, w * 0.94, -0.45], [mx - 1.6, -mastH + 0.7, w * 0.2, -0.45], [mx + 1.6, -mastH + 0.7, w * 0.8, -0.45]]) { g.beginPath(); g.moveTo(X(x0), Y(y0)); g.lineTo(X(x1), Y(y1)); g.stroke(); }
+    poly([[mx - 0.09, -mastH], [mx + 0.09, -mastH], [mx + 0.11, 0], [mx - 0.11, 0]], '#4A3020');
+    poly([[mx - 1.7, -mastH + 0.64], [mx + 1.7, -mastH + 0.64], [mx + 1.7, -mastH + 0.76], [mx - 1.7, -mastH + 0.76]], '#4A3020');
+    g.fillStyle = '#E6D8B8'; g.beginPath(); g.ellipse(X(mx), Y(-mastH + 0.9), 1.55 * k, 0.2 * k, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#C8B48E'; g.beginPath(); g.ellipse(X(mx), Y(-mastH + 0.97), 1.4 * k, 0.1 * k, 0, 0, Math.PI); g.fill();
+    poly([[mx - 0.36, -mastH + 1.55], [mx + 0.36, -mastH + 1.55], [mx + 0.3, -mastH + 1.9], [mx - 0.3, -mastH + 1.9]], c.lipdark);
+    poly([[mx + 0.09, -mastH - 0.05], [mx + 0.95, -mastH + 0.12], [mx + 0.09, -mastH + 0.3]], c.hot);
+    // the far rail: a cap rail on posts, behind the deck
+    for (let x = 0.1; x < w; x += 0.38) poly([[x, -0.45], [x + 0.05, -0.45], [x + 0.05, 0], [x, 0]], c.lipdark);
+    poly([[0, -0.5], [w, -0.5], [w, -0.42], [0, -0.42]], c.lip);
+  }
   // the hull: planks, a gold wale, gunports, a darker bottom below the waterline, the gunwale the fighters stand on
   poly([[0, 0], [w, 0], [w, side], [w * 0.9, depth], [w * 0.08, depth], [0, side]], c.face);
   g.save(); g.beginPath(); [[0, 0], [w, 0], [w, side], [w * 0.9, depth], [w * 0.08, depth], [0, side]].forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.clip();
   g.fillStyle = c.dark; g.fillRect(0, Y(water - 0.05), W, H);
   g.fillStyle = c.seam; for (let y = 0.22; y < depth; y += 0.22) g.fillRect(0, Y(y), W, 2);
   g.fillStyle = '#B8893A'; g.fillRect(0, Y(0.14), W, 0.1 * k);
-  for (let x = 0.9; x < w - 0.5; x += 1.55) { poly([[x - 0.03, 0.33], [x + 0.31, 0.33], [x + 0.31, 0.63], [x - 0.03, 0.63]], c.lipdark); poly([[x, 0.36], [x + 0.28, 0.36], [x + 0.28, 0.6], [x, 0.6]], '#1A120C'); }
+  if (ship) for (let x = 0.9; x < w - 0.5; x += 1.55) { poly([[x - 0.03, 0.33], [x + 0.31, 0.33], [x + 0.31, 0.63], [x - 0.03, 0.63]], c.lipdark); poly([[x, 0.36], [x + 0.28, 0.36], [x + 0.28, 0.6], [x, 0.6]], '#1A120C'); }
   g.restore();
   poly([[0, -0.03], [w, -0.03], [w, 0.07], [0, 0.07]], c.lip);
   const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(53);
