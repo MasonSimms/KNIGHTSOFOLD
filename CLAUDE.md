@@ -1,30 +1,41 @@
-# Knights of Old: instructions for Claude Code
+# Old Masters (repo name: Knights of Old): instructions for Claude Code
 
-Full design: `DESIGN.pdf` (the handoff plan; its "Locked decisions" section overrides anything that conflicts).
-Physics party brawler: 2-4 friends, hidden health, knockoffs win, six eras. Browser first, Steam later.
+Physics party brawler: 2-4 friends, hidden health, knockoffs win, 12 eras of history plus 2 specials (Fantasy Archers, Mobsters).
+Browser first (live for friends at https://knightsofold.fly.dev), Steam launch 2027-03-09. Players see the name **Old Masters** (owner,
+2026-10-06); the repo, folder, Fly.io app and code keep "Knights of Old". Don't hard-code the name anywhere new.
+
+Where the plan lives, newest word first: `DECISIONS.md` (one line per decision: the owner's latest call wins), `ROADMAP.md` (where we are
+and what's next; it replaces DESIGN.pdf's phase table where they disagree), `ERAS.md` (eras and their arena lists), `DESIGN.pdf` (the
+original handoff plan; its "Locked decisions" hold unless DECISIONS.md changed them).
 
 ## The owner is a beginner. You should:
 - Explain each step in plain language and give exact Windows PowerShell commands. Never assume Git, Node, or terminal knowledge.
+- Describe tweakable factors by what they do, with the setting name in brackets.
 - Commit to Git after every working slice with a clear message, and explain how to undo a bad change.
 - After building something, run it and tell the owner exactly what to look for and what to click.
-- **Stop at every roadmap gate and wait for the owner to confirm before moving on.** Current phase: see "Status" below.
+- **Stop at every roadmap gate and wait for the owner to confirm before moving on.** The current gate: see "Status" below.
 - Prefer fixing errors yourself and summarize the cause in one or two sentences.
 
 ## Grill the owner at decision points
 The owner asked to be grilled at appropriate times. Use the `/mattpocock-skills:grilling` approach (numbered questions, each with your recommended answer, ask the whole open frontier per round) at these moments, not constantly:
-- **Before starting each roadmap phase**: settle that phase's open design questions first (see "Risks, open questions" in DESIGN.pdf).
+- **Before starting each step of the build order**: settle its open design questions first (see ROADMAP.md's open questions and "Risks, open questions" in DESIGN.pdf).
 - **At every gate**, after the owner's playtest: what felt wrong, what to tune, whether the gate passes.
-- **When a request forks the design** (a control change, a new rule, anything that ripples into later phases) and the answer is not already in the locked decisions.
+- **When a request forks the design** (a control change, a new rule, anything that ripples into later work) and the answer is not already in DECISIONS.md or the locked decisions.
 Skip it for tuning-number tweaks and bug fixes, where you should pick the obvious option and say so.
 
 ## How to work
 - Keep the game playable at all times. Small vertical slices, commit after each one that runs.
-- Stay inside the current roadmap phase. Do not add features from later phases. Ask before adding any dependency not listed in the design doc.
+- Follow the build order in ROADMAP.md and DECISIONS.md (no feature freeze, owner 2026-10-06), checking with the owner before each step; don't pull in work from further down the list. Ask before adding any dependency not already in package.json.
 - Before coding a feature, state the plan in a few lines; after coding, run it and report what you saw (FPS, console errors, behavior).
 - Prefer small files and clear module boundaries.
 
+## Several windows share this folder
+- The planning window ("GME direction needed") records the owner's decisions and sets the build order, and may message you. The art window sends its work as handoffs (`*_HANDOFF.md`, `art-guide/visuals/`). Other windows build other features here at the same time.
+- `git status` shows other windows' unfinished work. Commit only your own changes: stage your own files or hunks (never `git add -A` or `git commit -a`), and never commit, revert or reformat another window's edits.
+- Deploy only committed code: `npm run deploy` from a clean checkout of the last commit (DEPLOY.md), never from this folder while someone else has edits in it.
+
 ## Art direction (owner; the art itself is made in a separate window and arrives as a handoff)
-The whole game looks like an OIL PAINTING: every frame you look at should feel like a painting. The characters should feel PAINTED ONTO the background (not pasted on top of it). Eliminations by falling off the stage show an animation that bloodies the background art: cartoon red paint, not gore (a placeholder paint splash exists). Keep that in mind in every rendering decision; do not invent a different style.
+The whole game looks like an OIL PAINTING: every frame you look at should feel like a painting. The characters should feel PAINTED ONTO the background (not pasted on top of it). Eliminations by falling off the stage show an animation that bloodies the background art: cartoon red paint, not gore (painted splats and streaks exist). Keep that in mind in every rendering decision; do not invent a different style. Everything is painted by our own painter in code (`src/render/painter/`), with no image files; the style guide is `art-guide/ART_STYLE.md`.
 As little text as possible (owner, 2026-10-06): very short banners ("Bot 1 wins!"); show it instead of writing it (the podium of crowned busts, pips for rounds, a replay mark). Menus keep their few labels.
 
 ## Design rule: the world is physics (owner)
@@ -35,20 +46,22 @@ Maps are thematic to their era and have fun physics attached (the samurai era ha
 - Player input enters only as a `PlayerInput` struct (`sim/types.ts`).
 - All gameplay numbers live in `src/content/tuning.ts` (or content data files), never as magic numbers in logic.
 - New weapons, pickups, eras, and arenas are data files plus assets, not engine changes.
+- Online, players see a copy rebuilt from the server's snapshots: anything that adds or removes bodies needs an event the copy replays (`mirrorEvent` in `sim/world.ts`). Every map must pass `maps.test.ts` (the map rules) and `maps.online.test.ts` (stays in step online).
 
 ## Quality gates
 - `npm test` (Vitest): determinism test (same seed + inputs, 1000 frames, identical state hash) plus unit tests for damage/knockback/scoring/era progression as they appear.
-- After every feature, check the F3 overlay: no regression below 60 fps, no per-frame allocation growth.
+- After every feature, check the F3 overlay: no regression below 60 fps, no per-frame allocation growth (`/?stress` for 4 fighters).
 - Run in Chrome, Firefox, and Safari before closing a phase.
 
 ## Records to maintain
-`DESIGN.pdf` (keep current), `DECISIONS.md` (one line per decision, with date and reason), `ASSETS.md` (every asset's source and tool; needed for the Steam AI disclosure), `PLAYTEST.md` (what friends said, what changed; create at first playtest), `MARKETING.md` (launch plan, dates, wishlist status, marketing log).
+`DECISIONS.md` (one line per decision, with date and reason), `ROADMAP.md` (keep "Where we are" and "Next" current), `ASSETS.md` (every asset's source and tool; needed for the Steam AI disclosure), `PLAYTEST.md` (what friends said, what changed; create at the first playtest night), `MARKETING.md` (launch plan, dates, wishlist status, marketing log), `DEPLOY.md`, `HOWTOPLAY.md` (for the friends), and `DESIGN.pdf` (keep current; it is behind: nothing after Phase 2 is in it, so ROADMAP.md and DECISIONS.md win).
 
 ## Launch and marketing: one plan with the code (owner, 2026-10-05)
 You are the owner's single partner for BOTH development and marketing. Read `MARKETING.md` at the start of every session along with this file.
 - Target: Steam launch Tuesday 2027-03-09 (fallback 2027-04-13), Steam Next Fest 2027-02-22 to 03-01, store page public by 2026-11-15. Valve's dates are fixed; see MARKETING.md.
-- This target is shorter than DESIGN.pdf's 12-18 month roadmap. DECIDED (owner, 2026-10-06): the FULL game at launch, 12 eras x 5 arenas (about 60), against the recommended Early Access 6 x 3. That is about 55 more arenas in 22 weeks (about 2.5 a week, plus their paint): watch the pace, and when it slips, raise the fallback (2027-04-13, or Early Access) early rather than late.
-- When planning work, name the next marketing deadline it serves or threatens (for example: 2-3 eras in final paint by 2026-11-01 for the capsule, screenshots and trailer). If a dev task puts a marketing date at risk, say so in one line and offer the trade-off.
+- Scope DECIDED (owner, 2026-10-06), against the recommended Early Access 6 x 3: the FULL game at launch, 12 eras x 5 arenas plus the 2 specials x 5, about 70 arenas (26 of them built by 2026-10-07). That is about 44 more in 22 weeks (2 a week, plus their paint): watch the pace, and when it slips, raise the fallback (2027-04-13, or Early Access) early rather than late.
+- Showcase eras: Wild West, Cavemen and Pirates, in final paint by 2026-11-01 (art handoffs 10-15, 10-20, 10-25). The capsule, screenshots, trailer and the demo (those 3 eras with all their arenas, by 2027-01-25) come from them.
+- When planning work, name the next marketing deadline it serves or threatens. If a dev task puts a marketing date at risk, say so in one line and offer the trade-off.
 - After a slice with a visible, funny or new moment, tell the owner in one line what to record as a clip.
 - At each gate, add one line to MARKETING.md's Log if the result changes what can be shown or promised.
 - Never show placeholder eras in store assets; keep ASSETS.md exact for the AI disclosure.
@@ -57,9 +70,11 @@ You are the owner's single partner for BOTH development and marketing. Read `MAR
 Judging game feel. Expose tuning variants behind flags and describe how to test them; never declare something "feels good". Final calls on art, audio, balance.
 
 ## Commands
-- `npm run dev` start the game at http://localhost:5173 (edit `src/content/tuning.ts` while it runs: the world resets with the new numbers)
-- `npm test` run tests, `npm run typecheck` check types, `npm run build` production build
-- `npm run deploy` put the new version live (never plain `fly deploy`: a deploy restarts the server and ends every fight, so this refuses while anyone is fighting)
+- `npm run dev` start the game at http://localhost:5173 (edit `src/content/tuning.ts` while it runs: the world resets with the new numbers). In training, Tab opens the settings panel (drop in any weapon, change the era and map, swap the dummy for a bot). Links for testing: `?era=westerns&map=2`, `?stress` (4 fighters), `?lag=100&stall=200` (a pretend bad connection), `?online` (needs the room server).
+- `npm test` run tests, `npm run typecheck` check types, `npm run build` production build, `npm run lab` bot-only matches with no screen (writes reports/BALANCE.md).
+- `npm run server` the room server on this computer (it serves the built page too: http://localhost:8080/?online in two tabs).
+- `npm run deploy` put the new version live (never plain `fly deploy`: a deploy restarts the server and ends every fight, so this refuses while anyone is fighting). Only from committed code (see "Several windows share this folder").
+- Live checks: https://knightsofold.fly.dev/health (rooms open, how many fighting); `fly logs --app knightsofold` (page errors players hit, why connections dropped).
 
 ## Model and effort advisor
 You cannot change your own model or effort. The owner does that with `/model` and `/effort`. Your job is to say when a change would help.
@@ -79,23 +94,10 @@ SWITCH DOWN when the task is only editing a data file, changing a tuning number,
 ONE-OFF: if a single question needs deep reasoning, say: `TIP: add the word ultrathink to your next message.`
 Rules: suggest at most once per task; never suggest max effort unless the owner asks; if unsure what model is active, ask the owner to run `/status`.
 
-## Status
-Latest (2026-10-07): online playability pass (self-sizing playback buffer, carry-on during stalls, hidden tab lets go of the controls, stale join banner cleared, amber ping on a shaky line; ?lag=100&stall=200 pretends wifi stalls). Valve-style lag compensation judged not applicable (physics hits, flying bullets); see DECISIONS.md. Needs an online playtest on a real shaky connection.
-Direction (owner, 2026-10-06; DECISIONS.md "DIRECTION ROUND" and the lines after it): the game is called **Old Masters** (players see the new name; the repo, folder and fly.dev address keep the old one). Showcase eras are Wild West, Cavemen and Pirates. Specials are in at launch (about 70 arenas). No feature freeze; playtest night Sunday 2026-10-11. **Next: weapons** (real shapes, then grappling hook, then chain weapons), one window at a time.
-Latest (2026-10-06): Looks v1 built from the owner's handoff (LOOKS_HANDOFF.md): 12 hats and 7 hairstyles (including Fubo) in the hat slot, 10 eyes, Bone in place of Teal, painted hats, and swaying parts that are looks only (render/dangle.ts). See DECISIONS.md. Needs the owner's look and feel check in the Hall and in a fight.
-Before that (2026-10-05): menus built from the owner's mockup (museum home screen with painted arenas in gilded frames; the Hall of Champions with a painted portrait per seat, hat, eyes and colour pickers, ready-up; online uses the same Hall with the room code). Eyes are a third pick. The game now opens on the menus; testing links skip them. See DECISIONS.md. Needs the owner's look and feel check.
-Before that (2026-10-05): the art package is applied for real: its oil painter is ported to the browser (src/render/painter/: painted era backdrops with the real ground, painted fighters with boil, capes, painted splats; per-era painting data in src/content/paintings.ts), plus the 12-era chronological match schedule and an escalating weapon spawner (see DECISIONS.md, ERAS.md, art-guide/ART_STYLE.md). Next: pirate water and boat physics, then the other four arenas per era.
-
-Phases 0, 1 and 2 are built (see the git log and DECISIONS.md for what and why; DESIGN.pdf is the plan). **Waiting at the Phase 2 gate**: the owner and friends playing a real 2-4 player fight and asking for a rematch. The owner treated the Phase 1 gate as passed and told us to "progress through the next milestone", so Phase 2 was built in slices (quick feel fixes, walls and wall jump, weapons and disarming, local gamepad multiplayer with rounds and a scoreboard).
-
-Since then, owner-requested Phase 2 additions are built (see DECISIONS.md): real physics legs with Stick Fight style crouch down to lying and crawling, a decorative second arm, tap-to-punch and hold-to-grab-and-fling unarmed combat (grabs time out and break on a hard hit), body-collision and stomp damage, hold-W flips, and club parrying. Their tuning numbers are first guesses and all need the owner's playtest. DESIGN.pdf has not been updated for these yet.
-
-Stick Fight feel pass (2026-10-05, see DECISIONS.md): camera zoomed out (fighters 8.6% of the screen), side walls only on maps that are about them (arena.walls per map), a 2.2 m jump that falls faster than it rises, every ledge 1.5 m clear above whatever is under it, weapons in a hand pass through the scenery. Owner: the size is right, weapons through the floor are fine. maps.test.ts enforces the map rules: when designing a map, keep them.
-
-Online (Phase 3) groundwork is built ahead of the gate at the owner's request, who cannot playtest right now (remote control): a room server over WebSockets, lobby, client mirror and 100 ms-lag tests; see DECISIONS.md and DEPLOY.md. Since then: deployed to Fly.io (knightsofold.fly.dev, DEPLOY.md), prediction of your own fighter built (Settings: Controls: Instant, on by default; src/net/predict.ts), a 5 s grace for dropped connections. Not done: real-connection playtests with friends. Commands: npm run server, then open /?online in two tabs.
-
-Still open from earlier phases (all need the owner, none are code): the public URL deploy (Cloudflare Pages account), Firefox and Safari checks, and the painted background for the style test (see ASSETS.md).
-
-GitHub backup (2026-10-05): repo (NOTE 2026-10-05: GitHub currently serves it as PUBLIC; the owner meant it to be private, check Settings > General > Danger Zone) https://github.com/MasonSimms/KNIGHTSOFOLD (remote `origin`; `git push` works, sign-in is stored). Work on `master`. Two windows can work at once by giving one of them its own folder (a git worktree on its own branch), then merging; the `maps` branch was done that way and is merged.
-
-Do not start Phase 3 (online) until the owner confirms the Phase 2 gate; then grill them on Phase 3's open decisions first. Speak to the owner in plain English: they are not a developer, so describe tweakable factors by what they do (and give the setting name in brackets).
+## Status (2026-10-07; the details are in DECISIONS.md and the git log)
+- **The gate: playtest night, Sunday 2026-10-11** (the owner and 3 friends, online, recorded). It is the gate for both local fights (Phase 2) and online (Phase 3): friends ask for a rematch, and 4 players finish 10 fights online. Afterwards create PLAYTEST.md and grill the owner. Building goes on until then.
+- **Online is built and live** (one Fly.io app serves the page and runs the rooms; your own fighter moves at once; the playback buffer sizes itself to the connection; a dropped player gets 5 s to come back). Needs friends on real home connections.
+- **Built**: physics fighters with real legs, punches, grabs, throws and slams; clubs, guns (revolver, flintlock) and weapons batch one (shields, throwing spear, stick grenade, gravity hammer); 12-round matches with era transitions and best-moment replays; the museum menus and the Hall of Champions; Looks v1; bots; the training panel; highlights; wind and dynamic light; 28 arenas (Cavemen and the Wild West have their five each, Pirates two: Ship Deck and Ship to Ship).
+- **Next, in order** (check with the owner before each step): painted shapes for every weapon (started 2026-10-07), the grappling hook, chain weapons (Golden Flail, Chain Mace), the lasso, the net; then Pirates' other 3 arenas, round-break placards on the era transition, costumes for the showcase eras. Decided but not done: retire the plain cave and the old western street (each era's five are the owner's lists), and a special era replaces a round about 8% of the time instead of 15% (`specialChance`).
+- **Waiting on the owner**: look and feel checks (menus, Looks v1, the new arenas), Firefox and Safari checks, and a trademark lawyer's check of "Old Masters" before the store page goes up.
+- GitHub: https://github.com/MasonSimms/KNIGHTSOFOLD (remote `origin`, branch `master`; `git push` works, sign-in is stored). It is public by the owner's choice (2026-10-06): never commit passwords, keys or tokens.
