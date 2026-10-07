@@ -29,7 +29,7 @@ import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lob
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 import { applySettings, loadSettings, runSettings } from './ui/settings';
 import { applyTraining, leaveTraining, loadTraining, runTraining } from './ui/training';
-import { reportErrors } from './ui/oops';
+import { hiddenSeconds, reportErrors, tellServer } from './ui/oops';
 
 reportErrors(); // (a crash in someone's browser shows on their screen and reaches the server's log)
 
@@ -73,7 +73,7 @@ if (onlineParam !== null) {
       else if (msg.t === 'error' && msg.fatal) { forgetSession(); alert(msg.why); location.href = location.pathname; }
       else if (msg.t === 'error') { forgetSession(); alert(`Could not rejoin: ${msg.why}.`); location.reload(); }
     };
-    c.onClose(() => void reconnect());
+    c.onClose((e) => { tellServer(`connection lost (code ${e.code}${e.reason ? ' ' + e.reason : ''}); the page was last hidden ${hiddenSeconds()} s, now ${document.hidden ? 'hidden' : 'in view'}`); void reconnect(); });
   };
   // A dropped connection: keep trying for a minute to get back into the same seat (the server holds it for you).
   const reconnect = async () => {

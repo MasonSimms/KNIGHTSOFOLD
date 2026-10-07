@@ -18,6 +18,16 @@ function tell(what: string): void {
   el.textContent = `Something went wrong in this browser (Chrome works best):\n${why}`;
 }
 
+/** A note for the server's log (not an error: shown nowhere on screen). */
+export function tellServer(note: string): void {
+  try { navigator.sendBeacon('/oops', JSON.stringify({ why: `note: ${note.slice(0, 300)}`, browser: navigator.userAgent.slice(0, 200) })); } catch { /* no server here */ }
+}
+
+let hiddenSince = 0, hiddenFor = 0;
+addEventListener('visibilitychange', () => { if (document.hidden) hiddenSince = performance.now(); else if (hiddenSince) { hiddenFor = performance.now() - hiddenSince; hiddenSince = 0; } });
+/** How long the page was last out of sight (or has been, if it still is), in seconds. */
+export const hiddenSeconds = (): number => Math.round((hiddenSince ? performance.now() - hiddenSince : hiddenFor) / 1000);
+
 export function reportErrors(): void {
   addEventListener('error', (e) => tell(`${e.message}${e.error?.stack ? `\n${String(e.error.stack).split('\n').slice(1, 4).join('\n')}` : ` @ ${String(e.filename).split('/').pop()}:${e.lineno}`}`));
   addEventListener('unhandledrejection', (e) => tell(String((e.reason as Error)?.stack ?? e.reason).split('\n').slice(0, 4).join('\n')));

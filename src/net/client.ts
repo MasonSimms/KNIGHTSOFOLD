@@ -28,7 +28,7 @@ export class NetClient {
     if (h) for (const m of this.backlog.splice(0)) h(m);
   }
 
-  onClose(h: () => void): void { this.ws.onclose = h; }
+  onClose(h: (e: CloseEvent) => void): void { this.ws.onclose = h; }
   send(m: ClientMsg): void { if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m)); }
 }
 

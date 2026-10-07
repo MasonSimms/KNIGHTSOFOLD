@@ -227,12 +227,17 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
   wss.on('connection', (ws, req) => {
     const fwd = req.headers['fly-client-ip'] ?? req.headers['x-forwarded-for'];
     conn.set(ws, { ip: String(Array.isArray(fwd) ? fwd[0] : fwd ?? req.socket.remoteAddress ?? '').split(',')[0].trim(), hello: false });
-    let alive = true, count = 0;
+    let alive = true, count = 0, why = '', lastMsg = Date.now();
     ws.on('pong', () => { alive = true; });
     const rate = setInterval(() => { count = 0; }, 1000);
-    const beat = setInterval(() => { if (!alive) return ws.terminate(); alive = false; ws.ping(); }, 15000); // a silent drop (no close message) is caught here
-    ws.on('message', (d) => { if (++count > 200) return ws.close(1008, 'too many messages'); onMessage(ws, d.toString()); });
-    ws.on('close', () => { clearInterval(rate); clearInterval(beat); leave(ws); });
+    const beat = setInterval(() => { if (!alive) { why = 'no answer to the heartbeat'; return ws.terminate(); } alive = false; ws.ping(); }, 15000); // a silent drop (no close message) is caught here
+    ws.on('message', (d) => { lastMsg = Date.now(); if (++count > 200) { why = 'too many messages'; return ws.close(1008, 'too many messages'); } onMessage(ws, d.toString()); });
+    ws.on('close', (code, reason) => {
+      clearInterval(rate); clearInterval(beat);
+      const at = where.get(ws);
+      if (at) console.log(`left room ${at.room.code} seat ${at.room.seats.indexOf(at.seat)}${at.room.game ? ' during a fight' : ''}: ${why || `closed by the browser (${code}${reason.length ? ' ' + reason.toString().slice(0, 60) : ''})`}, last heard from ${Math.round((Date.now() - lastMsg) / 1000)} s before, ${Math.round(ws.bufferedAmount / 1024)} KB still waiting to go to it`);
+      leave(ws);
+    });
     ws.on('error', () => ws.terminate());
   });
 
