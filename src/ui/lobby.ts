@@ -23,12 +23,12 @@ export function notice(text: string): void {
   el.style.display = text ? 'block' : 'none';
 }
 
-/** Online: the round trip to the server in a corner (null hides it). */
-export function showPing(ms: number | null): void {
+/** Online: the round trip to the server in a corner (null hides it). Amber when it is long, or when the line is shaky (`shaky`). */
+export function showPing(ms: number | null, shaky = false): void {
   let el = document.getElementById('ping');
   if (!el) { el = document.createElement('div'); el.id = 'ping'; document.body.appendChild(el); }
   el.style.display = ms === null ? 'none' : 'block';
-  if (ms !== null) { el.textContent = `${Math.round(ms)} ms`; el.classList.toggle('slow', ms > 150); }
+  if (ms !== null) { el.textContent = `${Math.round(ms)} ms`; el.classList.toggle('slow', ms > 150 || shaky); }
 }
 
 const home = () => { forgetSession(); location.href = location.pathname; }; // back to the gallery (a fresh page)

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { tuning as T } from '../content/tuning';
 import { fuzzer } from '../sim/fuzz';
 import { makeRng } from '../sim/rng';
 import { Sim } from '../sim/world';
@@ -189,5 +190,28 @@ describe('online mirror', () => {
     expect(mirror.desyncs).toBe(0);
     expect(jumps).toBeLessThan(40); // deaths and round changes can legitimately move a part a long way; ordinary play must not
     expect(maxLag).toBeLessThan(8); // behind the server by a fraction of a second of motion, never wildly off
+  }, 120_000);
+  it('a line that stalls now and then (wifi): the buffer widens to cover the stalls, then narrows again once the line is steady', async () => {
+    const { room, mirror } = await pair(6, 4, false);
+    const inputs = fuzzer(78);
+    const inflight: { at: number; s: Snapshot }[] = [];
+    let lastArrival = 0;
+    const waitsBy = [0, 0, 0]; // frames the picture had to wait: while learning (the first 6 s), once learnt (6-30 s), on the steady line after
+    for (let i = 0; i < 4200; i++) { // 70 s: for 30 s a 200 ms stall every 2 s (its snapshots arrive in a bunch when it ends), then a steady line
+      const now = i / 60;
+      for (let k = 0; k < 4; k++) room.setInput(k, inputs(4)[k]);
+      const s = room.tick();
+      if (s) { const stall = now < 30 && i % 120 < 12 ? 0.2 - (i % 120) / 60 : 0; lastArrival = Math.max(lastArrival + 0.0001, now + 0.05 + stall); inflight.push({ at: lastArrival, s: wire(s) }); }
+      while (inflight.length && inflight[0].at <= now) mirror.push(inflight.shift()!.s);
+      const before = mirror.waits;
+      mirror.update(1 / 60);
+      if (mirror.waits > before) waitsBy[now < 6 ? 0 : now < 30 ? 1 : 2]++;
+      if (i === 1799) expect(mirror.delay).toBeGreaterThanOrEqual(10); // 200 ms of stall needs about 12 ticks of buffer (it probes a tick narrower now and then)
+    }
+    expect(mirror.desyncs).toBe(0);
+    expect(waitsBy[0]).toBeGreaterThan(0); // the first stalls catch it out...
+    expect(waitsBy[1]).toBe(0); // ...then the buffer covers them
+    expect(waitsBy[2]).toBe(0);
+    expect(mirror.delay).toBe(T.net.blendTicks); // 40 s of a steady line: back to the minimum
   }, 120_000);
 });

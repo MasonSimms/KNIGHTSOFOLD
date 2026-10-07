@@ -683,7 +683,10 @@ export const tuning = {
     // Online (owner: cut the lag cheaply before trying prediction). From pressing a key to seeing your fighter move online takes your ping,
     // plus a wait for the next snapshot, plus the blend buffer. A snapshot is about 1.3 KB: 60 a second is about 0.6 Mbit/s per player.
     snapEvery: 1, // the server sends a snapshot every this many 60 Hz ticks (1 = 60 a second; was 3 = 20 a second)
-    blendTicks: 3, // your screen shows the world this many ticks behind the newest snapshot, to blend smoothly (3 = 50 ms; was 6 = 100 ms). Raise it if online play stutters on a shaky connection
+    blendTicks: 3, // your screen shows the world at least this many ticks behind the newest snapshot, to blend smoothly (3 = 50 ms; was 6 = 100 ms)
+    blendMax: 18, // on a shaky line (snapshots arriving late in bunches) the buffer widens by itself to cover the stalls, up to this many ticks (300 ms)...
+    blendRelax: 3, // ...and narrows again by one tick every this many seconds that it arrives steadily (back down to blendTicks). Slower than most wifi hiccups repeat, so it holds its width between them
+    extrapolateTicks: 3, // when snapshots stop coming the motion carries on for up to this many ticks (50 ms) before the picture waits (0 = wait at once)
     inputQueue: 3, // the server keeps at most this many of a player's inputs waiting (one is used per tick, so a quick tap is never lost); more than that and the oldest are folded together
     // Prediction (online, the Settings switch "Online controls: Instant"): your own fighter moves at once and is nudged toward the server.
     predict: { blend: 0.25, blendPerMetre: 0.6, blendMax: 0.6, snap: 1.5, deadzone: 0.01, history: 180, drive: 12 }, // blend: share of the difference closed each snapshot (plus blendPerMetre for every metre off, at most blendMax); snap: metres off before it jumps straight there; deadzone: closer than this is left alone; history: inputs remembered; drive: how firmly the others are held to where the server shows them, for bumping into (per second)
