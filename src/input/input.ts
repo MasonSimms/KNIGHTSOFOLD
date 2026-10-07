@@ -4,7 +4,7 @@ import type { PlayerInput } from '../sim/types';
 // Player 1 is keyboard and mouse (and the first gamepad too, so a lone gamepad works). Players 2-4 are the other gamepads.
 const keys = new Set<string>(); // keys currently held
 const taps = new Set<string>(); // keys pressed since last checked (survives a very fast tap)
-let mouseX = 0, mouseY = 0, mouseDown = false, dropTap = false;
+let mouseX = 0, mouseY = 0, mouseDown = false, dropTap = false, clickTap = false;
 let padAim = 0, usePadAim = false;
 
 addEventListener('keydown', (e) => {
@@ -19,7 +19,9 @@ addEventListener('blur', () => { keys.clear(); taps.clear(); mouseDown = false; 
 // they only send a move event whose `buttons` field has changed.
 let rightWas = false;
 function syncButtons(e: PointerEvent): void {
-  mouseDown = (e.buttons & 1) !== 0;
+  const left = (e.buttons & 1) !== 0;
+  if (left && !mouseDown) clickTap = true; // a new left-button press (a trackpad tap can be over before the next frame reads it)
+  mouseDown = left;
   const right = (e.buttons & 2) !== 0;
   if (right && !rightWas) dropTap = true; // a new right-button press, even with the left button held
   rightWas = right;
@@ -33,7 +35,7 @@ addEventListener('pointermove', (e) => { mouseX = e.clientX; mouseY = e.clientY;
 export function wasPressed(code: string): boolean { return taps.delete(code); }
 
 /** Forget key and button presses that happened while a menu was open, so they do not leak into the fight. */
-export function flushInput(): void { taps.clear(); dropTap = false; }
+export function flushInput(): void { taps.clear(); dropTap = false; clickTap = false; }
 
 // Menus with a gamepad: A, B, Start, and the d-pad or left stick as four directions.
 export type MenuButton = 'a' | 'b' | 'start' | 'up' | 'down' | 'left' | 'right';
@@ -92,7 +94,8 @@ export function readInput(fighter: { x: number; y: number }, withPad = true, pxP
   let moveX = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
   const tapped = (...codes: string[]) => codes.map((c) => taps.delete(c)).some(Boolean); // a press that was over before this frame still counts
   let jump = keys.has('Space') || tapped('Space');
-  let attack = mouseDown;
+  let attack = mouseDown || clickTap; // a click that was over before this frame still counts
+  clickTap = false;
   let crouch = keys.has('KeyS') || keys.has('ArrowDown');
   let drop = dropTap; // a right-click press counts even if it was over before this frame
   dropTap = false;

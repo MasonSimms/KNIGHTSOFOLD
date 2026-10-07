@@ -6,6 +6,7 @@ import { damageFor } from './combat';
 import { createProp, dropToWorld, shove, takeIn } from './fighter';
 import type { Fighter, Part } from './fighter';
 import { surfaceY } from './water';
+import { makeRng } from './rng';
 import { leak } from './tower';
 import type { Sim } from './world';
 import type { SimEvent } from './types';
@@ -41,7 +42,11 @@ export function fire(sim: Sim, f: Fighter): void {
   const ft = f.torso.body.translation(), tx = ft.x + Math.cos(f.aim) * f.reach, ty = ft.y + Math.sin(f.aim) * f.reach;
   const toPoint = Math.atan2(ty - my, tx - mx), ok = f.reach > 0 && Math.hypot(tx - mx, ty - my) > 0.4 && Math.abs(Math.atan2(Math.sin(toPoint - f.aim), Math.cos(toPoint - f.aim))) < 0.6;
   const a = ok ? toPoint : f.aim, c = Math.cos(a), s = Math.sin(a);
-  sim.bullets.push({ id: sim.nextBullet++, x: mx, y: my, px: mx, py: my, vx: c * G.speed, vy: s * G.speed, ox: mx, oy: my, owner: f.index, gun: p.weapon!.id, calibre: G.calibre, impact: G.impact, push: G.push, age: 0, bounced: false, wet: false });
+  const n = G.pellets ?? 1, spread = G.spread ?? 0, rng = makeRng(sim.nextBullet * 7919 + sim.frame); // (a scattergun: n pellets in a cone, scattered by the seeded dice)
+  for (let k = 0; k < n; k++) {
+    const off = n === 1 ? 0 : G.fixedFan ? spread * ((2 * k) / (n - 1) - 1) : spread * (2 * rng() - 1), pc = Math.cos(a + off), ps = Math.sin(a + off);
+    sim.bullets.push({ id: sim.nextBullet++, x: mx, y: my, px: mx, py: my, vx: pc * G.speed, vy: ps * G.speed, ox: mx, oy: my, owner: f.index, gun: p.weapon!.id, calibre: G.calibre, impact: G.impact, push: G.push, age: 0, bounced: false, wet: false });
+  }
   b.applyImpulse({ x: -c * G.recoil, y: -s * G.recoil }, true); // the gun (and the arm) kicks back...
   shove(f, -c * G.kick, -s * G.kick); // ...and the whole body is pushed back (bigger guns more)
   f.gunCool = G.cooldown;

@@ -11,6 +11,18 @@ export interface PropSpec { len: number; thick: number; mass: number; factor?: n
 /** The guns (owner: the revolver and the flintlock first). PLACEHOLDER numbers until the playtest. */
 const REVOLVER: GunSpec = { ammo: 6, cooldown: 14, speed: 70, calibre: 1, impact: 31, push: 9, recoil: 2.5, kick: 6 }; // 6 quick shots, each about half a full club hit
 const FLINTLOCK: GunSpec = { ammo: 1, cooldown: 40, speed: 60, calibre: 2, impact: 44, push: 30, recoil: 6, kick: 32 }; // one big shot: a full club hit and a real shove
+// The Gun Locker (GUNS_HANDOFF.md; the owner places them in eras later). Pellets: impact and push are each pellet's. Impacts are on the
+// damage curve (combat.ts: nothing under 10, then growing faster): a pellet at 22 is about 12 damage, all 6 of a blunderbuss about 75.
+const GUN_LOCKER: Record<string, PropSpec> = {
+  blunderbuss: { len: 0.95, thick: 0.1, mass: 2.2, factor: 2.3, material: 'wood', toughness: 4, grip: 0.29, gun: { ammo: 2, cooldown: 40, speed: 38, calibre: 1, impact: 22, push: 2.2, recoil: 9, kick: 22, pellets: 6, spread: 0.32 } }, // a fan of 6 pellets, a big kick
+  duckfoot: { len: 0.6, thick: 0.07, mass: 1.1, factor: 1.8, material: 'metal', grip: 0.17, gun: { ammo: 1, cooldown: 0, speed: 42, calibre: 1, impact: 24, push: 2.5, recoil: 6, kick: 10, pellets: 4, spread: 0.42, fixedFan: true } }, // 4 splayed barrels at once
+  'coach-gun': { len: 0.95, thick: 0.09, mass: 2.0, factor: 2.2, material: 'wood', toughness: 4, grip: 0.34, gun: { ammo: 2, cooldown: 30, speed: 45, calibre: 1, impact: 22, push: 2.6, recoil: 8, kick: 16, pellets: 5, spread: 0.18 } }, // a tight cone, twice
+  derringer: { len: 0.3, thick: 0.06, mass: 0.35, factor: 1.4, material: 'light', grip: 0.27, gun: { ammo: 2, cooldown: 20, speed: 55, calibre: 1, impact: 24, push: 1.2, recoil: 2, kick: 2 } }, // tiny, light, a small push
+  'buffalo-rifle': { len: 1.4, thick: 0.07, mass: 2.4, factor: 2.3, material: 'wood', toughness: 5, grip: 0.2, gun: { ammo: 1, cooldown: 0, speed: 120, calibre: 4, impact: 40, push: 9, recoil: 16, kick: 30 } }, // one huge, very fast shot; the kick spins you
+  'trench-gun': { len: 1.1, thick: 0.08, mass: 2.1, factor: 2.6, material: 'metal', grip: 0.27, gun: { ammo: 5, cooldown: 34, speed: 46, calibre: 1, impact: 21, push: 2.3, recoil: 8, kick: 14, pellets: 5, spread: 0.22 } }, // a pump shotgun
+  beanbag: { len: 1.05, thick: 0.08, mass: 2.0, factor: 1.8, material: 'wood', toughness: 4, grip: 0.29, gun: { ammo: 4, cooldown: 34, speed: 40, calibre: 1, impact: 2, push: 24, recoil: 6, kick: 10, look: { color: 0xc9a46a, orb: 0.09 } } }, // a big shove, almost no hurt
+  'plasma-repeater': { len: 1.0, thick: 0.1, mass: 2.2, factor: 2.0, material: 'metal', grip: 0.28, gun: { ammo: 12, cooldown: 14, speed: 12, calibre: 2, impact: 22, push: 14, recoil: 4, kick: 4, look: { color: 0xe04bb0, orb: 0.16 } } }, // slow magenta balls you can dodge; a big shove
+};
 export const PROPS: Record<string, PropSpec> = {
   plank: { len: 0.9, thick: 0.12, mass: 1.0, toughness: 3 },
   log: { len: 1.2, thick: 0.2, mass: 2.5, toughness: 6 },
@@ -51,9 +63,11 @@ export const PROPS: Record<string, PropSpec> = {
   stool: { len: 0.6, thick: 0.3, mass: 2.2, factor: 2.5, toughness: 3 },
   mug: { len: 0.22, thick: 0.16, mass: 0.5, factor: 2.2, material: 'light', shatters: true },
   pane: { len: 0.2, thick: 1.6, mass: 1, material: 'light', box: true, fixed: true, breaks: { hp: 8, into: [], min: 8 } },
-  gangplank: { len: 2.6, thick: 0.12, mass: 6, factor: 2.4, toughness: 4 },
+  gangplank: { len: 2.6, thick: 0.12, mass: 6, factor: 2.4, toughness: 4 }, // Ship to Ship: laid across from one ship to the other; it falls in when they drift apart
+  // (new things go at the end: a 'spawn' event names a prop by its place in this list)
   net: { len: 0.55, thick: 0.18, mass: 0.8, factor: 0.8, material: 'light', net: true, grip: 0.3 }, // the net (weapons batch two, step 5; owner places it later): thrown, it tangles (sim/tangle.ts)
-  lasso: { len: 0.5, thick: 0.12, mass: 0.6, factor: 1.2, material: 'light', hook: true, lasso: true, grip: 0.3 }, // the lasso (weapons batch two, step 4; owner places it later): a coil in the hand, thrown like the grappling hook (sim/hook.ts) // Ship to Ship: laid across from one ship to the other; it falls in when they drift apart (added last: a 'spawn' event names a prop by its place in this list)
+  lasso: { len: 0.5, thick: 0.12, mass: 0.6, factor: 1.2, material: 'light', hook: true, lasso: true, grip: 0.3 }, // the lasso (weapons batch two, step 4; owner places it later): a coil in the hand, thrown like the grappling hook (sim/hook.ts)
+  ...GUN_LOCKER,
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

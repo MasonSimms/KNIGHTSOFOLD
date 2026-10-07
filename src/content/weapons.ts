@@ -43,6 +43,10 @@ export interface GunSpec {
   push: number; // how hard it shoves what it hits (N s)
   recoil: number; // how hard it kicks the gun and arm back (N s)
   kick: number; // how hard it pushes the shooter's whole body back (N s)
+  pellets?: number; // a scattergun: this many shots at once from one pull of the trigger (it uses one shot of ammo), in a cone...
+  spread?: number; // ...each up to this far either side of the aim (radians)...
+  fixedFan?: boolean; // ...or fanned out evenly across it (the duck-foot pistol's splayed barrels)
+  look?: { color: number; orb?: number }; // how its shots look (picture only): their colour, and a glowing ball this wide (m) instead of a streak
 }
 
 export const weapons: Weapon[] = [

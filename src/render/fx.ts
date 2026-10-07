@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite } from 'pixi.js';
 import type { Texture } from 'pixi.js';
+import { PROPS } from '../content/props';
 import { tuning as T } from '../content/tuning';
 import type { SimEvent } from '../sim/types';
 import type { Sim } from '../sim/world';
@@ -9,7 +10,7 @@ import type { Sim } from '../sim/world';
 // Pools made once (nothing is allocated while playing).
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-interface Trail { id: number; ox: number; oy: number; x: number; y: number; fade: number; drift: number } // fade: 1 while flying, falling to 0 after; drift: how far the wind has carried it (m)
+interface Trail { id: number; ox: number; oy: number; x: number; y: number; fade: number; drift: number; color: number; orb: number } // fade: 1 while flying, falling to 0 after; drift: how far the wind has carried it (m); color, orb: its gun's look (props.ts)
 interface Bit { g: Graphics; x: number; y: number; vx: number; vy: number; spin: number; life: number; max: number; fall: boolean }
 interface Puff { s: Sprite; x: number; y: number; vy: number; life: number; max: number; size: number; a: number }
 
@@ -23,6 +24,7 @@ export function createFx(layer: Container, puffTex: Texture[]) {
   let nextBit = 0, nextPuff = 0;
   const flashList: { x: number; y: number; a: number; life: number }[] = [];
   const twirls = new Map<number, number>(); // fighter -> seconds into the twirl of an emptied gun
+  const shotBy = new Map<number, string>(); // fighter -> the gun they fired last (online the bullets come without it)
 
   /** A flying bit: a short line (a spark, a splinter) that flies, spins, fades. */
   const bit = (x: number, y: number, ang: number, speed: number, len: number, width: number, color: number, life: number, fall: boolean) => {
@@ -43,8 +45,9 @@ export function createFx(layer: Container, puffTex: Texture[]) {
     onEvent(e: SimEvent) {
       const B = T.finish.bullets;
       if (e.t === 'shot') { // the flash and the smoke
+        shotBy.set(e.owner, e.w ?? '');
         flashList.push({ x: e.x, y: e.y, a: e.v, life: B.flashSeconds });
-        const big = e.w === 'pistol';
+        const big = (PROPS[e.w ?? '']?.gun?.kick ?? 0) >= 20; // (the big guns: more smoke)
         for (let i = 0; i < (big ? 4 : 2); i++) puff(e.x + Math.cos(e.v) * 0.15 * i, e.y + Math.sin(e.v) * 0.15 * i, (big ? 0.5 : 0.3) + i * 0.08, 0xd8d2c4, big ? 0.7 : 0.5, 0.9, 0.35);
       } else if (e.t === 'empty') { // the dry click: a little puff, and the gun is twirled round
         puff(e.x, e.y, 0.22, 0xbdb6a8, 0.6, 0.6, 0.3);
@@ -75,7 +78,8 @@ export function createFx(layer: Container, puffTex: Texture[]) {
         live.add(u.id);
         const x = lerp(u.px, u.x, alpha), y = lerp(u.py, u.y, alpha);
         const t = trailList.find((q) => q.id === u.id);
-        if (t) { t.x = x; t.y = y; } else trailList.push({ id: u.id, ox: u.ox, oy: u.oy, x, y, fade: 1, drift: 0 });
+        const look = t ? undefined : PROPS[u.gun || shotBy.get(u.owner) || '']?.gun?.look;
+        if (t) { t.x = x; t.y = y; } else trailList.push({ id: u.id, ox: u.ox, oy: u.oy, x, y, fade: 1, drift: 0, color: look?.color ?? 0xffffff, orb: look?.orb ?? 0 });
       }
       trails.clear();
       for (let i = trailList.length - 1; i >= 0; i--) {
@@ -87,9 +91,11 @@ export function createFx(layer: Container, puffTex: Texture[]) {
         const tx = q.ox - ux * B.tailBack, ty = q.oy - uy * B.tailBack, n = 8; // the trail reaches back past the shooter
         for (let k = 0; k < n; k++) { // fading in from the tail to the bullet
           const a0 = k / n, a1 = (k + 1) / n;
-          trails.moveTo(lerp(tx, q.x, a0) + q.drift * (1 - a0), lerp(ty, q.y, a0)).lineTo(lerp(tx, q.x, a1) + q.drift * (1 - a1), lerp(ty, q.y, a1)).stroke({ width: B.trailWidth, color: 0xffffff, alpha: B.trailAlpha * a1 * q.fade, cap: 'butt' });
+          trails.moveTo(lerp(tx, q.x, a0) + q.drift * (1 - a0), lerp(ty, q.y, a0)).lineTo(lerp(tx, q.x, a1) + q.drift * (1 - a1), lerp(ty, q.y, a1)).stroke({ width: B.trailWidth, color: q.color, alpha: B.trailAlpha * a1 * q.fade, cap: 'butt' });
         }
-        if (live.has(q.id)) { // the bullet itself: a bright white streak with a soft glow
+        if (live.has(q.id) && q.orb) { // a glowing ball (plasma, a beanbag): a soft halo, the ball, a bright core
+          trails.circle(q.x, q.y, q.orb * 1.8).fill({ color: q.color, alpha: 0.2 }).circle(q.x, q.y, q.orb).fill({ color: q.color, alpha: 0.9 }).circle(q.x, q.y, q.orb * 0.45).fill({ color: 0xffffff, alpha: 0.9 });
+        } else if (live.has(q.id)) { // the bullet itself: a bright white streak with a soft glow
           const s = Math.min(B.streak, d);
           trails.moveTo(q.x - ux * s, q.y - uy * s).lineTo(q.x, q.y).stroke({ width: B.streakWidth * 3, color: 0xffffff, alpha: 0.22, cap: 'round' });
           trails.moveTo(q.x - ux * s, q.y - uy * s).lineTo(q.x, q.y).stroke({ width: B.streakWidth, color: 0xffffff, alpha: 1, cap: 'round' });

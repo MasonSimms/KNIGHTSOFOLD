@@ -178,4 +178,25 @@ describe('guns', () => {
     expect(shots).toBeGreaterThan(2);
     expect(hits).toBeGreaterThan(0);
   }, 30_000);
+
+  it('a scattergun fires its pellets in a cone from one pull (one shot of ammo), the same every time; the duck-foot fans them evenly', async () => {
+    const fan = async (kind: string) => {
+      const sim = await duel(5);
+      const gun = arm(sim, 0, kind), G = PROPS[kind].gun!;
+      for (let i = 0; i < 20; i++) sim.step([{ ...NEUTRAL, aim: -0.3 }, NEUTRAL]);
+      sim.step([{ ...NEUTRAL, aim: -0.3, attack: true }, NEUTRAL]);
+      const out = sim.bullets.map((u) => Math.atan2(u.vy, u.vx));
+      expect(gun.ammo).toBe(G.ammo - 1);
+      return { out, G };
+    };
+    const { out, G } = await fan('blunderbuss');
+    expect(out.length).toBe(G.pellets);
+    const mid = out.reduce((a, b) => a + b) / out.length;
+    for (const a of out) expect(Math.abs(a - mid)).toBeLessThan(2 * G.spread! + 0.01);
+    expect(new Set(out.map((a) => a.toFixed(4))).size).toBe(G.pellets); // (scattered, not on top of each other)
+    expect((await fan('blunderbuss')).out).toEqual(out); // the same dice every time
+    const duck = (await fan('duckfoot')).out.sort((a, b) => a - b);
+    const gaps = duck.slice(1).map((a, k) => a - duck[k]);
+    for (const g of gaps) expect(g).toBeCloseTo(gaps[0], 5);
+  }, 30_000);
 });
