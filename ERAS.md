@@ -35,12 +35,12 @@ Rule of thumb for weapons: signature weapons are long-melee "clubs" like the cur
 ## 1. Cavemen
 Pickups: **Stone Hammer** (very heavy, slow, huge impact), **Mammoth Tusk** (long, light, sharp).
 The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not built yet: online comes first.
-1. **Campfire Clearing**: flat grassy ground with a campfire in it; the fire deals damage. Everyone starts with a stick. (Needs: a hazard zone that hurts.) **BUILT 2026-10-06** (cavemen map 2, placeholder look): the fire burns you and sets you (and wooden clubs) burning.
-2. **Tar Pit**: a pit of tar in the centre with grassy ground on either side. Everyone starts with a stick. (Needs: a tar zone that slows and holds you; the old "Tar Pit Ledge" idea had it sink bodies and drag everything.) **BUILT 2026-10-06** (cavemen map 3): a 3 m pit between grassy cliffs; slow, a weak kick, 3 s and it swallows you.
-3. **Standing Stones**: a Stonehenge-like structure whose rocks can fall and crush players. Stone weapons. (Needs: big loose rock bodies balanced on the uprights, crushing by weight: the crush death exists.) **BUILT 2026-10-06** (cavemen map 4): two stone doorways; the uprights stand a step behind the fighters, the 3 m capstones lie loose on top and a hard knock (about a flung body) tips one onto whoever is under it; stone axes.
-4. **Mammoth Chase** (a moving map): everyone keeps running to the right while a woolly mammoth chases from the left; touching the mammoth kills you. (Needs: a scrolling map, the mammoth as a moving body.) **BUILT 2026-10-06** (cavemen map 5): a treadmill floor at 2.2 m/s, a painted placeholder mammoth that tosses you out of the picture, boulders and logs riding in, the painting sliding by.
-5. **Vine Ravine** BUILT (a log bridge over a gorge, cut it or break it). Not on the owner's list of four: kept as the fifth until the owner says otherwise.
-The original plain cave map is retired (owner, 2026-10-06: five arenas per era).
+1. **Campfire Clearing**: flat grassy ground with a campfire in it; the fire deals damage. Everyone starts with a stick. (Needs: a hazard zone that hurts.) **BUILT 2026-10-06** (cavemen map 1, placeholder look): the fire burns you and sets you (and wooden clubs) burning.
+2. **Tar Pit**: a pit of tar in the centre with grassy ground on either side. Everyone starts with a stick. (Needs: a tar zone that slows and holds you; the old "Tar Pit Ledge" idea had it sink bodies and drag everything.) **BUILT 2026-10-06** (cavemen map 2): a 3 m pit between grassy cliffs; slow, a weak kick, 3 s and it swallows you.
+3. **Standing Stones**: a Stonehenge-like structure whose rocks can fall and crush players. Stone weapons. (Needs: big loose rock bodies balanced on the uprights, crushing by weight: the crush death exists.) **BUILT 2026-10-06** (cavemen map 3): two stone doorways; the uprights stand a step behind the fighters, the 3 m capstones lie loose on top and a hard knock (about a flung body) tips one onto whoever is under it; stone axes.
+4. **Mammoth Chase** (a moving map): everyone keeps running to the right while a woolly mammoth chases from the left; touching the mammoth kills you. (Needs: a scrolling map, the mammoth as a moving body.) **BUILT 2026-10-06** (cavemen map 4): a treadmill floor at 2.2 m/s, a painted placeholder mammoth that tosses you out of the picture, boulders and logs riding in, the painting sliding by.
+5. **Vine Ravine** BUILT (a log bridge over a gorge, cut it or break it; the main map, cavemen map 0, since 2026-10-07). Not on the owner's list of four: kept as the fifth until the owner says otherwise.
+The original plain cave map is retired (owner, 2026-10-06: five arenas per era; done 2026-10-07).
 Old ideas, not on the list: Mammoth Ribcage (rib bones as platforms you can pull free), Boulder Slope (a rolling boulder), Volcano Rim (lava and falling rocks).
 
 ## 2. Ancient Egypt
@@ -94,13 +94,13 @@ Pickups: **Flintlock Pistol** (clubbed with, or thrown), **Grappling Hook** (a h
 ## 8. The Wild West
 Pickups: **Revolver**, **Lasso** (grab from a distance, needs the "grab at range" feature).
 The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not built yet: online comes first.
-1. **Main Street**: a dirt road with storefronts behind; players can get revolvers. **BUILT 2026-10-06** (westerns map 2): a shop at each end with a real glass window you can be thrown through, roofs and a porch roof to stand on, barrels.
-2. **Rooftops**: on top of the town's buildings; falling off kills you (the gaps between roofs are the void). Players can get revolvers. **BUILT 2026-10-06** (westerns map 3): five roofs at different heights, 1.2 m alleys.
+1. **Main Street**: a dirt road with storefronts behind; players can get revolvers. **BUILT 2026-10-06** (westerns map 0, the main map since 2026-10-07): a shop at each end with a real glass window you can be thrown through, roofs and a porch roof to stand on, barrels.
+2. **Rooftops**: on top of the town's buildings; falling off kills you (the gaps between roofs are the void). Players can get revolvers. **BUILT 2026-10-06** (westerns map 2): five roofs at different heights, 1.2 m alleys.
 3. **Train**: a moving train with NO weapons: throw other players into the obstacles, and avoid the wooden signs and tunnels that pass. (Needs: a moving map, passing obstacles that hit you: the front plane's passing sign was planned for this.) **BUILT 2026-10-06** (westerns map 1): three boxcars, the land rushing past (motion-blurred), a sign and a tunnel mouth every 8 s with a whistle first.
-4. **Saloon Brawl**: a bar fight inside the saloon, with beer glasses and bar stools to throw. **BUILT 2026-10-06** (westerns map 4): walls both sides, a bar counter to jump onto, a balcony from it, four stools, four mugs that shatter; fists, stools and mugs only.
-5. **Water Tower**: on top of a water tower. **BUILT 2026-10-06** (westerns map 5): the tank top with a narrow catwalk each side 1.6 m below; shoot the tank's side and water jets out for 4 s, blasting whoever it catches off balance and off the catwalk.
+4. **Saloon Brawl**: a bar fight inside the saloon, with beer glasses and bar stools to throw. **BUILT 2026-10-06** (westerns map 3): walls both sides, a bar counter to jump onto, a balcony from it, four stools, four mugs that shatter; fists, stools and mugs only.
+5. **Water Tower**: on top of a water tower. **BUILT 2026-10-06** (westerns map 4): the tank top with a narrow catwalk each side 1.6 m below; shoot the tank's side and water jets out for 4 s, blasting whoever it catches off balance and off the catwalk.
 Revolvers SHOOT (owner, 2026-10-06; built: see DECISIONS.md).
-The old western street (the era's first map) is retired (owner, 2026-10-06: five arenas per era).
+The old western street (the era's first map) is retired (owner, 2026-10-06: five arenas per era; done 2026-10-07).
 
 ## 9. World War I
 Pickups: **Bayonet Rifle** (long, good lunge), **Stick Grenade** (thrown, goes off after a short time with a push, not a kill).

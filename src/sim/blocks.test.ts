@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { mapNamed } from '../content/eras';
 import { tuning as T } from '../content/tuning';
 import { NEUTRAL } from './types';
 import type { SimEvent } from './types';
@@ -41,7 +42,7 @@ describe('blocks', () => {
 });
 
 describe('Standing Stones', () => {
-  const STONES = 4;
+  const STONES = mapNamed('caveman', 'Standing Stones');
   async function stones() {
     T.eras.changeGameplay = true;
     const sim = await Sim.create(5, 2, false);
@@ -79,7 +80,7 @@ describe('Main Street windows', () => {
   async function street() {
     T.eras.changeGameplay = true;
     const sim = await Sim.create(5, 2, false);
-    sim.forceEra = 'westerns'; sim.forceMap = 2; sim.reset();
+    sim.forceEra = 'westerns'; sim.forceMap = mapNamed('westerns', 'Main Street'); sim.reset();
     T.eras.changeGameplay = false;
     return sim;
   }

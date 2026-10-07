@@ -463,7 +463,7 @@ export const tuning = {
   eras: {
     mixStarts: true, // each round picks how weapons arrive from spawn.startRules: everyone armed, clubs on the floor, or clubs from the sky (owner: on for the playtest; false = always the arena's weaponRule: the tests do this)
     changeGameplay: true, // an era changes the arena layout and the weapon (false = every round uses the standard arena and club: the tests do this)
-    specialChance: 0.15, // each slot of a match has this chance of being one of the special eras (fantasy archers, mobsters...) instead of its normal era
+    specialChance: 0.08, // (about one special a match; was 0.15: owner, 2026-10-06) each slot of a match has this chance of being one of the special eras (fantasy archers, mobsters...) instead of its normal era
   },
   maim: {
     // A HUGE club blow (rare: a thrown club or a full-speed charge) to a limb takes the limb off. You play on with the consequence until the

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { mapNamed } from '../content/eras';
 import { PROP_KINDS, PROPS } from '../content/props';
 import { tuning as T } from '../content/tuning';
 import { placeLoose } from './fighter';
@@ -99,7 +100,7 @@ describe('the race for the guns', () => {
       expect(n).toBeGreaterThan(10);
       expect(n).toBeLessThan(30);
       expect(rounds(await Sim.create(35, 2, false).then((s) => { s.forceEra = 'ww1'; s.forceMap = 0; s.reset(); return s; }))).toEqual(a);
-      sim.forceEra = 'westerns'; sim.forceMap = 5; sim.reset();
+      sim.forceEra = 'westerns'; sim.forceMap = mapNamed('westerns', 'Water Tower'); sim.reset();
       expect((sim.arena as { name?: string }).name).toBe('Water Tower');
       expect(rounds(sim).every(Boolean)).toBe(true);
     } finally { T.eras.changeGameplay = was; }

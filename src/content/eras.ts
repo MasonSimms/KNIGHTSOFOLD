@@ -50,7 +50,7 @@ export interface Era {
 }
 
 export const eras: Era[] = [
-  { id: 'caveman', name: 'Cavemen', special: false, pickups: ['tusk', 'stone-hammer'], style: { grain: 0.05 }, sky: 0x6b8f5a, platform: 0x7a6248, wall: 0x5c5046, weapon: 'bone-club', arena: { platformX: 4.75, platformW: 14.5, walls: [/* the cave wall at your back */ { side: 1, up: 3.0, gap: 0 }], props: [{ kind: 'log', x: 12.0, up: 0 }, { kind: 'bone', x: 13.25, up: 0 }] }, alt: [/* Vine Ravine: $1*/ { name: 'Vine Ravine',  ground: [{ x: 5.25, w: 3.75 }, { x: 15.0, w: 3.75 }], bridge: { x0: 9.0, x1: 15.0, planks: 6 } },
+  { id: 'caveman', name: 'Cavemen', special: false, pickups: ['tusk', 'stone-hammer'], style: { grain: 0.05 }, sky: 0x6b8f5a, platform: 0x7a6248, wall: 0x5c5046, weapon: 'bone-club', arena: { name: 'Vine Ravine', ground: [{ x: 5.25, w: 3.75 }, { x: 15.0, w: 3.75 }], bridge: { x0: 9.0, x1: 15.0, planks: 6 } }, alt: [ // (the plain cave is retired: the era is the owner's five)
     // Campfire Clearing (owner's list): a fire in the middle (it burns you, and sets your club alight: a torch), a ledge over it
     { name: 'Campfire Clearing', fires: [{ x: 11.4, w: 1.2, up: 0 }], ledges: [{ x: 10.5, up: 1.8, w: 3.0 }], fightSpawnX: [6.5, 17.5, 9.25, 14.75], props: [{ kind: 'log', x: 8.2, up: 0 }, { kind: 'log', x: 15.8, up: 0 }] },
     // Tar Pit (owner's list): grass both sides of a pit of tar (slow, a weak kick, and it swallows you): leap it
@@ -94,16 +94,15 @@ export const eras: Era[] = [
     // and the stern stays dry longest. Afloat again at the start of the next round.
     { name: 'Sinking Wreck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boats: [{ x: 5.75, w: 12.5, sinks: { seconds: 25, tilt: 0.3, settle: 0.55 } }],
       props: [{ kind: 'plank', x: 9.5, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'crate', x: 12.0, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }], outfits: ['captain', 'buccaneer', 'first mate', 'cabin boy'] },
-  { id: 'westerns', name: 'The Wild West', special: false, pickups: ['derringer', 'revolver', 'coach-gun', 'pickaxe', 'buffalo-rifle'], strong: 2, sky: 0xc9915a, platform: 0x8a6240, wall: 0x6a4a34, weapon: 'rifle', arena: { walls: [/* the saloon wall */ { side: 1, up: 3.0, gap: 0 }], ledges: [{ x: 10.6, up: 1.8, w: 2.8 }], props: [{ kind: 'plank', x: 8.75, up: 0 }], scenery: [{ kind: 'barrel', x: 6.0, up: 0 }, { kind: 'crate', x: 18.0, up: 0 }] }, alt: [
+  // Main Street (owner's list; the era's main map, with shop windows): the street between two shops; each shop's window is real glass you can be thrown
+  // through (or punch or shoot out) into the shop. The shop roofs and the porch roof in the middle are ledges. Barrels; revolvers.
+  { id: 'westerns', name: 'The Wild West', special: false, pickups: ['derringer', 'revolver', 'coach-gun', 'pickaxe', 'buffalo-rifle'], strong: 2, sky: 0xc9915a, platform: 0x8a6240, wall: 0x6a4a34, weapon: 'rifle', arena: { name: 'Main Street', gunsOnly: true, platformX: 1.5, platformW: 21, walls: [{ side: -1, up: 1.9, gap: 0 }, { side: 1, up: 1.9, gap: 0 }],
+    ledges: [{ x: 1.5, up: 1.9, w: 4.5 }, { x: 10.5, up: 1.9, w: 3.0 }, { x: 18.0, up: 1.9, w: 4.5 }], fightSpawnX: [9.43, 14.57, 11.2, 12.8],
+    scenery: [{ kind: 'pane', x: 5.95, up: 0 }, { kind: 'pane', x: 18.05, up: 0 }, { kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, alt: [ // (the old western street is retired: the era is the owner's five)
     // The Train (owner's list): on the roofs of a moving train, no weapons; signs and tunnel mouths come at you (a whistle first): get
     // down or be swept off; throw people into them
     { name: 'Train', wind: { base: 6, gust: 6, dir: -1 }, ground: [{ x: 1.0, w: 6.5 }, { x: 8.75, w: 6.5 }, { x: 16.5, w: 6.5 }], platformThickness: 2.2, fightSpawnX: [4.0, 20.0, 10.5, 13.5], noWeapons: true, roll: 10,
       train: { speed: 10, cycle: 8, passing: [{ kind: 'sign', at: 3 }, { kind: 'tunnel', at: 7 }] } },
-    // Main Street (owner's list, with shop windows): the street between two shops; each shop's window is real glass you can be thrown
-    // through (or punch or shoot out) into the shop. The shop roofs and the porch roof in the middle are ledges. Barrels; revolvers.
-    { name: 'Main Street', gunsOnly: true, platformX: 1.5, platformW: 21, walls: [{ side: -1, up: 1.9, gap: 0 }, { side: 1, up: 1.9, gap: 0 }],
-      ledges: [{ x: 1.5, up: 1.9, w: 4.5 }, { x: 10.5, up: 1.9, w: 3.0 }, { x: 18.0, up: 1.9, w: 4.5 }], fightSpawnX: [9.43, 14.57, 11.2, 12.8],
-      scenery: [{ kind: 'pane', x: 5.95, up: 0 }, { kind: 'pane', x: 18.05, up: 0 }, { kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] },
     // Rooftops (owner's list): across the town's roofs at different heights; the alleys between them are the void. Revolvers.
     { name: 'Rooftops', gunsOnly: true, wind: { base: 1, gust: 7, dir: -1 }, platformThickness: 6, ground: [{ x: 0.4, w: 4.0 }, { x: 5.6, w: 3.8, up: 1.0 }, { x: 10.6, w: 3.8, up: 0.4 }, { x: 15.6, w: 3.8, up: 1.2 }, { x: 20.6, w: 3.2, up: 0.2 }],
       fightSpawnX: [2.4, 22.2, 7.5, 17.5], spawnX: [7.5, 12.5, 2.4, 17.5] },
@@ -128,3 +127,9 @@ export const eras: Era[] = [
 ];
 
 export const eraById = (id: string): Era => eras.find((e) => e.id === id) ?? eras[0];
+/** Which map of an era has this name (0 = its main map, then its other maps in order), for links and tests that pick a map. */
+export function mapNamed(eraId: string, name: string): number {
+  const e = eraById(eraId), i = [e.arena, ...(e.alt ?? [])].findIndex((a) => a.name === name);
+  if (i < 0) throw new Error(`no map called ${name} in ${eraId}`);
+  return i;
+}

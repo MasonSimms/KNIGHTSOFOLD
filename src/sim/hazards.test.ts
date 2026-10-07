@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { mapNamed } from '../content/eras';
 import { tuning as T } from '../content/tuning';
 import { setBackPlane } from './fighter';
 import type { Fighter } from './fighter';
@@ -23,7 +24,7 @@ function run(sim: Sim, frames: number, input: (n: number) => PlayerInput = () =>
   for (let n = 0; n < frames; n++) { sim.step([input(n), NEUTRAL]); out.push(...sim.events.map((e) => ({ ...e }))); }
   return out;
 }
-const TAR_PIT = 3, CAMPFIRE = 2;
+const TAR_PIT = mapNamed('caveman', 'Tar Pit'), CAMPFIRE = mapNamed('caveman', 'Campfire Clearing');
 
 describe('tar', () => {
   it('in the tar you paddle slowly, and staying in it swallows you (a knock-off)', async () => {
