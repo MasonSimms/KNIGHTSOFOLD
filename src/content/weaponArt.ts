@@ -76,6 +76,7 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
   'bamboo-stick': { len: 1.4, pieces: [rod(0, 1.4, 0.02, 0.02, BAMBOO, { grip: true }), ...[0.25, 0.55, 0.85, 1.15].map((x) => rod(x - 0.012, x + 0.012, 0.024, 0.024, ['#BCC46E', '#8A9842', '#56601F']))] },
   'bayonet-knife': { len: 0.4, pieces: [rod(0, 0.13, 0.016, 0.016, BLACK, { grip: true }), ball(0.14, 0.03, IRON, { rx: 0.01 }), poly(STEEL, [[0.15, -0.014], [0.34, -0.012], [0.4, 0], [0.34, 0.014], [0.15, 0.014]])] },
   'combat-knife': { len: 0.4, pieces: [rod(0, 0.13, 0.017, 0.017, BLACK, { grip: true }), ball(0.14, 0.03, IRON, { rx: 0.012 }), poly(STEEL, [[0.15, -0.02], [0.33, -0.022], [0.4, -0.008], [0.36, 0.015], [0.15, 0.02]])] },
+  lasso: { len: 0.5, pieces: [{ k: 'chain', x: [0, 0.32], r: 0.07, c: ROPE }, rod(0.28, 0.5, 0.012, 0.01, ROPE, { bend: 0.06, grip: true })] }, // a coil of rope in the hand
   'riot-shield': { len: 0.12, pieces: [poly(SHIELD, [[0, -0.47], [0.02, -0.5], [0.1, -0.5], [0.12, -0.47], [0.12, 0.47], [0.1, 0.5], [0.02, 0.5], [0, 0.47]], true), rod(0.02, 0.05, 0.006, 0.006, ICE, { y: [-0.4, -0.3] }), rod(0.07, 0.1, 0.006, 0.006, ICE, { y: [0.25, 0.35] })] },
   'plasma-blade': { len: 0.7, pieces: [rod(0, 0.2, 0.018, 0.018, IRON, { grip: true }), rod(0.18, 0.23, 0.022, 0.022, STEEL), rod(0.23, 0.7, 0.016, 0.012, PINK, { glow: true })] },
   'gravity-hammer': { len: 1.0, pieces: [rod(0, 0.8, 0.016, 0.016, IRON, { grip: true }), poly(PURPLE, [[0.78, -0.1], [1.0, -0.1], [1.0, 0.1], [0.78, 0.1]]), ball(0.89, 0.04, ['#FFFFFF', '#E6D8FF', '#A88CF0'], { glow: true })] },

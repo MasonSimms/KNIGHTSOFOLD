@@ -16,6 +16,7 @@ export interface Weapon {
   spear?: boolean; // thrown, it flies point-first, hits harder (tuning.special.spearThrown) and sticks into the ground and walls (sim/special.ts)
   fuse?: number; // a grenade: seconds from leaving a hand to going off (sim/special.ts)
   hook?: boolean; // a grappling hook: a click throws the hook on a rope (sim/hook.ts)
+  lasso?: boolean; // ...a lasso: thrown the same way, but it only takes people and loose things (it passes the scenery by) and holds them longer
 }
 
 /** A chain weapon (props.ts chain): a head of this weight and radius on a chain this long from the handle's far end (sim/fighter.ts addHead). */

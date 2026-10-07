@@ -8,7 +8,8 @@ import type { Sim } from './world';
 // the first thing it touches (up to tuning.hook.range). Caught on the scenery or a ship, you swing from it; on a fighter, they are yanked
 // toward you; on a loose thing, it comes to you. Hold the click to reel in; let go of it to let go. The rope is a rope joint from the hook's
 // end of the weapon to where it caught; a blade swung fast through it cuts it. Online the page draws it from the snapshot (Snapshot.hk)
-// and your own fighter follows the server while you hang on it (snapshot.fighterState HOOKED).
+// and your own fighter follows the server while you hang on it (snapshot.fighterState HOOKED). The lasso (weapon `lasso`) is thrown the
+// same way but only takes people and loose things (it flies past the scenery), and a lassoed fighter is held longer (tuning.lasso).
 
 export interface Hook {
   owner: number;
@@ -31,12 +32,13 @@ function tipOf(p: Part): { x: number; y: number } {
 
 /** Each frame, after everyone's controls and before the physics: throw, fly, catch, reel, let go, cut. */
 export function moveHooks(sim: Sim): void {
-  const H = T.hook, dt = T.sim.dt;
+  const dt = T.sim.dt;
   for (const f of sim.fighters) {
     if (!f.hookRequest) continue;
     f.hookRequest = false;
     const p = f.stick;
     if (!p || !f.grip || !p.weapon?.hook || sim.hooks.some((h) => h.owner === f.index)) continue;
+    const H = p.weapon.lasso ? T.lasso : T.hook;
     const s = tipOf(p), ft = f.torso.body.translation(), tx = ft.x + Math.cos(f.aim) * f.reach, ty = ft.y + Math.sin(f.aim) * f.reach;
     const a = f.reach > 0 && Math.hypot(tx - s.x, ty - s.y) > 0.4 ? Math.atan2(ty - s.y, tx - s.x) : f.aim; // (at the point you aim at, as a gun is)
     sim.hooks.push({ owner: f.index, x: s.x, y: s.y, vx: Math.cos(a) * H.speed, vy: Math.sin(a) * H.speed, flown: 0, joint: null, body: null, ax: 0, ay: 0, length: 0, victim: -1 });
@@ -45,7 +47,7 @@ export function moveHooks(sim: Sim): void {
   for (let i = sim.hooks.length - 1; i >= 0; i--) {
     const h = sim.hooks[i], f = sim.fighters[h.owner], p = f?.stick;
     if (!f || !p || !f.grip || !p.weapon?.hook || f.limp || (h.joint && !f.trigger) || (h.body && !sim.world.getRigidBody(h.body.handle))) { unhook(sim, i); continue; } // let go, lost the hook, down, or what it held is gone
-    const s = tipOf(p);
+    const s = tipOf(p), H = p.weapon.lasso ? T.lasso : T.hook;
     if (!h.joint) { // in flight
       const sp = Math.hypot(h.vx, h.vy), step = sp * dt;
       ray.origin.x = h.x; ray.origin.y = h.y; ray.dir.x = h.vx / sp; ray.dir.y = h.vy / sp;
@@ -76,7 +78,7 @@ export function moveHooks(sim: Sim): void {
 /** Can the hook catch on this? Anything but the thrower and what is in the background. */
 function catches(sim: Sim, f: Fighter, c: Collider): boolean {
   const body = c.parent(), part = body ? sim.partByBody.get(body.handle) : undefined;
-  if (!part) return true; // the ground, a wall, a ledge, a ship
+  if (!part) return !f.stick?.weapon?.lasso; // the ground, a wall, a ledge, a ship (a lasso flies past them)
   if (part.back) return false;
   if (part.owner === f.index) return false;
   const g = part.owner >= 0 ? sim.fighters[part.owner] : undefined;
@@ -95,13 +97,14 @@ function catchOn(sim: Sim, h: Hook, f: Fighter, c: Collider, x: number, y: numbe
   const body = c.parent()!, t = body.translation(), r = body.rotation(), dx = x - t.x, dy = y - t.y;
   h.body = body; h.x = x; h.y = y;
   h.ax = Math.cos(r) * dx + Math.sin(r) * dy; h.ay = -Math.sin(r) * dx + Math.cos(r) * dy;
-  h.length = Math.max(T.hook.minLength, Math.hypot(x - s.x, y - s.y));
+  const H = f.stick?.weapon?.lasso ? T.lasso : T.hook;
+  h.length = Math.max(H.minLength, Math.hypot(x - s.x, y - s.y));
   tie(sim, h, f.stick!);
   const part = sim.partByBody.get(body.handle), victim = part && part.role !== 'prop' && part.owner >= 0 ? sim.fighters[part.owner] : undefined;
   if (victim) { // a fighter: yanked off their feet toward you
     const ft = f.torso.body.translation(), vt = victim.torso.body.translation(), d = Math.hypot(ft.x - vt.x, ft.y - vt.y) || 1;
-    victim.torso.body.applyImpulse({ x: ((ft.x - vt.x) / d) * T.hook.yank, y: ((ft.y - vt.y) / d) * T.hook.yank }, true);
-    victim.stun = Math.max(victim.stun, T.hook.stun);
+    victim.torso.body.applyImpulse({ x: ((ft.x - vt.x) / d) * H.yank, y: ((ft.y - vt.y) / d) * H.yank }, true);
+    victim.stun = Math.max(victim.stun, H.stun);
     h.victim = victim.index;
   }
   sim.events.push({ t: 'hook', x, y, v: 0, owner: f.index, victim: victim?.index ?? -1 });

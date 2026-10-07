@@ -8,16 +8,35 @@ const idle = (over: Partial<PlayerInput> = {}): PlayerInput => ({ moveX: 0, jump
 type Internals = { acquire(f: unknown, item: { kind: 'prop'; index: number }): void };
 
 /** Fighter 0 with the grappling hook in hand, standing; fighter 1 (the dummy) stands where the arena puts it. */
-async function withHook(seed = 5) {
+async function withHook(seed = 5, kind = 'boat-hook') {
   const sim = await Sim.create(seed);
   for (let i = 0; i < 30; i++) sim.step([idle()]);
   const f = sim.fighters[0], t = f.torso.body.translation();
   if (f.stick) placeLoose(sim.world, f, t.x - 3 * f.side, t.y, 0);
-  sim.spawnItem('boat-hook', t.x, t.y - 1.5);
+  sim.spawnItem(kind, t.x, t.y - 1.5);
   (sim as unknown as Internals).acquire(f, { kind: 'prop', index: sim.props.length - 1 });
   for (let i = 0; i < 20; i++) sim.step([idle()]);
   return { sim, f, dummy: sim.fighters[1] };
 }
+
+describe('lasso', () => {
+  it('flies past the scenery (thrown at the floor it catches nothing), and lassoes a fighter, holding them longer than the hook', async () => {
+    const { sim, f, dummy } = await withHook(5, 'lasso');
+    expect(f.stick?.weapon?.lasso).toBe(true);
+    const back = -f.side, aim = back > 0 ? 0.35 : Math.PI - 0.35;
+    let caught = false;
+    for (let i = 0; i < 40; i++) { sim.step([idle({ aim, attack: true, reach: 4 })]); caught ||= sim.events.some((e) => e.t === 'hook'); }
+    expect(caught).toBe(false);
+    for (let i = 0; i < 20; i++) sim.step([idle()]);
+    const me = () => f.torso.body.translation(), them = () => dummy.torso.body.translation();
+    let stun = 0;
+    for (let i = 0; i < 40; i++) {
+      sim.step([idle({ aim: Math.atan2(them().y - me().y, them().x - me().x), attack: true, reach: Math.hypot(them().x - me().x, them().y - me().y) })]);
+      if (sim.events.some((e) => e.t === 'hook' && e.victim === 1)) stun = dummy.stun;
+    }
+    expect(stun).toBeGreaterThan(40); // (the hook: 25)
+  });
+});
 
 describe('grappling hook', () => {
   it('thrown at the floor ahead it catches, and holding the click reels you in to it', async () => {

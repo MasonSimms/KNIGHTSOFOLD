@@ -715,7 +715,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const half = ((st.weapon?.length ?? 1) / 2) * c.scale.x, tx = c.x + Math.cos(c.rotation) * half, ty = c.y + Math.sin(c.rotation) * half, hx = H[k + 1], hy = H[k + 2];
         const sag = (H[k + 3] ? 0.02 : 0.12) * Math.hypot(hx - tx, hy - ty);
         ropes.moveTo(tx, ty).quadraticCurveTo((tx + hx) / 2, (ty + hy) / 2 + sag, hx, hy).stroke({ width: 0.035, color: T.colors.things.rope ?? 0xb09a6a });
-        ropes.circle(hx, hy, 0.06).fill(0x3a3e43);
+        if (st.weapon?.lasso) ropes.ellipse(hx, hy, 0.16, 0.1).stroke({ width: 0.03, color: T.colors.things.rope ?? 0xb09a6a }); // the loop
+        else ropes.circle(hx, hy, 0.06).fill(0x3a3e43);
       }
       sea.draw(sim, alpha);
       fx.draw(sim, alpha, frameSeconds, wind);

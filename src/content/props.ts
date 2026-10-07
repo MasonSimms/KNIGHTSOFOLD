@@ -6,7 +6,7 @@ import type { ChainSpec, GunSpec, Material } from './weapons';
 // weapons that spawn in as a round goes on: heavier or longer, hitting harder.
 /** breaks: scenery that breaks (owner: environments have destructible elements): how much it takes (bullets by calibre x 10, hard hits by
  *  impact) and the loose pieces it leaves (kinds in this list). */
-export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean; hangs?: number; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; chain?: ChainSpec } // chain: a head on a chain (sim/fighter.ts addHead); hook: a grappling hook (sim/hook.ts); grip: where the hand holds it, as a share of its length from the back end (the ring on art-guide/visuals/weapons.png)
+export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean; hangs?: number; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; chain?: ChainSpec } // chain: a head on a chain (sim/fighter.ts addHead); hook: a grappling hook (sim/hook.ts); grip: where the hand holds it, as a share of its length from the back end (the ring on art-guide/visuals/weapons.png)
 
 /** The guns (owner: the revolver and the flintlock first). PLACEHOLDER numbers until the playtest. */
 const REVOLVER: GunSpec = { ammo: 6, cooldown: 14, speed: 70, calibre: 1, impact: 31, push: 9, recoil: 2.5, kick: 6 }; // 6 quick shots, each about half a full club hit
@@ -51,7 +51,8 @@ export const PROPS: Record<string, PropSpec> = {
   stool: { len: 0.6, thick: 0.3, mass: 2.2, factor: 2.5, toughness: 3 },
   mug: { len: 0.22, thick: 0.16, mass: 0.5, factor: 2.2, material: 'light', shatters: true },
   pane: { len: 0.2, thick: 1.6, mass: 1, material: 'light', box: true, fixed: true, breaks: { hp: 8, into: [], min: 8 } },
-  gangplank: { len: 2.6, thick: 0.12, mass: 6, factor: 2.4, toughness: 4 }, // Ship to Ship: laid across from one ship to the other; it falls in when they drift apart (added last: a 'spawn' event names a prop by its place in this list)
+  gangplank: { len: 2.6, thick: 0.12, mass: 6, factor: 2.4, toughness: 4 },
+  lasso: { len: 0.5, thick: 0.12, mass: 0.6, factor: 1.2, material: 'light', hook: true, lasso: true, grip: 0.3 }, // the lasso (weapons batch two, step 4; owner places it later): a coil in the hand, thrown like the grappling hook (sim/hook.ts) // Ship to Ship: laid across from one ship to the other; it falls in when they drift apart (added last: a 'spawn' event names a prop by its place in this list)
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

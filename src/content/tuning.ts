@@ -264,6 +264,13 @@ export const tuning = {
     stun: 25, // ...and loses their footing for this many frames
     cutSpeed: 6, // m/s a blade must be moving to cut the rope
   },
+  lasso: {
+    // The lasso (sim/hook.ts, weapon `lasso`): like the hook, but it only takes people and loose things, and holds a fighter longer. PLACEHOLDER.
+    range: 7, speed: 26, drop: 0.25, reel: 5, minLength: 0.9,
+    yank: 7, // N s toward you when it lands on someone
+    stun: 70, // frames a lassoed fighter cannot act (about a second)
+    cutSpeed: 6,
+  },
   dive: {
     // Holding S in the air (owner, 2026-10-07): the body turns flat, head first the way you face; let go and it turns upright again.
     angle: 1.5, // radians from upright it turns to (1.57 = exactly flat)
