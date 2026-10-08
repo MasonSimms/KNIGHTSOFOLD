@@ -19,7 +19,7 @@ export function createFx(layer: Container, puffTex: Texture[]) {
   layer.addChild(trails);
   const trailList: Trail[] = [];
   const bits: Bit[] = Array.from({ length: 80 }, () => { const g = new Graphics(); g.visible = false; layer.addChild(g); return { g, x: 0, y: 0, vx: 0, vy: 0, spin: 0, life: 0, max: 1, fall: false }; });
-  const puffs: Puff[] = Array.from({ length: 24 }, (_, i) => { const s = new Sprite(puffTex[i % puffTex.length]); s.anchor.set(0.5); s.visible = false; layer.addChild(s); return { s, x: 0, y: 0, vy: 0, life: 0, max: 1, size: 1, a: 1 }; });
+  const puffs: Puff[] = Array.from({ length: 40 }, (_, i) => { const s = new Sprite(puffTex[i % puffTex.length]); s.anchor.set(0.5); s.visible = false; layer.addChild(s); return { s, x: 0, y: 0, vy: 0, life: 0, max: 1, size: 1, a: 1 }; });
   layer.addChild(flashes);
   let nextBit = 0, nextPuff = 0;
   const flashList: { x: number; y: number; a: number; life: number }[] = [];
@@ -40,6 +40,8 @@ export function createFx(layer: Container, puffTex: Texture[]) {
   };
 
   return {
+    /** A puff of smoke or dust: size (m), colour, how see-through, seconds it lasts, how fast it rises (m/s). Also the dust of render/motion.ts. */
+    puff,
     /** How far an emptied gun has turned in the twirl (radians, added to its picture), for fighter `i`. */
     twirl(i: number): number { const t = twirls.get(i); return t === undefined ? 0 : Math.PI * 2 * Math.min(1, t / T.finish.bullets.twirlSeconds) ** 0.6; },
     onEvent(e: SimEvent) {

@@ -854,6 +854,13 @@ export const tuning = {
     // The gold frame around the picture (render/frame.ts): its width (share of the picture's height), and the size of a hole (someone
     // knocked out through it) and of a bullet's crack, in frame widths.
     frame: { width: 0.018, hole: 3.2, crack: 0.9 },
+    motion: { // swing trails, hit dabs and dust (render/motion.ts; looks only)
+      trailSpeed: 9, // a weapon's tip moving faster than this (m/s) leaves a brushstroke behind it...
+      trailFrames: 7, // ...this many frames long
+      trailWidth: 0.07, trailAlpha: 0.55, // its width at the tip (m, tapering to nothing behind) and how solid it is; cream, or the era's hot colour after a charged swing
+      dab: 0.16, bigDab: 0.36, bigImpact: 40, dabSeconds: 0.22, // a cream dab where a hit lands (m across); a hit this big or more gets the big burst with a red core
+      landMin: 6, landFull: 14, dust: 0.55, // a landing faster than landMin (m/s) kicks up dust from the floor, the most at landFull; how solid the dust is
+    },
     bullets: { streak: 0.7, streakWidth: 0.05, trailWidth: 0.05, trailAlpha: 0.35, tailBack: 1.5, trailFadeSeconds: 0.35, flashSeconds: 0.08, twirlSeconds: 0.35 }, // the near water: how much it hides what is under the surface (1 = all of it), and the light line along the top of the waves (m, 0..1)
     boilFps: 9, // how often the painted fighters' brush strokes change (the package: 3 painted variants at 8-10 fps)
     // The hot-colour cape (looks only): where it hangs from (metres from the torso's centre), and how the cloth moves.

@@ -912,7 +912,11 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   { // landing: the knees give for a moment, deeper the harder you land, and you spring back up (owner: more fluid movement)
     const LD = T.landDip;
     if (!grounded) f.fallVy = Math.max(0, body.linvel(tmp).y);
-    else if (f.fallVy > 0) { f.landDip = Math.max(f.landDip, LD.depth * smooth(LD.minSpeed, LD.fullSpeed, f.fallVy)); f.fallVy = 0; }
+    else if (f.fallVy > 0) {
+      f.landDip = Math.max(f.landDip, LD.depth * smooth(LD.minSpeed, LD.fullSpeed, f.fallVy));
+      if (f.fallVy >= LD.minSpeed) { const t = body.translation(); events.push({ t: 'land', x: t.x, y: t.y + T.stand.height, v: f.fallVy, owner: f.index, victim: -1 }); } // (for the dust: render/motion.ts)
+      f.fallVy = 0;
+    }
     f.landDip = Math.max(0, f.landDip - (LD.depth * dt) / LD.recover);
   }
   const CR = T.crouch;
@@ -997,7 +1001,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
       f.wallLock = M.wallLockFrames;
       f.tuck = M.wallTuckFrames;
       const t = body.translation();
-      events.push({ t: 'jump', x: t.x, y: t.y, v: 0, owner: f.index, victim: -1 });
+      events.push({ t: 'jump', x: t.x, y: t.y, v: f.wallDir, owner: f.index, victim: -1 }); // (v: the side the wall is on, for its scuff)
     } else if (f.prevJump && !input.jump && body.linvel(tmp).y < -M.jumpCutMinSpeed) {
       // Let go of jump early and the jump is cut short: tap for a hop, hold for the full height.
       for (const p of f.parts) {

@@ -8,6 +8,7 @@ import { createBackdrops } from './painter/backdrops';
 import { BOT_GRAYS, drawRobotHead } from './robot';
 import { createSea } from './sea';
 import { createFx } from './fx';
+import { createMotion } from './motion';
 import { createFrame } from './frame';
 import { createFlames } from './flames';
 import { createMammoth } from './mammoth';
@@ -392,6 +393,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const fxLayer = new Container(); // gunfire: bullets and their trails, flashes, sparks, splinters, smoke
   actors.addChild(fxLayer);
   const fx = createFx(fxLayer, splatTexs);
+  const motion = createMotion(fxLayer, fx.puff); // swing trails, hit dabs, dust
   const flames = createFlames(fxLayer); // the arena's fires, and flames on whatever is burning
   const mammoth = createMammoth(propLayer);
   const passing = createPassing(fxLayer); // signs and tunnels passing the train (in front of everyone)
@@ -538,6 +540,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     toWorld(px: number, py: number) { return { x: (px - view.x) / view.scale.x, y: (py - view.y) / view.scale.y }; },
     onEvent(e: SimEvent) {
       fx.onEvent(e);
+      motion.onEvent(e, sim.era);
       frame.onEvent(e, A.viewW, A.viewH);
       if (e.t === 'hit' || e.t === 'stomp') {
         const boost = e.head ? 1.5 : 1;
@@ -603,6 +606,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         for (const s of splats) s.visible = false;
         for (const s of streaks) s.visible = false;
         fx.clear();
+        motion.clear();
         frame.clear();
         growing.length = 0; flying.length = 0;
       }
@@ -696,6 +700,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           k.position.set(lerp(p.px, p.cx, a) + sx, lerp(p.py, p.cy, a) + sy);
           k.rotation = p.pa + wrap(p.ca - p.pa) * a + (p === f.stick ? fx.twirl(f.index) : 0); // (an emptied gun twirls round in the hand)
           if (p === f.stick && f.grip) e.hand = f.side;
+          if (p === f.stick) { const half = ((p.weapon?.length ?? 1) / 2) * (p.flipped ? -1 : 1); motion.track(f.index, k.x + Math.cos(k.rotation) * half, k.y + Math.sin(k.rotation) * half, !!f.grip && !f.limp, f.release > 0); } // (its tip, for the swing trail)
           if (p.role === 'stick') k.scale.set(p.flipped ? -1 : 1, e.hand);
           k.tint = tint;
           const u = e.under[i];
@@ -720,6 +725,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis + T.death.squashDrop * e.sq);
         e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis) * (1 + T.death.squashWide * e.sq), lerp(1, 0.97, e.vis) * (1 - T.death.squashFlat * e.sq));
       }
+      motion.draw(frameSeconds, sim.era);
       for (const p of [...sim.props, ...sim.fighters.flatMap((f) => f.parts)]) { // chain weapons: the chain, a run of links from the handle's far end to its head
         const h = p.head;
         if (!h) continue;

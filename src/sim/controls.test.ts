@@ -391,3 +391,16 @@ describe('holding S in the air (owner: always possible, with a weapon too)', () 
     expect(floorY - highest).toBeLessThan(0.3); // ...and never back up off the floor (it was flying 34 m)
   });
 });
+
+// The dust of a landing (render/motion.ts) comes from a 'land' event carrying how hard you came down; a step down makes none.
+describe('landing', () => {
+  it('a jump lands with one land event, as fast as the fall', async () => {
+    const sim = await settled(0), f = sim.fighters[0], lands: number[] = [];
+    for (let i = 0; i < 90; i++) {
+      sim.step([idle({ jump: i < 15 })]);
+      for (const e of sim.events) if (e.t === 'land' && e.owner === f.index) lands.push(e.v);
+    }
+    expect(lands.length).toBe(1);
+    expect(lands[0]).toBeGreaterThan(8); // (a full jump lands at about 12 m/s)
+  });
+});
