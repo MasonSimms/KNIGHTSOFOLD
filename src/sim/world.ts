@@ -18,6 +18,7 @@ import type { Chase } from './chase';
 import { buildTrain, stepTrain } from './train';
 import type { Passing } from './train';
 import { applyJets } from './tower';
+import { applyFalls } from './falls';
 import { applyWind } from './wind';
 import { aimSpears, fuses, goneOff, stickSpears } from './special';
 import { moveHooks } from './hook';
@@ -101,7 +102,8 @@ export class Sim {
   training = { foe: 'dummy' as 'dummy' | 'bot', foeArmed: true };
   map = 0; // which of the era's maps this round is on
   props: Part[] = []; // loose objects in the world (planks, logs...): anyone can pick them up
-  private bridge: Part[] = []; // the planks of this round's bridge, in order
+  bridge: Part[] = []; // the planks of this round's bridge, in order
+  bridgeHome: { x: number; y: number }[] = []; // ...and where each one was built (the aqueduct's water pours through where one has gone: falls.ts)
   boats: Boat[] = []; // this round's ships, on a map with them (see water.ts)
   private ropes: Part[][] = []; // the links of each rope, in order (arena.ropes)
   private ropeEnds: { body: RAPIER.RigidBody; ship: Boat; x: number; y: number }[] = []; // rope ends tied on a ship: where on it (see buildRope)
@@ -228,6 +230,7 @@ export class Sim {
     this.map = this.forceMap ?? mapFor(this.seed, this.round, this.era);
     this.props = [];
     this.bridge = [];
+    this.bridgeHome = [];
     this.ropes = [];
     this.ropeEnds = [];
     this.cutLinks.clear();
@@ -320,8 +323,8 @@ export class Sim {
   }
 
   /** A chain of planks across a gap, each joined to the next and the end ones to the ground. */
-  private buildBridge(b: { x0: number; x1: number; planks: number }, grounds: { x: number; w: number; up?: number; thick?: number; body: RAPIER.RigidBody }[], A: Arena): void {
-    const B = T.bridge, n = b.planks, len = (b.x1 - b.x0) / n, r = B.plankThick / 2;
+  private buildBridge(b: { x0: number; x1: number; planks: number; kind?: string }, grounds: { x: number; w: number; up?: number; thick?: number; body: RAPIER.RigidBody }[], A: Arena): void {
+    const B = T.bridge, n = b.planks, len = (b.x1 - b.x0) / n, spec = b.kind ? PROPS[b.kind] : undefined, thick = spec?.thick ?? B.plankThick, r = thick / 2; // (planks, or the aqueduct's stone blocks)
     const left = grounds.find((g) => Math.abs(g.x + g.w - b.x0) < 1e-6), right = grounds.find((g) => Math.abs(g.x - b.x1) < 1e-6);
     const y = A.platformTop - (left?.up ?? right?.up ?? 0) + r; // (level with the ground it joins: a raised pier's planks are raised too)
     const joint = (a: RAPIER.RigidBody, ax: number, ay: number, c: RAPIER.RigidBody, cx: number, cy: number) => {
@@ -331,7 +334,8 @@ export class Sim {
     };
     const links: RAPIER.ImpulseJoint[][] = Array.from({ length: n }, () => []);
     for (let i = 0; i < n; i++) {
-      const p = createProp(this.world, b.x0 + (i + 0.5) * len, y, 0, { kind: 'plank', len, thick: B.plankThick, mass: B.plankMass });
+      const p = createProp(this.world, b.x0 + (i + 0.5) * len, y, 0, { ...spec, kind: b.kind ?? 'plank', len, thick, mass: spec?.mass ?? B.plankMass });
+      this.bridgeHome.push({ x: b.x0 + (i + 0.5) * len, y });
       p.body.setAngularDamping(2);
       p.links = links[i];
       this.props.push(p);
@@ -422,7 +426,7 @@ export class Sim {
     if (att.kind !== 'stick' || !plank.links?.length) return;
     const c = this.contact(att.part, plank, pt, n);
     const impact = impactValue(c.closing, (att.part.weapon ?? T.stick).impactFactor);
-    if (impact < T.bridge.cutImpact) return;
+    if (impact < T.bridge.cutImpact || plank.weapon?.material === 'stone') return; // (a stone block only comes out to a slam)
     this.ripFree(plank);
     this.events.push({ t: 'cut', x: pt.x, y: pt.y, v: impact, owner: att.part.owner, victim: -1 });
   }
@@ -510,8 +514,9 @@ export class Sim {
           if (!plank.links?.length || m.numSolverContacts() === 0) return;
           const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP;
           const c = this.contact(part, plank, pt, m.normal(this.tmpN));
-          if (c.closing < B.slamSpeed) return;
-          for (let k = Math.max(0, i - B.breakSpan); k <= Math.min(this.bridge.length - 1, i + B.breakSpan); k++) this.ripFree(this.bridge[k]);
+          const stone = plank.weapon?.material === 'stone', span = stone ? 0 : B.breakSpan; // (a stone block: that one alone, and harder)
+          if (c.closing < (stone ? T.aqueduct.slamSpeed : B.slamSpeed)) return;
+          for (let k = Math.max(0, i - span); k <= Math.min(this.bridge.length - 1, i + span); k++) this.ripFree(this.bridge[k]);
           this.events.push({ t: 'cut', x: pt.x, y: pt.y, v: c.closing, owner: part.owner, victim: -1 });
         });
       });
@@ -619,6 +624,7 @@ export class Sim {
     fuses(this);
     moveBullets(this);
     applyJets(this);
+    applyFalls(this);
     applyFire(this);
     const SD = T.match.suddenDeath, late = (this.frame - SD.after) * T.sim.dt; // sudden death: a round still going this late drains everyone left, faster and faster (none runs for ever)
     if (late > 0 && !this.dummy && !this.roundOver) for (const f of this.fighters) if (f.controlled && !f.limp) this.scorch(f, SD.rate * late * T.sim.dt, 'time');

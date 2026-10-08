@@ -43,7 +43,7 @@ export const tuning = {
     fightSpawnX: [7.75, 16.25, 10.75, 13.25], // a real fight of 2-4 players: where each one starts
     ledges: [] as { x: number; up: number; w: number }[], // floating platforms (an era's arena can add them)
     ground: [] as { x: number; w: number; up?: number; thick?: number }[], // separate ground slabs instead of one platform (empty = the one platform); each can stand `up` metres higher (or lower) and be `thick` deep
-    bridge: null as null | { x0: number; x1: number; planks: number }, // a plank bridge across a gap in the ground
+    bridge: null as null | { x0: number; x1: number; planks: number; kind?: string; water?: boolean }, // (kind: what its pieces are, props.ts, instead of planks; water: an aqueduct, tuning.aqueduct) // a plank bridge across a gap in the ground
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
     scenery: [] as { kind: string; x: number; up: number }[], // breakable scenery that belongs to the map (barrels, crates): always there, unlike the loose weapons (owner: environments have destructible elements)
     sea: null as null | { level: number; tide?: { rise: number; seconds: number } }, // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
@@ -517,6 +517,15 @@ export const tuning = {
     linkMass: 0.25, // kg per link
     slack: 1.15, // the rope is this much longer than the straight line between its ends, so it sags (and two ships rocking apart do not pull it taut)
   },
+  aqueduct: {
+    // The Aqueduct Bridge (Gladiators): its deck is a bridge of stone blocks carrying water (arena.bridge kind 'aqueduct-block', water).
+    // A club cannot chip a block out: only a body slammed or flung into the deck this fast knocks out the block it hits (one block, not
+    // the planks around it). Where a block has gone, the water pours through the gap and pushes down whatever is in it.
+    slamSpeed: 9, // m/s
+    fallPush: 22, // how hard the falling water pushes down (m/s², on top of gravity)
+    fallDepth: 5, // how far below the deck the falling water still pushes (m)
+    gone: 0.3, // a block this far from its place has gone (m): the water pours through its slot
+  },
   bridge: {
     // A bridge is a chain of planks: it can be cut, it snaps if someone slams into it, and every plank that comes free is a club.
     plankMass: 3,
@@ -899,7 +908,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c, 'aqueduct-block': 0xc9bda4 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },
