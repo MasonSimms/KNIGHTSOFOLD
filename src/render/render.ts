@@ -15,6 +15,7 @@ import { createFlames } from './flames';
 import { createMammoth } from './mammoth';
 import { createPassing } from './passing';
 import { createDoors } from './trapdoors';
+import { createChariot } from './chariot';
 import { createJets } from './jets';
 import { windAt } from '../sim/wind';
 import { createLight } from './light';
@@ -401,6 +402,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const mammoth = createMammoth(propLayer);
   const passing = createPassing(fxLayer); // signs and tunnels passing the train (in front of everyone)
   const doors = createDoors(propLayer); // trapdoors in the floor
+  const chariot = createChariot(fxLayer); // the runaway chariot (in front of everyone: it runs them down)
   const jets = createJets(fxLayer); // water leaking from the water tower
   /** A weapon's or a thing's colour: a gun's metal, scenery's own wood, otherwise the stick colour. */
   const thingColor = (p: Part) => (p.weapon?.gun ? T.colors.gun : T.colors.things[p.weapon?.id ?? ''] ?? T.colors.stick);
@@ -456,6 +458,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     light.build(sim);
     passing.build(sim, propLayer);
     doors.build(sim);
+    chariot.build(sim);
     // The front plane of this arena (looks only).
     for (const it of frontItems) it.s.destroy();
     frontItems.length = 0;
@@ -797,6 +800,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       mammoth.draw(sim, alpha);
       passing.draw(sim, alpha);
       doors.draw(sim, alpha);
+      chariot.draw(sim, alpha);
       jets.draw(sim, frameSeconds, wind);
       const bx = (app.screen.width - A.viewW * scale) / 2, by = (app.screen.height - A.viewH * scale) / 2;
       frame.draw({ x: bx, y: by, w: A.viewW * scale, h: A.viewH * scale }, frameSeconds);

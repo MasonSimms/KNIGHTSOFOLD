@@ -786,3 +786,44 @@ export function paintedCostume(era: string, b: CostumeBody, tint: number, K: Spr
   cache.set(key, out);
   return { tex: out, ...at };
 }
+
+/** The runaway chariot (Chariot Track), facing right: two horses at a gallop (the far one darker), the pole and harness, and the empty car
+ *  with its gilded rim on a big spoked wheel; brushed along the bodies. Painted once. Centred on the middle of its len x h body (its
+ *  collider). */
+export function paintedChariot(len: number, h: number, wood: number, coat: number, K: SpriteKnobs): { tex: Texture; ppm: number } {
+  const key = `chariot|${len}|${h}|${wood}|${coat}|${JSON.stringify(K)}`, k = SEA_PPM, pad = 0.5;
+  const hit = cache.get(key);
+  if (hit) return { tex: hit[0], ppm: k };
+  const W = Math.ceil((len + 2 * pad) * k), H = Math.ceil((h + 2 * pad) * k), N = W * H, L = len / 2, B = h / 2;
+  const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!, X = (x: number) => (x + L + pad) * k, Y = (y: number) => (y + B + pad) * k; // metres from the middle, y down
+  const col = (c: number, f = 1) => `rgb(${Math.min(255, ((c >> 16) & 255) * f)},${Math.min(255, ((c >> 8) & 255) * f)},${Math.min(255, (c & 255) * f)})`;
+  const horse = (dx: number, f: number) => { // a horse at a gallop, its middle dx metres right of the chariot's middle
+    g.fillStyle = col(coat, f);
+    g.beginPath(); g.ellipse(X(dx), Y(-0.1), 0.62 * k, 0.28 * k, -0.08, 0, Math.PI * 2); g.fill(); // body
+    g.beginPath(); g.moveTo(X(dx + 0.4), Y(-0.25)); g.lineTo(X(dx + 0.75), Y(-0.72)); g.lineTo(X(dx + 0.98), Y(-0.6)); g.lineTo(X(dx + 0.72), Y(-0.12)); g.closePath(); g.fill(); // neck
+    g.beginPath(); g.ellipse(X(dx + 0.95), Y(-0.6), 0.2 * k, 0.1 * k, 0.5, 0, Math.PI * 2); g.fill(); // head
+    g.lineCap = 'round'; g.strokeStyle = col(coat, f * 0.8); g.lineWidth = 0.09 * k;
+    for (const [x0, a] of [[-0.45, 0.7], [-0.3, -0.5], [0.3, -0.6], [0.45, 0.6]]) { g.beginPath(); g.moveTo(X(dx + x0), Y(0.05)); g.lineTo(X(dx + x0 + Math.sin(a) * 0.55), Y(0.05 + Math.cos(a) * 0.55)); g.stroke(); } // legs, mid-gallop
+    g.beginPath(); g.moveTo(X(dx - 0.6), Y(-0.15)); g.quadraticCurveTo(X(dx - 0.95), Y(-0.05), X(dx - 0.85), Y(0.25)); g.stroke(); // tail
+    g.strokeStyle = col(0x2a1a10, f); g.lineWidth = 0.05 * k; g.beginPath(); g.moveTo(X(dx + 0.78), Y(-0.68)); g.lineTo(X(dx + 0.62), Y(-0.88)); g.stroke(); // ears and mane
+  };
+  horse(L - 1.25, 0.75); // the far horse
+  g.strokeStyle = col(wood, 0.7); g.lineWidth = 0.07 * k; g.beginPath(); g.moveTo(X(-L + 1.0), Y(0.05)); g.lineTo(X(L - 1.0), Y(-0.15)); g.stroke(); // the pole
+  horse(L - 1.0, 1); // the near horse
+  const car = new Path2D(); car.moveTo(X(-L), Y(-0.2)); car.lineTo(X(-L + 0.2), Y(0.35)); car.lineTo(X(-L + 1.15), Y(0.35)); car.quadraticCurveTo(X(-L + 1.3), Y(-0.3), X(-L + 1.0), Y(-0.55)); car.lineTo(X(-L + 0.1), Y(-0.35)); car.closePath();
+  g.fillStyle = col(wood); g.fill(car);
+  g.strokeStyle = '#E2B33C'; g.lineWidth = 0.06 * k; g.stroke(car); // the gilded rim
+  const wx = -L + 0.6, wy = B - 0.4, wr = 0.4; // the wheel
+  g.strokeStyle = col(wood, 0.55); g.lineWidth = 0.08 * k; g.beginPath(); g.arc(X(wx), Y(wy), wr * k, 0, Math.PI * 2); g.stroke();
+  g.lineWidth = 0.035 * k; for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI; g.beginPath(); g.moveTo(X(wx + Math.cos(a) * wr), Y(wy + Math.sin(a) * wr)); g.lineTo(X(wx - Math.cos(a) * wr), Y(wy - Math.sin(a) * wr)); g.stroke(); }
+  g.fillStyle = '#E2B33C'; g.beginPath(); g.arc(X(wx), Y(wy), 0.07 * k, 0, Math.PI * 2); g.fill(); // the hub
+  const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(5309);
+  for (let i = 0; i < N; i++) {
+    alpha[i] = d[4 * i + 3] / 255;
+    for (let c = 0; c < 3; c++) img.c[c][i] = d[4 * i + c] / 255;
+    ang[i] = R.normal() * 0.15; // brushed along the bodies
+  }
+  const out = paintFlat(img, alpha, ang, 5311, K, 1);
+  cache.set(key, out);
+  return { tex: out[0], ppm: k };
+}

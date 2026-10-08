@@ -2,6 +2,7 @@ import { tuning as T } from '../content/tuning';
 import type { Fighter, Part } from './fighter';
 import { makeRng } from './rng';
 import { passingAt } from './train';
+import { chariotAt } from './chariot';
 import type { PlayerInput } from './types';
 import type { Sim } from './world';
 
@@ -170,6 +171,7 @@ export class Bot {
     out.aim = this.aim;
     if (this.jumpFrames > 0) { out.jump = this.jumpFrames > 1; this.jumpFrames--; } // (the last frame lets go, so the next jump is a fresh press)
     if (A.chase && p.x < A.chase.mammothX + T.chase.length / 2 + B.mammothMargin) out.moveX = 1; // the mammoth: run
+    if (A.chariot && me.grounded) { const c = chariotAt(A, now); if (c.dir && (p.x - c.x) * c.dir > 0 && (p.x - c.x) * c.dir < T.chariot.len / 2 + A.chariot.speed * B.duckAhead) out.jump = true; } // the chariot coming: jump it
     if (A.train && passingAt(A, now).some((q) => q.x + q.hw > p.x - 0.5 && q.x - q.hw - p.x < A.train!.speed * B.duckAhead)) { out.crouch = true; out.jump = false; } // a sign or tunnel coming: get down
     return out;
   }

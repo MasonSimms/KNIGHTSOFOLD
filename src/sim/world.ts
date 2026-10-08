@@ -17,6 +17,8 @@ import { buildChase, loopFloor, stepChase } from './chase';
 import type { Chase } from './chase';
 import { buildTrain, stepTrain } from './train';
 import { buildDoors, stepDoors } from './trapdoor';
+import { buildChariot, stepChariot } from './chariot';
+import type { Chariot } from './chariot';
 import type { Trapdoor } from './trapdoor';
 import type { Passing } from './train';
 import { applyJets } from './tower';
@@ -112,6 +114,7 @@ export class Sim {
   chase: Chase | null = null; // this round's treadmill and mammoth, on the Mammoth Chase (see chase.ts)
   passing: Passing[] = []; // the signs and tunnels coming past the train (see train.ts)
   doors: Trapdoor[] = []; // the trapdoors in the floor (see trapdoor.ts)
+  chariot: Chariot | null = null; // the runaway chariot (see chariot.ts)
   jets: Jet[] = []; // water leaking from the water tower's tank (see tower.ts)
   private cutLinks = new Set<unknown>(); // bridge joints already removed
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
@@ -270,6 +273,7 @@ export class Sim {
     this.chase = A.chase ? buildChase(this) : null;
     this.passing = A.train ? buildTrain(this) : [];
     this.doors = A.trapdoors.length ? buildDoors(this) : [];
+    this.chariot = A.chariot ? buildChariot(this) : null;
     this.jets = [];
 
     // The map's side walls (if any): a backstop at an end, or a wall across a gap you can fall into and wall-jump out of.
@@ -490,6 +494,14 @@ export class Sim {
     for (const p of [...this.props]) { const d = push(p.body); if (d < R && p.hp !== undefined && this.props.includes(p)) damageScenery(this, p, o.impact * B.blastScenery * (1 - d / R)); }
   }
 
+  /** Run down by the chariot (chariot.ts): hurt as a hit of `impact` from the side it came (`nx`); it has already flung them. */
+  trampled(f: Fighter, impact: number, nx: number): void {
+    if (f.limp) return;
+    const t = f.torso.body.translation();
+    this.wound(f, damageFor(impact), impact, t.x, t.y, -1, false, true, { how: 'blast', nx, ny: -0.5 });
+    this.events.push({ t: 'trample', x: t.x, y: t.y, v: 1, owner: -1, victim: f.index });
+  }
+
   /** Fire's damage (fire.ts): a little hidden health at a time, no stagger; it can finish you. */
   scorch(f: Fighter, dmg: number, how: Cause['how'] = 'fire'): void {
     if (f.limp) return;
@@ -605,6 +617,7 @@ export class Sim {
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     if (this.passing.length) stepTrain(this, this.passing);
     if (this.doors.length) stepDoors(this, this.doors);
+    if (this.chariot) stepChariot(this, this.chariot);
     applyWind(this);
     moveHooks(this);
     moveNets(this);
