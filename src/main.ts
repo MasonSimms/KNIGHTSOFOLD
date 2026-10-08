@@ -127,11 +127,11 @@ if (onlineParam !== null) {
   attach(net);
   setInterval(() => net?.send({ t: 'ping', n: performance.now() }), 2000); // the round trip, shown in a corner
   // Every 30 s in a fight, how this connection is going, for the server's log (fly logs): the playtest night's real connections.
-  let was = { waits: 0, starved: 0, checks: 0, off: 0, snaps: 0 };
+  let was = { waits: 0, starved: 0, checks: 0, off: 0, snaps: 0, desyncs: 0 };
   setInterval(() => {
     const P = predictor?.stats ?? { checks: 0, off: 0, snaps: 0 }, checks = P.checks - was.checks, secs = Math.max(1, (performance.now() - netStats.since) / 1000);
-    if (net && !paused) net.send({ t: 'stats', ping: netStats.pings ? netStats.pingSum / netStats.pings : ping, pingMax: netStats.pingMax, buffer: m.delay, stalls: m.waits - was.waits, carried: m.starved - was.starved, off: checks ? ((P.off - was.off) / checks) * 100 : 0, snaps: P.snaps - was.snaps, fps: netStats.frames / secs, slow: netStats.slow, hidden: hiddenSeconds(), fast: !!fast?.open });
-    was = { waits: m.waits, starved: m.starved, checks: P.checks, off: P.off, snaps: P.snaps };
+    if (net && !paused) net.send({ t: 'stats', ping: netStats.pings ? netStats.pingSum / netStats.pings : ping, pingMax: netStats.pingMax, buffer: m.delay, stalls: m.waits - was.waits, carried: m.starved - was.starved, off: checks ? ((P.off - was.off) / checks) * 100 : 0, snaps: P.snaps - was.snaps, fps: netStats.frames / secs, slow: netStats.slow, hidden: hiddenSeconds(), fast: !!fast?.open, desyncs: m.desyncs - was.desyncs });
+    was = { waits: m.waits, starved: m.starved, checks: P.checks, off: P.off, snaps: P.snaps, desyncs: m.desyncs };
     Object.assign(netStats, { since: performance.now(), pings: 0, pingSum: 0, pingMax: 0, frames: 0, slow: 0 });
   }, 30_000);
   // Out of sight (another tab) the page stops sending controls, and the server would hold your last press for as long as you are away: let go.

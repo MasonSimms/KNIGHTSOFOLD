@@ -395,7 +395,7 @@ describe('room server', () => {
     await sleep(200);
     const lines = log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith('net '));
     log.mockRestore();
-    expect(lines[0]).toMatch(/seat 0: ping 48 ms \(worst 90\), buffer 3.6 ticks, stalls 1, carried on 12 frames, guess off 9 cm, snaps 0, 60 fps/);
+    expect(lines[0]).toMatch(/seat 0: ping 48 ms \(worst 90\), buffer 3.6 ticks, stalls 1, carried on 12 frames, guess off 9 cm, snaps 0, desyncs 0, 60 fps/);
     expect(lines[1]).toMatch(/ping 0 ms \(worst 0\), buffer 99.0 ticks, stalls 0/);
   });
 

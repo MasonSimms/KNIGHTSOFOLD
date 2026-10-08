@@ -118,7 +118,10 @@ export class Mirror {
     if (!this.evAt.size) return;
     for (const f of [...this.evAt.keys()].sort((x, y) => x - y)) {
       if (f > at) break;
-      for (const e of this.evAt.get(f)!) { due?.push(e); if (STRUCTURAL.has(e.t)) this.sim.mirrorEvent(e); }
+      for (const e of this.evAt.get(f)!) {
+        due?.push(e);
+        if (STRUCTURAL.has(e.t)) try { this.sim.mirrorEvent(e); } catch { this.desyncs++; } // (one this copy cannot make means the copy has gone wrong: counted, so the page asks for the whole fight again; before, it threw on every message after, for ever)
+      }
       this.evAt.delete(f);
     }
   }

@@ -22,7 +22,7 @@ export type ClientMsg =
   | { t: 'rtc'; sdp?: string; candidate?: string; mid?: string } // opening the fast lane (server/fast.ts): this page's offer, then its addresses
   | { t: 'resync' } // my copy of the fight went wrong (a missed event): send me all of it again
   | { t: 'ping'; n: number } // send n straight back (to measure the round trip)
-  | { t: 'stats'; ping: number; pingMax: number; buffer: number; stalls: number; carried: number; off: number; snaps: number; fps: number; slow: number; hidden: number; fast?: boolean }; // every 30 s in a fight: how this page's connection is going (into the server's log, fly logs: what real connections are like)
+  | { t: 'stats'; ping: number; pingMax: number; buffer: number; stalls: number; carried: number; off: number; snaps: number; fps: number; slow: number; hidden: number; fast?: boolean; desyncs?: number }; // every 30 s in a fight: how this page's connection is going (into the server's log, fly logs: what real connections are like)
 
 export type ServerMsg =
   | { t: 'lobby'; code: string; n: number; you: number; host: boolean; token: string; looks: (Look | null)[]; ready: boolean[]; seed: number } // who is in the room and who is ready (sent to everyone whenever it changes); `token` is your private key to rejoin; `seed` is the next match's (paint its first rounds now)
