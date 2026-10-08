@@ -190,13 +190,14 @@ describe('guns', () => {
     sim.reset();
     for (let i = 0; i < 30; i++) sim.step([NEUTRAL, NEUTRAL]);
     arm(sim, 0, 'revolver');
-    let shots = 0, hits = 0;
-    for (let i = 0; i < 600 && sim.fighters[0].stick?.ammo; i++) {
+    let shots = 0, hits = 0, killed = false;
+    for (let i = 0; i < 600 && sim.fighters[0].stick?.ammo && !killed; i++) {
       sim.step([NEUTRAL, NEUTRAL]);
       shots += sim.events.filter((e) => e.t === 'shot' && e.owner === 0).length;
       hits += sim.events.filter((e) => e.t === 'hit' && e.how === 'shot' && e.owner === 0).length;
+      killed ||= sim.events.some((e) => (e.t === 'die' || e.t === 'fall') && e.owner === 1);
     }
-    expect(shots).toBeGreaterThan(2);
+    expect(shots > 2 || killed).toBe(true); // (it keeps shooting, or a shot in the head ended it: they always kill)
     expect(hits).toBeGreaterThan(0);
   }, 30_000);
 
@@ -316,4 +317,28 @@ describe('guns', () => {
     expect(ev.some((e) => e.t === 'ignite' && e.victim === 1)).toBe(true);
     expect(sim.fighters[1].burning).toBeGreaterThan(0);
   }, 30_000);
+});
+
+// Owner, 2026-10-07: a bullet in the head always kills, unless it is a scattergun's pellet or a gun that does not really hurt.
+describe('headshots', () => {
+  async function headshot(gun: string): Promise<{ hit: boolean; dead: boolean }> {
+    const sim = await duel(3);
+    arm(sim, 0, gun);
+    const v = sim.fighters[1];
+    let hit = false;
+    for (let i = 0; i < 70; i++) {
+      const a = sim.fighters[0].torso.body.translation(), b = v.torso.body.translation(), hx = b.x, hy = b.y + T.fighter.headY; // (the cursor on their head)
+      sim.step([{ ...NEUTRAL, aim: Math.atan2(hy - a.y, hx - a.x), reach: Math.hypot(hy - a.y, hx - a.x), attack: i >= 20 && i < 22 }, NEUTRAL]);
+      if (sim.events.some((e) => e.t === 'hit' && e.victim === 1 && e.head)) hit = true;
+    }
+    return { hit, dead: v.limp };
+  }
+  it('a revolver or a flintlock shot in the head kills from full health', async () => {
+    T.guns.headshotKills = false; const off = await headshot('revolver'); T.guns.headshotKills = true; expect(off.dead, 'without the rule a revolver headshot would not kill').toBe(false);
+    for (const gun of ['revolver', 'pistol']) { const r = await headshot(gun); expect(r.hit, gun).toBe(true); expect(r.dead, gun).toBe(true); }
+  });
+  it('a scattergun pellet or a beanbag in the head does not kill outright', async () => {
+    for (const gun of ['beanbag']) { const r = await headshot(gun); expect(r.dead, gun).toBe(false); }
+    expect(PROPS.blunderbuss.gun!.pellets).toBeGreaterThan(1); // (pellets are left out of the rule: guns.ts strike)
+  });
 });

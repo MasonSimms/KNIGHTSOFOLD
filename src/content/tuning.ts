@@ -557,6 +557,7 @@ export const tuning = {
     bounceKeep: 0.5, // a falling shot (a lobbed grenade round) keeps this share of its speed when it bounces
     brace: { spring: 300, damping: 30 }, // the other hand steadying a gun on the aim: how hard it turns the barrel toward the aim (1/s²), and how much it calms its swing (1/s)
     hurt: 2.6, // a gun's shots and blasts hurt this many times the damage curve (combat.damageScale went from 0.3 to 0.115 for 20 s rounds: guns stay as deadly as they were; fists, clubs and slams take longer)
+    headshotKills: true, headshotMin: 10, // (owner 2026-10-07) a bullet in the head always kills, from any gun with at least this much impact that is not a scattergun or explosive (so not the beanbag or the ray guns)
     kickMul: 1.8, recoilMul: 1.6, pushMul: 1.8, // (owner 2026-10-07: guns should be felt at both ends) every gun's shove on the shooter's body (props.ts kick), the snap of the gun and arm (recoil), and the shove on whatever its bullet hits (push), times this
     sprayMax: 8, // a held trigger or a burst wanders more each shot (props.ts spreadPerShot), up to this many shots' worth
   },

@@ -183,8 +183,11 @@ function strike(sim: Sim, u: Bullet, c: Collider, dx: number, dy: number, nx: nu
     return 'stop';
   }
   if (holder && !holder.limp) { // a fighter
-    const head = c === holder.headCollider || part.role === 'head';
-    const dmg = damageFor(u.impact, head ? T.combat.headMult : 1) * G.hurt; // (guns keep their deadliness as health goes up: tuning.guns.hurt)
+    const head = c === holder.headCollider || part.role === 'head', S = PROPS[u.gun]?.gun;
+    // A bullet in the head always kills (owner, 2026-10-07), unless it is a scattergun's pellet, an explosive round or a gun that does not
+    // really hurt (the beanbag, the ray guns: below tuning.guns.headshotMin).
+    const lethal = head && G.headshotKills && !!S && !S.pellets && !S.blast && S.impact >= G.headshotMin;
+    const dmg = lethal ? Math.max(0, holder.hp) + 1 : damageFor(u.impact, head ? T.combat.headMult : 1) * G.hurt; // (guns keep their deadliness as health goes up: tuning.guns.hurt)
     holder.hp -= dmg;
     holder.stun = T.combat.stunFrames;
     shove(holder, dx * u.push, dy * u.push);
