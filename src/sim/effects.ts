@@ -49,13 +49,16 @@ function moveZones(sim: Sim): void {
 
 /** A shot with an effect stopped in `part` (a fighter's body, or a loose thing). */
 export function zap(sim: Sim, owner: number, part: Part, effect: NonNullable<GunSpec['effect']>, x: number, y: number): void {
-  const shooter = sim.fighters[owner], f = part.role !== 'prop' && part.owner >= 0 && part.role !== 'stick' && part.role !== 'flail' ? sim.fighters[part.owner] : undefined;
+  const holder = part.owner >= 0 ? sim.fighters[part.owner] : undefined, inHand = (part.role === 'stick' || part.role === 'flail') && !!holder?.grip && (holder.stick === part || holder.stick?.head === part); // (a weapon held in a hand: the shot is on whoever holds it)
+  const shooter = sim.fighters[owner], f = inHand || (part.role !== 'prop' && part.owner >= 0 && part.role !== 'stick' && part.role !== 'flail') ? holder : undefined;
   if (f?.limp) return;
   if (effect.kind === 'swap') {
     if (!shooter || shooter.limp || f === shooter) return;
+    if (!f && (part.links?.length || !part.body.isDynamic())) return; // (a piece of the map, jointed in or moved by the rules, stays put: torn out of its joints, a plank or a rope's link flew off at hundreds of m/s)
     const a = shooter.torso.body.translation(), av = shooter.torso.body.linvel(), b = f ? f.torso.body.translation() : part.body.translation(), bv = f ? f.torso.body.linvel() : part.body.linvel();
     const ax = a.x, ay = a.y, avx = av.x, avy = av.y, bx = b.x, by = b.y, bvx = bv.x, bvy = bv.y;
-    moveAll(attachedParts(shooter), bx - ax, by - ay, bvx, bvy);
+    const lift = f ? 0 : T.stand.height - 0.1; // (to where a loose thing lay: standing there, not with your legs in the floor under it)
+    moveAll(attachedParts(shooter), bx - ax, by - lift - ay, bvx, bvy);
     if (f) moveAll(attachedParts(f), ax - bx, ay - by, avx, avy);
     else moveAll(part.head ? [part, part.head] : [part], ax - bx, ay - by, avx, avy);
   } else if (f && effect.kind === 'freeze') {

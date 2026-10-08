@@ -829,7 +829,7 @@ export class Sim {
       const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y);
       if (s > M) p.body.setLinvel({ x: (v.x / s) * M, y: (v.y / s) * M }, true);
     }
-    const J = T.sim.maxJointedSpeed;
+    const J = T.sim.maxJointedSpeed; // (and any other loose thing, M: a cut rope's link, squeezed between a ship and a fighter, was spat out at 180 m/s)
     for (const p of this.props) {
       if (!p.links?.length || !p.body.isDynamic()) continue;
       const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y);
