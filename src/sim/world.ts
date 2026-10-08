@@ -29,6 +29,7 @@ import type { Passing } from './train';
 import { applyJets } from './tower';
 import { applyFalls } from './falls';
 import { crackFloes } from './floe';
+import { applyStreams } from './stream';
 import { applyWind } from './wind';
 import { aimSpears, fuses, goneOff, stickSpears } from './special';
 import { moveHooks } from './hook';
@@ -304,7 +305,16 @@ export class Sim {
     const xs = (this.dummy ? A.spawnX : A.fightSpawnX).map(along);
     for (const sc of A.scenery) { // the map's breakable scenery: always there
       const spec = PROPS[sc.kind] ?? PROPS.crate;
-      const p = createProp(this.world, sc.x, A.platformTop - sc.up - spec.thick / 2 - 0.01, 0, { kind: sc.kind, ...spec });
+      const base = A.platformTop - sc.up - 0.02, p = spec.roots ? createProp(this.world, sc.x, base - spec.len / 2, -Math.PI / 2, { kind: sc.kind, ...spec }) : createProp(this.world, sc.x, A.platformTop - sc.up - spec.thick / 2 - 0.01, 0, { kind: sc.kind, ...spec });
+      if (spec.roots) { // a bamboo stalk: rooted in the floor on a sprung hinge at its foot. Like a rope, bodies pass it by and weapons and loose things meet it: a swing whips it over and it springs back, a hard blow cuts it free (a pole, still only touched by weapons and loose things until someone picks it up)
+        const root = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(sc.x, base).setRotation(-Math.PI / 2));
+        const j = this.world.createImpulseJoint(RAPIER.JointData.revolute({ x: 0, y: 0 }, { x: -spec.len / 2, y: 0 }), root, p.body, true) as RAPIER.RevoluteImpulseJoint;
+        j.setLimits(-T.bamboo.bend, T.bamboo.bend);
+        j.configureMotorPosition(0, spec.roots, T.bamboo.damping);
+        p.links = [j];
+        for (const c of p.colliders) c.setCollisionGroups(ropeGroups);
+        this.machine.push(p); // (a training clear keeps the grove)
+      }
       if (spec.hangs) { // a lantern: on a rope from a fixed point above it (it swings; cut, it falls)
         const top = p.body.translation().y - spec.thick / 2 - spec.hangs, anchor = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(sc.x, top));
         p.links = [this.world.createImpulseJoint(RAPIER.JointData.revolute({ x: 0, y: 0 }, { x: 0, y: -spec.thick / 2 - spec.hangs }), anchor, p.body, true)];
@@ -634,6 +644,7 @@ export class Sim {
     if (this.catapult) stepCatapult(this, this.catapult);
     if (this.chariot) stepChariot(this, this.chariot);
     applyWind(this);
+    applyStreams(this);
     moveHooks(this);
     moveNets(this);
     moveEffects(this);
@@ -676,6 +687,7 @@ export class Sim {
     if (!f || f.limp) return [];
     applyWater(this.arena, this.frame, [f], [], []);
     applyFalls(this, [f]); // (the aqueduct's falling water pushes you on your own screen too, or your guess and the server part: snaps)
+    applyStreams(this, [f]); // (and a stream carries you)
     controlFighter(this.world, f, input, this.predictEvents, 0);
     this.predictEvents.length = 0; // (no sounds or paint from a guess: the server's events bring those)
     const shown: SimEvent[] = []; // ...except a shot of your own: its flash, bang and kick are at once (owner: instant feel)

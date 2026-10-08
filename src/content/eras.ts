@@ -33,6 +33,8 @@ export interface EraArena {
   spawnSpots?: number[]; // where weapons appear when they do not fall from the sky (share of the platform; default tuning.spawn.spots)
   gunsOnly?: boolean; // (see also Era.gunRounds) nobody starts armed and only the era's guns drop in, early and often: a race for them (owner, 2026-10-07)
   tower?: { x: number; w: number }; // a water tower's tank (see tuning.arena.tower)
+  streams?: { x: number; w: number; speed: number }[]; // shallow water running over the floor, carrying whoever stands in it (see tuning.stream)
+  decor?: { kind: string; x: number; up: number }[]; // looks only: painted things behind the fighters (weaponArt.ts pictures)
   wind?: { base: number; gust: number; dir: -1 | 1 }; // a windy map (see tuning.arena.wind)
   gusts?: number; // the wind shows as blown sand (0..1; see tuning.arena.gusts)
   rocks?: { kind: string; first: number; every: number }; // rocks falling from above on a timetable (see tuning.arena.rocks)
@@ -179,7 +181,23 @@ export const eras: Era[] = [
       ground: [{ x: 3.5, w: 2.6, up: 1.6, thick: 7.6 }, { x: 6.1, w: 11.8 }, { x: 17.9, w: 2.6, up: 1.6, thick: 7.6 }], catapult: { x: 14.6, lever: 12.9 },
       scenery: [{ kind: 'catapult-frame', x: 14.6, up: 0 }], props: [{ kind: 'rubble', x: 8.2, up: 0 }, { kind: 'rubble', x: 11.2, up: 0 }],
       fightSpawnX: [8.029, 17.718, 9.935, 11.841], spawnX: [9.221, 11.603, 7.235, 17.718] }], outfits: ['knight', 'squire', 'archer', 'bishop'] }, // (start spots for the standard floor: at 5, 19, 9.6, 14.4 here)
-  { id: 'samurai', name: 'Samurai Knights', special: false, pickups: ['iron-fan', 'naginata'], style: { blur: 7, grain: 0.025 }, sky: 0x8a6f86, platform: 0x6b4a3a, wall: 0x4a3a34, weapon: 'katana', arena: { platformX: 6.625, platformW: 10.75, walls: [/* Dojo Ridge: narrow walls both sides */ { side: -1, up: 2.0, gap: 1.0 }, { side: 1, up: 2.0, gap: 1.0 }], fightSpawnX: [7.2, 16.8, 10.4, 13.6] }, alt: [{ name: 'Rope Bridge', ground: [{ x: 5.25, w: 3.5 }, { x: 15.25, w: 3.5 }], bridge: { x0: 8.75, x1: 15.25, planks: 8 } }], outfits: ['armoured lord', 'ronin', 'ashigaru', 'monk'] },
+  { id: 'samurai', name: 'Samurai Knights', special: false, pickups: ['iron-fan', 'naginata'], style: { blur: 7, grain: 0.025 }, sky: 0x8a6f86, platform: 0x6b4a3a, wall: 0x4a3a34, weapon: 'katana', arena: { platformX: 6.625, platformW: 10.75, walls: [/* Dojo Ridge: narrow walls both sides */ { side: -1, up: 2.0, gap: 1.0 }, { side: 1, up: 2.0, gap: 1.0 }], fightSpawnX: [7.2, 16.8, 10.4, 13.6] }, alt: [{ name: 'Rope Bridge', ground: [{ x: 5.25, w: 3.5 }, { x: 15.25, w: 3.5 }], bridge: { x0: 8.75, x1: 15.25, planks: 8 } },
+    // Pagoda Rooftops (the era plan): three temple roofs over the town with alleys between them, each with an upper tier. The glazed tiles
+    // are slick (you slide on when you stop, and off an edge if you are careless), and loose roof tiles lie about to throw (they shatter).
+    { name: 'Pagoda Rooftops', ice: 0.5, platformThickness: 6, ground: [{ x: 1.5, w: 6.3, up: 0.6 }, { x: 9.0, w: 6.0 }, { x: 16.2, w: 6.3, up: 0.6 }], // (1.2 m alleys, as on the Wild West's rooftops)
+      ledges: [{ x: 3.2, up: 2.5, w: 2.6 }, { x: 10.3, up: 1.9, w: 3.4 }, { x: 18.2, up: 2.5, w: 2.6 }],
+      props: [{ kind: 'roof-tile', x: 2.5, up: 0.6 }, { kind: 'roof-tile', x: 12.0, up: 0 }, { kind: 'roof-tile', x: 21.5, up: 0.6 }],
+      fightSpawnX: [4.5, 19.5, 10.5, 13.5], spawnX: [10.0, 14.0, 4.5, 19.5] },
+    // Waterfall Torii (the era plan): a mountain stream on the cliff top runs in from both sides and pours over into a chasm in the middle.
+    // Standing in the water you are carried toward the drop (walk against it, or get out onto the rocks at either end). A torii gate stands
+    // over the chasm (painted only: a lintel you could stand on would be in the way of every jump across).
+    { name: 'Waterfall Torii', platformThickness: 6, ground: [{ x: 1.5, w: 4.5, up: 0.4 }, { x: 6.0, w: 5.0 }, { x: 13.0, w: 5.0 }, { x: 18.0, w: 4.5, up: 0.4 }],
+      streams: [{ x: 6.0, w: 5.0, speed: 2.2 }, { x: 13.0, w: 5.0, speed: -2.2 }], decor: [{ kind: 'torii', x: 12.0, up: 0 }],
+      fightSpawnX: [2.8, 21.2, 5.3, 18.7], spawnX: [2.5, 5.2, 18.8, 21.5] },
+    // Bamboo Grove (the era plan): a grove open at both ends, bamboo standing all over it. Push through a stalk and it bends and springs
+    // back (into whoever is behind you); a hard blow cuts one free, and then it is a long pole that stabs like a spear.
+    { name: 'Bamboo Grove', platformX: 3.0, platformW: 18, scenery: [4.6, 8.3, 9.2, 12.0, 14.8, 15.7, 19.4].map((x) => ({ kind: 'bamboo', x, up: 0 })),
+      spawnX: [7.725, 10.95, 13.05, 16.275] }], outfits: ['armoured lord', 'ronin', 'ashigaru', 'monk'] }, // (start spots for the standard floor: you at 6.3, the dummy at 10.6)
   { id: 'pirates', name: 'Pirates', special: false, gunRounds: 0.5, pickups: ['duckfoot', 'pistol', 'blunderbuss', 'boat-hook'], strong: 2, sky: 0x5a9aa8, platform: 0x6a4a30, wall: 0x4a3626, weapon: 'cutlass', arena: { name: 'Ship Deck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boats: [{ x: 5.75, w: 12.5 }], props: [{ kind: 'plank', x: 10.0, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, alt: [
     // Ship to Ship (owner, 2026-10-06): two ships lashed side by side, a gangplank across the 1.5 m gap and two ropes in an X from each
     // ship's rigging to the other's rail. Cut both ropes (a blade or a bullet) and the ships drift apart; the gangplank falls in.

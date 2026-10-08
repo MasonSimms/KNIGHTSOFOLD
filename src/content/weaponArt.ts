@@ -25,6 +25,7 @@ const ROPE = ['#DCC48E', '#B49A62', '#76603A'], VIOLET = ['#ABADCC', '#7C7FA6', 
 const CYAN = ['#F4FFFF', '#7FF2F4', '#1FA9B8'], PINK = ['#FFF0FB', '#F45FD4', '#A21F8A'], PURPLE = ['#6A58C0', '#3E2E8C', '#1C1448'];
 const ICE = ['#F2FAFF', '#B9DCF0', '#5FA8D4'], SHIELD = ['#C4D4DE', '#94AABA', '#5E7484'], ORANGE = ['#F2A04A', '#D4762A', '#7E3E12'];
 const MORTAR = ['#8F887C', '#6E685E', '#4A453E'], SAND = ['#EBD3A0', '#C9A86A', '#7E6438'], CARVED = ['#9A7A48', '#6E5430', '#3E2E18'], CLAY = ['#D98A56', '#A85A32', '#5E2E18'];
+const LEAF = ['#8FBF5A', '#5E8C34', '#2F4E18'], GLAZE = ['#7A8CA0', '#4C5C70', '#26303C'], VERMILION = ['#F0704A', '#D8402A', '#7E1E10'];
 
 const rod = (x0: number, x1: number, w0: number, w1: number, c: Paint, o: { y?: [number, number]; bend?: number; grip?: true; glow?: true } = {}): Piece =>
   ({ k: 'rod', a: [x0, o.y?.[0] ?? 0], b: [x1, o.y?.[1] ?? 0], w: [w0, w1], bend: o.bend, c, grip: o.grip, glow: o.glow });
@@ -120,6 +121,12 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
     ball(0.07, 0.08, STEEL, { y: -0.4 }), ball(0.48, 0.08, STEEL, { y: -0.4 }), ball(0.275, 0.12, STEEL, { y: -0.58 }), rod(0.19, 0.36, 0.012, 0.012, BLACK, { y: [-0.58, -0.58] }), poly(RED, [[0.25, -0.69], [0.32, -0.69], [0.4, -0.74], [0.26, -0.73]])] }, // (a red plume on the helm)
   helm: { len: 0.3, pieces: [ball(0.15, 0.14, STEEL), rod(0.05, 0.25, 0.012, 0.012, BLACK, { y: [0, 0] }), poly(RED, [[0.12, -0.12], [0.19, -0.12], [0.27, -0.17], [0.13, -0.16]])] },
   greave: { len: 0.55, pieces: [rod(0, 0.48, 0.045, 0.038, STEEL), ball(0.05, 0.055, STEEL), poly(STEEL, [[0.44, -0.04], [0.55, -0.02], [0.55, 0.05], [0.44, 0.05]])] },
+  bamboo: { len: 2.6, pieces: [rod(0, 2.5, 0.04, 0.032, BAMBOO, { grip: true }), ...[0.45, 0.9, 1.35, 1.8, 2.25].map((x) => rod(x - 0.015, x + 0.015, 0.047, 0.047, LEAF)), // (its nodes, then a few leaves at the top)
+    poly(LEAF, [[2.2, 0], [2.45, -0.16], [2.62, -0.21], [2.42, -0.04]]), poly(LEAF, [[2.08, 0], [2.32, 0.15], [2.5, 0.21], [2.3, 0.04]]), poly(LEAF, [[2.36, 0], [2.56, -0.05], [2.64, 0.02], [2.5, 0.03]])] },
+  'roof-tile': { len: 0.36, pieces: [poly(GLAZE, [[0, -0.03], [0.36, -0.05], [0.36, 0.03], [0, 0.05]]), rod(0.03, 0.33, 0.008, 0.008, ['#C8D4E0', '#9AA8B6', '#6A7886'], { y: [-0.02, -0.035] })] },
+  // map scenery that is only painted (arena.decor: y = 0 is its foot, up is negative)
+  torii: { len: 3.8, pieces: [rod(0.7, 0.7, 0.1, 0.085, VERMILION, { y: [0, -1.75] }), rod(3.1, 3.1, 0.1, 0.085, VERMILION, { y: [0, -1.75] }), rod(0.56, 0.84, 0.05, 0.05, BLACK, { y: [-0.05, -0.05] }), rod(2.96, 3.24, 0.05, 0.05, BLACK, { y: [-0.05, -0.05] }),
+    rod(0.35, 3.45, 0.06, 0.06, VERMILION, { y: [-1.3, -1.3] }), rod(1.9, 1.9, 0.05, 0.05, VERMILION, { y: [-1.6, -1.34] }), poly(VERMILION, [[0.1, -1.6], [3.7, -1.6], [3.75, -1.75], [0.05, -1.75]]), poly(BLACK, [[-0.05, -1.75], [3.85, -1.75], [3.97, -1.95], [1.9, -1.86], [-0.17, -1.95]])] }, // (a gate: two posts, the tie beam, the lintel with its black upswept cap)
   cage: { len: 1.0, pieces: [ball(0.36, 0.08, BONE, { y: 0.45 }), rod(0.48, 0.82, 0.025, 0.025, BONE, { y: [0.5, 0.47] }), ...[0.04, 0.22, 0.41, 0.59, 0.78, 0.96].map((x) => rod(x, x, 0.022, 0.022, IRON, { y: [-0.53, 0.53] })), rod(0, 1.0, 0.04, 0.04, IRON, { y: [-0.53, -0.53] }), rod(0, 1.0, 0.04, 0.04, IRON, { y: [0, 0] }), rod(0, 1.0, 0.05, 0.05, IRON, { y: [0.52, 0.52] }), ball(0.5, 0.06, IRON, { y: -0.58 })] }, // (a skull and a bone in the bottom)
   oar: { len: 2.0, pieces: [rod(0, 1.55, 0.022, 0.022, WOOD, { grip: true }), poly(WOOD, [[1.45, -0.03], [1.6, -0.09], [2.0, -0.08], [2.0, 0.08], [1.6, 0.09], [1.45, 0.03]])] },
   'lead-pipe': { len: 1.0, pieces: [rod(0, 1.0, 0.022, 0.022, GREY, { grip: true }), rod(0, 0.06, 0.027, 0.027, IRON), rod(0.88, 1.0, 0.03, 0.03, IRON)] },

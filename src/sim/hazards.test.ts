@@ -7,7 +7,7 @@ import type { Fighter } from './fighter';
 import { NEUTRAL } from './types';
 import type { PlayerInput, SimEvent } from './types';
 import { damageScenery } from './guns';
-import { Sim } from './world';
+import { floorAt, Sim } from './world';
 
 // Tar and fire (owner): tar slows you, lets you kick only weakly and swallows you if you stay; fire burns while you stand in it and
 // keeps burning a while after; wooden clubs catch fire and set alight whoever they touch.
@@ -135,5 +135,96 @@ describe('lava, rocks and pillars', () => {
     damageScenery(sim, pillars[0], PROPS.pillar.breaks!.hp + 1);
     expect(sim.props.filter((p) => p.weapon?.id === 'pillar').length).toBe(1);
     expect(sim.props.filter((p) => p.weapon?.id === 'rubble').length).toBe(3);
+  });
+});
+
+describe('Waterfall Torii (streams)', () => {
+  async function torii() {
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'samurai'; sim.forceMap = mapNamed('samurai', 'Waterfall Torii'); sim.reset();
+    setBackPlane(sim.fighters[1], true); sim.fighters[1].dodge = 1e9; // (the other one stays out of the way)
+    return sim;
+  }
+  const put = (sim: Sim, f: Fighter, x: number) => moveTo(f, x, floorAt(sim.arena, x) - T.stand.height - f.torso.body.translation().y);
+  const x = (f: Fighter) => f.torso.body.translation().x;
+
+  it('standing in the stream you are carried to the waterfall and over it (a knock-off); on the rocks you stay put', async () => {
+    const sim = await torii(), f = sim.fighters[0], s = sim.arena.streams[0];
+    put(sim, f, s.x + 1.0);
+    run(sim, 20);
+    const x0 = x(f);
+    run(sim, 60);
+    expect(x(f) - x0).toBeGreaterThan(s.speed * 0.6); // a second: carried most of the stream's speed
+    for (let i = 0; i < 300 && !f.limp; i++) run(sim, 1);
+    expect(f.limp).toBe(true); // over the edge
+    const dry = await torii(), g = dry.fighters[0];
+    put(dry, g, 3.0);
+    run(dry, 20);
+    const x1 = x(g);
+    run(dry, 120);
+    expect(Math.abs(x(g) - x1)).toBeLessThan(0.3);
+  });
+
+  it('walking against the stream still gets you somewhere, slower than on dry rock', async () => {
+    const sim = await torii(), f = sim.fighters[0], s = sim.arena.streams[0];
+    put(sim, f, s.x + s.w - 1.0);
+    run(sim, 20);
+    const x0 = x(f);
+    run(sim, 60, () => ({ ...NEUTRAL, moveX: -1 }));
+    expect(x0 - x(f)).toBeGreaterThan(1.0); // upstream, a metre or more in a second
+    expect(x0 - x(f)).toBeLessThan(T.motion.moveSpeed * 0.9);
+  });
+
+  it('a loose thing in the stream drifts down to the waterfall', async () => {
+    const sim = await torii(), s = sim.arena.streams[1]; // (the right-hand one: it runs left)
+    sim.spawnItem('plank', s.x + s.w - 0.8, floorAt(sim.arena, s.x + 1) - 0.3);
+    const p = sim.props[sim.props.length - 1], x0 = p.body.translation().x;
+    run(sim, 120);
+    expect(x0 - p.body.translation().x).toBeGreaterThan(2);
+  });
+});
+
+describe('Bamboo Grove', () => {
+  async function grove() {
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'samurai'; sim.forceMap = mapNamed('samurai', 'Bamboo Grove'); sim.reset();
+    setBackPlane(sim.fighters[1], true); sim.fighters[1].dodge = 1e9;
+    return sim;
+  }
+  const stalks = (sim: Sim) => sim.props.filter((p) => p.weapon?.id === 'bamboo').sort((a, b) => a.body.translation().x - b.body.translation().x);
+  const lean = (p: { body: { rotation(): number } }) => Math.abs(Math.atan2(Math.sin(p.body.rotation() + Math.PI / 2), Math.cos(p.body.rotation() + Math.PI / 2)));
+  type Items = { itemOf(p: unknown): unknown };
+
+  it('the bamboo stands up out of the floor, rooted: nobody picks up a standing stalk', async () => {
+    const sim = await grove(), all = stalks(sim);
+    expect(all.length).toBe(7);
+    run(sim, 300);
+    for (const p of all) expect(lean(p)).toBeLessThan(0.05);
+    expect((sim as unknown as Items).itemOf(all[0])).toBeNull();
+  });
+
+  it('you walk between the stalks; a thing flung into one whips it over, and it springs back up', async () => {
+    const sim = await grove(), f = sim.fighters[0], p = stalks(sim)[3], px = p.body.translation().x;
+    moveTo(f, px - 1.2);
+    run(sim, 20);
+    run(sim, 90, () => ({ ...NEUTRAL, moveX: 1 }));
+    expect(f.torso.body.translation().x).toBeGreaterThan(px + 0.5); // straight past it
+    expect(lean(p)).toBeLessThan(0.6); // (your sword may brush it as you pass)
+    sim.spawnItem('log', px - 1.5, sim.arena.platformTop - 1.6);
+    sim.props[sim.props.length - 1].body.setLinvel({ x: 9, y: 0 }, true);
+    let most = 0;
+    for (let i = 0; i < 40; i++) { run(sim, 1); most = Math.max(most, lean(p)); }
+    expect(most).toBeGreaterThan(0.3);
+    run(sim, 240);
+    expect(lean(p)).toBeLessThan(0.15); // back up
+  });
+
+  it('a hard blow cuts a stalk free: then it is a long pole to pick up and stab with', async () => {
+    const sim = await grove(), p = stalks(sim)[3];
+    sim.shootLoose(p, p.body.translation().x, p.body.translation().y, 0);
+    run(sim, 90);
+    expect(p.links?.length ?? 0).toBe(0);
+    expect((sim as unknown as Items).itemOf(p)).not.toBeNull();
+    expect(p.weapon?.thrust).toBe(true);
   });
 });
