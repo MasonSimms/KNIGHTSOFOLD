@@ -26,7 +26,7 @@ import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
 import { runHome } from './ui/home';
-import { closeMenu, openMenu } from './ui/menu';
+import { bootDone, closeMenu, openLoading, openMenu } from './ui/menu';
 import { warmPortraits } from './render/portrait';
 import { clearBanner, hideCards, showCards, updateHud } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
@@ -74,6 +74,7 @@ const sendInput = (i: PlayerInput, n: number) => { net?.send({ t: 'in', i, n });
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
   const url = serverUrl(onlineParam);
+  bootDone(); // (the room screen is the first screen)
   const r = await runLobby(url, undefined, renderer.prepare);
   net = r.client; mySlot = r.you;
   const m = new Mirror(await Sim.create(r.seed, 4, false)); // online is always 4 fighters: empty seats are parked out of sight
@@ -127,11 +128,11 @@ if (onlineParam !== null) {
   attach(net);
   setInterval(() => net?.send({ t: 'ping', n: performance.now() }), 2000); // the round trip, shown in a corner
   // Every 30 s in a fight, how this connection is going, for the server's log (fly logs): the playtest night's real connections.
-  let was = { waits: 0, starved: 0, checks: 0, off: 0, snaps: 0 };
+  let was = { waits: 0, starved: 0, checks: 0, off: 0, snaps: 0, desyncs: 0 };
   setInterval(() => {
     const P = predictor?.stats ?? { checks: 0, off: 0, snaps: 0 }, checks = P.checks - was.checks, secs = Math.max(1, (performance.now() - netStats.since) / 1000);
-    if (net && !paused) net.send({ t: 'stats', ping: netStats.pings ? netStats.pingSum / netStats.pings : ping, pingMax: netStats.pingMax, buffer: m.delay, stalls: m.waits - was.waits, carried: m.starved - was.starved, off: checks ? ((P.off - was.off) / checks) * 100 : 0, snaps: P.snaps - was.snaps, fps: netStats.frames / secs, slow: netStats.slow, hidden: hiddenSeconds(), fast: !!fast?.open });
-    was = { waits: m.waits, starved: m.starved, checks: P.checks, off: P.off, snaps: P.snaps };
+    if (net && !paused) net.send({ t: 'stats', ping: netStats.pings ? netStats.pingSum / netStats.pings : ping, pingMax: netStats.pingMax, buffer: m.delay, stalls: m.waits - was.waits, carried: m.starved - was.starved, off: checks ? ((P.off - was.off) / checks) * 100 : 0, snaps: P.snaps - was.snaps, fps: netStats.frames / secs, slow: netStats.slow, hidden: hiddenSeconds(), fast: !!fast?.open, desyncs: m.desyncs - was.desyncs });
+    was = { waits: m.waits, starved: m.starved, checks: P.checks, off: P.off, snaps: P.snaps, desyncs: m.desyncs };
     Object.assign(netStats, { since: performance.now(), pings: 0, pingSum: 0, pingMax: 0, frames: 0, slow: 0 });
   }, 30_000);
   // Out of sight (another tab) the page stops sending controls, and the server would hold your last press for as long as you are away: let go.
@@ -285,7 +286,7 @@ async function menu(screen: 'home' | 'hall') {
 const PRELOAD_MAX_MS = 8000; // the longest a fight waits for its pictures (a first visit paints two backdrops, about a second each)
 /** Everything the next round needs, painted before it starts (owner: nothing arrives after the fight has begun), behind a short note. */
 async function preload() {
-  openMenu('hall', '<div class="spacer"></div><div class="note">Painting the arena…</div>');
+  openLoading(); // (the loading screen: no words)
   await renderer.preload(sim, PRELOAD_MAX_MS);
   closeMenu();
 }
@@ -441,7 +442,8 @@ if (botsParam) {
 }
 
 requestAnimationFrame(frame);
-if (mode === 'training') void menu('home');
+if (mode === 'training') void menu('home'); // (the home screen takes the loading screen away once its pictures are painted)
+else void renderer.preload(sim, PRELOAD_MAX_MS).then(bootDone); // (a testing link or online: straight in, once the first round is painted)
 
 if (import.meta.env.DEV) (window as unknown as { sim: Sim }).sim = sim; // dev-only handle for console poking and browser tests
 if (import.meta.env.DEV) (window as unknown as { view: Sim; mirror: Mirror | null }).view = view; // (online: the copy that is drawn)

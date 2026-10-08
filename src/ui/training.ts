@@ -6,7 +6,7 @@ import { WEAPON_ART } from '../content/weaponArt';
 import { menuPresses } from '../input/input';
 import { paintedBox, paintedShape, paintedWeapon } from '../render/painter/sprites';
 import type { Sim } from '../sim/world';
-import { closeMenu, hangPicture, openMenu } from './menu';
+import { closeMenu, hangPicture, openMenu, whenReady } from './menu';
 import { isOverlayOn, toggleOverlay } from './overlay';
 
 // The training menu (owner): Esc during practice opens it over the paused fight, in the museum style of the other menus. On the left, who
@@ -130,12 +130,14 @@ export function runTraining(sim: Sim, you: number, alone: boolean, setSpeed: (x:
     mapEls.forEach((el) => el.classList.toggle('on', el.dataset.era === s.era && Number(el.dataset.map) === s.map));
   }
   draw();
-  mapEls.forEach((el) => hangPicture(el.querySelector('canvas')!, el.dataset.era!, 192, 108, Number(el.dataset.map))); // (painted once, then kept)
-  // The weapons' pictures, a few at a time so the menu opens at once (each is painted the first time it is needed, then kept).
+  const maps = mapEls.map((el) => hangPicture(el.querySelector('canvas')!, el.dataset.era!, 192, 108, Number(el.dataset.map))); // (painted once, then kept)
+  // The weapons' pictures, a few at a time (each is painted the first time it is needed, then kept); the menu shows when all of it is done.
   const toDraw = [...root.querySelectorAll<HTMLElement>('.item')];
-  let paintTimer = 0;
-  const paintSome = () => { for (const t0 = performance.now(); toDraw.length && performance.now() - t0 < 12;) { const el = toDraw.shift()!; drawItem(el.querySelector('canvas')!, el.dataset.item!); } if (toDraw.length) paintTimer = window.setTimeout(paintSome, 0); };
+  let paintTimer = 0, weaponsDone = () => {};
+  const weapons = new Promise<void>((ok) => { weaponsDone = ok; });
+  const paintSome = () => { for (const t0 = performance.now(); toDraw.length && performance.now() - t0 < 12;) { const el = toDraw.shift()!; drawItem(el.querySelector('canvas')!, el.dataset.item!); } if (toDraw.length) paintTimer = window.setTimeout(paintSome, 0); else weaponsDone(); };
   paintSome();
+  void whenReady(root, [...maps, weapons], 6000);
 
   const drop = (id: string) => {
     const f = sim.fighters[you], t = f.torso.body.translation(), A = sim.arena;

@@ -156,7 +156,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       const v = (x: unknown, hi: number) => (typeof x === 'number' && Number.isFinite(x) ? Math.max(0, Math.min(hi, x)) : 0), r0 = Math.round;
       const slot = slotOf(at.room, at.seat), st = at.room.game.room.stats[slot], was = at.seat.inputsWas ?? { ticks: 0, dry: 0, folded: 0 }, ticks = Math.max(1, st.ticks - was.ticks);
       at.seat.inputsWas = { ticks: st.ticks, dry: st.dry, folded: st.folded };
-      return void console.log(`net ${at.room.code} seat ${slot}: ping ${r0(v(m.ping, 9999))} ms (worst ${r0(v(m.pingMax, 9999))}), buffer ${v(m.buffer, 99).toFixed(1)} ticks, stalls ${r0(v(m.stalls, 9999))}, carried on ${r0(v(m.carried, 99999))} frames, guess off ${r0(v(m.off, 9999))} cm, snaps ${r0(v(m.snaps, 9999))}, ${r0(v(m.fps, 999))} fps (${r0(v(m.slow, 99999))} slow frames), ${m.fast ? 'fast lane' : 'WebSocket only'}, hidden ${r0(v(m.hidden, 99999))} s | its inputs: ${(100 * (st.dry - was.dry) / ticks).toFixed(1)}% of ticks none had come, ${st.folded - was.folded} folded`);
+      return void console.log(`net ${at.room.code} seat ${slot}: ping ${r0(v(m.ping, 9999))} ms (worst ${r0(v(m.pingMax, 9999))}), buffer ${v(m.buffer, 99).toFixed(1)} ticks, stalls ${r0(v(m.stalls, 9999))}, carried on ${r0(v(m.carried, 99999))} frames, guess off ${r0(v(m.off, 9999))} cm, snaps ${r0(v(m.snaps, 9999))}, desyncs ${r0(v(m.desyncs ?? 0, 9999))}, ${r0(v(m.fps, 999))} fps (${r0(v(m.slow, 99999))} slow frames), ${m.fast ? 'fast lane' : 'WebSocket only'}, hidden ${r0(v(m.hidden, 99999))} s | its inputs: ${(100 * (st.dry - was.dry) / ticks).toFixed(1)}% of ticks none had come, ${st.folded - was.folded} folded`);
     }
     if (m.t === 'in') {
       takeInput(ws, m);
