@@ -41,14 +41,15 @@ The owner's arena list (handwritten, 2026-10-06; REPLACES the earlier plan). Not
 4. **Mammoth Chase** (a moving map): everyone keeps running to the right while a woolly mammoth chases from the left; touching the mammoth kills you. (Needs: a scrolling map, the mammoth as a moving body.) **BUILT 2026-10-06** (cavemen map 4): a treadmill floor at 2.2 m/s, a painted placeholder mammoth that tosses you out of the picture, boulders and logs riding in, the painting sliding by.
 5. **Vine Ravine** BUILT (a log bridge over a gorge, cut it or break it; the main map, cavemen map 0, since 2026-10-07). Not on the owner's list of four: kept as the fifth until the owner says otherwise.
 The original plain cave map is retired (owner, 2026-10-06: five arenas per era; done 2026-10-07).
-Old ideas, not on the list: Mammoth Ribcage (rib bones as platforms you can pull free), Boulder Slope (a rolling boulder), Volcano Rim (lava and falling rocks).
+6. **Volcano Rim** **BUILT 2026-10-07** (cavemen map 5; the owner asked for the lava map, though it was off the list): two shelves of black rock either side of a lava pool with a basalt ledge over each; lava sets you burning the moment you touch it and has you in 0.3 s (tuning.lava); a boulder falls from the rim every 5 s (arena.rocks) and crushes whoever it lands on. **The era now has six: the owner decides whether it replaces Vine Ravine.**
+Old ideas, not on the list: Mammoth Ribcage (rib bones as platforms you can pull free), Boulder Slope (a rolling boulder).
 
 ## 2. Ancient Egypt
 Pickups: **Was Sceptre** (long staff), **Golden Flail** (a chain with a weight: swings wildly, hits hard).
 1. **Pyramid Steps** BUILT (three floating steps: one 2.8 m up at each end and a top 5.2 m up in the middle): a staircase of ledges, so the high ground matters.
 2. **Nile Barge**: a barge floating on the river (reuses the pirate water tech): rocks when people run to one side.
 3. **Toppling Obelisk**: a tall stone obelisk that, if hit hard at its base, falls across the gap as a bridge (or onto someone).
-4. **Sandstorm Temple**: pillars you can break into rubble; wind pushes everyone sideways in gusts.
+4. **Sandstorm Temple**: pillars you can break into rubble; wind pushes everyone sideways in gusts. **BUILT 2026-10-07** (egypt map 2): the temple's sand floor between its back wall and the open desert, two stone pillars (props.ts pillar: 45 kg, too heavy to lift, they crush when toppled; 75 hp of club blows break one into three rubble blocks) under a lintel ledge; gusts to 12 m/s toward the open side (arena.wind), shown as sand streaking across (arena.gusts).
 5. **Tomb Chamber**: sarcophagus lids as slidey props and a trapdoor floor that drops when the lever (a grabbable prop) is pulled.
 
 ## 3. Roman Gladiators

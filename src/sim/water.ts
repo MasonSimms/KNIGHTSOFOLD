@@ -25,8 +25,8 @@ export function tarAt(A: Arena, x: number): Arena['tar'][number] | null {
   return null;
 }
 
-/** What liquid is at x: tar, the sea, or none. */
-const liquidAt = (A: Arena, x: number) => (tarAt(A, x) ? T.tar : A.sea ? T.water : null);
+/** What liquid is at x: tar, lava, the sea, or none. */
+const liquidAt = (A: Arena, x: number) => { const pit = tarAt(A, x); return pit ? (pit.lava ? T.lava : T.tar) : A.sea ? T.water : null; };
 type Liquid = NonNullable<ReturnType<typeof liquidAt>>;
 
 /** How far below the platform top the sea stands at a given frame: its level, less what the tide has risen (arena.sea.tide: from low
@@ -116,12 +116,19 @@ export function applyWater(A: Arena, frame: number, fighters: Fighter[], props: 
     for (const p of f.parts) {
       const W = liquidAt(A, p.body.translation().x);
       const under = W ? floatBody(A, frame, p.body, isWeapon(p) && !f.grip ? W.propFloat : f.sinking ? W.sinkFloat : W.float, W) : 0;
-      if (p === f.torso) { f.wet = under; f.tar = W === T.tar; }
+      if (p === f.torso) { f.wet = under; f.tar = W === T.tar || W === T.lava; }
     }
+    const lava = f.tar && !!tarAt(A, f.torso.body.translation().x)?.lava;
+    if (lava && f.wet > T.lava.wetAt && !f.limp) f.burning = T.fire.burnFrames; // lava: you burn the moment you touch it
     if (f.limp) continue;
-    if (f.wet > (f.tar ? T.tar.wetAt : T.swim.wetAt) && (!f.grounded || f.tar)) { if (++f.wetFrames >= (f.tar ? T.tar.frames : T.swim.frames)) f.sinking = true; } // (in tar a foot on the side of the pit is not out of it)
+    if (f.wet > (f.tar ? T.tar.wetAt : T.swim.wetAt) && (!f.grounded || f.tar)) { if (++f.wetFrames >= (lava ? T.lava : f.tar ? T.tar : T.swim).frames) f.sinking = true; } // (in tar a foot on the side of the pit is not out of it)
     else if (f.grounded) f.wetFrames = 0;
   }
-  for (const p of props) { const W = liquidAt(A, p.body.translation().x); if (W) floatBody(A, frame, p.body, W.propFloat, W); }
+  for (const p of props) {
+    const W = liquidAt(A, p.body.translation().x);
+    if (!W) continue;
+    const under = floatBody(A, frame, p.body, W.propFloat, W);
+    if (W === T.lava && under > 0 && (p.weapon?.material ?? 'wood') === 'wood') p.burning = T.fire.woodFrames; // wood in the lava burns
+  }
   for (const b of boats) floatBoat(A, frame, b, fighters);
 }

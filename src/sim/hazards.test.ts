@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mapNamed } from '../content/eras';
+import { PROPS, PROP_KINDS } from '../content/props';
 import { tuning as T } from '../content/tuning';
 import { setBackPlane } from './fighter';
 import type { Fighter } from './fighter';
 import { NEUTRAL } from './types';
 import type { PlayerInput, SimEvent } from './types';
+import { damageScenery } from './guns';
 import { Sim } from './world';
 
 // Tar and fire (owner): tar slows you, lets you kick only weakly and swallows you if you stay; fire burns while you stand in it and
@@ -94,5 +96,44 @@ describe('fire', () => {
     const events = run(sim, 3);
     expect(v.burning).toBeGreaterThan(0);
     expect(events.some((e) => e.t === 'ignite' && e.victim === 1)).toBe(true);
+  });
+});
+// Lava and falling rocks (Volcano Rim), and the Sandstorm Temple's pillars (owner asked for the lava, sand and ice maps, 2026-10-07).
+describe('lava, rocks and pillars', () => {
+  const VOLCANO = mapNamed('caveman', 'Volcano Rim');
+  it('lava sets you burning at once and has you in a blink (a knock-off); a log thrown in catches fire', async () => {
+    const sim = await onMap(VOLCANO), f = sim.fighters[0];
+    moveTo(f, 12.0, -0.5);
+    let n = 0;
+    while (n++ < 60 && f.burning === 0) run(sim, 1);
+    expect(f.tar).toBe(true);
+    expect(f.burning, 'alight within a second').toBeGreaterThan(0);
+    expect(f.limp).toBe(false);
+    const events = run(sim, 60);
+    expect(f.limp).toBe(true);
+    expect(events.some((e) => e.t === 'fall' && e.victim === 0)).toBe(true);
+    sim.spawnItem('log', 12, sim.arena.platformTop - 1);
+    const log = sim.props.at(-1)!;
+    run(sim, 40);
+    expect(log.burning ?? 0).toBeGreaterThan(0);
+  });
+  it('rocks fall from the rim on the timetable, announced for the online copies', async () => {
+    const sim = await onMap(VOLCANO), R = sim.arena.rocks!, before = sim.props.length;
+    const events = run(sim, Math.round(R.first * 60) + 2);
+    expect(events.filter((e) => e.t === 'spawn' && e.v === PROP_KINDS.indexOf(R.kind)).length).toBe(1);
+    expect(sim.props.length).toBe(before + 1);
+    run(sim, Math.round(R.every * 60));
+    expect(sim.props.length).toBe(before + 2);
+  });
+  it('the temple pillars are too heavy to lift, and enough blows break one into rubble', async () => {
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'egypt'; sim.forceMap = mapNamed('egypt', 'Sandstorm Temple'); sim.reset();
+    const pillars = sim.props.filter((p) => p.weapon?.id === 'pillar');
+    expect(pillars.length).toBe(2);
+    expect(PROPS.pillar.mass).toBeGreaterThan(T.props.maxLift);
+    expect(sim.arena.wind?.gust ?? 0).toBeGreaterThan(0);
+    damageScenery(sim, pillars[0], PROPS.pillar.breaks!.hp + 1);
+    expect(sim.props.filter((p) => p.weapon?.id === 'pillar').length).toBe(1);
+    expect(sim.props.filter((p) => p.weapon?.id === 'rubble').length).toBe(3);
   });
 });

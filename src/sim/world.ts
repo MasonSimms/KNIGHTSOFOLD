@@ -11,7 +11,7 @@ import type { Weapon } from '../content/weapons';
 import { eraFor, mapFor, outfitsFor } from './era';
 import { Bot } from './bot';
 import { makeRng } from './rng';
-import { applyWater, buildBoat, surfaceY } from './water';
+import { applyWater, buildBoat, surfaceY, tarAt } from './water';
 import { applyFire } from './fire';
 import { buildChase, loopFloor, stepChase } from './chase';
 import type { Chase } from './chase';
@@ -614,6 +614,7 @@ export class Sim {
     for (const f of this.fighters) if (f.fireRequest) { f.fireRequest = false; if (!f.limp) fire(this, f); } // triggers pulled with a loaded gun
     for (const p of this.props) { const v = p.body.linvel(this.tmpV); p.vx = v.x; p.vy = v.y; p.w = p.body.angvel(); }
     this.spawnPickups();
+    this.rockfall();
     this.resolvePickups();
     this.keepWeaponsInPlay();
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
@@ -732,6 +733,17 @@ export class Sim {
     }
     this.props = this.props.filter(kept);
     this.version++;
+  }
+
+  /** Rocks falling from above (arena.rocks): on the map's timetable a rock drops in somewhere over the platform (a 'spawn' event, so the online copies get it too). */
+  private rockfall(): void {
+    const R = this.arena.rocks;
+    if (!R) return;
+    const fps = 1 / T.sim.dt, first = Math.round(R.first * fps), every = Math.max(1, Math.round(R.every * fps));
+    if (this.frame < first || (this.frame - first) % every !== 0) return;
+    const A = this.arena, x = A.platformX + 0.8 + this.rng() * (A.platformW - 1.6), y = -1.5;
+    this.addProp(R.kind, x, y);
+    this.events.push({ t: 'spawn', x, y, v: PROP_KINDS.indexOf(R.kind), owner: -1, victim: -1 });
   }
 
   /** Better weapons drop in during the round, faster and stronger as it goes on, at fixed spots or from the sky. */
@@ -1397,7 +1409,10 @@ export class Sim {
     for (const f of this.fighters.slice()) {
       const t = f.torso.body.translation();
       if (!f.limp && (t.y > A.killY || t.x < -A.killXMargin || t.x > A.viewW + A.killXMargin)) this.kill(f, true);
-      else if (!f.limp && f.sinking && (t.y > surfaceY(A, this.frame, t.x) + (f.tar ? T.tar : T.swim).drownDepth || (f.tar && f.wetFrames >= T.tar.frames + T.tar.swallow))) this.kill(f, true); // went under (or the tar has them, clinging to its edge or not): a knock-off
+      else if (!f.limp && f.sinking) { // went under (or the tar or the lava has them, clinging to its edge or not): a knock-off
+        const pit = f.tar ? (tarAt(A, t.x)?.lava ? T.lava : T.tar) : null;
+        if (t.y > surfaceY(A, this.frame, t.x) + (pit ?? T.swim).drownDepth || (pit && f.wetFrames >= pit.frames + pit.swallow)) this.kill(f, true);
+      }
       if (!this.matchActive && f.limp && this.frame - f.deadAt >= T.respawn.frames) { this.respawn(f); this.events.push({ t: 'respawn', x: f.spawnX, y: f.spawnY, v: 0, owner: f.index, victim: -1 }); } // alone, you respawn; in a fight you stay down
     }
     if (this.matchActive) this.updateRound();

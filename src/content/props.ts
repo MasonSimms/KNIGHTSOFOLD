@@ -68,6 +68,9 @@ export const PROPS: Record<string, PropSpec> = {
   upright: { len: 0.6, thick: 1.6, mass: 60, material: 'stone', box: true, back: true }, // a standing stone: a step behind the fighters (it holds up a capstone; you walk in front of it)
   capstone: { len: 3.0, thick: 0.45, mass: 30, material: 'stone', box: true }, // laid across two uprights: a body slammed into it (about 200 N s) brings it down
   boulder: { len: 0.7, thick: 0.6, mass: 40, material: 'stone', box: true },
+  // Sandstorm Temple (Egypt): temple pillars standing on the floor, too heavy to lift; knocked over they crush, and enough club blows break one into rubble (three stone chunks: cover, or clubs)
+  pillar: { len: 0.7, thick: 1.55, mass: 45, material: 'stone', box: true, breaks: { hp: 75, into: ['rubble', 'rubble', 'rubble'] } },
+  rubble: { len: 0.5, thick: 0.4, mass: 9, factor: 2.6, material: 'stone', box: true },
   // a shop window (Main Street): a pane of glass held in its frame (it does not fall), that a body thrown into it, a punch, a club or a
   // bullet breaks (min: the smallest knock that counts); you go on through into the shop
   // the Saloon: a bar stool (a club) and a beer mug (throw it, or smash it on someone: it shatters on anything hard)

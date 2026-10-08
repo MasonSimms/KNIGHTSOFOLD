@@ -18,7 +18,7 @@ export interface EraArena {
   sea?: { level: number; tide?: { rise: number; seconds: number }; chop?: number }; // (chop: waves this many times higher, a rough sea) // water under the stage (see tuning.arena.sea); tide: it rises `rise` m over the round's first `seconds`
   boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice'; tilt?: number; crack?: boolean }[]; // (tilt: how far one fighter at its end tips it, instead of tuning.boat.tilt; crack: an ice floe that cracks and sinks, tuning.floe) // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
   ropes?: { x0: number; up0: number; x1: number; up1: number }[]; // ropes tied between them (see tuning.rope)
-  tar?: { x: number; w: number; level: number }[]; // tar pits (see tuning.arena.tar)
+  tar?: { x: number; w: number; level: number; lava?: boolean }[]; // tar pits, or lava pools (see tuning.arena.tar)
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
   weapon?: string; // this map's own weapon (weapons.ts), instead of the era's
   chase?: { speed: number; mammothX: number; obstacles: string[]; gap: number }; // a treadmill map (see tuning.arena.chase)
@@ -31,6 +31,8 @@ export interface EraArena {
   gunsOnly?: boolean; // (see also Era.gunRounds) nobody starts armed and only the era's guns drop in, early and often: a race for them (owner, 2026-10-07)
   tower?: { x: number; w: number }; // a water tower's tank (see tuning.arena.tower)
   wind?: { base: number; gust: number; dir: -1 | 1 }; // a windy map (see tuning.arena.wind)
+  gusts?: number; // the wind shows as blown sand (0..1; see tuning.arena.gusts)
+  rocks?: { kind: string; first: number; every: number }; // rocks falling from above on a timetable (see tuning.arena.rocks)
 }
 
 /** How the whole picture is painted in this era (each one overrides tuning.finish.style): blur = background softness, haze = background fading into the air, grain = canvas weave, tint/tintAlpha = colour wash. */
@@ -65,8 +67,20 @@ export const eras: Era[] = [
       { kind: 'upright', x: 7.3, up: 0 }, { kind: 'upright', x: 9.7, up: 0 }, { kind: 'capstone', x: 8.5, up: 1.62 },
       { kind: 'upright', x: 14.3, up: 0 }, { kind: 'upright', x: 16.7, up: 0 }, { kind: 'capstone', x: 15.5, up: 1.62 }] },
     // Mammoth Chase (owner's list): the ground slides left toward a mammoth at the left edge; run right; rocks and logs come along
-    { name: 'Mammoth Chase', ground: [{ x: -1, w: 26 }], roll: 2.2, chase: { speed: 2.2, mammothX: 1.4, obstacles: ['boulder', 'log', 'boulder', 'log'], gap: 9 } }], outfits: ['fur pelt', 'bone necklace', 'leaf wrap', 'war paint'] },
-  { id: 'egypt', name: 'Ancient Egypt', special: false, pickups: ['sceptre', 'flail'], sky: 0xd9b46a, platform: 0xb08a58, wall: 0x8a6a44, weapon: 'khopesh', arena: { walls: [/* the temple wall, level with the top step */ { side: -1, up: 3.6, gap: 0 }], ledges: [{ x: 5.6, up: 1.8, w: 2.2 }, { x: 7.8, up: 3.6, w: 2.2 }] }, alt: [/* Pyramid Steps: $1*/ { name: 'Pyramid Steps',  ledges: [{ x: 6.0, up: 1.8, w: 3.0 }, { x: 10.0, up: 3.6, w: 4.0 }, { x: 15.0, up: 1.8, w: 3.0 }] }], outfits: ['pharaoh', 'priest', 'guard', 'scribe'] },
+    { name: 'Mammoth Chase', ground: [{ x: -1, w: 26 }], roll: 2.2, chase: { speed: 2.2, mammothX: 1.4, obstacles: ['boulder', 'log', 'boulder', 'log'], gap: 9 } },
+    // Volcano Rim (owner asked for the lava map, 2026-10-07; it was on the old list): two shelves of black rock either side of a lava
+    // pool, a basalt ledge over each shelf, and rocks falling from the rim now and then (a boulder crushes whoever it lands on, then lies
+    // about as cover). Lava sets you burning the moment you touch it and has you in a blink: jump the pool, or throw people in.
+    { name: 'Volcano Rim', platformThickness: 6, ground: [{ x: 3.0, w: 7.5 }, { x: 13.5, w: 7.5 }], tar: [{ x: 10.5, w: 3.0, level: 0.3, lava: true }],
+      ledges: [{ x: 4.5, up: 1.9, w: 2.2 }, { x: 17.3, up: 1.9, w: 2.2 }], rocks: { kind: 'boulder', first: 4, every: 5 },
+      fightSpawnX: [5.5, 18.5, 8.5, 15.5], spawnX: [5.5, 9.0, 18.5, 15.0], props: [{ kind: 'log', x: 4.0, up: 0 }] }], outfits: ['fur pelt', 'bone necklace', 'leaf wrap', 'war paint'] },
+  { id: 'egypt', name: 'Ancient Egypt', special: false, pickups: ['sceptre', 'flail'], sky: 0xd9b46a, platform: 0xb08a58, wall: 0x8a6a44, weapon: 'khopesh', arena: { walls: [/* the temple wall, level with the top step */ { side: -1, up: 3.6, gap: 0 }], ledges: [{ x: 5.6, up: 1.8, w: 2.2 }, { x: 7.8, up: 3.6, w: 2.2 }] }, alt: [/* Pyramid Steps: $1*/ { name: 'Pyramid Steps',  ledges: [{ x: 6.0, up: 1.8, w: 3.0 }, { x: 10.0, up: 3.6, w: 4.0 }, { x: 15.0, up: 1.8, w: 3.0 }] },
+    // Sandstorm Temple (owner's list): the temple's sand floor between its back wall (left) and the open desert (right), two stone pillars
+    // standing on the floor under a lintel. A sandstorm blows toward the open side in gusts: on the ground your feet hold, in the air you
+    // are carried. The pillars are too heavy to lift: knock one over onto someone, or club it until it breaks into rubble.
+    { name: 'Sandstorm Temple', wind: { base: 1, gust: 11, dir: 1 }, gusts: 1, platformX: 3.5, platformW: 16.5, walls: [{ side: -1, up: 3.2, gap: 0 }],
+      ledges: [{ x: 9.0, up: 1.9, w: 5.0 }], scenery: [{ kind: 'pillar', x: 9.5, up: 0 }, { kind: 'pillar', x: 13.5, up: 0 }],
+      fightSpawnX: [6.0, 18.0, 8.0, 16.0], spawnX: [6.0, 11.5, 18.0, 16.0] }], outfits: ['pharaoh', 'priest', 'guard', 'scribe'] },
   { id: 'gladiators', name: 'Roman Gladiators', special: false, pickups: ['trident', 'chain-mace'], sky: 0xb5875a, platform: 0xa88d68, wall: 0x7a6a56, weapon: 'gladius', arena: { platformX: 5.625, platformW: 12.75, walls: [/* a low parapet each side: nobody walks off, you are thrown (or jump) over it */ { side: -1, up: 1.0, gap: 0 }, { side: 1, up: 1.0, gap: 0 }], props: [{ kind: 'plank', x: 10.0, up: 0 }] }, alt: [/* Lion's Pit: $1*/ { name: "Lion's Pit",  walls: [/* tall arena walls: the pit is the only way out */ { side: -1, up: 2.5, gap: 0 }, { side: 1, up: 2.5, gap: 0 }], ground: [{ x: 5.25, w: 5.25 }, { x: 13.5, w: 5.25 }], ledges: [{ x: 11.125, up: 0, w: 1.75 }], fightSpawnX: [6.75, 17.25, 9.0, 15.0] },
     // Aqueduct Bridge (owner chose it from the plan, 2026-10-07): a hill each side of a deep valley and between them the aqueduct, a
     // deck of stone blocks on piers with the water running along it. A club cannot chip a block out; a body slammed or flung into the

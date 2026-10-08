@@ -50,7 +50,7 @@ export const tuning = {
     sea: null as null | { level: number; tide?: { rise: number; seconds: number }; chop?: number }, // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
     boats: [] as { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice'; tilt?: number; crack?: boolean }[], // floating ships instead of solid ground (needs a sea; see tuning.boat): each deck from x, w wide, its top at the platform top
     ropes: [] as { x0: number; up0: number; x1: number; up1: number }[], // ropes (see tuning.rope) from (x0, up0 m above the deck) to (x1, up1), each end tied to the ship under it; cut every one and the ships drift apart
-    tar: [] as { x: number; w: number; level: number }[], // tar pits (see tuning.tar): from x, w wide (a gap in the ground), the surface `level` m below the platform top
+    tar: [] as { x: number; w: number; level: number; lava?: boolean }[], // tar pits (see tuning.tar), or lava pools (lava: true; tuning.lava): from x, w wide (a gap in the ground), the surface `level` m below the platform top
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
     roll: 0, // the painting slides by at this speed (m/s): a moving map (the train, the mammoth chase)
     tower: null as null | { x: number; w: number }, // a water tower's tank (see tuning.tower): from x, w wide, its top at the platform top: shoot its side and it leaks
@@ -63,6 +63,8 @@ export const tuning = {
     train: null as null | { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }, // a train map (see tuning.train): things pass at speed (m/s), each at its second `at` of every `cycle` seconds
     chase: null as null | { speed: number; mammothX: number; obstacles: string[]; gap: number }, // a treadmill map (see tuning.chase): the floor slides left at speed (m/s) toward a mammoth at mammothX; obstacles (props.ts kinds) ride in from the right, gap metres apart
     fires: [] as { x: number; w: number; up: number }[], // fires (see tuning.fire): flames from x, w wide, on the ground (up = 0) or a ledge `up` m higher
+    gusts: 0, // how much the wind shows as sand streaking across the picture (0..1; looks only: render/extras.ts)
+    rocks: null as null | { kind: string; first: number; every: number }, // rocks falling from above (a props.ts kind): the first at second `first`, then one every `every` s, somewhere over the platform
     // The front plane: things between us and the fighters (looks only: nobody can touch them). kind = grass or sign; x, y = where its base
     // sits (metres, the view is 24 x 13.5); scale = size; speed = m/s it slides across (a sign passing the train), wrapping round.
     front: [] as { kind: 'grass' | 'sign'; x: number; y: number; scale?: number; speed?: number }[],
@@ -592,6 +594,15 @@ export const tuning = {
     kick: 0.6, // the kick out of it, as a share of a normal jump (weak: a pit's edge should be low)
     drownDepth: 1.1, // sinking this far below the surface finishes you (m)
   },
+  lava: {
+    // Lava (Volcano Rim; a tar pit with lava: true): tar to wade in, but it sets you burning the moment you touch it and has you in a blink
+    // (a knock-off); wood that lands in it catches fire. The same settings as tuning.tar.
+    float: 1.4, propFloat: 0.85, sinkFloat: 0.3, bodyHalf: 0.16, drag: 12, spinDrag: 6,
+    frames: 1, // you start going under as soon as you are in...
+    wetAt: 0.1,
+    swallow: 18, // ...and the lava has you this many frames later (0.3 s)
+    walk: 0.35, kick: 0.6, drownDepth: 0.6,
+  },
   special: {
     // Weapons that do more than hit (owner, batch one; sim/special.ts, world.ts hit and blast). PLACEHOLDER numbers until the playtest.
     spearFly: 6, // a loose spear faster than this (m/s) turns its point into the way it flies...
@@ -898,12 +909,14 @@ export const tuning = {
     // fall); ripples widen by `ripple` m over rippleSeconds; a wet fighter drips for dripSeconds at dripsPerSecond; a tar pit bubbles about
     // every bubbleEvery s, each swelling to `bubble` m over bubbleSeconds; a Space Age hit's spark (m, s); the Gravity Hammer's rings close
     // from `pull` m over pullSeconds.
-    extras: { crownDrops: 10, crownRise: 4, crownSpeed: 8, ripple: 0.9, rippleSeconds: 0.9, dripSeconds: 2.5, dripsPerSecond: 6, bubbleEvery: 1.6, bubble: 0.13, bubbleSeconds: 1.4, spark: 0.35, sparkSeconds: 0.2, pull: 0.9, pullSeconds: 0.45 },
+    extras: { crownDrops: 10, crownRise: 4, crownSpeed: 8, ripple: 0.9, rippleSeconds: 0.9, dripSeconds: 2.5, dripsPerSecond: 6, bubbleEvery: 1.6, bubble: 0.13, bubbleSeconds: 1.4, spark: 0.35, sparkSeconds: 0.2, pull: 0.9, pullSeconds: 0.45,
+      embers: 6, emberRise: 1.4, emberSeconds: 1.5, gust: 40, crack: 0.55, crackSeconds: 0.5 }, // embers a second per lava pool, rising at emberRise m/s for emberSeconds; `gust` sand streaks in the wind (arena.gusts); the ice crack's reach (m) and life (s)
     jet: { width: 0.26, color: 0xcfe4ee, alpha: 0.85 },
     wind: { cape: 9, smoke: 0.12, flame: 0.03, trail: 0.05, spray: 0.04, grass: 0.025, jet: 0.03 }, // how much the wind (per m/s) moves: capes (m/s² of flap), smoke (drift share), flames (lean, radians), bullet trails, paint spray, grass (lean), water jets // a water tower leak: how thick, its colour, how see-through
     glassAlpha: 0.4, // how much a shop window hides what is behind it
     rollBlur: 2.5, // a moving map's painting is blurred along the way it moves: px (at 1080p) per m/s of speed
     tar: { alpha: 0.97, top: '#2b2017', deep: '#0b0806', sheen: '#7a6a58' }, // a tar pit: nearly opaque (whoever sinks is gone), dark, a dull sheen on top
+    lava: { alpha: 0.98, top: '#F08A2A', deep: '#7A1A06', sheen: '#FFE48A' }, // a lava pool: glowing orange, dark red deep down, a yellow sheen
     // Bullets (owner: moving white streaks with see-through trails that reach back past the shooter). m, 0..1, seconds.
     // The gold frame around the picture (render/frame.ts): its width (share of the picture's height), and the size of a hole (someone
     // knocked out through it) and of a bullet's crack, in frame widths.
@@ -951,7 +964,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c, 'aqueduct-block': 0xc9bda4, trapdoor: 0x6a4a2a, chariot: 0x8a5a2c, horse: 0x5a3a24, table: 0x6a4426, bench: 0x7a5232, chandelier: 0x3a3430, 'ice-block': 0xc4dde8, oar: 0x8a6a42 } as Record<string, number>, // breakable scenery and its pieces
+    things: { pillar: 0xd8c08a, rubble: 0xc8b07c, barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c, 'aqueduct-block': 0xc9bda4, trapdoor: 0x6a4a2a, chariot: 0x8a5a2c, horse: 0x5a3a24, table: 0x6a4426, bench: 0x7a5232, chandelier: 0x3a3430, 'ice-block': 0xc4dde8, oar: 0x8a6a42 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },
