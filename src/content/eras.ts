@@ -169,7 +169,7 @@ export const eras: Era[] = [
     // ropes over the field: cut one and it drops. Two lances lie under the stands. (Start spots for the standard floor: at 6, 18, 8.5,
     // 15.5 here; playing alone, the tilt stands between you and the dummy.)
     { name: 'Tournament Lists', platformX: 3.5, platformW: 17, ledges: [{ x: 3.5, up: 1.8, w: 2.2 }, { x: 18.3, up: 1.8, w: 2.2 }], tilt: { x: 10.4, w: 3.2 },
-      scenery: [{ kind: 'banner', x: 7.5, up: 2.3 }, { kind: 'banner', x: 16.5, up: 2.3 }], props: [{ kind: 'lance', x: 4.6, up: 0 }, { kind: 'lance', x: 19.4, up: 0 }],
+      scenery: [{ kind: 'banner', x: 7.5, up: 2.8 }, { kind: 'banner', x: 16.5, up: 2.8 }], props: [{ kind: 'lance', x: 4.6, up: 0 }, { kind: 'lance', x: 19.4, up: 0 }],
       fightSpawnX: [7.235, 16.765, 9.221, 14.779], spawnX: [9.221, 14.779, 7.235, 16.765] },
     // Battlements and Catapult (the era plan): the wall walk between two towers, high over the ground. On it a catapult throws toward the
     // left tower: load its cup (a stone, a barrel, a fighter standing in it) and knock its lever over, and the arm whips up and throws it.
