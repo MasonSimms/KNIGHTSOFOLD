@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mapNamed } from '../content/eras';
 import { PROPS } from '../content/props';
 import { tuning as T } from '../content/tuning';
+import { damageScenery } from './guns';
 import { NEUTRAL } from './types';
 import type { SimEvent } from './types';
 import { Sim } from './world';
@@ -185,5 +186,39 @@ describe('Dungeon Cages', () => {
     sim.shootLoose(c, c.body.translation().x, c.body.translation().y, 0);
     for (let i = 0; i < 120 && !v.limp; i++) sim.step([NEUTRAL, NEUTRAL]);
     expect(v.limp).toBe(true); // fell into the pit (a knock-off)
+  });
+});
+
+describe('Great Hall', () => {
+  async function hall() {
+    T.eras.changeGameplay = true;
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'medieval'; sim.forceMap = mapNamed('medieval', 'Great Hall'); sim.reset();
+    T.eras.changeGameplay = false;
+    return sim;
+  }
+  const kind = (sim: Sim, id: string) => sim.props.filter((p) => p.weapon?.id === id);
+
+  it('a suit of armour is too heavy to lift; clubbed apart, it leaves a helm and two greaves to fight with', async () => {
+    const sim = await hall(), I = sim as unknown as Internals, [a] = kind(sim, 'armour');
+    expect(I.itemOf(a)).toBeNull();
+    damageScenery(sim, a, PROPS.armour.breaks!.hp + 1);
+    expect(kind(sim, 'armour').length).toBe(1);
+    expect(kind(sim, 'helm').length).toBe(1);
+    expect(kind(sim, 'greave').length).toBe(2);
+    expect(I.itemOf(kind(sim, 'greave')[0])).not.toBeNull();
+  });
+
+  it('the great chandelier hangs over the high table; cut down, it crushes whoever stands on the table', async () => {
+    const sim = await hall(), [c] = kind(sim, 'great-chandelier'), y0 = c.body.translation().y, A = sim.arena, v = sim.fighters[1];
+    for (let i = 0; i < 300; i++) sim.step([NEUTRAL, NEUTRAL]);
+    expect(Math.abs(c.body.translation().y - y0)).toBeLessThan(0.05);
+    const t = v.torso.body.translation(), x = c.body.translation().x + 0.6;
+    for (const p of v.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + x - t.x, y: q.y + A.platformTop - PROPS.table.thick - T.stand.height - 0.05 - t.y }, true); p.body.setLinvel({ x: 0, y: 0 }, true); }
+    for (let i = 0; i < 30; i++) sim.step([NEUTRAL, NEUTRAL]);
+    sim.shootLoose(c, c.body.translation().x, c.body.translation().y, 0);
+    const events: SimEvent[] = [];
+    for (let i = 0; i < 90; i++) { sim.step([NEUTRAL, NEUTRAL]); events.push(...sim.events.map((e) => ({ ...e }))); }
+    expect(events.some((e) => e.t === 'hit' && e.how === 'crush' && e.victim === 1)).toBe(true);
   });
 });

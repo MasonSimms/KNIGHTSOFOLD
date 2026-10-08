@@ -99,6 +99,12 @@ export const PROPS: Record<string, PropSpec> = {
   obelisk: { len: 0.55, thick: 5.0, mass: 60, factor: 2.6, material: 'stone', box: true },
   jar: { len: 0.34, thick: 0.44, mass: 2.5, factor: 2.4, material: 'light', shatters: true, box: true }, // a clay jar (Nile Barge): throw it, or smash it on someone
   cage: { len: 1.0, thick: 1.1, mass: 30, factor: 2.6, material: 'metal', box: true, hangs: 1.4 }, // an iron cage on a chain (Dungeon Cages): it swings when bumped or stood on; a club hit or a shot cuts it down, and it crushes
+  // the Great Hall (Medieval): a suit of armour on its stand (too heavy to lift: shove it over; club blows knock it apart into a helm and
+  // two greaves, clubs), and a great iron wheel of candles over the high table (cut down, it crushes everyone on the table)
+  armour: { len: 0.55, thick: 1.45, mass: 22, factor: 2.6, material: 'metal', box: true, breaks: { hp: 40, into: ['helm', 'greave', 'greave'] } },
+  helm: { len: 0.3, thick: 0.28, mass: 2.0, factor: 2.6, material: 'metal' },
+  greave: { len: 0.55, thick: 0.12, mass: 1.6, factor: 2.5, material: 'metal' },
+  'great-chandelier': { len: 3.0, thick: 0.4, mass: 55, factor: 2.6, material: 'metal', box: true, hangs: 1.6 },
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

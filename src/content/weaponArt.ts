@@ -34,6 +34,9 @@ const blade = (x0: number, x1: number, w: number, c: Paint, point = 0.12): Piece
 const half = (cx: number, cy: number, r: number, a0: number, a1: number, n = 10): [number, number][] => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + ((a1 - a0) * i) / n; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r] as [number, number]; });
 const stock = (x1: number, c: Paint): Piece => poly(c, [[0, -0.035], [0, 0.07], [0.1, 0.055], [x1, 0.022], [x1, -0.022]], true); // a long gun's butt, deepest at the back
 
+/** A wheel of candles seen from the side: the iron ring, candles standing on it with their flames, wax dripping off its underside. */
+const chandelier = (len: number): WeaponArt => ({ len, pieces: [rod(0, len, 0.05, 0.05, IRON, { y: [0.06, 0.06] }), rod(len * 0.5, len * 0.5, 0.03, 0.03, IRON, { y: [-0.15, 0.06] }),
+  ...Array.from({ length: Math.round(len / 0.3) }, (_, i) => (i + 0.5) * (len / Math.round(len / 0.3))).flatMap((x) => [rod(x, x, 0.022, 0.022, CREAM, { y: [0.02, -0.1] }), ball(x, 0.03, GOLD, { y: -0.13, glow: true }), rod(x + 0.04, x + 0.04, 0.008, 0.004, CREAM, { y: [0.1, 0.15] })])] });
 export const WEAPON_ART: Record<string, WeaponArt> = {
   // the signature weapons (weapons.ts)
   'bone-club': { len: 1.05, pieces: [ball(0.02, 0.028, BONE), rod(0, 0.26, 0.022, 0.024, LEATHER, { grip: true }), rod(0.24, 0.92, 0.024, 0.05, BONE), ball(0.94, 0.064, BONE, { y: -0.03 }), ball(0.96, 0.056, BONE, { y: 0.034 })] },
@@ -111,6 +114,12 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
   // standing things (box props: x across their width, y up and down, the base at the bottom)
   obelisk: { len: 0.55, pieces: [poly(SAND, [[0, 2.5], [0.55, 2.5], [0.47, -2.18], [0.08, -2.18]]), poly(GOLD, [[0.08, -2.18], [0.47, -2.18], [0.275, -2.5]]), ...[-1.7, -1.1, -0.5, 0.1, 0.7, 1.3].map((y, i) => (i % 2 ? rod(0.2, 0.35, 0.025, 0.025, CARVED, { y: [y, y] }) : ball(0.275, 0.07, CARVED, { y })))] }, // (carved signs down its face)
   jar: { len: 0.34, pieces: [poly(CLAY, [[0.12, -0.22], [0.22, -0.22], [0.21, -0.15], [0.3, -0.08], [0.33, 0.02], [0.27, 0.15], [0.2, 0.22], [0.14, 0.22], [0.07, 0.15], [0.01, 0.02], [0.04, -0.08], [0.13, -0.15]]), rod(0.05, 0.29, 0.012, 0.012, BLACK, { y: [-0.03, -0.03] })] }, // (a dark band round its belly)
+  chandelier: chandelier(1.5), 'great-chandelier': chandelier(3.0),
+  armour: { len: 0.55, pieces: [rod(0.19, 0.19, 0.05, 0.04, STEEL, { y: [0.05, 0.66] }), rod(0.36, 0.36, 0.05, 0.04, STEEL, { y: [0.05, 0.66] }), poly(STEEL, [[0.1, 0.62], [0.24, 0.62], [0.24, 0.72], [0.06, 0.72]]), poly(STEEL, [[0.31, 0.62], [0.45, 0.62], [0.49, 0.72], [0.31, 0.72]]),
+    rod(0.05, 0.07, 0.035, 0.03, STEEL, { y: [-0.38, 0.02] }), rod(0.5, 0.48, 0.035, 0.03, STEEL, { y: [-0.38, 0.02] }), poly(STEEL, [[0.1, -0.43], [0.45, -0.43], [0.48, -0.1], [0.41, 0.1], [0.14, 0.1], [0.07, -0.1]]),
+    ball(0.07, 0.08, STEEL, { y: -0.4 }), ball(0.48, 0.08, STEEL, { y: -0.4 }), ball(0.275, 0.12, STEEL, { y: -0.58 }), rod(0.19, 0.36, 0.012, 0.012, BLACK, { y: [-0.58, -0.58] }), poly(RED, [[0.25, -0.69], [0.32, -0.69], [0.4, -0.74], [0.26, -0.73]])] }, // (a red plume on the helm)
+  helm: { len: 0.3, pieces: [ball(0.15, 0.14, STEEL), rod(0.05, 0.25, 0.012, 0.012, BLACK, { y: [0, 0] }), poly(RED, [[0.12, -0.12], [0.19, -0.12], [0.27, -0.17], [0.13, -0.16]])] },
+  greave: { len: 0.55, pieces: [rod(0, 0.48, 0.045, 0.038, STEEL), ball(0.05, 0.055, STEEL), poly(STEEL, [[0.44, -0.04], [0.55, -0.02], [0.55, 0.05], [0.44, 0.05]])] },
   cage: { len: 1.0, pieces: [ball(0.36, 0.08, BONE, { y: 0.45 }), rod(0.48, 0.82, 0.025, 0.025, BONE, { y: [0.5, 0.47] }), ...[0.04, 0.22, 0.41, 0.59, 0.78, 0.96].map((x) => rod(x, x, 0.022, 0.022, IRON, { y: [-0.53, 0.53] })), rod(0, 1.0, 0.04, 0.04, IRON, { y: [-0.53, -0.53] }), rod(0, 1.0, 0.04, 0.04, IRON, { y: [0, 0] }), rod(0, 1.0, 0.05, 0.05, IRON, { y: [0.52, 0.52] }), ball(0.5, 0.06, IRON, { y: -0.58 })] }, // (a skull and a bone in the bottom)
   oar: { len: 2.0, pieces: [rod(0, 1.55, 0.022, 0.022, WOOD, { grip: true }), poly(WOOD, [[1.45, -0.03], [1.6, -0.09], [2.0, -0.08], [2.0, 0.08], [1.6, 0.09], [1.45, 0.03]])] },
   'lead-pipe': { len: 1.0, pieces: [rod(0, 1.0, 0.022, 0.022, GREY, { grip: true }), rod(0, 0.06, 0.027, 0.027, IRON), rod(0.88, 1.0, 0.03, 0.03, IRON)] },

@@ -146,7 +146,15 @@ export const eras: Era[] = [
       platformThickness: 6, ground: [{ x: 2.5, w: 8.0 }, { x: 13.5, w: 8.0 }], // (start spots below are for the standard floor: at 4, 20, 6.8, 17.2 here; playing alone, the dummy stands under a cage)
       scenery: [{ kind: 'cage', x: 8.5, up: 1.65 }, { kind: 'cage', x: 15.5, up: 1.65 }, { kind: 'cage', x: 12.0, up: -1.1 }],
       props: [{ kind: 'bone', x: 4.5, up: 0 }, { kind: 'bone', x: 19.5, up: 0 }],
-      fightSpawnX: [6.32, 17.68, 8.31, 15.69], spawnX: [7.03, 9.51, 14.84, 17.33] }], outfits: ['knight', 'squire', 'archer', 'bishop'] },
+      fightSpawnX: [6.32, 17.68, 8.31, 15.69], spawnX: [7.03, 9.51, 14.84, 17.33] },
+    // Great Hall (the era plan): the hall's floor, open at both ends (off it is the dark below), a minstrels' gallery at each end, the high
+    // table in the middle under a great iron wheel of candles: hit it or shoot its chain and it comes down on everyone on the table. A
+    // suit of armour stands each side: shove it over, or club it apart into a helm and two greaves to fight with. Benches, goblets.
+    { name: 'Great Hall', platformX: 3.5, platformW: 17, ledges: [{ x: 3.5, up: 1.9, w: 2.4 }, { x: 18.1, up: 1.9, w: 2.4 }],
+      scenery: [{ kind: 'table', x: 12.0, up: 0 }, { kind: 'mug', x: 11.4, up: 0.8 }, { kind: 'mug', x: 12.6, up: 0.8 }, { kind: 'great-chandelier', x: 12.0, up: 3.2 },
+        { kind: 'armour', x: 7.0, up: 0 }, { kind: 'armour', x: 17.0, up: 0 }],
+      props: [{ kind: 'bench', x: 9.0, up: 0 }, { kind: 'bench', x: 15.0, up: 0 }],
+      fightSpawnX: [6.44, 17.56, 10.09, 13.91], spawnX: [6.84, 10.09, 13.91, 17.16] }], outfits: ['knight', 'squire', 'archer', 'bishop'] }, // (start spots for the standard floor: at 5, 19, 9.6, 14.4 here)
   { id: 'samurai', name: 'Samurai Knights', special: false, pickups: ['iron-fan', 'naginata'], style: { blur: 7, grain: 0.025 }, sky: 0x8a6f86, platform: 0x6b4a3a, wall: 0x4a3a34, weapon: 'katana', arena: { platformX: 6.625, platformW: 10.75, walls: [/* Dojo Ridge: narrow walls both sides */ { side: -1, up: 2.0, gap: 1.0 }, { side: 1, up: 2.0, gap: 1.0 }], fightSpawnX: [7.2, 16.8, 10.4, 13.6] }, alt: [{ name: 'Rope Bridge', ground: [{ x: 5.25, w: 3.5 }, { x: 15.25, w: 3.5 }], bridge: { x0: 8.75, x1: 15.25, planks: 8 } }], outfits: ['armoured lord', 'ronin', 'ashigaru', 'monk'] },
   { id: 'pirates', name: 'Pirates', special: false, gunRounds: 0.5, pickups: ['duckfoot', 'pistol', 'blunderbuss', 'boat-hook'], strong: 2, sky: 0x5a9aa8, platform: 0x6a4a30, wall: 0x4a3626, weapon: 'cutlass', arena: { name: 'Ship Deck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boats: [{ x: 5.75, w: 12.5 }], props: [{ kind: 'plank', x: 10.0, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, alt: [
     // Ship to Ship (owner, 2026-10-06): two ships lashed side by side, a gangplank across the 1.5 m gap and two ropes in an X from each
