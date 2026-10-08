@@ -67,7 +67,7 @@ export class Predictor {
     for (const p of mine) { if (!p.body.isDynamic()) p.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true); if (p.body.gravityScale() !== 1) p.body.setGravityScale(1, true); }
     if (starting) this.start(f, alpha, n - 1);
     this.shift.x *= T.net.predict.smooth; this.shift.y *= T.net.predict.smooth;
-    sim.poseMachines(this.frameOf(n));
+    sim.poseMachines(this.frameOf(n) + 1); // (where the server has them as this input's step ends)
     const shown = sim.predictStep(this.slot, input);
     for (const p of mine) { const t = p.body.translation(); p.px = p.cx; p.py = p.cy; p.pa = p.ca; p.cx = t.x; p.cy = t.y; p.ca = p.body.rotation(); }
     const t = f.torso.body.translation();
@@ -156,10 +156,11 @@ export class Predictor {
       p.body.setAngvel(wrap(L.p[j * 3 + 2] - b[j * 3 + 2]) * v, true);
     });
     this.hist.clear();
+    this.mirror.sim.poseMachines(L.frame + 1, true); // (the clock's machines straight to where they were in that snapshot: this page did not move them while it was not guessing)
     for (let k = Math.max(L.ack + 1, upTo - T.net.predict.replayMax + 1); k <= upTo; k++) {
       const i = this.sent.get(k);
       if (!i) continue;
-      this.mirror.sim.poseMachines(this.frameOf(k));
+      this.mirror.sim.poseMachines(this.frameOf(k) + 1);
       this.mirror.sim.predictStep(this.slot, i);
       const t = f.torso.body.translation();
       this.hist.set(k, { x: t.x, y: t.y });

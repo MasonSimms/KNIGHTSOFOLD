@@ -27,9 +27,9 @@ export function buildChariot(sim: Sim): Chariot {
 }
 
 /** The chariot on to where it is at `frame` (next frame, on the server; an online page, the frame it is predicting). */
-export function placeChariot(sim: Sim, ch: Chariot, frame: number): ReturnType<typeof chariotAt> {
+export function placeChariot(sim: Sim, ch: Chariot, frame: number, jump = false): ReturnType<typeof chariotAt> {
   const n = chariotAt(sim.arena, frame), now = ch.body.translation();
-  if (Math.abs(n.x - now.x) > 3) ch.body.setTranslation({ x: n.x, y: n.y }, true); // (to the start of a run, or away: no sweep across)
+  if (jump || Math.abs(n.x - now.x) > 3) ch.body.setTranslation({ x: n.x, y: n.y }, true); // (to the start of a run, or away: no sweep across)
   else ch.body.setNextKinematicTranslation({ x: n.x, y: n.y });
   return n;
 }

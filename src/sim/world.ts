@@ -699,10 +699,12 @@ export class Sim {
    */
   /** Online, on a page: the machines that move by the clock (not by the physics), put where they are at server frame `frame` (the one
    *  its own fighter is being guessed at: net/predict.ts). Left where they were built, or where a snapshot from the past had them, your
-   *  fighter stood on a trapdoor the server had opened, or on a plane a buffer behind (snaps). A machine of that kind adds itself here. */
-  poseMachines(frame: number): void {
-    if (this.doors.length) stepDoors(this, this.doors, frame);
-    if (this.chariot) placeChariot(this, this.chariot, frame);
+   *  fighter stood on a trapdoor the server had opened, or on a plane a buffer behind (snaps). `frame` is the one the step ends on (the
+   *  server moves them to sim.frame + 1 within a step); jump: put them there at once (catching up after the page stopped guessing: moved
+   *  there in one step instead, a machine flung whoever stood on it). A machine of that kind adds itself here. */
+  poseMachines(frame: number, jump = false): void {
+    if (this.doors.length) stepDoors(this, this.doors, frame, jump);
+    if (this.chariot) placeChariot(this, this.chariot, frame, jump);
   }
 
   predictStep(slot: number, input: PlayerInput): SimEvent[] {
