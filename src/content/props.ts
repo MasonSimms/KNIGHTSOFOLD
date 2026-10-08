@@ -6,7 +6,7 @@ import type { ChainSpec, GunSpec, Material } from './weapons';
 // weapons that spawn in as a round goes on: heavier or longer, hitting harder.
 /** breaks: scenery that breaks (owner: environments have destructible elements): how much it takes (bullets by calibre x 10, hard hits by
  *  impact) and the loose pieces it leaves (kinds in this list). */
-export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean; hangs?: number; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; net?: boolean; chain?: ChainSpec; slam?: number; edge?: 'blade'; point?: boolean; thrust?: boolean; lunge?: number } // chain: a head on a chain (sim/fighter.ts addHead); hook: a grappling hook (sim/hook.ts); grip: where the hand holds it, as a share of its length from the back end (the ring on art-guide/visuals/weapons.png)
+export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean; hangs?: number; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; net?: boolean; chain?: ChainSpec; slam?: number; edge?: 'blade'; point?: boolean; thrust?: boolean; lunge?: number; roots?: number } // chain: a head on a chain (sim/fighter.ts addHead); hook: a grappling hook (sim/hook.ts); grip: where the hand holds it, as a share of its length from the back end (the ring on art-guide/visuals/weapons.png)
 
 /** The guns (owner: the revolver and the flintlock first). PLACEHOLDER numbers until the playtest. */
 const REVOLVER: GunSpec = { ammo: 6, cooldown: 14, speed: 70, calibre: 1, impact: 31, push: 9, recoil: 2.5, kick: 6 }; // 6 quick shots, each about half a full club hit
@@ -122,6 +122,10 @@ export const PROPS: Record<string, PropSpec> = {
   'catapult-arm': { len: 3.3, thick: 0.16, mass: 30, factor: 2.6, toughness: 16 },
   'catapult-frame': { len: 1.6, thick: 1.25, mass: 200, box: true, back: true, fixed: true },
   lever: { len: 0.9, thick: 0.08, mass: 1.5, factor: 2.2, toughness: 4 },
+  // the Samurai: a bamboo stalk rooted in the floor (roots: how stiffly it stands; tuning.bamboo); pushed, it bends and springs back, and a hard
+  // blow cuts it free: a long pole that stabs like a spear. A glazed roof tile (Pagoda Rooftops): pull it up and throw it, it shatters.
+  bamboo: { len: 2.6, thick: 0.08, mass: 1.2, factor: 2.3, point: true, thrust: true, grip: 0.35, toughness: 4, roots: 200 },
+  'roof-tile': { len: 0.36, thick: 0.1, mass: 1.4, factor: 2.4, material: 'light', shatters: true },
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

@@ -80,9 +80,9 @@ Pickups: **Mace** (heavy, small head: the biggest hit of any one-hand weapon), *
 Pickups: **Naginata** (very long, sweeping), **Tessen** (iron war fan: short, fast, a good parry).
 1. **Dojo Ridge** BUILT (usual samurai arena with narrow walls).
 2. **Rope Bridge** BUILT (breakable plank bridge between two cliffs).
-3. **Bamboo Grove**: bamboo stalks you can cut and that bend. A cut stalk is a spear or a ramp.
-4. **Pagoda Rooftops**: sloped tiled roofs that tilt you down and loose roof tiles.
-5. **Waterfall Torii**: a stone gate on a cliff over a waterfall: the sliding water pushes you downstream and off.
+3. **Bamboo Grove**: bamboo stalks you can cut and that bend. A cut stalk is a spear or a ramp. **BUILT 2026-10-08** (samurai map 4): a grove open at both ends with seven 2.6 m stalks rooted in the floor on a sprung hinge (props.ts bamboo roots, tuning.bamboo). Like ropes, bodies pass between them and weapons and loose things meet them: a swing or a thrown thing whips one over and it springs back; a hard blow (20) or a shot cuts it free, a long pole that stabs like a spear (no ramp).
+4. **Pagoda Rooftops**: sloped tiled roofs that tilt you down and loose roof tiles. **BUILT 2026-10-08** (samurai map 2; flat roofs, not sloped): three temple roofs with 1.2 m alleys between them, each with an upper tier; the glazed tiles are slick (arena.ice 0.5: you slide on, and off an edge), and loose roof tiles to throw (props.ts roof-tile, they shatter). Painted as plain slabs until the art pass.
+5. **Waterfall Torii**: a stone gate on a cliff over a waterfall: the sliding water pushes you downstream and off. **BUILT 2026-10-08** (samurai map 3): rocks at both ends, and between them a stream on each side running at 2.2 m/s into a 2 m chasm in the middle, where it pours over as a waterfall (arena.streams, sim/stream.ts: standing in it is a moving floor; light things and the dead float down it). A red torii stands over the chasm, painted only (arena.decor): a lintel to stand on would block every jump across.
 
 ## 7. Pirates (decided: normal era; water and boat physics)
 Pickups: **Flintlock Pistol** (clubbed with, or thrown), **Grappling Hook** (a hook and rope: hang it on something and swing).

@@ -54,6 +54,8 @@ export const tuning = {
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
     roll: 0, // the painting slides by at this speed (m/s): a moving map (the train, the mammoth chase)
     tower: null as null | { x: number; w: number }, // a water tower's tank (see tuning.tower): from x, w wide, its top at the platform top: shoot its side and it leaks
+    streams: [] as { x: number; w: number; speed: number }[], // shallow water running over the floor (see tuning.stream): from x, w wide, at speed m/s (+ toward +x); standing in it carries you
+    decor: [] as { kind: string; x: number; up: number }[], // looks only: a painted thing behind the fighters (its picture is weaponArt.ts kind), its middle at x, its foot up m above the floor
     wind: null as null | { base: number; gust: number; dir: -1 | 1 }, // a windy map (see tuning.wind): a steady `base` m/s plus gusts up to `gust` more, blowing toward dir
     noWeapons: false, // nobody starts armed, nothing lies about and no pickups come (the train: fists and throws)
     spawnSpots: null as null | number[], // where on this map weapons appear when they do not fall from the sky (share of the platform; null = tuning.spawn.spots)
@@ -637,6 +639,18 @@ export const tuning = {
     reach: 7, // beyond this distance (m) a light no longer turns the shadow (the plain soft shadow below and to the right)
     flicker: 0.18, // how much a flame flickers (share of its brightness)
     dark: 0.45, // how dark the background gets with every lantern out (0 = no change)
+  },
+  bamboo: {
+    // Bamboo (Samurai: Bamboo Grove; props.ts roots is each stalk's stiffness): rooted on a sprung hinge at its foot. PLACEHOLDER numbers.
+    bend: 1.4, // how far over it bends either way (radians: 1.4 is nearly flat)
+    damping: 8, // how quickly it stops swaying once it springs back
+  },
+  stream: {
+    // Streams (sim/stream.ts; each map's own are its arena.streams). PLACEHOLDER numbers.
+    depth: 0.45, // how deep the water runs over the floor (m): the dead and loose things this low are dragged along
+    drag: 4, // how quickly light loose things and the dead come to the water's speed (per second)...
+    float: 0.95, // ...floating: the share of their weight the water bears (a stone too heavy to lift does not float, tuning.props.maxLift)
+    lip: 0.6, // it still carries you this far past its edge (m), over the lip where it runs off
   },
   wind: {
     // Wind (sim/wind.ts; each map's own wind is its arena.wind). Owner: it moves the cosmetics a lot and play a little. PLACEHOLDER numbers.

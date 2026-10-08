@@ -18,6 +18,7 @@ import { createMammoth } from './mammoth';
 import { createPassing } from './passing';
 import { createDoors } from './trapdoors';
 import { createChariot } from './chariot';
+import { createDecor } from './decor';
 import { createJets } from './jets';
 import { windAt } from '../sim/wind';
 import { eraFor, mapFor } from '../sim/era';
@@ -413,6 +414,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const thingColor = (p: Part) => (p.weapon?.gun ? T.colors.gun : T.colors.things[p.weapon?.id ?? ''] ?? T.colors.stick);
   const sea = createSea((x, y, speed, tar) => { ring(x, y, tar ? 0x3a2c20 : 0xffffff); extras.splash(sim, x, y, speed, tar); }); // the ship and the near water, on a map with a sea; a ring and a crown where something goes in
   actors.addChildAt(sea.hull, 0); // (the ship is the floor: behind everything in the play plane)
+  const decorLayer = new Container(), decor = createDecor(decorLayer); // a map's painted scenery (a torii gate): behind everything in the play plane
+  actors.addChildAt(decorLayer, 0);
   view.addChildAt(sea.water, view.getChildIndex(front)); // the water: in front of the play plane, behind the front plane
   view.addChildAt(extras.surface, view.getChildIndex(sea.water) + 1); // ripples and tar bubbles: on the water's surface, in front of it
   const playerColor = (i: number) => (sim.looks[i]?.bot ? BOT_GRAYS[i % BOT_GRAYS.length] : COLORS[sim.looks[i]?.color ?? i % COLORS.length].hex); // each player's chosen colour (a bot is a shade of gray)
@@ -459,6 +462,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     }
     for (const e of entries) { e.group.destroy({ children: true }); e.shade.destroy({ children: true }); }
     sea.build(sim);
+    decor.build(sim);
     flames.build(sim);
     mammoth.build(sim);
     light.build(sim);
