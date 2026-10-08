@@ -5,7 +5,7 @@ export const tuning = {
     dt: 1 / 60,
     gravity: 22, // heavier than Earth: snappier, more comedic arcs
     maxStepsPerFrame: 5,
-    maxPartSpeed: 60, // m/s: a safety cap on any body part (real play stays far below it: club tips reach about 35); stops rare solver blow-ups
+    maxPartSpeed: 60, // m/s: a safety cap on any body part and any loose thing (real play stays far below it: club tips reach about 35, thrown things 40); stops rare solver blow-ups
     maxJointedSpeed: 20, // m/s: a loose thing still jointed into the map (a bridge's plank, a rope's link, a hanging cage, bamboo) moves no faster. A weapon in a hand pressed on the pier's planks set them fighting their joints, and in three frames the bridge was flying at 350 m/s
     maxFallSpeed: 18, // terminal fall speed (m/s): a body landing faster than this on its legs gets blasted back out of the floor
     solverIterations: 32, // Rapier default is 4; more = stiffer joints (arm chain) at some CPU cost

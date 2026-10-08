@@ -31,8 +31,8 @@ import { applyFalls } from './falls';
 import { crackFloes } from './floe';
 import { applyStreams } from './stream';
 import { applyWire } from './wire';
-import { buildPlane, stepPlane } from './plane';
-import { buildTank, stepTank } from './tank';
+import { buildPlane, placePlane, stepPlane } from './plane';
+import { buildTank, placeTank, stepTank } from './tank';
 import type { Tank } from './tank';
 import { applyWind } from './wind';
 import { aimSpears, fuses, goneOff, stickSpears } from './special';
@@ -705,6 +705,8 @@ export class Sim {
   poseMachines(frame: number, jump = false): void {
     if (this.doors.length) stepDoors(this, this.doors, frame, jump);
     if (this.chariot) placeChariot(this, this.chariot, frame, jump);
+    if (this.tank) placeTank(this, this.tank, frame, jump);
+    if (this.plane) placePlane(this, this.plane, frame, jump);
   }
 
   predictStep(slot: number, input: PlayerInput): SimEvent[] {
@@ -831,11 +833,12 @@ export class Sim {
       const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y);
       if (s > M) p.body.setLinvel({ x: (v.x / s) * M, y: (v.y / s) * M }, true);
     }
-    const J = T.sim.maxJointedSpeed;
+    const J = T.sim.maxJointedSpeed; // (and any other loose thing, M: a cut rope's link, squeezed between a ship and a fighter, was spat out at 180 m/s)
     for (const p of this.props) {
-      if (!p.links?.length || !p.body.isDynamic()) continue;
+      if (!p.body.isDynamic()) continue;
       const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y);
-      if (s > J) p.body.setLinvel({ x: (v.x / s) * J, y: (v.y / s) * J }, true);
+      const cap = p.links?.length ? J : M;
+      if (s > cap) p.body.setLinvel({ x: (v.x / s) * cap, y: (v.y / s) * cap }, true);
     }
   }
 

@@ -116,3 +116,20 @@ describe('ray gun effects', () => {
     expect(sim.hooks.length).toBe(0);
   }, 30_000);
 });
+
+describe('the swap pistol and what it hits', () => {
+  it('shot at the weapon in someone hand, it swaps you with them (the weapon, torn from the hand, flew at 200 m/s)', async () => {
+    const sim = await duel(21);
+    arm(sim, 0, 'swap-pistol');
+    const a0 = sim.fighters[0].torso.body.translation().x, b0 = sim.fighters[1].torso.body.translation().x, held = sim.fighters[1].stick!;
+    let most = 0;
+    for (let i = 0; i < 120 && !sim.events.some((e) => e.t === 'zap'); i++) {
+      const a = sim.fighters[0].torso.body.translation(), b = held.body.translation();
+      sim.step([{ ...NEUTRAL, aim: Math.atan2(b.y - a.y, b.x - a.x), reach: Math.hypot(b.y - a.y, b.x - a.x), attack: i === 20 }, NEUTRAL]);
+    }
+    for (let i = 0; i < 30; i++) { sim.step([NEUTRAL, NEUTRAL]); most = Math.max(most, Math.hypot(held.body.linvel().x, held.body.linvel().y)); }
+    expect(Math.abs(sim.fighters[0].torso.body.translation().x - b0)).toBeLessThan(0.8);
+    expect(Math.abs(sim.fighters[1].torso.body.translation().x - a0)).toBeLessThan(0.8);
+    expect(most).toBeLessThan(30);
+  }, 30_000);
+});
