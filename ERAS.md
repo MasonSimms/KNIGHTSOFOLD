@@ -53,7 +53,7 @@ Pickups: **Was Sceptre** (long staff), **Golden Flail** (a chain with a weight: 
 
 ## 3. Roman Gladiators
 Pickups: **Trident** (long reach, prod), **Net** (thrown to tangle; needs the "entangle" feature).
-1. **Colosseum Floor**: trapdoors that open on a timer under the sand.
+1. **Colosseum Floor**: trapdoors that open on a timer under the sand. **BUILT 2026-10-07** (gladiators map 3; owner chose it): the sand between the arena walls with two 2 m trapdoors over shafts down to the pit; each rattles for a second, drops open, hangs open, then swings shut, in turn every 9 s (tuning.trapdoor).
 2. **Chariot Track**: a runaway chariot crosses now and then and flattens or launches anyone in the way (the knockoff is the track edge).
 3. **Portcullis Gate**: a heavy gate you can cut loose to drop between fighters.
 4. **Lion's Pit** BUILT (first version: two floors, a pit with one stepping stone level with the floor; no crowd yet): ledges over a pit. The fall is the knockoff and the crowd edge shows paint.

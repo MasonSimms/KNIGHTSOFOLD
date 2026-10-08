@@ -57,6 +57,7 @@ export const tuning = {
     noWeapons: false, // nobody starts armed, nothing lies about and no pickups come (the train: fists and throws)
     spawnSpots: null as null | number[], // where on this map weapons appear when they do not fall from the sky (share of the platform; null = tuning.spawn.spots)
     gunsOnly: false, // nobody starts armed and only the era's guns drop in, early and often (eras.ts gunsOnly; tuning.spawn.gunsFirst, gunsGap)
+    trapdoors: [] as { x: number; w: number; hinge: -1 | 1; at: number }[], // doors in the floor over a gap (see tuning.trapdoor): from x, w wide, hinged at its left (-1) or right (1) edge, first opening at second `at`
     train: null as null | { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }, // a train map (see tuning.train): things pass at speed (m/s), each at its second `at` of every `cycle` seconds
     chase: null as null | { speed: number; mammothX: number; obstacles: string[]; gap: number }, // a treadmill map (see tuning.chase): the floor slides left at speed (m/s) toward a mammoth at mammothX; obstacles (props.ts kinds) ride in from the right, gap metres apart
     fires: [] as { x: number; w: number; up: number }[], // fires (see tuning.fire): flames from x, w wide, on the ground (up = 0) or a ledge `up` m higher
@@ -632,6 +633,18 @@ export const tuning = {
     maxJets: 6,
     stagger: 12, // caught in it, you are off balance this many frames (no braking): it carries you
   },
+  trapdoor: {
+    // Trapdoors (Gladiators: Colosseum Floor, arena.trapdoors): each one rattles for `tell` seconds, drops open (a quarter turn, in
+    // `swing`), hangs open until `open` seconds after it began, swings shut over `close`, and comes round again every `cycle`.
+    cycle: 9, // s
+    tell: 1, // s of rattling before it opens
+    swing: 0.25, // s to drop open
+    open: 2.5, // s from starting to open until it starts to shut
+    close: 0.6, // s to swing shut
+    rattle: 0.05, // how hard it rattles (radians)
+    rattleRate: 45, // ...and how fast (radians of the shake per second)
+    thick: 0.25, // m
+  },
   train: {
     // The Train (sim/train.ts; the map's own timetable is its arena.train). PLACEHOLDER numbers until the playtest.
     signW: 1.2, signH: 0.45, signUp: 0.75, // a wooden sign: its size and how high its bottom is above the roof (m): jump it, or get down
@@ -908,7 +921,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c, 'aqueduct-block': 0xc9bda4 } as Record<string, number>, // breakable scenery and its pieces
+    things: { barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c, 'aqueduct-block': 0xc9bda4, trapdoor: 0x6a4a2a } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

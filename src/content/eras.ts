@@ -21,6 +21,7 @@ export interface EraArena {
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
   weapon?: string; // this map's own weapon (weapons.ts), instead of the era's
   chase?: { speed: number; mammothX: number; obstacles: string[]; gap: number }; // a treadmill map (see tuning.arena.chase)
+  trapdoors?: { x: number; w: number; hinge: -1 | 1; at: number }[]; // doors in the floor over a gap that open on a timetable (see tuning.trapdoor)
   train?: { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }; // a train map (see tuning.arena.train)
   roll?: number; // the painting slides by (m/s)
   noWeapons?: boolean; // fists and throws only
@@ -72,7 +73,13 @@ export const eras: Era[] = [
     { name: 'Aqueduct Bridge', ground: [{ x: 1.0, w: 5.5, thick: 8 }, { x: 8.2, w: 0.6, up: -0.45, thick: 7 }, { x: 10.2, w: 0.6, up: -0.45, thick: 7 },
       { x: 12.2, w: 0.6, up: -0.45, thick: 7 }, { x: 14.2, w: 0.6, up: -0.45, thick: 7 }, { x: 16.2, w: 0.6, up: -0.45, thick: 7 }, { x: 17.5, w: 5.5, thick: 8 }],
       bridge: { x0: 6.5, x1: 17.5, planks: 11, kind: 'aqueduct-block', water: true },
-      fightSpawnX: [4.0, 20.0, 9.5, 13.5], spawnX: [3.5, 7.5, 20.0, 13.5], props: [{ kind: 'plank', x: 2.5, up: 0 }] }], outfits: ['murmillo', 'retiarius', 'thraex', 'centurion'] },
+      fightSpawnX: [4.0, 20.0, 9.5, 13.5], spawnX: [3.5, 7.5, 20.0, 13.5], props: [{ kind: 'plank', x: 2.5, up: 0 }] },
+    // Colosseum Floor (owner chose it from the plan, 2026-10-07): the arena's sand between its walls, with two trapdoors over the pit
+    // underneath. Each rattles, drops open, hangs open a couple of seconds and swings shut, in turn (tuning.trapdoor): whoever is on one
+    // drops into the pit. Fight near them, or throw people onto them.
+    { name: 'Colosseum Floor', walls: [{ side: -1, up: 2.0, gap: 0 }, { side: 1, up: 2.0, gap: 0 }], ground: [{ x: 5.25, w: 3.0, thick: 6 }, { x: 10.25, w: 3.5, thick: 6 }, { x: 15.75, w: 3.0, thick: 6 }], // (the floor runs deep: the doors are over shafts down into the pit)
+      trapdoors: [{ x: 8.25, w: 2.0, hinge: -1, at: 3 }, { x: 13.75, w: 2.0, hinge: 1, at: 7.5 }],
+      fightSpawnX: [6.75, 17.25, 10.8, 13.2], spawnX: [7.0, 11.5, 17.25, 13.2], props: [{ kind: 'plank', x: 12.0, up: 0 }] }], outfits: ['murmillo', 'retiarius', 'thraex', 'centurion'] },
   { id: 'vikings', name: 'Vikings', special: false, pickups: ['round-shield', 'spear'], sky: 0x6f8aa0, platform: 0x6a5a48, wall: 0x4a4a4e, weapon: 'axe', arena: { platformW: 13.75, props: [{ kind: 'log', x: 11.75, up: 0 }] }, outfits: ['jarl', 'raider', 'shieldmaiden', 'berserker'] },
   { id: 'medieval', name: 'Medieval Knights', special: false, pickups: ['mace', 'lance'], sky: 0x7a8aa6, platform: 0x7a7a78, wall: 0x56565a, weapon: 'longsword', arena: { walls: [/* the castle wall across a moat: fall in and wall-jump out */ { side: -1, up: 2.5, gap: 1.2 }], ledges: [{ x: 6.25, up: 1.8, w: 2.0 }, { x: 15.75, up: 1.8, w: 2.0 }], scenery: [{ kind: 'crate', x: 18.1, up: 0 }] }, outfits: ['knight', 'squire', 'archer', 'bishop'] },
   { id: 'samurai', name: 'Samurai Knights', special: false, pickups: ['iron-fan', 'naginata'], style: { blur: 7, grain: 0.025 }, sky: 0x8a6f86, platform: 0x6b4a3a, wall: 0x4a3a34, weapon: 'katana', arena: { platformX: 6.625, platformW: 10.75, walls: [/* Dojo Ridge: narrow walls both sides */ { side: -1, up: 2.0, gap: 1.0 }, { side: 1, up: 2.0, gap: 1.0 }], fightSpawnX: [7.2, 16.8, 10.4, 13.6] }, alt: [{ name: 'Rope Bridge', ground: [{ x: 5.25, w: 3.5 }, { x: 15.25, w: 3.5 }], bridge: { x0: 8.75, x1: 15.25, planks: 8 } }], outfits: ['armoured lord', 'ronin', 'ashigaru', 'monk'] },

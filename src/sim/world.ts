@@ -16,6 +16,8 @@ import { applyFire } from './fire';
 import { buildChase, loopFloor, stepChase } from './chase';
 import type { Chase } from './chase';
 import { buildTrain, stepTrain } from './train';
+import { buildDoors, stepDoors } from './trapdoor';
+import type { Trapdoor } from './trapdoor';
 import type { Passing } from './train';
 import { applyJets } from './tower';
 import { applyFalls } from './falls';
@@ -109,6 +111,7 @@ export class Sim {
   private ropeEnds: { body: RAPIER.RigidBody; ship: Boat; x: number; y: number }[] = []; // rope ends tied on a ship: where on it (see buildRope)
   chase: Chase | null = null; // this round's treadmill and mammoth, on the Mammoth Chase (see chase.ts)
   passing: Passing[] = []; // the signs and tunnels coming past the train (see train.ts)
+  doors: Trapdoor[] = []; // the trapdoors in the floor (see trapdoor.ts)
   jets: Jet[] = []; // water leaking from the water tower's tank (see tower.ts)
   private cutLinks = new Set<unknown>(); // bridge joints already removed
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
@@ -266,6 +269,7 @@ export class Sim {
     for (const r of A.ropes) this.ropes.push(this.buildRope(r, A));
     this.chase = A.chase ? buildChase(this) : null;
     this.passing = A.train ? buildTrain(this) : [];
+    this.doors = A.trapdoors.length ? buildDoors(this) : [];
     this.jets = [];
 
     // The map's side walls (if any): a backstop at an end, or a wall across a gap you can fall into and wall-jump out of.
@@ -600,6 +604,7 @@ export class Sim {
     this.keepWeaponsInPlay();
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     if (this.passing.length) stepTrain(this, this.passing);
+    if (this.doors.length) stepDoors(this, this.doors);
     applyWind(this);
     moveHooks(this);
     moveNets(this);
