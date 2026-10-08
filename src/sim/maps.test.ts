@@ -91,7 +91,7 @@ describe('maps', () => {
 
   it('a weapon in your hand passes through a ledge: jumping under one with it raised never hooks you on it', async () => {
     const sim = await Sim.create(5, 2, false);
-    sim.forceEra = 'medieval'; sim.reset();
+    sim.forceEra = 'medieval'; sim.forceMap = 0; sim.reset(); // (the era's main map: it has ledges)
     const A = sim.arena, L = A.ledges[0], f = sim.fighters[0];
     const t = f.torso.body.translation();
     for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + L.x + L.w / 2 - t.x, y: q.y }, true); } // under the middle of the ledge

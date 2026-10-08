@@ -147,7 +147,7 @@ export const eras: Era[] = [
     // the bridge's far end where it comes low) and the bridge swings down, tipping everyone on it into the moat; the yard is all that is left.
     name: 'Castle Drawbridge', walls: [{ side: -1, up: 2.5, gap: 1.2 }], ground: [{ x: 5.25, w: 7.97 }], drawbridge: { x: 13.25, w: 5.5, hinge: -1, chain: { x: 13.15, up: 4.4 } },
     ledges: [{ x: 6.25, up: 1.8, w: 2.0 }, { x: 10.0, up: 1.9, w: 2.0 }], scenery: [{ kind: 'gatehouse', x: 12.32, up: 0 }, { kind: 'crate', x: 15.0, up: 0 }],
-    fightSpawnX: [6.3, 12.4, 8.4, 10.4] }, alt: [ // (everyone starts in the yard: out on the bridge, a sword swung at the start cut the chain at once)
+    fightSpawnX: [5.9, 12.8, 8.2, 10.5] }, alt: [ // (everyone starts in the yard: out on the bridge, a sword swung at the start cut the chain at once)
     // Dungeon Cages (the era plan): a dungeon between stone walls with a pit in the middle, the only way out. Iron cages hang on chains
     // over the floor: a club hit or a shot cuts one down, and it crushes whoever is under it. One hangs down in the pit, its top level with
     // the floor: a swinging stepping stone, until someone cuts it down with whoever is standing on it. Old bones lie about (clubs).
@@ -165,20 +165,20 @@ export const eras: Era[] = [
       props: [{ kind: 'bench', x: 9.0, up: 0 }, { kind: 'bench', x: 15.0, up: 0 }],
       fightSpawnX: [6.44, 17.56, 10.09, 13.91], spawnX: [6.84, 10.09, 13.91, 17.16] },
     // Tournament Lists (the era plan): the long jousting field, a stand at each end. In the middle the tilt, the barrier: an oak rail fixed on
-    // two trestles (vault it, or shove the whole fence over; a hard hit knocks the rail off, and it is a long, heavy club). Banners hang on
+    // two trestles (too heavy to lift: vault it; blows break the rail apart into two clubs). Banners hang on
     // ropes over the field: cut one and it drops. Two lances lie under the stands. (Start spots for the standard floor: at 6, 18, 8.5,
     // 15.5 here; playing alone, the tilt stands between you and the dummy.)
-    { name: 'Tournament Lists', platformX: 3.5, platformW: 17, ledges: [{ x: 3.5, up: 1.6, w: 2.2 }, { x: 18.3, up: 1.6, w: 2.2 }], tilt: { x: 10.4, w: 3.2 },
+    { name: 'Tournament Lists', platformX: 3.5, platformW: 17, ledges: [{ x: 3.5, up: 1.8, w: 2.2 }, { x: 18.3, up: 1.8, w: 2.2 }], tilt: { x: 10.4, w: 3.2 },
       scenery: [{ kind: 'banner', x: 7.5, up: 2.3 }, { kind: 'banner', x: 16.5, up: 2.3 }], props: [{ kind: 'lance', x: 4.6, up: 0 }, { kind: 'lance', x: 19.4, up: 0 }],
       fightSpawnX: [7.235, 16.765, 9.221, 14.779], spawnX: [9.221, 14.779, 7.235, 16.765] },
     // Battlements and Catapult (the era plan): the wall walk between two towers, high over the ground. On it a catapult throws toward the
     // left tower: load its cup (a stone, a barrel, a fighter standing in it) and knock its lever over, and the arm whips up and throws it.
-    // It winds back down by itself, ready again. Stones lie about to load it with. (Start spots for the standard floor: at 7.5, 19.2 on
-    // the right tower, 9.6, 11.6 here; playing alone, the dummy stands by the lever.)
+    // It winds back down by itself, ready again. Stones lie about to load it with. (Start spots for the standard floor: at 7, 19.2 on
+    // the right tower, 9.4, 11.8 here; playing alone, the dummy stands by the lever.)
     { name: 'Battlements and Catapult', platformX: 3.5, platformW: 17, platformThickness: 6,
       ground: [{ x: 3.5, w: 2.6, up: 1.6, thick: 7.6 }, { x: 6.1, w: 11.8 }, { x: 17.9, w: 2.6, up: 1.6, thick: 7.6 }], catapult: { x: 14.6, lever: 12.9 },
       scenery: [{ kind: 'catapult-frame', x: 14.6, up: 0 }], props: [{ kind: 'rubble', x: 8.2, up: 0 }, { kind: 'rubble', x: 11.2, up: 0 }],
-      fightSpawnX: [8.426, 17.718, 10.094, 11.682], spawnX: [9.221, 11.603, 7.712, 17.718] }], outfits: ['knight', 'squire', 'archer', 'bishop'] }, // (start spots for the standard floor: at 5, 19, 9.6, 14.4 here)
+      fightSpawnX: [8.029, 17.718, 9.935, 11.841], spawnX: [9.221, 11.603, 7.235, 17.718] }], outfits: ['knight', 'squire', 'archer', 'bishop'] }, // (start spots for the standard floor: at 5, 19, 9.6, 14.4 here)
   { id: 'samurai', name: 'Samurai Knights', special: false, pickups: ['iron-fan', 'naginata'], style: { blur: 7, grain: 0.025 }, sky: 0x8a6f86, platform: 0x6b4a3a, wall: 0x4a3a34, weapon: 'katana', arena: { platformX: 6.625, platformW: 10.75, walls: [/* Dojo Ridge: narrow walls both sides */ { side: -1, up: 2.0, gap: 1.0 }, { side: 1, up: 2.0, gap: 1.0 }], fightSpawnX: [7.2, 16.8, 10.4, 13.6] }, alt: [{ name: 'Rope Bridge', ground: [{ x: 5.25, w: 3.5 }, { x: 15.25, w: 3.5 }], bridge: { x0: 8.75, x1: 15.25, planks: 8 } }], outfits: ['armoured lord', 'ronin', 'ashigaru', 'monk'] },
   { id: 'pirates', name: 'Pirates', special: false, gunRounds: 0.5, pickups: ['duckfoot', 'pistol', 'blunderbuss', 'boat-hook'], strong: 2, sky: 0x5a9aa8, platform: 0x6a4a30, wall: 0x4a3626, weapon: 'cutlass', arena: { name: 'Ship Deck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boats: [{ x: 5.75, w: 12.5 }], props: [{ kind: 'plank', x: 10.0, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, alt: [
     // Ship to Ship (owner, 2026-10-06): two ships lashed side by side, a gangplank across the 1.5 m gap and two ropes in an X from each

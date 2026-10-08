@@ -111,10 +111,11 @@ export const PROPS: Record<string, PropSpec> = {
   drawbridge: { len: 5.5, thick: 0.3, mass: 120, factor: 2.6, box: true, toughness: 12 },
   'drawbridge-chain': { len: 7.0, thick: 0.07, mass: 25, factor: 2.6, material: 'metal' },
   gatehouse: { len: 1.8, thick: 5.2, mass: 500, material: 'stone', box: true, back: true, fixed: true },
-  // Tournament Lists (Medieval): the tilt's rail and trestles (sim/tilt.ts; the rail's length is the map's; knocked off, the rail is a long,
-  // heavy club), and a banner on a rope over the field (cut it and it drops). PLACEHOLDER numbers.
-  'tilt-rail': { len: 3.2, thick: 0.14, mass: 16, factor: 2.6, toughness: 10 },
-  trestle: { len: 0.7, thick: 1.0, mass: 12, factor: 2.4, box: true, toughness: 8 },
+  // Tournament Lists (Medieval): the tilt's rail and trestles (sim/tilt.ts; the rail's length is the map's; all too heavy to lift: you
+  // vault the fence), the halves the rail breaks into (clubs), and a banner on a rope over the field (cut it and it drops). PLACEHOLDER.
+  'tilt-rail': { len: 3.2, thick: 0.14, mass: 22, factor: 2.6, toughness: 10, breaks: { hp: 45, into: ['rail-half', 'rail-half'], min: 10 } },
+  'rail-half': { len: 1.6, thick: 0.14, mass: 6, factor: 2.6, toughness: 6 },
+  trestle: { len: 0.7, thick: 1.0, mass: 24, factor: 2.4, box: true, toughness: 8 },
   banner: { len: 0.8, thick: 1.3, mass: 1.5, factor: 1.4, box: true, hangs: 0.8 },
   // Battlements and Catapult (Medieval): the catapult's arm (moved by the rules, not the physics: sim/catapult.ts; its length is
   // tuning.catapult arm + back), the frame it stands in (behind the fighters, fixed), and its lever (on a sprung hinge, bolted). PLACEHOLDER.

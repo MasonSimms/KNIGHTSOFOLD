@@ -132,6 +132,7 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
   // Tournament Lists: the tilt's rail (oak, banded red), a trestle (an A-frame with a top bar and a brace), a banner on its crossbar (red, a
   // cream stripe, a gold boss, a swallowtail)
   'tilt-rail': { len: 3.2, pieces: [rod(0, 3.2, 0.07, 0.07, WOOD), ...[0.2, 0.9, 1.6, 2.3, 3.0].map((x) => rod(x - 0.18, x + 0.18, 0.072, 0.072, RED))] },
+  'rail-half': { len: 1.6, pieces: [rod(0, 1.6, 0.07, 0.07, WOOD, { grip: true }), ...[0.25, 0.95].map((x) => rod(x - 0.18, x + 0.18, 0.072, 0.072, RED)), poly(WOOD, [[1.5, -0.07], [1.6, -0.03], [1.56, 0.0], [1.6, 0.05], [1.5, 0.07]])] },
   trestle: { len: 0.7, pieces: [rod(0.05, 0.3, 0.035, 0.035, WOOD, { y: [0.5, -0.46] }), rod(0.65, 0.4, 0.035, 0.035, WOOD, { y: [0.5, -0.46] }), rod(0.06, 0.64, 0.04, 0.04, DARKWOOD, { y: [-0.46, -0.46] }), rod(0.16, 0.54, 0.025, 0.025, DARKWOOD, { y: [0.1, 0.1] })] },
   // Battlements and Catapult: the arm (an oak beam with iron bands, the axle's hub 0.9 from the front end, a rope-bound basket at the
   // cup end), the frame (an A of timbers on a base beam, the hub at its top, a padded stop post behind), the lever (an iron-shod stick)
