@@ -18,6 +18,7 @@ import { buildChase, loopFloor, stepChase } from './chase';
 import type { Chase } from './chase';
 import { buildTrain, stepTrain } from './train';
 import { buildDoors, stepDoors } from './trapdoor';
+import { buildDrawbridge } from './drawbridge';
 import { buildChariot, stepChariot } from './chariot';
 import type { Chariot } from './chariot';
 import type { Trapdoor } from './trapdoor';
@@ -111,6 +112,7 @@ export class Sim {
   bridge: Part[] = []; // the planks of this round's bridge, in order
   bridgeHome: { x: number; y: number }[] = []; // ...and where each one was built (the aqueduct's water pours through where one has gone: falls.ts)
   boats: Boat[] = []; // this round's ships, on a map with them (see water.ts)
+  machine: Part[] = []; // the map's own moving parts that are loose things (a drawbridge's deck and chain): a training clear keeps them
   private ropes: Part[][] = []; // the links of each rope, in order (arena.ropes)
   private ropeEnds: { body: RAPIER.RigidBody; ship: Boat; x: number; y: number }[] = []; // rope ends tied on a ship: where on it (see buildRope)
   chase: Chase | null = null; // this round's treadmill and mammoth, on the Mammoth Chase (see chase.ts)
@@ -239,6 +241,7 @@ export class Sim {
     this.props = [];
     this.bridge = [];
     this.bridgeHome = [];
+    this.machine = [];
     this.ropes = [];
     this.ropeEnds = [];
     this.cutLinks.clear();
@@ -271,6 +274,7 @@ export class Sim {
       return { ...g, body };
     });
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
+    if (A.drawbridge) buildDrawbridge(this, A.drawbridge, A.platformTop);
     for (const r of A.ropes) this.ropes.push(this.buildRope(r, A));
     this.chase = A.chase ? buildChase(this) : null;
     this.passing = A.train ? buildTrain(this) : [];
@@ -728,7 +732,7 @@ export class Sim {
   /** Training: take every loose weapon and object off the map (a bridge keeps its planks, ropes their links, the Mammoth Chase its rocks and logs; clubs dropped by fighters stay). */
   clearLoose(): void {
     this.edits.push({ f: this.frame });
-    const kept = (q: Part) => this.bridge.includes(q) || this.ropes.some((r) => r.includes(q)) || !!this.chase?.obstacles.includes(q); // (the map's own machinery stays: the chase moves its rocks and logs every step)
+    const kept = (q: Part) => this.bridge.includes(q) || this.machine.includes(q) || this.ropes.some((r) => r.includes(q)) || !!this.chase?.obstacles.includes(q); // (the map's own machinery stays: the chase moves its rocks and logs every step)
     for (const p of this.props.filter((q) => !kept(q))) {
       this.partByBody.delete(p.body.handle);
       this.world.removeRigidBody(p.body);

@@ -24,7 +24,7 @@ const LACQUER = ['#9A3428', '#641C14', '#2E0C08'], OLIVE = ['#86906A', '#5C6646'
 const ROPE = ['#DCC48E', '#B49A62', '#76603A'], VIOLET = ['#ABADCC', '#7C7FA6', '#45486C'], SPADE = ['#A3A598', '#75786C', '#45473F'];
 const CYAN = ['#F4FFFF', '#7FF2F4', '#1FA9B8'], PINK = ['#FFF0FB', '#F45FD4', '#A21F8A'], PURPLE = ['#6A58C0', '#3E2E8C', '#1C1448'];
 const ICE = ['#F2FAFF', '#B9DCF0', '#5FA8D4'], SHIELD = ['#C4D4DE', '#94AABA', '#5E7484'], ORANGE = ['#F2A04A', '#D4762A', '#7E3E12'];
-const SAND = ['#EBD3A0', '#C9A86A', '#7E6438'], CARVED = ['#9A7A48', '#6E5430', '#3E2E18'], CLAY = ['#D98A56', '#A85A32', '#5E2E18'];
+const MORTAR = ['#8F887C', '#6E685E', '#4A453E'], SAND = ['#EBD3A0', '#C9A86A', '#7E6438'], CARVED = ['#9A7A48', '#6E5430', '#3E2E18'], CLAY = ['#D98A56', '#A85A32', '#5E2E18'];
 
 const rod = (x0: number, x1: number, w0: number, w1: number, c: Paint, o: { y?: [number, number]; bend?: number; grip?: true; glow?: true } = {}): Piece =>
   ({ k: 'rod', a: [x0, o.y?.[0] ?? 0], b: [x1, o.y?.[1] ?? 0], w: [w0, w1], bend: o.bend, c, grip: o.grip, glow: o.glow });
@@ -123,4 +123,14 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
   cage: { len: 1.0, pieces: [ball(0.36, 0.08, BONE, { y: 0.45 }), rod(0.48, 0.82, 0.025, 0.025, BONE, { y: [0.5, 0.47] }), ...[0.04, 0.22, 0.41, 0.59, 0.78, 0.96].map((x) => rod(x, x, 0.022, 0.022, IRON, { y: [-0.53, 0.53] })), rod(0, 1.0, 0.04, 0.04, IRON, { y: [-0.53, -0.53] }), rod(0, 1.0, 0.04, 0.04, IRON, { y: [0, 0] }), rod(0, 1.0, 0.05, 0.05, IRON, { y: [0.52, 0.52] }), ball(0.5, 0.06, IRON, { y: -0.58 })] }, // (a skull and a bone in the bottom)
   oar: { len: 2.0, pieces: [rod(0, 1.55, 0.022, 0.022, WOOD, { grip: true }), poly(WOOD, [[1.45, -0.03], [1.6, -0.09], [2.0, -0.08], [2.0, 0.08], [1.6, 0.09], [1.45, 0.03]])] },
   'lead-pipe': { len: 1.0, pieces: [rod(0, 1.0, 0.022, 0.022, GREY, { grip: true }), rod(0, 0.06, 0.027, 0.027, IRON), rod(0.88, 1.0, 0.03, 0.03, IRON)] },
+  // Castle Drawbridge: the deck seen from the side (an oak beam with iron straps and bolts, the chain's ring on top near the far end), the
+  // chain, and the gatehouse (a stone tower with battlements, an arrow slit, the arch you walk through with the portcullis drawn up into
+  // it, and the slot the chain runs out of)
+  drawbridge: { len: 5.5, pieces: [poly(WOOD, [[0, -0.15], [5.5, -0.15], [5.5, 0.15], [0, 0.15]]), rod(0, 5.5, 0.03, 0.03, DARKWOOD, { y: [0.12, 0.12] }),
+    ...[0.3, 1.1, 1.9, 2.7, 3.5, 4.3, 5.1].flatMap((x) => [rod(x, x, 0.035, 0.035, IRON, { y: [-0.15, 0.15] }), ball(x, 0.025, IRON, { y: -0.08 }), ball(x, 0.025, IRON, { y: 0.08 })]), ball(5.35, 0.07, IRON, { y: -0.17 })] },
+  'drawbridge-chain': { len: 7.0, pieces: [{ k: 'chain', x: [0, 7.0], r: 0.05, c: IRON }] },
+  gatehouse: { len: 1.8, pieces: [poly(STONE, [[0, 2.6], [1.8, 2.6], [1.8, -2.6], [0, -2.6]]), ...[0, 0.5, 1.0, 1.5].map((x) => poly(STONE, [[x, -2.6], [x + 0.3, -2.6], [x + 0.3, -2.88], [x, -2.88]])),
+    ...[-2.0, -1.35, -0.7, -0.05, 0.6].map((y) => rod(0, 1.8, 0.012, 0.012, MORTAR, { y: [y, y] })), poly(BLACK, [[0.85, -1.75], [0.95, -1.75], [0.95, -1.15], [0.85, -1.15]]),
+    poly(BLACK, [[0.45, 2.6], [0.45, 1.3], ...half(0.9, 1.3, 0.45, Math.PI, 2 * Math.PI), [1.35, 2.6]]), ...[0.58, 0.74, 0.9, 1.06, 1.22].map((x) => rod(x, x, 0.016, 0.01, IRON, { y: [0.95, 1.45] })),
+    rod(0.47, 1.33, 0.016, 0.016, IRON, { y: [1.2, 1.2] }), ball(1.73, 0.07, BLACK, { y: -1.8 })] },
 };

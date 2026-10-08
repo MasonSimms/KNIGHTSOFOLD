@@ -105,6 +105,12 @@ export const PROPS: Record<string, PropSpec> = {
   helm: { len: 0.3, thick: 0.28, mass: 2.0, factor: 2.6, material: 'metal' },
   greave: { len: 0.55, thick: 0.12, mass: 1.6, factor: 2.5, material: 'metal' },
   'great-chandelier': { len: 3.0, thick: 0.4, mass: 55, factor: 2.6, material: 'metal', box: true, hangs: 1.6 },
+  // Castle Drawbridge (Medieval): the oak deck (hinged at the gate: sim/drawbridge.ts; its length is the map's), the iron chain that holds
+  // its far end up (its length is the map's too; too heavy to lift once cut), and the gatehouse it hangs from: stone, behind the fighters
+  // (you walk through its arch), fixed. PLACEHOLDER numbers.
+  drawbridge: { len: 5.5, thick: 0.3, mass: 120, factor: 2.6, box: true, toughness: 12 },
+  'drawbridge-chain': { len: 7.0, thick: 0.07, mass: 25, factor: 2.6, material: 'metal' },
+  gatehouse: { len: 1.8, thick: 5.2, mass: 500, material: 'stone', box: true, back: true, fixed: true },
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

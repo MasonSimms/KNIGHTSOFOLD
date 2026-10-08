@@ -23,6 +23,7 @@ export interface EraArena {
   weapon?: string; // this map's own weapon (weapons.ts), instead of the era's
   chase?: { speed: number; mammothX: number; obstacles: string[]; gap: number }; // a treadmill map (see tuning.arena.chase)
   chariot?: { at: number; cycle: number; speed: number; dir: 1 | -1 }; // a runaway chariot charging across on a timetable (see tuning.chariot)
+  drawbridge?: { x: number; w: number; hinge: -1 | 1; chain: { x: number; up: number } }; // a drawbridge held up by a chain you can cut (see tuning.arena.drawbridge)
   trapdoors?: { x: number; w: number; hinge: -1 | 1; at: number }[]; // doors in the floor over a gap that open on a timetable (see tuning.trapdoor)
   train?: { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }; // a train map (see tuning.arena.train)
   roll?: number; // the painting slides by (m/s)
@@ -138,7 +139,13 @@ export const eras: Era[] = [
       boats: [{ x: 3.0, w: 3.5, depth: 0.6, look: 'ice', tilt: 0.25, crack: true }, { x: 7.3, w: 3.0, depth: 0.6, look: 'ice', tilt: 0.25, crack: true },
         { x: 11.0, w: 3.2, depth: 0.6, look: 'ice', tilt: 0.25, crack: true }, { x: 15.0, w: 3.0, depth: 0.6, look: 'ice', tilt: 0.25, crack: true },
         { x: 18.8, w: 3.4, depth: 0.6, look: 'ice', tilt: 0.25, crack: true }] }], outfits: ['jarl', 'raider', 'shieldmaiden', 'berserker'] },
-  { id: 'medieval', name: 'Medieval Knights', special: false, pickups: ['mace', 'lance'], sky: 0x7a8aa6, platform: 0x7a7a78, wall: 0x56565a, weapon: 'longsword', arena: { walls: [/* the castle wall across a moat: fall in and wall-jump out */ { side: -1, up: 2.5, gap: 1.2 }], ledges: [{ x: 6.25, up: 1.8, w: 2.0 }, { x: 15.75, up: 1.8, w: 2.0 }], scenery: [{ kind: 'crate', x: 18.1, up: 0 }] }, alt: [
+  { id: 'medieval', name: 'Medieval Knights', special: false, pickups: ['mace', 'lance'], sky: 0x7a8aa6, platform: 0x7a7a78, wall: 0x56565a, weapon: 'longsword', arena: {
+    // Castle Drawbridge (the era plan): the castle yard (the outer wall across a ditch on the left: fall in and wall-jump out), the gatehouse,
+    // and out of its arch the drawbridge over the moat, held up by one chain from the gatehouse. Cut the chain (a club hit or a shot, out at
+    // the bridge's far end where it comes low) and the bridge swings down, tipping everyone on it into the moat; the yard is all that is left.
+    name: 'Castle Drawbridge', walls: [{ side: -1, up: 2.5, gap: 1.2 }], ground: [{ x: 5.25, w: 7.97 }], drawbridge: { x: 13.25, w: 5.5, hinge: -1, chain: { x: 13.15, up: 4.4 } },
+    ledges: [{ x: 6.25, up: 1.8, w: 2.0 }, { x: 10.0, up: 1.9, w: 2.0 }], scenery: [{ kind: 'gatehouse', x: 12.32, up: 0 }, { kind: 'crate', x: 15.0, up: 0 }],
+    fightSpawnX: [6.3, 12.4, 8.4, 10.4] }, alt: [ // (everyone starts in the yard: out on the bridge, a sword swung at the start cut the chain at once)
     // Dungeon Cages (the era plan): a dungeon between stone walls with a pit in the middle, the only way out. Iron cages hang on chains
     // over the floor: a club hit or a shot cuts one down, and it crushes whoever is under it. One hangs down in the pit, its top level with
     // the floor: a swinging stepping stone, until someone cuts it down with whoever is standing on it. Old bones lie about (clubs).
