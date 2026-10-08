@@ -80,7 +80,7 @@ describe('era gameplay: weapon and arena', () => {
     const inputs = fuzzer(8);
     const seen = new Set<string>();
     let joinedAt = -1, checks = 0;
-    for (let i = 0; i < 3600; i++) {
+    for (let i = 0; i < 7200; i++) { // (two minutes: random play rarely knocks anyone off, so rounds run long)
       for (let k = 0; k < 4; k++) room.setInput(k, inputs(4)[k]);
       const s = room.tick();
       seen.add(server.weapon.id);
