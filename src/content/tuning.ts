@@ -986,7 +986,7 @@ export const tuning = {
     rollBlur: 2.5, // a moving map's painting is blurred along the way it moves: px (at 1080p) per m/s of speed
     tar: { alpha: 0.97, top: '#2b2017', deep: '#0b0806', sheen: '#7a6a58' }, // a tar pit: nearly opaque (whoever sinks is gone), dark, a dull sheen on top
     lava: { alpha: 0.98, top: '#F08A2A', deep: '#7A1A06', sheen: '#FFE48A' }, // a lava pool: glowing orange, dark red deep down, a yellow sheen
-    mud: { alpha: 0.96, top: '#5E4A34', deep: '#1E160E', sheen: '#8A7A5E' }, // a mud sump (a tar pit with mud: true): brown, a wet sheen
+    mud: { alpha: 0.97, top: '#4A3218', deep: '#170E05', sheen: '#7A5E3A' }, // a mud sump (a tar pit with mud: true): dark brown, a wet sheen (lighter, it read as an empty gap)
     // Bullets (owner: moving white streaks with see-through trails that reach back past the shooter). m, 0..1, seconds.
     // The gold frame around the picture (render/frame.ts): its width (share of the picture's height), and the size of a hole (someone
     // knocked out through it) and of a bullet's crack, in frame widths.
