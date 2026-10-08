@@ -159,6 +159,11 @@ function drive(b: RigidBody, p: { px: number; py: number; pa: number; cx: number
   if (!b.isDynamic()) b.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
   if (b.gravityScale() !== 0) b.setGravityScale(0, true);
   const t = b.translation(), x = lerp(p.px, p.cx, alpha) + (p.cx - p.px), y = lerp(p.py, p.cy, alpha) + (p.cy - p.py); // (where it will be after this tick)
+  if (Math.hypot(x - t.x, y - t.y) > T.net.predict.place) { // far off (a club back from the void, a respawn): put it there; driven, it crossed the stage at 100 m/s through anything in the way (your own fighter was launched off the Vikings' map)
+    b.setTranslation({ x, y }, true); b.setRotation(p.ca, true);
+    b.setLinvel({ x: (p.cx - p.px) * 60, y: (p.cy - p.py) * 60 }, true); b.setAngvel(0, true);
+    return;
+  }
   const k = T.net.predict.drive; // (soft: pushed, it gives way like a fighter standing there; what you see of it is the server's picture anyway)
   b.setLinvel({ x: (x - t.x) * k + (p.cx - p.px) * 60, y: (y - t.y) * k + (p.cy - p.py) * 60 }, true);
   b.setAngvel(wrap(p.pa + wrap(p.ca - p.pa) * alpha + wrap(p.ca - p.pa) - b.rotation()) * 60, true);

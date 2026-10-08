@@ -716,6 +716,10 @@ export class Sim {
     else if (e.t === 'snap') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) snapPart(this, p, e.v, e.how === 'loose' ? undefined : h); } // ('loose': their weapon, lying where it was thrown)
     else if (e.t === 'break') { const p = this.props[e.victim]; if (p) breakProp(this, p, false); }
     else if (e.t === 'boom') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) goneOff(this, p, h); }
+    else if (e.t === 'dismember') { // a limb or the head came off: cut the same joint here (kept on, it dragged your own fighter about: 50 m/s after a knockdown)
+      const v = this.fighters[e.victim], j = e.w === 'arm' ? v?.shoulder : e.w === 'head' ? v?.neck : e.w?.startsWith('leg') ? v?.legs[Number(e.w.slice(3))]?.hip : undefined;
+      if (v && j) { if (e.w === 'arm' && v.grip) { this.world.removeImpulseJoint(v.grip, true); v.grip = null; } cutJoint(this.world, v, j); }
+    }
     else if (e.t === 'shatter') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) shatter(this, p, h, false); }
   }
 
@@ -1394,7 +1398,7 @@ export class Sim {
     } else if (c.how === 'club' && c.head && impact >= T.maim.impact) {
       const head = f.parts.find((p) => p.role === 'head'); // a huge killing blow to the head takes it off
       cutJoint(this.world, f, f.neck);
-      if (head) { this.flingPart(head, c.nx, c.ny); this.events.push({ t: 'dismember', x: head.body.translation().x, y: head.body.translation().y, v: impact, owner: f.index, victim: f.index }); }
+      if (head) { this.flingPart(head, c.nx, c.ny); this.events.push({ t: 'dismember', x: head.body.translation().x, y: head.body.translation().y, v: impact, owner: f.index, victim: f.index, w: 'head' }); }
     }
   }
 
@@ -1409,7 +1413,7 @@ export class Sim {
    * no arm = no attacking, grabbing or weapon; one leg = a slow hobble and a low jump; no legs = crawling.
    */
   private maim(v: Fighter, part: Part, nx: number, ny: number): void {
-    let limb: Part | null = null;
+    let limb: Part | null = null, which = 'arm';
     if ((part.role === 'upper' || part.role === 'fore') && !v.armLost) {
       cutJoint(this.world, v, v.shoulder);
       limb = v.upper;
@@ -1420,13 +1424,13 @@ export class Sim {
       const i = v.legs.findIndex((l) => l.thigh === part || l.shin === part);
       if (i < 0 || v.legLost[i]) return;
       cutJoint(this.world, v, v.legs[i].hip);
-      limb = v.legs[i].thigh;
+      limb = v.legs[i].thigh; which = 'leg' + i;
     }
     if (!limb) return;
     this.flingPart(limb, nx, ny);
     v.stun = Math.max(v.stun, T.maim.stunFrames);
     const q = limb.body.translation();
-    this.events.push({ t: 'dismember', x: q.x, y: q.y, v: 0, owner: v.index, victim: v.index });
+    this.events.push({ t: 'dismember', x: q.x, y: q.y, v: 0, owner: v.index, victim: v.index, w: which }); // (which: the online copies cut the same joint)
   }
 
   private checkDeaths(): void {

@@ -60,7 +60,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
 }
 
 /** Events that change which parts exist or who holds what: the only ones a client must replay to keep its parts in step. */
-export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround', 'gone', 'back', 'spawn', 'shot', 'snap', 'break', 'shatter', 'boom']);
+export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround', 'gone', 'back', 'spawn', 'shot', 'snap', 'break', 'shatter', 'boom', 'dismember']);
 
 /** Client side: a copy of the sim that is never stepped. It replays structural events, then has its poses written in from snapshots. */
 export class Mirror {
@@ -68,6 +68,7 @@ export class Mirror {
   private snaps: Snapshot[] = [];
   private evAt = new Map<number, SimEvent[]>(); // events by server tick, not yet shown: each snapshot's own, and repeated in the next ones (back)
   private known = new Set<number>(); // ticks whose events have come in (the same snapshot comes by both lanes: its events count once)
+  private floor = -1; // ticks up to here are in the copy already (it was built from a catch-up there): repeats of their events are ignored
   private head = 0; // the server tick being shown (it runs `delay` ticks behind the newest snapshot, so there is always a pair to blend)
   private started = false;
   private lastLooks = '';
@@ -91,6 +92,7 @@ export class Mirror {
     if (this.fresh) { // a new client (or one that rejoined): build the round the server is in, with its era's weapon and arena
       this.fresh = false;
       if (s.round !== this.sim.round || s.era !== this.sim.era) this.sim.buildRound(s.round, s.era);
+      this.floor = s.frame - 1; // (the catch-up holds everything before it: the next snapshots repeat recent events for the fast lane, and a round's start or a pickup made twice built the wrong map or lost a thing: a friend's page that rejoined crashed)
     }
     this.note(s.frame, s.ev);
     for (const [f, ev] of s.back ?? []) this.note(f, ev);
@@ -108,7 +110,7 @@ export class Mirror {
 
   /** The events of server tick `frame` have come in (the first time only). */
   private note(frame: number, ev: SimEvent[]): void {
-    if (this.known.has(frame)) return;
+    if (frame <= this.floor || this.known.has(frame)) return;
     this.known.add(frame);
     if (ev.length) this.evAt.set(frame, ev);
   }
@@ -128,7 +130,7 @@ export class Mirror {
 
   /** Start over from a fresh build (a rejoining client): forget everything and replay from the next catch-up snapshot. */
   reset(): void {
-    this.snaps = []; this.started = false; this.fresh = true; this.late = []; this.evAt.clear(); this.known.clear();
+    this.snaps = []; this.started = false; this.fresh = true; this.late = []; this.evAt.clear(); this.known.clear(); this.floor = -1;
     this.sim.gone.fill(false);
     this.sim.reset();
   }

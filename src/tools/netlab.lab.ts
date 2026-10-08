@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { deflateRawSync } from 'node:zlib';
 import { it } from 'vitest';
+import { eras } from '../content/eras';
 import { botLook } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import { Predictor } from '../net/predict';
@@ -18,6 +19,8 @@ import { Sim } from '../sim/world';
 // ends are the real code: the server's Room, and the page's Mirror and Predictor, run as main.ts runs them (inputs on a 60 Hz clock,
 // snapshots blended on the screen's clock). Each line below is a kind of connection. Run it before and after any online change.
 // One map, the player standing still (it finds a map whose copy drifts from the server: snaps):  ERA=gladiators MAP=2 IDLE=1 npm run netlab
+// Every map, one connection, the player standing still and fighting (writes reports/NETLAB-MAPS.md: run it after building a map):
+//   MAPS=1 npm run netlab   (PowerShell: $env:MAPS=1; npm run netlab)
 // One way, in ms; jitter: up to this much extra per message; loss: share of messages lost (over a WebSocket a lost one is sent again,
 // and everything behind it waits: a stall of about a round trip). PLACEHOLDER lines until the playtest night's `fly logs` say what's real.
 const LINES = [
@@ -26,7 +29,7 @@ const LINES = [
   { name: 'Busy wifi', ms: 40, jitter: 30, loss: 0.01 },
   { name: 'Coast to coast', ms: 45, jitter: 6, loss: 0.002 },
 ];
-const SECONDS = Number(process.env.NETLAB_SECONDS) || 90, SEED = Number(process.env.NETLAB_SEED) || 11;
+const SECONDS_ALL = Number(process.env.NETLAB_SECONDS) || 90, SEED = Number(process.env.NETLAB_SEED) || 11;
 if (process.env.NETLAB_JITTER) T.net.jitter.percentile = Number(process.env.NETLAB_JITTER); // (to compare buffer settings)
 if (process.env.NETLAB_CARRY) T.net.extrapolateTicks = Number(process.env.NETLAB_CARRY);
 const DT = 1000 / 60;
@@ -49,11 +52,13 @@ class Pipe<M> {
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 const pct = (xs: number[], p: number) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : 0; };
 
-async function play(line: (typeof LINES)[number]) {
+interface Opts { era?: string; map?: number; idle?: boolean; seconds?: number }
+async function play(line: (typeof LINES)[number], o: Opts = { era: process.env.ERA, map: Number(process.env.MAP ?? 0), idle: !!process.env.IDLE }) {
+  const SECONDS = o.seconds ?? SECONDS_ALL;
   const rng = makeRng(SEED * 31 + line.ms);
   const server = await Sim.create(SEED, 4, false), client = await Sim.create(SEED, 4, false);
   server.looks = server.looks.map((l, i) => (i === 0 ? { ...l } : botLook()));
-  if (process.env.ERA) for (const x of [server, client]) { x.forceEra = process.env.ERA; x.forceMap = Number(process.env.MAP ?? 0); } // (ERA=gladiators MAP=2: one map only)
+  if (o.era) for (const x of [server, client]) { x.forceEra = o.era; x.forceMap = o.map ?? 0; } // (ERA=gladiators MAP=2: one map only)
   server.reset(); client.reset();
   const room = new Room(server), mirror = new Mirror(client), pred = new Predictor(mirror, 0), brain = new Bot(SEED + 5);
   const up = new Pipe<{ i: PlayerInput; n: number }>(line.ms, line.jitter, line.loss, rng), down = new Pipe<string>(line.ms, line.jitter, line.loss, rng);
@@ -82,7 +87,7 @@ async function play(line: (typeof LINES)[number]) {
       lastFrame = clientAt;
       acc += ft;
       for (let k = 0; acc >= DT && k < T.sim.maxStepsPerFrame; k++, acc -= DT) {
-        const input = process.env.IDLE ? NEUTRAL : brain.think(server, server.fighters[0]); // (IDLE=1: the player stands still and takes what comes) // (it decides from the server's world: what matters here is when it presses)
+        const input = o.idle ? NEUTRAL : brain.think(server, server.fighters[0]); // (IDLE=1: the player stands still and takes what comes) // (it decides from the server's world: what matters here is when it presses)
         n++; sentAt.set(n, clientAt); sentAt.delete(n - 600);
         up.send(clientAt, { i: input, n });
         pred.tick(input, n, shownAlpha);
@@ -115,14 +120,14 @@ async function play(line: (typeof LINES)[number]) {
   };
 }
 
-it('net lab', async () => {
+it.skipIf(!!process.env.MAPS)('net lab', async () => {
   const rows: Awaited<ReturnType<typeof play>>[] = [];
   for (const line of LINES) { const t0 = performance.now(); rows.push(await play(line)); console.log(`${line.name}: done in ${((performance.now() - t0) / 1000).toFixed(0)} s`); }
   const f0 = (x: number) => x.toFixed(0), f1 = (x: number) => x.toFixed(1), f2 = (x: number) => x.toFixed(2);
   const table = (head: string[], body: string[][]) => [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...body.map((r) => `| ${r.join(' | ')} |`)].join('\n');
   const out = `# Net lab (${new Date().toISOString().slice(0, 16).replace('T', ' ')})
 
-${SECONDS} s of the real game per connection, one player online against three bots on the server (seed ${SEED}). Made by npm run netlab
+${SECONDS_ALL} s of the real game per connection, one player online against three bots on the server (seed ${SEED}). Made by npm run netlab
 (src/tools/netlab.lab.ts). The connections are guesses until the playtest night's server log says what friends really have.
 
 ## Your own buttons
@@ -156,4 +161,32 @@ A performance CPU is never held back.
   mkdirSync('reports', { recursive: true });
   writeFileSync('reports/NETLAB.md', out);
   console.log(out);
+}, 60 * 60 * 1000);
+
+// Every map online (MAPS=1): a page's copy that drifts from the server on one map (the aqueduct's blocks piled into a heap on every page)
+// shows as snaps, mostly when the player stands still on it, and as desyncs when the copy's parts no longer match.
+it.skipIf(!process.env.MAPS)('every map online', async () => {
+  const line = LINES[1], rows: string[][] = [], bad: string[] = [];
+  for (const era of eras) for (let map = 0; map <= (era.alt?.length ?? 0); map++) {
+    const name = (map ? era.alt![map - 1] : era.arena).name ?? 'main';
+    const still = await play(line, { era: era.id, map, idle: true, seconds: 40 }), fight = await play(line, { era: era.id, map, idle: false, seconds: 40 });
+    const snaps = still.snapsPerMin + fight.snapsPerMin, desyncs = still.desyncs + fight.desyncs;
+    if (snaps > 1.5 || desyncs) bad.push(`${era.name}, ${name}`);
+    rows.push([era.name, `${map} ${name}`, still.snapsPerMin.toFixed(1), fight.snapsPerMin.toFixed(1), `${Math.max(still.worstCm, fight.worstCm).toFixed(0)} cm`, String(desyncs)]);
+    console.log(rows.at(-1)!.join(' | '));
+  }
+  const out = `# Net lab: every map online (${new Date().toISOString().slice(0, 16).replace('T', ' ')})
+
+Each map played twice over a ${line.name.toLowerCase()} connection, 40 s each against three bots: the player standing still, then fighting.
+Snaps = your own fighter jumping to where the server has it (over ${T.net.predict.snap} m off); desyncs = the page's copy no longer
+matching the server's parts. Made by MAPS=1 npm run netlab (src/tools/netlab.lab.ts).
+
+${bad.length ? `**Worth a look:** ${bad.join('; ')}.` : 'Nothing stood out.'}
+
+| Era | Map | Snaps a minute (standing) | (fighting) | Worst guess | Desyncs |
+|---|---|---|---|---|---|
+${rows.map((r) => `| ${r.join(' | ')} |`).join('\n')}
+`;
+  mkdirSync('reports', { recursive: true });
+  writeFileSync('reports/NETLAB-MAPS.md', out);
 }, 60 * 60 * 1000);
