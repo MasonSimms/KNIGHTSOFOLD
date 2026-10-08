@@ -554,6 +554,7 @@ export const tuning = {
     bounceKeep: 0.5, // a falling shot (a lobbed grenade round) keeps this share of its speed when it bounces
     brace: { spring: 300, damping: 30 }, // the other hand steadying a gun on the aim: how hard it turns the barrel toward the aim (1/s²), and how much it calms its swing (1/s)
     hurt: 2.6, // a gun's shots and blasts hurt this many times the damage curve (combat.damageScale went from 0.3 to 0.115 for 20 s rounds: guns stay as deadly as they were; fists, clubs and slams take longer)
+    kickMul: 1.8, recoilMul: 1.6, pushMul: 1.8, // (owner 2026-10-07: guns should be felt at both ends) every gun's shove on the shooter's body (props.ts kick), the snap of the gun and arm (recoil), and the shove on whatever its bullet hits (push), times this
     sprayMax: 8, // a held trigger or a burst wanders more each shot (props.ts spreadPerShot), up to this many shots' worth
   },
   water: {
@@ -900,7 +901,7 @@ export const tuning = {
       dab: 0.16, bigDab: 0.36, bigImpact: 40, dabSeconds: 0.22, // a cream dab where a hit lands (m across); a hit this big or more gets the big burst with a red core
       landMin: 6, landFull: 14, dust: 0.55, // a landing faster than landMin (m/s) kicks up dust from the floor, the most at landFull; how solid the dust is
     },
-    bullets: { streak: 0.7, streakWidth: 0.05, trailWidth: 0.05, trailAlpha: 0.35, tailBack: 1.5, trailFadeSeconds: 0.35, flashSeconds: 0.08, twirlSeconds: 0.35 }, // the near water: how much it hides what is under the surface (1 = all of it), and the light line along the top of the waves (m, 0..1)
+    bullets: { shotShake: 0.4, hitShake: 0.35, streak: 0.7, streakWidth: 0.05, trailWidth: 0.05, trailAlpha: 0.35, tailBack: 1.5, trailFadeSeconds: 0.35, flashSeconds: 0.08, twirlSeconds: 0.35 }, // the near water: how much it hides what is under the surface (1 = all of it), and the light line along the top of the waves (m, 0..1)
     boilFps: 9, // how often the painted fighters' brush strokes change (the package: 3 painted variants at 8-10 fps)
     // The hot-colour cape (looks only): where it hangs from (metres from the torso's centre), and how the cloth moves.
     cape: { backX: 0.1, shoulderY: -0.24, gravity: 9, trail: 3, flutter: 2.5, flutterRate: 6, damping: 0.94 },

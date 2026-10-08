@@ -22,7 +22,7 @@ import { createLight } from './light';
 import { makeGoogly, makeHat } from './hat';
 import type { HatView } from './hat';
 import { CAPE, paintedBox, paintedCape, paintedCostume, paintedFront, paintedShape, paintedSplats, paintedStreaks, paintedWeapon, PPM, VARIANTS } from './painter/sprites';
-import { ITEMS } from '../content/props';
+import { ITEMS, PROPS } from '../content/props';
 import { paintingFor } from '../content/paintings';
 import type { Eyes } from '../content/looks';
 import { tuning as T } from '../content/tuning';
@@ -568,6 +568,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (big > 0) shake = Math.min(T.shake.max, Math.max(shake, big * T.shake.perImpact));
         if (e.victim >= 0) spray(e, fighterColor(sim.fighters[e.victim] ?? sim.fighters[0])); // the hurt player's own paint
         if (e.v * boost >= T.indicator.minImpact) ring(e.x, e.y, T.indicator.color);
+        if (e.how === 'shot') shake = Math.max(shake, Math.min(T.shake.max, (PROPS[e.w ?? '']?.gun?.push ?? 0) * T.guns.pushMul * T.finish.bullets.hitShake)); // shot: a jolt, bigger the harder the gun shoves
+      } else if (e.t === 'shot') { // a gun going off kicks the picture, the big ones hard (owner: guns felt at both ends)
+        shake = Math.max(shake, Math.min(T.shake.max, (PROPS[e.w ?? '']?.gun?.kick ?? 0) * T.guns.kickMul * T.finish.bullets.shotShake));
       } else if (e.t === 'disarm') {
         ring(e.x, e.y, 0xffd24a); // a golden ring where a club is knocked loose
       } else if (e.t === 'explode') { // a cartoon burst: big rings and a spray of colour (the pieces fly on their own)

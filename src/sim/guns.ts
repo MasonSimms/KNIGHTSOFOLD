@@ -50,10 +50,10 @@ export function fire(sim: Sim, f: Fighter): void {
   const n = G.pellets ?? 1, spread = G.spread ?? 0; // (a scattergun: n pellets in a cone)
   for (let k = 0; k < n; k++) {
     const off = n === 1 ? 0 : G.fixedFan ? spread * ((2 * k) / (n - 1) - 1) : spread * (2 * rng() - 1), pc = Math.cos(a + off), ps = Math.sin(a + off);
-    sim.bullets.push({ id: sim.nextBullet++, x: mx, y: my, px: mx, py: my, vx: pc * G.speed, vy: ps * G.speed, ox: mx, oy: my, owner: f.index, gun: p.weapon!.id, calibre: G.calibre, impact: G.impact, push: G.push, age: 0, bounced: false, wet: false, bounces: G.bounces ?? 0 });
+    sim.bullets.push({ id: sim.nextBullet++, x: mx, y: my, px: mx, py: my, vx: pc * G.speed, vy: ps * G.speed, ox: mx, oy: my, owner: f.index, gun: p.weapon!.id, calibre: G.calibre, impact: G.impact, push: G.push * T.guns.pushMul, age: 0, bounced: false, wet: false, bounces: G.bounces ?? 0 });
   }
-  b.applyImpulse({ x: -c * G.recoil, y: -s * G.recoil }, true); // the gun (and the arm) kicks back...
-  shove(f, -c * G.kick, -s * G.kick); // ...and the whole body is pushed back (bigger guns more)
+  b.applyImpulse({ x: -c * G.recoil * T.guns.recoilMul, y: -s * G.recoil * T.guns.recoilMul }, true); // the gun (and the arm) kicks back...
+  shove(f, -c * G.kick * T.guns.kickMul, -s * G.kick * T.guns.kickMul); // ...and the whole body is pushed back (bigger guns more)
   ready(f);
   sim.events.push({ t: 'shot', x: mx, y: my, v: a, owner: f.index, victim: -1, w: p.weapon!.id });
   spendShot(f);
@@ -68,8 +68,8 @@ export function predictShot(f: Fighter): SimEvent | null {
   const p = f.stick, G = p?.weapon?.gun;
   if (!p || !G || !f.grip || (p.ammo ?? 0) <= 0 || p.flipped) return null;
   const b = p.body, t = b.translation(), g = b.rotation(), half = lenOf(p) / 2, c = Math.cos(f.aim), s = Math.sin(f.aim);
-  b.applyImpulse({ x: -c * G.recoil, y: -s * G.recoil }, true);
-  shove(f, -c * G.kick, -s * G.kick);
+  b.applyImpulse({ x: -c * G.recoil * T.guns.recoilMul, y: -s * G.recoil * T.guns.recoilMul }, true);
+  shove(f, -c * G.kick * T.guns.kickMul, -s * G.kick * T.guns.kickMul);
   ready(f);
   return { t: 'shot', x: t.x + Math.cos(g) * half, y: t.y + Math.sin(g) * half, v: f.aim, owner: f.index, victim: -1, w: p.weapon!.id };
 }
