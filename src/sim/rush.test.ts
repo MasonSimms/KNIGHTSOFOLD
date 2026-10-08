@@ -91,7 +91,7 @@ describe('the race for the guns', () => {
 
   it("gun rounds: about half of a gun era's rounds are guns-only, picked the same way every time; the Water Tower always is", async () => {
     const was = T.eras.changeGameplay;
-    T.eras.changeGameplay = true;
+    T.eras.changeGameplay = true; T.eras.gunRounds = true;
     try {
       const sim = await Sim.create(35, 2, false);
       sim.forceEra = 'ww1'; sim.forceMap = 0; sim.reset();
@@ -103,6 +103,6 @@ describe('the race for the guns', () => {
       sim.forceEra = 'westerns'; sim.forceMap = mapNamed('westerns', 'Water Tower'); sim.reset();
       expect((sim.arena as { name?: string }).name).toBe('Water Tower');
       expect(rounds(sim).every(Boolean)).toBe(true);
-    } finally { T.eras.changeGameplay = was; }
+    } finally { T.eras.changeGameplay = was; T.eras.gunRounds = false; }
   }, 30_000);
 });

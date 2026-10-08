@@ -158,7 +158,7 @@ export class Sim {
   /** Is this round a gun round (owner, 2026-10-07: more gun arenas)? An era's gunRounds share of its rounds is played guns-only on whatever
    *  map comes up (not a fists-only map), picked from the match seed and the round, so the server and every page agree. */
   private gunRound(): boolean {
-    const c = T.eras.changeGameplay ? eraById(this.era).gunRounds ?? 0 : 0;
+    const c = T.eras.changeGameplay && T.eras.gunRounds ? eraById(this.era).gunRounds ?? 0 : 0;
     return c > 0 && !arenaFor(this.era, this.map).noWeapons && makeRng(((this.seed * 31 + this.round) ^ 0x5bd1e995) >>> 0)() < c;
   }
 

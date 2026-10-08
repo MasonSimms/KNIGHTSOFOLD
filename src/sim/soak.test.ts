@@ -80,8 +80,8 @@ describe('soak: random 4-player fights', () => {
 describe('soak: every map with everything on', () => {
   // As the playtest plays: the eras' own maps, weapons arriving, props lying about, mixed starts. Two button-mashers and two bots per map.
   it('every map: stays finite and in bounds, and no bot gets stuck in one spot for 4 seconds', async () => {
-    const was = { g: T.eras.changeGameplay, s: T.spawn.enabled, m: T.eras.mixStarts, l: T.props.lying };
-    T.eras.changeGameplay = true; T.spawn.enabled = true; T.eras.mixStarts = true; T.props.lying = true;
+    const was = { g: T.eras.changeGameplay, s: T.spawn.enabled, m: T.eras.mixStarts, l: T.props.lying, r: T.eras.gunRounds };
+    T.eras.changeGameplay = true; T.spawn.enabled = true; T.eras.mixStarts = true; T.props.lying = true; T.eras.gunRounds = true;
     try {
       let seed = 100;
       for (const era of eras) for (let map = 0; map <= (era.alt?.length ?? 0); map++, seed++) {
@@ -104,7 +104,7 @@ describe('soak: every map with everything on', () => {
         expect(stuck, `${era.id} map ${map}: a bot stuck`).toBeLessThan(4 * 60);
       }
     } finally {
-      T.eras.changeGameplay = was.g; T.spawn.enabled = was.s; T.eras.mixStarts = was.m; T.props.lying = was.l;
+      T.eras.changeGameplay = was.g; T.spawn.enabled = was.s; T.eras.mixStarts = was.m; T.props.lying = was.l; T.eras.gunRounds = was.r;
     }
   }, 300_000);
 });
