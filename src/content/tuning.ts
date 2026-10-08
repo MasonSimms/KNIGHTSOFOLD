@@ -763,6 +763,10 @@ export const tuning = {
     afterSlamFrames: 3, // how far into the downswing the club is let go
     boost: 11, // extra speed (m/s) along your aim at full charge, on top of the speed of the swing
     lungeShare: 0.5, // how much of the usual lunge the thrower still gets
+    selfGrace: 20, // frames after your club leaves your hand (thrown, dropped, knocked out) before it is a solid thing to you too: until then it
+    // passes through you, so a throw does not hit your own arm. After that, once it is clear of you, you can no longer stand in it (owner:
+    // a lance showed straight through its owner's body)
+    selfClear: 0.35, // ...clear = no part of you within this many metres of it
   },
   fist: {
     impactFactor: 3.0, // unarmed damage factor

@@ -141,6 +141,7 @@ export interface Fighter {
   pickupAim: number; // where the cursor pointed when they asked: the thing they aim at is the thing they pick up
   lostFrames: number; // how long this fighter's club has been lost in the void
   dropCooldown: number; // frames until a dropped club can be picked up again
+  looseFrames: number; // frames your club has been out of your hand (thrown, dropped, knocked out): see syncStickGroups
   trigger: boolean; // the attack button last frame (a gun fires on the press)
   fireRequest: boolean; // pressed the trigger with a loaded gun: the world fires it this frame (sim/guns.ts)
   hookRequest: boolean; // clicked with a grappling hook in hand: the world throws it this frame (sim/hook.ts)
@@ -189,8 +190,23 @@ export function syncStickGroups(f: Fighter): void {
   const base = f.inBack ? backGroups : ownerGroups(f.index), arm = (f.limp ? base : base & ~GROUP_TERRAIN) >>> 0;
   if (!f.armLost) for (const p of f.parts) if (p.role === 'upper' || p.role === 'fore') for (const c of p.colliders) if (c.collisionGroups() !== arm) c.setCollisionGroups(arm);
   if (!f.stick) return;
-  const g = ((f.inBack ? backGroups : ownerGroups(f.index) | GROUP_ROPE) & ~(f.grip ? GROUP_TERRAIN : 0)) >>> 0;
+  f.looseFrames = f.grip ? 0 : f.looseFrames + 1;
+  // Your own club out of your hand for a moment, and clear of you, is a solid thing to you too (it passed through its owner for good).
+  const self = !f.grip && f.looseFrames > T.throw.selfGrace && !nearOwner(f, f.stick) ? 1 << (f.index + 1) : 0;
+  const g = ((f.inBack ? backGroups : ownerGroups(f.index) | GROUP_ROPE | self) & ~(f.grip ? GROUP_TERRAIN : 0)) >>> 0;
   for (const c of [...f.stick.colliders, ...(f.stick.head?.colliders ?? [])]) if (c.collisionGroups() !== g) c.setCollisionGroups(g);
+}
+
+/** Is any part of fighter f within tuning.throw.selfClear of the rod `s` (its own club, out of its hand)? */
+function nearOwner(f: Fighter, s: Part): boolean {
+  const t = s.body.translation(), a = s.body.rotation(), half = (s.weapon?.length ?? 1) / 2, ux = Math.cos(a), uy = Math.sin(a);
+  const reach = (s.weapon?.thickness ?? 0.1) / 2 + T.throw.selfClear;
+  for (const p of f.parts) {
+    if (p === s || p.role === 'off') continue;
+    const q = p.body.translation(), dx = q.x - t.x, dy = q.y - t.y, along = Math.max(-half, Math.min(half, dx * ux + dy * uy));
+    if (Math.hypot(dx - along * ux, dy - along * uy) < reach) return true;
+  }
+  return false;
 }
 
 /** Move a whole fighter (body, arm, club) between the normal plane and the background plane. */
@@ -300,7 +316,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
     grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, slip: 0, drift: 0, swimKick: 0, carried: 0, slamming: false, dove: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
-    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, netRequest: false, tangled: 0, frozen: 0, bubble: 0, bubbleRise: 0, gunCool: 0, burst: 0, spray: 0, gunCharge: 0, aim: 0, gunTrim: 0, reach: 0,
+    charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, looseFrames: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, netRequest: false, tangled: 0, frozen: 0, bubble: 0, bubbleRise: 0, gunCool: 0, burst: 0, spray: 0, gunCharge: 0, aim: 0, gunTrim: 0, reach: 0,
     spawnX: x, spawnY: y,
   };
 
