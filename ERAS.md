@@ -105,11 +105,11 @@ The old western street (the era's first map) is retired (owner, 2026-10-06: five
 
 ## 9. World War I
 Pickups: **Bayonet Rifle** (long, good lunge), **Stick Grenade** (thrown, goes off after a short time with a push, not a kill).
-1. **Trench**: muddy trench with duckboards (planks to pick up) and sandbags.
-2. **No Man's Land**: craters, barbed wire (sticky zone) and a long exposed top.
-3. **Biplane Wing**: standing on a plane wing as it lurches (moving platform; air is the knockoff).
-4. **Bunker Walkway**: low concrete bunker with a ceiling, so you have to crouch and wall jumps do not work.
-5. **Slow Tank**: a tank crawls across the arena. The hull is the platform, and its tracks are a hazard.
+1. **Trench**: muddy trench with duckboards (planks to pick up) and sandbags. **BUILT 2026-10-08** (ww1 map 1): a trench between two parapets 1.2 m up (a running jump gets you out), a sump of deep mud in its middle (a tar pit painted as mud: jump it), planks lying about and a sandbag on each parapet (props.ts sandbag: lift and throw it, blows burst it). Bullets in a gun round fly over the trench.
+2. **No Man's Land**: craters, barbed wire (sticky zone) and a long exposed top. **BUILT 2026-10-08** (ww1 map 4): rims and shell craters (ground 0.8-1 m down: a running jump out), a coil of barbed wire on each rise (arena.wire, sim/wire.ts: in it you only shuffle, cannot jump out and are scratched) and shells falling from the sky every 3 s (arena.rocks with props.ts shell: it goes off as it lands, a grenade's blast).
+3. **Biplane Wing**: standing on a plane wing as it lurches (moving platform; air is the knockoff). **BUILT 2026-10-08** (ww1 map 3): a biplane in flight seen from behind (arena.plane, sim/plane.ts): the 10 m lower wing is the floor, the upper wing a second floor; steady at first, then it bobs, banks 11 degrees each way, and every 6 s drops 1.5 m faster than you fall (everyone floats) and climbs back. A gusting crosswind; the land slides by.
+4. **Bunker Walkway**: low concrete bunker with a ceiling, so you have to crouch and wall jumps do not work. **DROPPED 2026-10-08** (owner): a ceiling breaks the rule that nothing over you is in the way.
+5. **Slow Tank**: a tank crawls across the arena. The hull is the platform, and its tracks are a hazard. **BUILT 2026-10-08** (ww1 map 2): a muddy field and a tank (arena.tank, sim/tank.ts) crawling from one end to the other at 1.3 m/s and back, waiting 2.5 s at each end; ride its hull or turret; its front shoves whoever is in the way, its tracks run them over (hurt, knocked down, every 0.8 s), and its front reaches the very edge of the field, so whoever it shoves goes off.
 
 ## 10. Vietnam
 Pickups: **Bamboo Stick** (long, bendy, light), **Bayonet Knife** (very short, very fast).

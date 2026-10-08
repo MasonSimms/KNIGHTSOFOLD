@@ -51,16 +51,19 @@ export const tuning = {
     sea: null as null | { level: number; tide?: { rise: number; seconds: number }; chop?: number; water?: [string, string] }, // (water: its colours, top and deep, instead of the era's void) // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
     boats: [] as { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice' | 'barge'; tilt?: number; crack?: boolean }[], // floating ships instead of solid ground (needs a sea; see tuning.boat): each deck from x, w wide, its top at the platform top
     ropes: [] as { x0: number; up0: number; x1: number; up1: number }[], // ropes (see tuning.rope) from (x0, up0 m above the deck) to (x1, up1), each end tied to the ship under it; cut every one and the ships drift apart
-    tar: [] as { x: number; w: number; level: number; lava?: boolean }[], // tar pits (see tuning.tar), or lava pools (lava: true; tuning.lava): from x, w wide (a gap in the ground), the surface `level` m below the platform top
+    tar: [] as { x: number; w: number; level: number; lava?: boolean; mud?: boolean }[], // tar pits (see tuning.tar), or lava pools (lava: true; tuning.lava): from x, w wide (a gap in the ground), the surface `level` m below the platform top
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
     roll: 0, // the painting slides by at this speed (m/s): a moving map (the train, the mammoth chase)
     tower: null as null | { x: number; w: number }, // a water tower's tank (see tuning.tower): from x, w wide, its top at the platform top: shoot its side and it leaks
+    wire: [] as { x: number; w: number }[], // barbed wire coils on the ground (sim/wire.ts, tuning.wire): from x, w wide; whoever is in one is snagged
     streams: [] as { x: number; w: number; speed: number }[], // shallow water running over the floor (see tuning.stream): from x, w wide, at speed m/s (+ toward +x); standing in it carries you
     decor: [] as { kind: string; x: number; up: number }[], // looks only: a painted thing behind the fighters (its picture is weaponArt.ts kind), its middle at x, its foot up m above the floor
     wind: null as null | { base: number; gust: number; dir: -1 | 1 }, // a windy map (see tuning.wind): a steady `base` m/s plus gusts up to `gust` more, blowing toward dir
     noWeapons: false, // nobody starts armed, nothing lies about and no pickups come (the train: fists and throws)
     spawnSpots: null as null | number[], // where on this map weapons appear when they do not fall from the sky (share of the platform; null = tuning.spawn.spots)
     gunsOnly: false, // nobody starts armed and only the era's guns drop in, early and often (eras.ts gunsOnly; tuning.spawn.gunsFirst, gunsGap)
+    plane: null as null | { x: number }, // a biplane in flight (sim/plane.ts, tuning.plane): its lower wing (props.ts biplane) is the floor, its middle at x; no ground of its own
+    tank: null as null | { x0: number; x1: number; speed: number; wait: number }, // a tank crawling across the field (sim/tank.ts, tuning.tank): its middle from x0 to x1 at speed (m/s), waiting wait s at each end (and at the start)
     chariot: null as null | { at: number; cycle: number; speed: number; dir: 1 | -1 }, // a runaway chariot across the track (see tuning.chariot): first run at second `at`, then every `cycle` s, at `speed` m/s, first toward `dir` (then back)
     drawbridge: null as null | { x: number; w: number; hinge: -1 | 1; chain: { x: number; up: number } }, // a drawbridge (sim/drawbridge.ts): a deck from x, w wide, level with the floor, hinged at its left (-1) or right (1) end; its other end hangs on a chain from (chain.x, chain.up m above the floor). Cut the chain (a club hit of tuning.bridge.cutImpact, or a bullet) and it swings down
     tilt: null as null | { x: number; w: number }, // a jousting barrier (sim/tilt.ts): a rail from x, w wide, fixed on two trestles standing on the floor; a club hit of tuning.bridge.cutImpact or a bullet knocks the rail off
@@ -559,8 +562,8 @@ export const tuning = {
     minSpeed: 8, // slower than this (slowed by the sea) it is gone
     waterSlow: 0.8, // in the sea a bullet keeps this share of its speed each frame
     blockPush: 0.3, // a weapon that blocks a bullet is pushed this share of the bullet's shove
-    woodToughness: 3, // a wooden thing with no toughness of its own snaps after this much shooting (calibres added up)
     pushCap: 20, // a bullet speeds a loose thing up by at most this much (m/s): its shove is the same whatever it hits, so a light thing (a rope's link, a mug, a plank) went off at hundreds of m/s
+    woodToughness: 3, // a wooden thing with no toughness of its own snaps after this much shooting (calibres added up)
     sceneryDamage: 12, // a bullet's damage to breakable scenery, per calibre (barrel 60, crate 45: see props.ts)
     sceneryMinImpact: 30, // a club hit or a crash this hard (or harder) damages breakable scenery by its impact
     minPiece: 0.18, // a snapped weapon's shortest half (m)
@@ -647,6 +650,12 @@ export const tuning = {
     bend: 1.4, // how far over it bends either way (radians: 1.4 is nearly flat)
     damping: 8, // how quickly it stops swaying once it springs back
   },
+  wire: {
+    // Barbed wire (World War I: No Man's Land; sim/wire.ts; each map's coils are its arena.wire). PLACEHOLDER numbers.
+    height: 0.6, // how high the coils stand (m): your middle under the top of them plus a little and you are in them
+    walk: 0.3, // snagged, you walk at this share of your speed (and cannot jump)
+    hurt: 2, every: 0.5, // it scratches this much hidden health every `every` s you stay in it
+  },
   stream: {
     // Streams (sim/stream.ts; each map's own are its arena.streams). PLACEHOLDER numbers.
     depth: 0.45, // how deep the water runs over the floor (m): the dead and loose things this low are dragged along
@@ -672,6 +681,20 @@ export const tuning = {
     push: 110, // how hard it shoves near the hole (m/s per second; 22 is gravity; standing firm you brake at 26): a blast
     maxJets: 6,
     stagger: 12, // caught in it, you are off balance this many frames (no braking): it carries you
+  },
+  plane: {
+    // Biplane Wing (World War I, arena.plane; sim/plane.ts): the lower wing is props.ts biplane. PLACEHOLDER numbers.
+    upper: 8.6, upperThick: 0.2, gap: 1.9, // the upper wing: its span, thickness, and how far its top is over the lower wing's (m)
+    calm: 2.5, ease: 1.5, // it flies steady for this long (s), then its bobbing and banking come in over this long
+    bob: 0.25, bobPeriod: 2.3, // it rises and falls this much (m), once every bobPeriod s
+    bank: 0.2, bankPeriod: 5.7, // it banks this far each way (radians: 0.2 is 11 degrees), once every bankPeriod s
+    lurchEvery: 6, lurchDrop: 1.5, lurchTime: 0.3, lurchRise: 1.4, // every lurchEvery s it drops lurchDrop m in lurchTime s (faster than a fall: you float) and climbs back over lurchRise s
+  },
+  tank: {
+    // The Slow Tank (World War I, arena.tank; sim/tank.ts): its hull is props.ts tank. PLACEHOLDER numbers.
+    turretW: 1.6, turretH: 0.6, turretX: -0.2, // the turret on top (m; turretX: from the hull's middle)
+    reach: 0.55, reachUp: 1.4, // its tracks run over whoever stands within reach of its front, down on the ground (their middle under reachUp m)...
+    impact: 24, every: 0.8, knock: 30, // ...hurt like a hit of impact, at most once every so many s each, and knocked down this many frames
   },
   chariot: {
     // The runaway chariot (Gladiators: Chariot Track, arena.chariot): two horses and the car as one body charging across at floor level.
@@ -963,6 +986,7 @@ export const tuning = {
     rollBlur: 2.5, // a moving map's painting is blurred along the way it moves: px (at 1080p) per m/s of speed
     tar: { alpha: 0.97, top: '#2b2017', deep: '#0b0806', sheen: '#7a6a58' }, // a tar pit: nearly opaque (whoever sinks is gone), dark, a dull sheen on top
     lava: { alpha: 0.98, top: '#F08A2A', deep: '#7A1A06', sheen: '#FFE48A' }, // a lava pool: glowing orange, dark red deep down, a yellow sheen
+    mud: { alpha: 0.96, top: '#5E4A34', deep: '#1E160E', sheen: '#8A7A5E' }, // a mud sump (a tar pit with mud: true): brown, a wet sheen
     // Bullets (owner: moving white streaks with see-through trails that reach back past the shooter). m, 0..1, seconds.
     // The gold frame around the picture (render/frame.ts): its width (share of the picture's height), and the size of a hole (someone
     // knocked out through it) and of a bullet's crack, in frame widths.
@@ -1011,7 +1035,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { pillar: 0xd8c08a, rubble: 0xc8b07c, barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c, 'aqueduct-block': 0xc9bda4, trapdoor: 0x6a4a2a, chariot: 0x8a5a2c, horse: 0x5a3a24, table: 0x6a4426, bench: 0x7a5232, chandelier: 0x3a3430, 'ice-block': 0xc4dde8, oar: 0x8a6a42, obelisk: 0xd8c08a, jar: 0xa85a32, cage: 0x3a3430, armour: 0xaeb6bf, helm: 0xaeb6bf, greave: 0xaeb6bf, 'great-chandelier': 0x3a3430 } as Record<string, number>, // breakable scenery and its pieces
+    things: { pillar: 0xd8c08a, rubble: 0xc8b07c, barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c, 'aqueduct-block': 0xc9bda4, trapdoor: 0x6a4a2a, chariot: 0x8a5a2c, horse: 0x5a3a24, table: 0x6a4426, bench: 0x7a5232, chandelier: 0x3a3430, 'ice-block': 0xc4dde8, oar: 0x8a6a42, obelisk: 0xd8c08a, jar: 0xa85a32, cage: 0x3a3430, armour: 0xaeb6bf, helm: 0xaeb6bf, greave: 0xaeb6bf, 'great-chandelier': 0x3a3430, bamboo: 0x9ab95a, 'roof-tile': 0x4c5c70, sandbag: 0xb09a6a, tank: 0x5c6646, biplane: 0xc8b48a, shell: 0x686e75 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

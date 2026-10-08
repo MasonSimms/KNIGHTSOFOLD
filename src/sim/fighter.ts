@@ -97,6 +97,7 @@ export interface Fighter {
   slip: number; // how slippery the floor is (arena.ice): the share of your feet's grip it takes away
   drift: number; // how fast the wind carries a fighter in the air (m/s; sim/wind.ts)
   stream: number; // how fast the water you stand in runs (m/s; sim/stream.ts): standing in it, you are carried like on a moving floor
+  snag: number; // frames caught in barbed wire (sim/wire.ts): only a shuffle, no jumping out
   swimKick: number; // frames until the next kick out of the water
   carried: number; // frames left of being held by someone (the holder renews it): you do not hold yourself up on your feet
   slamming: boolean; // holding someone, came off the ground and holding S: landing them hard is a slam (see tuning.slam)
@@ -316,7 +317,7 @@ export function buildFighter(world: World, index: number, x: number, y: number, 
   const f: Fighter = {
     index, controlled, parts, torso, upper: arm.upper, fore: arm.fore, stick: null,
     shoulder: arm.shoulder, elbow: arm.elbow,
-    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, slip: 0, drift: 0, stream: 0, swimKick: 0, carried: 0, slamming: false, dove: false, slamBy: -1, slamArc: 0,
+    grip: null, headCollider: torso.colliders[1], attackers, hp: F.hp, limp: false, ragdolled: false, grounded: false, groundDist: Infinity, groundBody: null, legs, cutJoints: new Set(), armLost: false, legLost: [false, false], neck: null, offShoulder, offElbow, offPose: [Math.PI / 2, 0], offSwing: 0, offSide: 1, bodyHitAt: 0, gait: 0, kneeSide: 1, wall: 0, wallDir: 0, wallCoyote: 0, wallLock: 0, tuck: 0, wet: 0, wetFrames: 0, sinking: false, tar: false, burning: 0, belt: 0, slip: 0, drift: 0, stream: 0, snag: 0, swimKick: 0, carried: 0, slamming: false, dove: false, slamBy: -1, slamArc: 0,
     dodge: 0, dodgeCooldown: 0, inBack: false, prevDodge: false,
     stun: 0, deadAt: 0,
     charge: 0, punch: 0, side: dir, prevAim: 0, release: 0, releaseMul: 1, prevJump: false, chargeLocked: false, throwPending: false, throwPower: 0, poseE: 0, poseW: 0, crouch: 0, attackLock: 0, punchPower: 0, reaching: false, hold: null, held: null, holdFrames: 0, thrownBy: -1, thrown: 0, slamWait: 0, crashPeak: 0, slamWindow: 0, slamHit: null, jumpBuffer: 0, coyote: 0, still: 0, stillX: 0, stillY: 0, leanNow: 0, landDip: 0, fallVy: 0, prevDrop: false, pickupRequest: false, pickupAim: 0, knock: 0, knockAge: 0, crashWait: 0, lostFrames: 0, dropCooldown: 0, looseFrames: 0, trigger: false, fireRequest: false, hookRequest: false, hooked: false, hauled: false, netRequest: false, tangled: 0, frozen: 0, bubble: 0, bubbleRise: 0, gunCool: 0, burst: 0, spray: 0, gunCharge: 0, aim: 0, gunTrim: 0, reach: 0,
@@ -741,6 +742,7 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
   if (f.stun > 0) f.stun--;
   if (f.frozen > 0 || f.bubble > 0) input = { ...input, moveX: 0, jump: false, attack: false, dodge: false, drop: false, crouch: false }; // frozen solid, or in a bubble: helpless (sim/effects.ts)
   if (f.tangled > 0) { f.tangled--; input = { ...input, attack: false, jump: false, dodge: false, drop: false, moveX: input.moveX * T.netting.walk }; } // caught in a net (sim/tangle.ts)
+  if (f.snag > 0) input = { ...input, jump: false, moveX: input.moveX * T.wire.walk }; // caught in barbed wire (sim/wire.ts)
   if (f.crashWait > 0) f.crashWait--;
   if (f.knock > 0) { // knocked down: tumbling and limp until it passes, or until they are calm and on the ground (then they get up at once)
     const K = T.knock;

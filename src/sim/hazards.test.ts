@@ -7,7 +7,9 @@ import type { Fighter } from './fighter';
 import { NEUTRAL } from './types';
 import type { PlayerInput, SimEvent } from './types';
 import { damageScenery } from './guns';
-import { floorAt, Sim } from './world';
+import { planeAt } from './plane';
+import { tankAt } from './tank';
+import { arenaFor, floorAt, Sim } from './world';
 
 // Tar and fire (owner): tar slows you, lets you kick only weakly and swallows you if you stay; fire burns while you stand in it and
 // keeps burning a while after; wooden clubs catch fire and set alight whoever they touch.
@@ -226,5 +228,104 @@ describe('Bamboo Grove', () => {
     expect(p.links?.length ?? 0).toBe(0);
     expect((sim as unknown as Items).itemOf(p)).not.toBeNull();
     expect(p.weapon?.thrust).toBe(true);
+  });
+});
+
+describe('Slow Tank', () => {
+  async function field() {
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'ww1'; sim.forceMap = mapNamed('ww1', 'Slow Tank'); sim.reset();
+    setBackPlane(sim.fighters[1], true); sim.fighters[1].dodge = 1e9; // (the other one stays out of the way)
+    return sim;
+  }
+  const at = (s: number) => Math.round(s / T.sim.dt);
+
+  it('crawls the field on its timetable: engine running at the left end, across, waiting, back', () => {
+    const A = arenaFor('ww1', mapNamed('ww1', 'Slow Tank')), K = A.tank!, leg = (K.x1 - K.x0) / K.speed;
+    expect(tankAt(A, at(K.wait / 2))).toEqual({ x: K.x0, dir: 0 });
+    expect(tankAt(A, at(K.wait + leg / 2)).x).toBeCloseTo((K.x0 + K.x1) / 2, 1);
+    expect(tankAt(A, at(K.wait + leg + K.wait / 2))).toEqual({ x: K.x1, dir: 0 });
+    expect(tankAt(A, at(2 * K.wait + leg * 1.5)).dir).toBe(-1);
+  });
+
+  it('in front of it you are shoved along, run over (hurt, knocked down), and off the end of the field', async () => {
+    const sim = await field(), f = sim.fighters[0], K = sim.arena.tank!;
+    moveTo(f, K.x0 + PROPS.tank.len / 2 + 0.6);
+    const events = run(sim, at(K.wait + (K.x1 - K.x0) / K.speed + 1));
+    expect(events.some((e) => e.t === 'trample' && e.victim === 0)).toBe(true);
+    expect(f.limp).toBe(true); // off the far end
+  });
+
+  it('standing on it you ride it across', async () => {
+    const sim = await field(), f = sim.fighters[0], K = sim.arena.tank!, top = sim.arena.platformTop - PROPS.tank.thick;
+    moveTo(f, K.x0 - 1.2, top - T.stand.height - 0.05 - f.torso.body.translation().y);
+    run(sim, at(K.wait));
+    const x0 = f.torso.body.translation().x;
+    run(sim, at(4));
+    expect(f.limp).toBe(false);
+    expect(f.torso.body.translation().x - x0).toBeGreaterThan(K.speed * 4 * 0.8);
+    expect(f.torso.body.translation().y).toBeLessThan(top); // still up on it
+  });
+});
+
+describe('Biplane Wing', () => {
+  const PLANE = mapNamed('ww1', 'Biplane Wing'), at = (s: number) => Math.round(s / T.sim.dt);
+
+  it('flies steady at first, then bobs and banks, and lurches down faster than anything falls', () => {
+    const A = arenaFor('ww1', PLANE), P = T.plane, first = P.calm + P.lurchEvery;
+    expect(planeAt(A, at(P.calm / 2)).rot).toBe(0);
+    let most = 0;
+    for (let s = P.calm + P.ease; s < P.calm + P.ease + P.bankPeriod; s += 0.1) most = Math.max(most, Math.abs(planeAt(A, at(s)).rot));
+    expect(most).toBeGreaterThan(P.bank * 0.9);
+    const y0 = planeAt(A, at(first)).y, y1 = planeAt(A, at(first + P.lurchTime)).y;
+    expect(y1 - y0).toBeGreaterThan(P.lurchDrop * 0.8);
+    expect((2 * P.lurchDrop) / P.lurchTime ** 2).toBeGreaterThan(T.sim.gravity); // (the wing falls away from under you)
+  });
+
+  it('on the wing you ride it; a lurch floats you off it for a moment, and you come down on it again', async () => {
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'ww1'; sim.forceMap = PLANE; sim.reset();
+    setBackPlane(sim.fighters[1], true); sim.fighters[1].dodge = 1e9;
+    const f = sim.fighters[0], P = T.plane, wing = () => sim.plane!.body.translation().y - PROPS.biplane.thick / 2;
+    run(sim, at(P.calm + P.lurchEvery) - 2);
+    expect(f.limp).toBe(false);
+    let floated = false;
+    for (let i = 0; i < at(P.lurchTime + 0.2); i++) { run(sim, 1); if (wing() - (f.torso.body.translation().y + T.stand.height) > 0.3) floated = true; }
+    expect(floated).toBe(true);
+    run(sim, at(P.lurchRise + 0.5));
+    expect(f.limp).toBe(false);
+    expect(Math.abs(wing() - T.stand.height - f.torso.body.translation().y)).toBeLessThan(0.4); // standing on it again
+  });
+});
+
+describe("No Man's Land", () => {
+  async function nml() {
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'ww1'; sim.forceMap = mapNamed('ww1', "No Man's Land"); sim.reset();
+    setBackPlane(sim.fighters[1], true); sim.fighters[1].dodge = 1e9;
+    return sim;
+  }
+  const put = (sim: Sim, f: Fighter, x: number) => moveTo(f, x, floorAt(sim.arena, x) - T.stand.height - f.torso.body.translation().y);
+
+  it('in the barbed wire you only shuffle, cannot jump out, and it scratches you', async () => {
+    const sim = await nml(), f = sim.fighters[0], z = sim.arena.wire[0];
+    put(sim, f, z.x + 0.3);
+    run(sim, 10);
+    const hp = f.hp, x0 = f.torso.body.translation().x, y0 = f.torso.body.translation().y;
+    let top = y0;
+    for (let i = 0; i < 30; i++) { run(sim, 1, () => ({ ...NEUTRAL, moveX: 1, jump: true })); top = Math.min(top, f.torso.body.translation().y); }
+    expect(f.snag).toBeGreaterThan(0);
+    expect(f.torso.body.translation().x - x0).toBeLessThan(T.motion.moveSpeed * 0.5 * 0.5); // half a second: well under half a walk
+    expect(y0 - top).toBeLessThan(0.3); // no jump
+    expect(f.hp).toBeLessThan(hp);
+  });
+
+  it('shells fall from the sky on the timetable and go off as they land', async () => {
+    const sim = await nml(), R = sim.arena.rocks!;
+    const events = run(sim, Math.round((R.first + 1.5) / T.sim.dt));
+    expect(events.some((e) => e.t === 'spawn' && e.v === PROP_KINDS.indexOf('shell'))).toBe(true);
+    const boom = events.find((e) => e.t === 'boom');
+    expect(boom).toBeTruthy();
+    expect(Math.abs(boom!.y - floorAt(sim.arena, boom!.x))).toBeLessThan(0.8); // on the ground, not in the air
   });
 });
