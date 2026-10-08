@@ -18,10 +18,12 @@ export interface EraArena {
   sea?: { level: number; tide?: { rise: number; seconds: number }; chop?: number; water?: [string, string] }; // (water: its own colours, top and deep, instead of the era's void: a river) // (chop: waves this many times higher, a rough sea) // water under the stage (see tuning.arena.sea); tide: it rises `rise` m over the round's first `seconds`
   boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice' | 'barge'; tilt?: number; crack?: boolean }[]; // (tilt: how far one fighter at its end tips it, instead of tuning.boat.tilt; crack: an ice floe that cracks and sinks, tuning.floe) // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
   ropes?: { x0: number; up0: number; x1: number; up1: number }[]; // ropes tied between them (see tuning.rope)
-  tar?: { x: number; w: number; level: number; lava?: boolean }[]; // tar pits, or lava pools (see tuning.arena.tar)
+  tar?: { x: number; w: number; level: number; lava?: boolean; mud?: boolean }[]; // tar pits, or lava pools (see tuning.arena.tar), or a mud sump (mud: painted as mud)
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
   weapon?: string; // this map's own weapon (weapons.ts), instead of the era's
   chase?: { speed: number; mammothX: number; obstacles: string[]; gap: number }; // a treadmill map (see tuning.arena.chase)
+  plane?: { x: number }; // a biplane in flight: its wings are the floor (see tuning.plane)
+  tank?: { x0: number; x1: number; speed: number; wait: number }; // a tank crawling across the field (see tuning.tank)
   chariot?: { at: number; cycle: number; speed: number; dir: 1 | -1 }; // a runaway chariot charging across on a timetable (see tuning.chariot)
   drawbridge?: { x: number; w: number; hinge: -1 | 1; chain: { x: number; up: number } }; // a drawbridge held up by a chain you can cut (see tuning.arena.drawbridge)
   tilt?: { x: number; w: number }; // a jousting barrier: a rail on two trestles (see tuning.arena.tilt)
@@ -33,6 +35,7 @@ export interface EraArena {
   spawnSpots?: number[]; // where weapons appear when they do not fall from the sky (share of the platform; default tuning.spawn.spots)
   gunsOnly?: boolean; // (see also Era.gunRounds) nobody starts armed and only the era's guns drop in, early and often: a race for them (owner, 2026-10-07)
   tower?: { x: number; w: number }; // a water tower's tank (see tuning.arena.tower)
+  wire?: { x: number; w: number }[]; // barbed wire coils on the ground: whoever is in one is snagged (see tuning.wire)
   streams?: { x: number; w: number; speed: number }[]; // shallow water running over the floor, carrying whoever stands in it (see tuning.stream)
   decor?: { kind: string; x: number; up: number }[]; // looks only: painted things behind the fighters (weaponArt.ts pictures)
   wind?: { base: number; gust: number; dir: -1 | 1 }; // a windy map (see tuning.arena.wind)
@@ -248,7 +251,31 @@ export const eras: Era[] = [
     // and water jets out of the hole and shoves whoever it catches. Revolvers come as pickups.
     { name: 'Water Tower', gunsOnly: true, wind: { base: 2, gust: 8, dir: 1 }, ground: [{ x: 5.0, w: 3.5, up: -1.6, thick: 0.15 }, { x: 8.5, w: 7.0, thick: 3.2 }, { x: 15.5, w: 3.5, up: -1.6, thick: 0.15 }], tower: { x: 8.5, w: 7.0 },
       fightSpawnX: [6.5, 17.5, 10.25, 13.75], spawnX: [10.25, 13.75, 6.5, 17.5] }], outfits: ['sheriff', 'outlaw', 'gambler', 'rancher'] },
-  { id: 'ww1', name: 'World War I', special: false, gunRounds: 0.5, pickups: ['grenade', 'flare-pistol', 'trench-gun', 'bayonet-rifle', 'lewis-gun'], strong: 2, style: { grain: 0.05 }, sky: 0x7b8576, platform: 0x5a5444, wall: 0x45463c, weapon: 'shovel', arena: { ledges: [/* islands out past each end of the ground, over the void */ { x: 2.25, up: 0.6, w: 2.0 }, { x: 19.75, up: 0.6, w: 2.0 }] }, outfits: ['infantry', 'officer', 'medic', 'trench raider'] },
+  { id: 'ww1', name: 'World War I', special: false, gunRounds: 0.5, pickups: ['grenade', 'flare-pistol', 'trench-gun', 'bayonet-rifle', 'lewis-gun'], strong: 2, style: { grain: 0.05 }, sky: 0x7b8576, platform: 0x5a5444, wall: 0x45463c, weapon: 'shovel', arena: { ledges: [/* islands out past each end of the ground, over the void */ { x: 2.25, up: 0.6, w: 2.0 }, { x: 19.75, up: 0.6, w: 2.0 }] }, alt: [
+    // Trench (the era plan): a trench dug between two parapets (1.2 m: a running jump gets you out), a sump of deep mud in its middle
+    // (jump it: it swallows you, like the tar pit), duckboards lying about (planks: clubs) and a sandbag on each parapet (lift and throw
+    // it; blows burst it). Off either end of the parapets is the void. In a gun round the trench is cover: bullets fly over it.
+    { name: 'Trench', platformThickness: 6, ground: [{ x: 1.5, w: 5.5, up: 1.2 }, { x: 7.0, w: 4.0 }, { x: 13.0, w: 4.0 }, { x: 17.0, w: 5.5, up: 1.2 }],
+      tar: [{ x: 11.0, w: 2.0, level: 0.35, mud: true }], scenery: [{ kind: 'sandbag', x: 5.6, up: 1.2 }, { kind: 'sandbag', x: 18.4, up: 1.2 }],
+      props: [{ kind: 'plank', x: 8.2, up: 0 }, { kind: 'plank', x: 15.8, up: 0 }],
+      fightSpawnX: [3.5, 20.5, 8.6, 15.4], spawnX: [3.5, 8.6, 15.4, 20.5] },
+    // Slow Tank (the era plan): a muddy field and a tank crawling across it, from the left end to the right and back, waiting at each end.
+    // Its hull and turret are ground to stand on (ride it); its front shoves whoever is in the way, its tracks run them over (hurt and
+    // knocked down), and it stops just short of the end of the field: whoever it is shoving goes off. Get on it, or over it.
+    { name: 'Slow Tank', platformX: 2.0, platformW: 20, platformThickness: 6, tank: { x0: 4.0, x1: 20.0, speed: 1.3, wait: 2.5 }, // (its front reaches the very edge of the field)
+      scenery: [{ kind: 'sandbag', x: 10.0, up: 0 }, { kind: 'sandbag', x: 16.5, up: 0 }],
+      fightSpawnX: [9.3, 17.06, 11.66, 14.36], spawnX: [9.3, 12.34, 14.36, 17.06] },
+    // Biplane Wing (the era plan): on a biplane in flight, seen from behind: the lower wing is the floor and the upper wing a second floor
+    // over it; off a wing tip is the sky. It flies steady at first, then bobs and banks, and every 6 s lurches: it drops faster than you
+    // fall (everyone floats) and climbs back. A crosswind gusts, and the land slides by below.
+    { name: 'Biplane Wing', platformX: 7.0, platformW: 10.0, plane: { x: 12.0 }, wind: { base: 3, gust: 8, dir: -1 }, roll: 4,
+      fightSpawnX: [6.6, 17.4, 10.11, 13.89], spawnX: [7.95, 14.03, 10.11, 16.73] }, // (for the standard floor: at 8, 16, 10.6, 13.4 on the wing)
+    // No Man's Land (the era plan): the churned-up ground between the trenches: shell craters to drop into and climb out of (a running
+    // jump), a coil of barbed wire on each rise (in it you only shuffle and cannot jump out, and it scratches you: jump it, or throw someone
+    // in), and shells falling from the sky now and then: you see each one coming, and it goes off as it lands (a grenade's blast).
+    { name: "No Man's Land", platformThickness: 6, ground: [{ x: 1.5, w: 4.0, up: 0.3 }, { x: 5.5, w: 2.4, up: -0.6 }, { x: 7.9, w: 3.2, up: 0.2 }, { x: 11.1, w: 1.8, up: -0.8 },
+      { x: 12.9, w: 3.2, up: 0.2 }, { x: 16.1, w: 2.4, up: -0.6 }, { x: 18.5, w: 4.0, up: 0.3 }], wire: [{ x: 8.6, w: 1.6 }, { x: 13.6, w: 1.6 }], rocks: { kind: 'shell', first: 4, every: 3 },
+      fightSpawnX: [3.0, 21.0, 6.7, 17.3], spawnX: [3.0, 6.7, 17.3, 21.0] }], outfits: ['infantry', 'officer', 'medic', 'trench raider'] },
   { id: 'vietnam', name: 'Vietnam', special: false, gunRounds: 0.5, pickups: ['bamboo-stick', 'jungle-carbine', 'thumper', 'bayonet-knife'], strong: 2, sky: 0x5f8a5a, platform: 0x6a5a3c, wall: 0x4a5a3c, weapon: 'machete', arena: { platformW: 12.5, ledges: [{ x: 11.25, up: 1.8, w: 2.0 }], front: [{ kind: 'grass', x: 1.25, y: 13.75, scale: 3.0 }, { kind: 'grass', x: 4.0, y: 13.9, scale: 2.1 }, { kind: 'grass', x: 22.25, y: 13.8, scale: 2.75 }] }, outfits: ['jungle grunt', 'scout', 'radioman', 'tunnel rat'] },
   { id: 'modern', name: 'Modern Warfare', special: false, pickups: ['combat-knife', 'smg', 'beanbag', 'marksman', 'riot-shield', 'rocket-tube'], strong: 3, sky: 0x7a8794, platform: 0x585d63, wall: 0x42474c, weapon: 'baton', arena: { gunsOnly: true, platformX: 6.0, platformW: 12.0, walls: [/* a building across the alley */ { side: 1, up: 3.0, gap: 1.4 }], ledges: [{ x: 10.75, up: 1.8, w: 2.5 }] }, outfits: ['rifleman', 'sniper', 'operator', 'engineer'] },
   { id: 'scifi', name: 'Space Age', special: false, gunRounds: 0.5, pickups: ['plasma-blade', 'ray-pistol', 'plasma-repeater', 'freeze-ray', 'swap-pistol', 'bubble-blaster', 'tractor-beam', 'gravity-hammer', 'rail-gun', 'black-hole'], strong: 3, style: { blur: 3, haze: 0.06, grain: 0.02 }, sky: 0x3a3f6b, platform: 0x4a5a7a, wall: 0x2e3350, weapon: 'energy-staff', arena: { platformX: 5.875, platformW: 12.25, ledges: [{ x: 6.75, up: 1.8, w: 2.0 }, { x: 15.25, up: 1.8, w: 2.0 }, { x: 10.75, up: 3.6, w: 2.5 }] }, outfits: ['pilot', 'android', 'marine', 'scientist'] },

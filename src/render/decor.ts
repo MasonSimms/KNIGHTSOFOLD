@@ -6,7 +6,8 @@ import type { Sim } from '../sim/world';
 import { paintedWeapon, PPM } from './painter/sprites';
 
 // A map's painted scenery that is not in the game (arena.decor): a torii gate standing behind the fighters. Its picture is a weaponArt.ts
-// drawing whose y = 0 is its foot; it stands on the floor under it, `up` higher. Looks only: the simulation never sees it.
+// drawing whose y = 0 is its foot; it stands on the floor under it, `up` higher. Looks only: the simulation never sees it. And the coils
+// of barbed wire (arena.wire: the simulation snags whoever is in them, sim/wire.ts).
 
 export function createDecor(layer: Container) {
   return {
@@ -21,6 +22,16 @@ export function createDecor(layer: Container) {
         s.scale.set(1 / PPM);
         s.position.set(d.x, floorAt(A, d.x) - d.up);
         layer.addChild(s);
+      }
+      for (const z of A.wire) { // barbed wire (sim/wire.ts): its coils, about a metre each, across its width
+        const n = Math.max(1, Math.round(z.w)), pic = paintedWeapon('wire', z.w / n, K);
+        for (let i = 0; pic && i < n; i++) {
+          const s = new Sprite(pic.tex[0]), x = z.x + ((i + 0.5) * z.w) / n;
+          s.anchor.set(pic.ax, pic.ay);
+          s.scale.set(1 / PPM);
+          s.position.set(x, floorAt(A, x));
+          layer.addChild(s);
+        }
       }
     },
   };

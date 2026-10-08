@@ -51,7 +51,7 @@ describe('maps', () => {
 
   // Owner: you should never get stuck on a map. Walk (and hop) from one end of the ground to the other.
   it.each(maps)('%s map %i: you can walk and hop across it without getting stuck', async (era, map) => {
-    if (arenaFor(era, map).chase || arenaFor(era, map).train) return; // (a treadmill: you run to stand still, chase.test.ts; the train sweeps you off, train.test.ts)
+    if (arenaFor(era, map).chase || arenaFor(era, map).train || arenaFor(era, map).tank || arenaFor(era, map).plane) return; // (a treadmill: you run to stand still, chase.test.ts; the train sweeps you off, train.test.ts; the tank shoves you along and the plane lurches, hazards.test.ts)
     // What must be jumped: tar pits, and gaps between the ground slabs (or ships) with no bridge or stepping stone (the alleys between roofs).
     const A0 = arenaFor(era, map), sorted = [...A0.ground, ...A0.boats.map((b) => ({ ...b, up: 0 }))].sort((a, b) => a.x - b.x), pits: { x: number; w: number; run: number; down?: boolean }[] = A0.tar.map((p) => ({ x: p.x, w: p.w, run: 0.6 }));
     for (let i = 1; i < sorted.length; i++) {

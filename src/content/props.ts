@@ -126,6 +126,11 @@ export const PROPS: Record<string, PropSpec> = {
   // blow cuts it free: a long pole that stabs like a spear. A glazed roof tile (Pagoda Rooftops): pull it up and throw it, it shatters.
   bamboo: { len: 2.6, thick: 0.08, mass: 1.2, factor: 2.3, point: true, thrust: true, grip: 0.35, toughness: 4, roots: 200 },
   'roof-tile': { len: 0.36, thick: 0.1, mass: 1.4, factor: 2.4, material: 'light', shatters: true },
+  // World War I: a sandbag (heavy, but you can lift and throw it; enough blows burst it)
+  sandbag: { len: 0.7, thick: 0.32, mass: 16, factor: 2.4, box: true, toughness: 6, breaks: { hp: 35, into: [] } },
+  tank: { len: 4.0, thick: 1.1, mass: 3000, factor: 2.6, material: 'metal', box: true }, // the Slow Tank's hull (sim/tank.ts; its turret is tuning.tank)
+  biplane: { len: 10.0, thick: 0.25, mass: 4000, factor: 2.6, material: 'metal', box: true }, // Biplane Wing: the lower wing (sim/plane.ts; the upper wing is tuning.plane). Metal to the game: never shot to pieces or set alight (a wooden plane snapped under the bots' bullets and the round had no floor)
+  shell: { len: 0.45, thick: 0.17, mass: 6, factor: 2.4, material: 'metal', fuse: 1.5 }, // No Man's Land: an artillery shell falling from the sky (arena.rocks): it goes off as it lands (a grenade's blast)
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

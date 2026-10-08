@@ -30,6 +30,10 @@ import { applyJets } from './tower';
 import { applyFalls } from './falls';
 import { crackFloes } from './floe';
 import { applyStreams } from './stream';
+import { applyWire } from './wire';
+import { buildPlane, stepPlane } from './plane';
+import { buildTank, stepTank } from './tank';
+import type { Tank } from './tank';
 import { applyWind } from './wind';
 import { aimSpears, fuses, goneOff, stickSpears } from './special';
 import { moveHooks } from './hook';
@@ -128,6 +132,8 @@ export class Sim {
   doors: Trapdoor[] = []; // the trapdoors in the floor (see trapdoor.ts)
   catapult: Catapult | null = null; // the catapult (see catapult.ts)
   chariot: Chariot | null = null; // the runaway chariot (see chariot.ts)
+  tank: Tank | null = null; // the Slow Tank (see tank.ts)
+  plane: Part | null = null; // the biplane in flight (see plane.ts)
   jets: Jet[] = []; // water leaking from the water tower's tank (see tower.ts)
   private cutLinks = new Set<unknown>(); // bridge joints already removed
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
@@ -275,7 +281,7 @@ export class Sim {
     this.world.timestep = T.sim.dt;
     this.world.numSolverIterations = T.sim.solverIterations;
     this.world.numInternalPgsIterations = T.sim.pgsIterations;
-    const slabs = A.chase ? [] : A.ground.length ? A.ground : A.boats.length ? [] : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor, unless the map has ground of its own as well: a pier; on a treadmill, its moving sections)
+    const slabs = A.chase || A.plane ? [] : A.ground.length ? A.ground : A.boats.length ? [] : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor, unless the map has ground of its own as well: a pier; on a treadmill, its moving sections)
     this.boats = A.sea ? A.boats.map((b) => buildBoat(this.world, A, b)) : [];
     const grounds = slabs.map((g: Arena['ground'][number]) => {
       const th = g.thick ?? A.platformThickness, body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop - (g.up ?? 0) + th / 2));
@@ -291,6 +297,8 @@ export class Sim {
     this.passing = A.train ? buildTrain(this) : [];
     this.doors = A.trapdoors.length ? buildDoors(this) : [];
     this.chariot = A.chariot ? buildChariot(this) : null;
+    this.tank = A.tank ? buildTank(this, A.platformTop) : null;
+    this.plane = A.plane ? buildPlane(this) : null;
     this.jets = [];
 
     // The map's side walls (if any): a backstop at an end, or a wall across a gap you can fall into and wall-jump out of.
@@ -647,8 +655,11 @@ export class Sim {
     if (this.doors.length) stepDoors(this, this.doors);
     if (this.catapult) stepCatapult(this, this.catapult);
     if (this.chariot) stepChariot(this, this.chariot);
+    if (this.tank) stepTank(this, this.tank);
+    if (this.plane) stepPlane(this, this.plane);
     applyWind(this);
     applyStreams(this);
+    applyWire(this);
     moveHooks(this);
     moveNets(this);
     moveEffects(this);
@@ -692,6 +703,7 @@ export class Sim {
     applyWater(this.arena, this.frame, [f], [], []);
     applyFalls(this, [f]); // (the aqueduct's falling water pushes you on your own screen too, or your guess and the server part: snaps)
     applyStreams(this, [f]); // (and a stream carries you)
+    applyWire(this, [f]); // (and barbed wire snags you)
     controlFighter(this.world, f, input, this.predictEvents, 0);
     const shown: SimEvent[] = this.predictEvents.filter((e) => OWN_MOVES.has(e.t)); // your own jump, landing, dodge, punch, throw and drop: their sound and dust at once (owner: no input delay; main.ts skips the server's copies)
     this.predictEvents.length = 0; // (anything else from a guess waits for the server's events)
@@ -777,6 +789,8 @@ export class Sim {
     if (this.frame < first || (this.frame - first) % every !== 0) return;
     const A = this.arena, x = A.platformX + 0.8 + this.rng() * (A.platformW - 1.6), y = -1.5;
     this.addProp(R.kind, x, y);
+    const p = this.props[this.props.length - 1];
+    if (PROPS[R.kind]?.fuse) { p.fuse = Math.round(Math.sqrt((2 * (A.platformTop - y)) / T.sim.gravity) / T.sim.dt) + 1; p.thrower = -1; p.body.setRotation(Math.PI / 2, true); } // (a shell: point first, its fuse running out as it reaches the ground)
     this.events.push({ t: 'spawn', x, y, v: PROP_KINDS.indexOf(R.kind), owner: -1, victim: -1 });
   }
 
@@ -807,17 +821,17 @@ export class Sim {
       const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y);
       if (s > M) p.body.setLinvel({ x: (v.x / s) * M, y: (v.y / s) * M }, true);
     }
-  }
-
-  /** Someone close is winding up a weapon, lunging, punching or grabbing at this fighter (they brace with their free arm and lean away):
-   * the side they are on (+1 = toward +x, -1 = toward -x), or 0 for nobody. */
-  private threatened(f: Fighter): number {
     const J = T.sim.maxJointedSpeed;
     for (const p of this.props) {
       if (!p.links?.length || !p.body.isDynamic()) continue;
       const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y);
       if (s > J) p.body.setLinvel({ x: (v.x / s) * J, y: (v.y / s) * J }, true);
     }
+  }
+
+  /** Someone close is winding up a weapon, lunging, punching or grabbing at this fighter (they brace with their free arm and lean away):
+   * the side they are on (+1 = toward +x, -1 = toward -x), or 0 for nobody. */
+  private threatened(f: Fighter): number {
     const t = f.torso.body.translation(), R = T.offArm.braceRange;
     const g = this.fighters.find((g) => {
       if (g === f || g.limp || g.inBack || !(g.charge > 8 || g.release > 0 || g.punch > 0 || g.reaching)) return false;

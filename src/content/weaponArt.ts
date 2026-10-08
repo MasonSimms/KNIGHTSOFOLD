@@ -26,6 +26,7 @@ const CYAN = ['#F4FFFF', '#7FF2F4', '#1FA9B8'], PINK = ['#FFF0FB', '#F45FD4', '#
 const ICE = ['#F2FAFF', '#B9DCF0', '#5FA8D4'], SHIELD = ['#C4D4DE', '#94AABA', '#5E7484'], ORANGE = ['#F2A04A', '#D4762A', '#7E3E12'];
 const MORTAR = ['#8F887C', '#6E685E', '#4A453E'], SAND = ['#EBD3A0', '#C9A86A', '#7E6438'], CARVED = ['#9A7A48', '#6E5430', '#3E2E18'], CLAY = ['#D98A56', '#A85A32', '#5E2E18'];
 const LEAF = ['#8FBF5A', '#5E8C34', '#2F4E18'], GLAZE = ['#7A8CA0', '#4C5C70', '#26303C'], VERMILION = ['#F0704A', '#D8402A', '#7E1E10'];
+const BURLAP = ['#C8B48A', '#9A845A', '#5A4A30'], CANVAS = ['#F0E6CC', '#D2C29C', '#8E7E5C'];
 
 const rod = (x0: number, x1: number, w0: number, w1: number, c: Paint, o: { y?: [number, number]; bend?: number; grip?: true; glow?: true } = {}): Piece =>
   ({ k: 'rod', a: [x0, o.y?.[0] ?? 0], b: [x1, o.y?.[1] ?? 0], w: [w0, w1], bend: o.bend, c, grip: o.grip, glow: o.glow });
@@ -121,6 +122,18 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
     ball(0.07, 0.08, STEEL, { y: -0.4 }), ball(0.48, 0.08, STEEL, { y: -0.4 }), ball(0.275, 0.12, STEEL, { y: -0.58 }), rod(0.19, 0.36, 0.012, 0.012, BLACK, { y: [-0.58, -0.58] }), poly(RED, [[0.25, -0.69], [0.32, -0.69], [0.4, -0.74], [0.26, -0.73]])] }, // (a red plume on the helm)
   helm: { len: 0.3, pieces: [ball(0.15, 0.14, STEEL), rod(0.05, 0.25, 0.012, 0.012, BLACK, { y: [0, 0] }), poly(RED, [[0.12, -0.12], [0.19, -0.12], [0.27, -0.17], [0.13, -0.16]])] },
   greave: { len: 0.55, pieces: [rod(0, 0.48, 0.045, 0.038, STEEL), ball(0.05, 0.055, STEEL), poly(STEEL, [[0.44, -0.04], [0.55, -0.02], [0.55, 0.05], [0.44, 0.05]])] },
+  sandbag: { len: 0.7, pieces: [poly(BURLAP, [[0.04, -0.13], [0.2, -0.16], [0.5, -0.16], [0.66, -0.12], [0.7, 0], [0.66, 0.14], [0.5, 0.16], [0.2, 0.16], [0.04, 0.14], [0, 0]]), rod(0.1, 0.1, 0.012, 0.012, ROPE, { y: [-0.13, 0.13] }), rod(0.6, 0.6, 0.012, 0.012, ROPE, { y: [-0.13, 0.13] })] }, // (tied at both ends)
+  tank: { len: 4.0, pieces: [poly(BLACK, [[0.05, 0.05], [0.35, -0.17], [3.65, -0.17], [3.95, 0.05], [3.78, 0.52], [0.22, 0.52]]), ...[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5].map((x) => ball(x, 0.15, IRON, { y: 0.3 })), // (the tracks and their wheels)
+    poly(OLIVE, [[0.3, -0.15], [0.6, -0.55], [3.4, -0.55], [3.75, -0.15]]), poly(OLIVE, [[1.05, -0.55], [1.15, -1.13], [2.45, -1.13], [2.6, -0.55]]), ball(1.8, 0.13, OLIVE, { y: -1.15 }), rod(2.55, 3.7, 0.06, 0.05, IRON, { y: [-0.85, -0.85] }), rod(0.75, 3.3, 0.012, 0.012, BLACK, { y: [-0.32, -0.32] })] }, // (the hull, the turret with its hatch, the gun)
+  biplane: { len: 10.0, pieces: [ // seen from behind: the struts and wires, the fuselage with the pilot's head and a striped rudder, both wings with roundels
+    ...[2.0, 3.6, 6.4, 8.0].map((x) => rod(x, x, 0.035, 0.035, WOOD, { y: [-0.1, -1.85] })), rod(2.0, 3.6, 0.01, 0.01, BLACK, { y: [-0.1, -1.85] }), rod(3.6, 2.0, 0.01, 0.01, BLACK, { y: [-0.1, -1.85] }), rod(6.4, 8.0, 0.01, 0.01, BLACK, { y: [-0.1, -1.85] }), rod(8.0, 6.4, 0.01, 0.01, BLACK, { y: [-0.1, -1.85] }),
+    rod(4.6, 4.75, 0.025, 0.025, IRON, { y: [0.1, 0.42] }), rod(5.4, 5.25, 0.025, 0.025, IRON, { y: [0.1, 0.42] }), ball(4.6, 0.13, BLACK, { y: 0.48 }), ball(5.4, 0.13, BLACK, { y: 0.48 }), // (the wheels)
+    poly(RED, [[4.96, -0.85], [5.04, -0.85], [5.06, -1.55], [4.94, -1.55]]), rod(4.95, 5.05, 0.06, 0.06, CANVAS, { y: [-1.2, -1.2] }), ball(5.0, 0.42, OLIVE, { y: -0.45, rx: 0.48 }), ball(5.0, 0.15, LEATHER, { y: -0.95 }), rod(4.88, 5.12, 0.03, 0.03, BRASS, { y: [-0.98, -0.98] }),
+    poly(CANVAS, [[0, -0.12], [10, -0.12], [10, 0.08], [9.7, 0.13], [0.3, 0.13], [0, 0.08]]), poly(CANVAS, [[0.7, -2.03], [9.3, -2.03], [9.3, -1.87], [9.0, -1.83], [1.0, -1.83], [0.7, -1.87]]),
+    ...[1.3, 8.7].flatMap((x) => [ball(x, 0.1, NAVY, { y: 0, rx: 0.2 }), ball(x, 0.065, CREAM, { y: 0, rx: 0.13 }), ball(x, 0.035, RED, { y: 0, rx: 0.07 })])] },
+  shell: { len: 0.45, pieces: [rod(0, 0.3, 0.085, 0.085, IRON), poly(IRON, [[0.3, -0.085], [0.45, 0], [0.3, 0.085]]), rod(0.04, 0.09, 0.09, 0.09, BRASS)] }, // (an artillery shell: its point first)
+  wire: { len: 1.0, pieces: [rod(0.05, 0.05, 0.025, 0.02, WOOD, { y: [0, -0.68] }), rod(0.95, 0.95, 0.025, 0.02, WOOD, { y: [0, -0.68] }), // (a coil of barbed wire between two stakes: looks only, its foot at y = 0)
+    ...Array.from({ length: 8 }, (_, i) => rod(i * 0.125, i * 0.125 + 0.14, 0.008, 0.008, IRON, { y: [-0.05 - (i % 2) * 0.5, -0.55 + (i % 2) * 0.5], bend: 0.06 })), rod(0, 1.0, 0.007, 0.007, IRON, { y: [-0.3, -0.32] }), rod(0, 1.0, 0.007, 0.007, IRON, { y: [-0.55, -0.53] })] },
   bamboo: { len: 2.6, pieces: [rod(0, 2.5, 0.04, 0.032, BAMBOO, { grip: true }), ...[0.45, 0.9, 1.35, 1.8, 2.25].map((x) => rod(x - 0.015, x + 0.015, 0.047, 0.047, LEAF)), // (its nodes, then a few leaves at the top)
     poly(LEAF, [[2.2, 0], [2.45, -0.16], [2.62, -0.21], [2.42, -0.04]]), poly(LEAF, [[2.08, 0], [2.32, 0.15], [2.5, 0.21], [2.3, 0.04]]), poly(LEAF, [[2.36, 0], [2.56, -0.05], [2.64, 0.02], [2.5, 0.03]])] },
   'roof-tile': { len: 0.36, pieces: [poly(GLAZE, [[0, -0.03], [0.36, -0.05], [0.36, 0.03], [0, 0.05]]), rod(0.03, 0.33, 0.008, 0.008, ['#C8D4E0', '#9AA8B6', '#6A7886'], { y: [-0.02, -0.035] })] },

@@ -34,7 +34,7 @@ export function createSea(enter: (x: number, y: number, speed: number, tar: bool
       hull.visible = !!A.sea;
       wasWet.length = 0;
       for (const pit of A.tar) { // a pool of tar (or lava) filling the gap, from its surface down out of the picture
-        const top = A.platformTop + pit.level, C = pit.lava ? T.finish.lava : T.finish.tar, t = paintedWater(pit.w + 0.1, A.viewH - top + 0.5, C.top, C.deep, C.sheen, K), s = new Sprite(t.tex);
+        const top = A.platformTop + pit.level, C = pit.lava ? T.finish.lava : pit.mud ? T.finish.mud : T.finish.tar, t = paintedWater(pit.w + 0.1, A.viewH - top + 0.5, C.top, C.deep, C.sheen, K), s = new Sprite(t.tex);
         s.position.set(pit.x - 0.05, top);
         s.scale.set(1 / t.ppm);
         s.alpha = C.alpha;
