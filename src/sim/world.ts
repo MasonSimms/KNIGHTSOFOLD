@@ -55,6 +55,10 @@ const DUMMY_INPUT: PlayerInput = { ...NEUTRAL, aim: Math.PI + 1.4 }; // the trai
 
 export type Arena = typeof T.arena;
 
+/** What a player's own buttons make their own fighter do, with a sound or dust and nothing anyone else decides: online, a page shows its
+ *  own at once (prediction) and not the server's copies of them. */
+export const OWN_MOVES = new Set<SimEvent['t']>(['jump', 'land', 'dodge', 'punch', 'throw', 'drop']);
+
 /** The arena of an era's map: the standard one, or the era's own layout (a pure function, so anyone can ask without building anything). */
 export function arenaFor(eraId: string, map: number): Arena {
   const era = eraById(eraId);
@@ -689,8 +693,9 @@ export class Sim {
     applyFalls(this, [f]); // (the aqueduct's falling water pushes you on your own screen too, or your guess and the server part: snaps)
     applyStreams(this, [f]); // (and a stream carries you)
     controlFighter(this.world, f, input, this.predictEvents, 0);
-    this.predictEvents.length = 0; // (no sounds or paint from a guess: the server's events bring those)
-    const shown: SimEvent[] = []; // ...except a shot of your own: its flash, bang and kick are at once (owner: instant feel)
+    const shown: SimEvent[] = this.predictEvents.filter((e) => OWN_MOVES.has(e.t)); // your own jump, landing, dodge, punch, throw and drop: their sound and dust at once (owner: no input delay; main.ts skips the server's copies)
+    this.predictEvents.length = 0; // (anything else from a guess waits for the server's events)
+    // ...and a shot of your own: its flash, bang and kick are at once (owner: instant feel)
     if (f.fireRequest) { f.fireRequest = false; const e = predictShot(f); if (e) shown.push(e); }
     syncStickGroups(f);
     for (const p of f.parts) {

@@ -29,8 +29,11 @@ export class Predictor {
   private n = 0; // the newest input number
   private last: { p: number[]; frame: number; ack: number } | null = null; // the newest snapshot's poses of this fighter, after input ack...
   private before: { p: number[]; frame: number } | null = null; // ...and the one before it (how fast each part was moving)
-  /** Where your fighter is drawn, less where the guess has it (m): after a fresh start it closes over a few ticks (T.net.predict.smooth). */
+  /** Where your fighter is drawn, less where the guess has it (m): after a fresh start it closes over a few ticks (T.net.predict.smooth).
+   *  After a stop (the server takes your fighter over: a hit, a grab), less where the server's picture has it: it slides there too. */
   shift = { x: 0, y: 0 };
+  private drawn = { x: 0, y: 0 }; // where your fighter was drawn at the last guess (the torso)
+  private handover = false; // prediction has just stopped: the shift that keeps your fighter where it was is worked out once the copy has the server's pose (settle)
   /** How the guess has gone (the F3 overlay, npm run netlab): snapshots checked, the total and worst distance off (m), jumps straight to the server. */
   stats = { checks: 0, off: 0, worst: 0, snaps: 0, starts: 0 };
 
@@ -45,7 +48,11 @@ export class Predictor {
     const sim = this.mirror.sim, f = sim.fighters[this.slot];
     this.sent.set(n, input); this.n = n;
     if (this.sent.size > T.net.predict.history) this.sent.delete(this.sent.keys().next().value!);
-    if (!f || f.limp || (this.state & SERVER_ONLY) || this.round !== sim.round) { this.stop(); return []; }
+    if (!f || f.limp || (this.state & SERVER_ONLY) || this.round !== sim.round) {
+      if (this.on) this.stop(this.round === sim.round); // (a new round puts you at your start: no slide there)
+      this.shift.x *= T.net.predict.smooth; this.shift.y *= T.net.predict.smooth;
+      return [];
+    }
     const starting = !this.on, mine = new Set(this.mine(f));
     // Other fighters (and their weapons) do not touch yours here: what happens when fighters meet (a body hit, a knock back, a grab) is the
     // server's to decide, and a guess at it only threw your fighter about. Yours still stands on the ground and bumps into loose things.
@@ -65,6 +72,7 @@ export class Predictor {
     const t = f.torso.body.translation();
     this.hist.set(n, { x: t.x, y: t.y });
     if (this.hist.size > T.net.predict.history) this.hist.delete(this.hist.keys().next().value!);
+    this.drawn.x = t.x + this.shift.x; this.drawn.y = t.y + this.shift.y;
     return shown;
   }
 
@@ -100,8 +108,20 @@ export class Predictor {
     for (const v of this.hist.values()) { v.x += kx; v.y += ky; } // (the guesses after it were made from the same mistake)
   }
 
-  /** Stop predicting (the server moves you again). */
-  stop(): void { this.on = false; this.mirror.own = -1; this.hist.clear(); this.shift.x = this.shift.y = 0; }
+  /** Stop predicting (the server moves you again). slide: your fighter goes from where it was drawn to the server's picture over a few
+   *  ticks (settle), instead of jumping back the round trip (owner: a hit taken looked like a rubber band). */
+  stop(slide = false): void { this.on = false; this.mirror.own = -1; this.hist.clear(); this.handover = slide; if (!slide) this.shift.x = this.shift.y = 0; }
+
+  /** Each frame, once the copy has written the server's poses in (alpha: the blend shown): just after a stop, the shift that keeps your
+   *  fighter where it was drawn. */
+  settle(alpha: number): void {
+    if (!this.handover) return;
+    this.handover = false;
+    const f = this.mirror.sim.fighters[this.slot];
+    if (!f) return;
+    this.shift.x = this.drawn.x - lerp(f.torso.px, f.torso.cx, alpha); this.shift.y = this.drawn.y - lerp(f.torso.py, f.torso.cy, alpha);
+    if (Math.hypot(this.shift.x, this.shift.y) > T.net.predict.slideMax) this.shift.x = this.shift.y = 0; // (far apart: no slide across the map)
+  }
 
   /** Start (input n is next): from where the server will have you, drawn sliding there from where you are shown now. */
   private start(f: Fighter, alpha: number, upTo: number): void {

@@ -28,13 +28,38 @@ async function setup(seed = 4) {
     while (down.length && down[0].at <= tick) { const x = down.shift()!.s; mirror.push(x); pred.reconcile(x); }
     const latest = down.length ? 0 : 0; void latest;
     const shown = mirror.show(Math.max(0, tick - 2 * LAG - 3));
-    if (predict) pred.tick(input, n, shown.alpha);
+    return { ev: predict ? pred.tick(input, n, shown.alpha) : [], alpha: shown.alpha };
   };
   const me = () => client.fighters[0].torso;
   return { step, me, serverAt, pred, client, server, n: () => n };
 }
 
 describe('prediction', () => {
+  it('your own jump (its sound and dust) comes from your own screen at once, not a round trip later', async () => {
+    const { step, pred } = await setup();
+    for (let i = 0; i < 90; i++) step(NEUTRAL);
+    expect(pred.active).toBe(true);
+    let at = -1;
+    for (let i = 0; i < 6 && at < 0; i++) if (step({ ...NEUTRAL, jump: true }).ev.some((e) => e.t === 'jump' && e.owner === 0)) at = i;
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(at).toBeLessThan(3);
+  }, 60_000);
+
+  it('when the server takes your fighter over (a hit, a grab), it stays where it was drawn and slides to the server: no jump back', async () => {
+    const { step, me, pred } = await setup();
+    for (let i = 0; i < 90; i++) step(NEUTRAL);
+    for (let i = 0; i < 40; i++) step({ ...NEUTRAL, moveX: 1 }); // running: the server's picture of you is a round trip behind
+    const before = { x: me().cx + pred.shift.x, y: me().cy + pred.shift.y };
+    pred.stop(true);
+    const { alpha } = step({ ...NEUTRAL, moveX: 1 }, false); // (the copy writes the server's pose of you in)
+    const server = me().px + (me().cx - me().px) * alpha;
+    expect(Math.abs(server - before.x)).toBeGreaterThan(0.3); // without the slide: a jump back of this much
+    pred.settle(alpha);
+    expect(Math.abs(server + pred.shift.x - before.x)).toBeLessThan(0.15); // drawn where it was
+    for (let i = 0; i < 30; i++) { step({ ...NEUTRAL, moveX: 1 }, false); (pred as unknown as { shift: { x: number } }).shift.x *= 0.8; }
+    expect(Math.abs(pred.shift.x)).toBeLessThan(0.01); // ...and slid onto the server's picture
+  }, 60_000);
+
   it('your fighter starts moving within a few ticks of the key, not a round trip later', async () => {
     const { step, me, pred } = await setup();
     for (let i = 0; i < 90; i++) step(NEUTRAL); // stand, while the first snapshots arrive

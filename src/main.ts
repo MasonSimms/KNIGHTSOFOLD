@@ -22,7 +22,7 @@ import { Tape } from './replay/tape';
 import { playClip } from './ui/replay';
 import { createMuseum } from './render/museum';
 import type { Clip } from './replay/tape';
-import { Sim } from './sim/world';
+import { OWN_MOVES, Sim } from './sim/world';
 import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
@@ -417,14 +417,15 @@ function frame(now: number) {
     if (net && mirror.desyncs > desyncsSeen && now - resyncAt > 2000) { net.send({ t: 'resync' }); resyncAt = now; } // our copy went wrong: ask for all of it again
     desyncsSeen = mirror.desyncs;
     alpha = shownAlpha = shown.alpha;
-    for (const e of shown.events) if (!(e.t === 'shot' && e.owner === mySlot && predictor?.active)) play(e); // (your own shot already flashed and banged when you clicked)
+    predictor?.settle(alpha); // (just handed over to the server: your fighter slides from where it was)
+    for (const e of shown.events) if (!(e.owner === mySlot && predictor?.active && (e.t === 'shot' || OWN_MOVES.has(e.t)))) play(e); // (your own shot, jump, dodge... already showed when you pressed)
     if (coverUntilPainted && view.frame > 0 && view.round === mirror.newestRound) { coverUntilPainted = false; void renderer.preload(view, ONLINE_PRELOAD_MS).then(() => { closeMenu(); settle(); }); }
     if (shown.events.some((e) => e.t === 'round') && view.matchActive) roundSeenAt = now; // online: the round is won; the museum in half a second
     if (net && shown.events.some((e) => e.t === 'newround')) notice(''); // ("You join at the start of the next round": this is it)
     if (roundSeenAt && now - roundSeenAt >= (T.transition.freezeFrames / 60) * 1000) { roundSeenAt = 0; lastAlpha = alpha; void eraChange(); }
   }
   lastAlpha = alpha;
-  renderer.draw(alpha, ft / 1000, predictor?.active ? { slot: mySlot, alpha: acc / T.sim.dt, dx: predictor.shift.x, dy: predictor.shift.y } : undefined);
+  renderer.draw(alpha, ft / 1000, predictor?.active ? { slot: mySlot, alpha: acc / T.sim.dt, dx: predictor.shift.x, dy: predictor.shift.y } : predictor && Math.hypot(predictor.shift.x, predictor.shift.y) > 0.005 ? { slot: mySlot, alpha, dx: predictor.shift.x, dy: predictor.shift.y } : undefined);
   updateHud(view);
   { // the music: the era's instruments in a fight, swelling with the excitement (how much is happening, how much everyone moves)
     const alive = view.fighters.filter((f) => f.controlled && !f.limp);
