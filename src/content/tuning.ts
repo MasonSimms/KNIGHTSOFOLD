@@ -365,6 +365,12 @@ export const tuning = {
     gripFromEnd: 0.25,
     impactFactor: 2.2, // this weapon's damage factor: impact = hit speed (m/s) x this
   },
+  thrust: {
+    // A spear, a lance, a trident, the bayonet rifle (owner, 2026-10-07; weapons.ts / props.ts thrust): the arm's pose as if facing right, the
+    // weapon always pointing along the aim. Radians: upper arm from the aim (+ = down and back), elbow bend (- = folded forward).
+    guardUpper: 0.5, guardElbow: -1.0, // the guard: the weapon held out level, the elbow bent
+    drawUpper: 1.3, drawElbow: -2.2, // fully charged: drawn back to the body, ready to drive
+  },
   longMelee: {
     // How a club-type weapon is held. Angles are for a fighter facing right (mirrored when facing left):
     // negative = counter-clockwise = up. U is the upper arm, E the elbow bend, W the wrist bend (both relative to the part before).

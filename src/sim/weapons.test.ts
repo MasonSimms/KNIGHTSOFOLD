@@ -204,3 +204,33 @@ describe('blades, points and blunt weapons', () => {
     try { expect(cutFor(katana, katana.length / 2 - 0.02)).toEqual({ kind: 'blunt', mul: 1, min: C.impactMin, knock: 1 }); } finally { C.edges = true; }
   });
 });
+
+// Owner, 2026-10-07: a spear or a lance poises back in a stabbing motion and drives forward, instead of rising over the head like a club.
+describe('the thrust', () => {
+  async function holding(item: string | null) {
+    const sim = await Sim.create(7);
+    sim.give = item; sim.reset();
+    for (let i = 0; i < 40; i++) sim.step([{ ...NEUTRAL0, aim: 0 }]);
+    return sim;
+  }
+  const NEUTRAL0: PlayerInput = { moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false };
+  /** The weapon's tip ahead of the body along the aim (aim 0: to the right), and how far the weapon points off the aim (radians). */
+  const tipOf = (sim: Sim) => { const f = sim.fighters[0], w = f.stick!, t = w.body.translation(), a = w.body.rotation(), L = w.weapon!.length; return { ahead: t.x + Math.cos(a) * L / 2 - f.torso.body.translation().x, off: Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) }; };
+  it('a spear held level draws back when charged, pointing at the aim, and drives forward on release; a club rises instead', async () => {
+    const sim = await holding('spear');
+    expect(sim.fighters[0].stick?.weapon?.thrust).toBe(true);
+    const guard = tipOf(sim);
+    for (let i = 0; i < 30; i++) sim.step([{ ...NEUTRAL0, aim: 0, attack: true }]); // charge
+    const drawn = tipOf(sim), tipX = () => { const w = sim.fighters[0].stick!; return w.body.translation().x + Math.cos(w.body.rotation()) * w.weapon!.length / 2; }, from = tipX();
+    let reach = 0, travel = 0;
+    for (let i = 0; i < 14; i++) { sim.step([{ ...NEUTRAL0, aim: 0 }]); reach = Math.max(reach, tipOf(sim).ahead); travel = Math.max(travel, tipX() - from); } // release
+    expect(drawn.off).toBeLessThan(0.45); // still pointing at the aim while drawn back
+    expect(drawn.ahead).toBeLessThan(guard.ahead - 0.15); // pulled back toward the body
+    expect(reach).toBeGreaterThan(drawn.ahead + 0.3); // the arm drives it out from the drawn-back pose...
+    expect(travel).toBeGreaterThan(1.0); // ...and the whole fighter lunges forward with it
+    const club = await holding('plank');
+    for (let i = 0; i < 30; i++) club.step([{ ...NEUTRAL0, aim: 0, attack: true }]);
+    const w = club.fighters[0].stick!, up = -Math.sin(w.body.rotation());
+    expect(up).toBeGreaterThan(0.5); // a club charged the same way is raised up over the head
+  });
+});

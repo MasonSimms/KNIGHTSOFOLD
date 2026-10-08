@@ -21,6 +21,7 @@ export interface Weapon {
   edge?: 'blade'; // a blade (owner, 2026-10-07): it cuts, so it hurts from less speed and more, and shoves less (tuning.combat.blade); no edge = blunt (shoves more)
   point?: boolean; // it has a point: a hit with its last bit (tuning.combat.pointZone of its length) hurts more (tuning.combat.pointMul)
   thrust?: boolean; // a spear, a lance: charged, it draws back level along the aim and drives forward (sim/fighter.ts), instead of rising over the head
+  lunge?: number; // a thrust weapon's lunge is this many times the usual (the lance: only good in a lunge)
 }
 
 /** A chain weapon (props.ts chain): a head of this weight and radius on a chain this long from the handle's far end (sim/fighter.ts addHead). */

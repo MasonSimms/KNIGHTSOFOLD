@@ -362,7 +362,7 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
 }
 
 /** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
-export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; net?: boolean; chain?: ChainSpec; edge?: 'blade'; point?: boolean; thrust?: boolean }): Part {
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; net?: boolean; chain?: ChainSpec; edge?: 'blade'; point?: boolean; thrust?: boolean; lunge?: number }): Part {
   const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
   const body = world.createRigidBody((spec.fixed ? RAPIER.RigidBodyDesc.fixed() : RAPIER.RigidBodyDesc.dynamic()).setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
   // A block (a stone, a crate, a pane of glass) or, by default, a rod (a plank, a club, a barrel on its side)
@@ -373,7 +373,7 @@ export function createProp(world: World, x: number, y: number, angle: number, sp
   const part: Part = {
     body, shapes, colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
-    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse, hook: spec.hook, lasso: spec.lasso, net: spec.net, edge: spec.edge, point: spec.point, thrust: spec.thrust },
+    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse, hook: spec.hook, lasso: spec.lasso, net: spec.net, edge: spec.edge, point: spec.point, thrust: spec.thrust, lunge: spec.lunge },
     ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}), ...(spec.back ? { back: true } : {}),
   };
   if (spec.chain) addHead(world, part, spec.chain);
@@ -1029,7 +1029,8 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     f.releaseMul = 1 + (C.torqueMul - 1) * fire;
     // The lunge follows the aim but stays within lungeMaxAngle of horizontal: it throws you at the opponent, not into the floor or the sky.
     const la = lungeAngle(s, input.aim, C.lungeMaxAngle);
-    shove(f, Math.cos(la) * C.lungeImpulse * fire * lungeMul, Math.sin(la) * C.lungeImpulse * fire * lungeMul);
+    const reach = f.stick?.weapon?.thrust ? f.stick.weapon.lunge ?? 1 : 1; // (a lance is only good in a lunge: it throws you further)
+    shove(f, Math.cos(la) * C.lungeImpulse * fire * lungeMul * reach, Math.sin(la) * C.lungeImpulse * fire * lungeMul * reach);
   }
   if (f.release > 0) f.release--;
   if (f.throwPending) {
@@ -1077,7 +1078,15 @@ export function controlFighter(world: World, f: Fighter, input: PlayerInput, eve
     const gb = f.stick!.body, B = T.guns.brace, L = f.stick!.weapon!.length, lever = L / 2 - f.stick!.weapon!.gripFromEnd; // the other hand under the barrel: it holds a long, heavy gun on the aim
     gb.applyTorqueImpulse(gb.mass() * (L * L / 12 + lever * lever) * (B.spring * wrapAngle(input.aim - gb.rotation()) - B.damping * gb.angvel()) * T.sim.dt, true);
   } // a loaded gun: the arm straight out, and the wrist lines the barrel up with the aim (whatever the arm's sag)
-  else if (armed) {
+  else if (armed && f.stick?.weapon?.thrust && f.tuck === 0) {
+    // A spear, a lance (owner, 2026-10-07): held level and pointing along the aim; charging draws it back toward the body, still pointing
+    // at the aim (the wrist keeps it lined up); released, the arm drives it straight out along the aim, with the lunge. (Just after a wall
+    // jump it is held up over the head like a club, so it does not snag the ledge.)
+    const TH = T.thrust, c = f.release > 0 ? 0 : charging ? f.charge / C.maxFrames : 0;
+    if (f.release > 0) { U = aimR; E = 0; gain = f.releaseMul; } // the thrust: arm straight out along the aim
+    else { U = aimR + lerp(TH.guardUpper, TH.drawUpper, c); E = lerp(TH.guardElbow, TH.drawElbow, c); } // the guard, drawing back as the charge builds
+    W = aimR - U - E; // (the weapon points at the aim: arm + elbow + wrist = aim)
+  } else if (armed) {
     if (slamming) {
       E = P.slamElbow; W = P.slamWrist; // slam: arm swings down through the aim and straightens
       gain = f.releaseMul;
