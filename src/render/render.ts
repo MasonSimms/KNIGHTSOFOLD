@@ -738,7 +738,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           k.position.set(lerp(p.px, p.cx, a) + sx, lerp(p.py, p.cy, a) + sy);
           k.rotation = p.pa + wrap(p.ca - p.pa) * a + (p === f.stick ? fx.twirl(f.index) : 0); // (an emptied gun twirls round in the hand)
           if (p === f.stick && f.grip) e.hand = f.side;
-          if (p === f.stick) { const half = ((p.weapon?.length ?? 1) / 2) * (p.flipped ? -1 : 1); motion.track(f.index, k.x + Math.cos(k.rotation) * half, k.y + Math.sin(k.rotation) * half, !!f.grip && !f.limp, f.release > 0); } // (its tip, for the swing trail)
+          if (p === f.stick) { const half = ((p.weapon?.length ?? 1) / 2) * (p.flipped ? -1 : 1); motion.track(f.index, k.x + Math.cos(k.rotation) * half, k.y + Math.sin(k.rotation) * half, !!f.grip && !f.limp, f.release > 0, p.weapon?.impactFactor ?? T.stick.impactFactor, c[0].x, c[0].y); } // (its tip, for the swing trail)
           if (p.role === 'stick') k.scale.set(p.flipped ? -1 : 1, e.hand);
           k.tint = tint;
           const u = e.under[i];

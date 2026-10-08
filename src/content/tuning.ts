@@ -461,14 +461,14 @@ export const tuning = {
   spawn: {
     enabled: true, // weapons keep arriving during a round (owner: on for the first playtest night; false = off, to tune the fighting without extra weapons)
     // Weapons keep arriving during a round, faster and better as it goes on (so rounds finish by themselves). Each era's pickups are in eras.ts.
-    firstGap: 300, // frames from one spawn to the next at the start of a round (5 s; was 8 s for minute-long rounds: rounds are about 20 s now)
-    minGap: 150, // ...shrinking to this by rampFrames (2.5 s)
+    firstGap: 720, // frames from one spawn to the next at the start of a round (12 s; owner 2026-10-07: "way slow down" the 5 s)
+    minGap: 420, // ...shrinking to this by rampFrames (7 s; was 2.5 s)
     rampFrames: 1800, // half a minute
     strongAfterFrames: 720, // the era's strong pickups can only appear after this (12 s)
     gunsFirst: 20, // a guns-only arena (eras.ts gunsOnly): the first gun drops this soon (0.3 s)...
-    gunsGap: 90, // ...and another every this many frames (1.5 s): everyone races for them (at 1 s / 2.5 s a third of the bots' gun rounds were over in under 8 s, bare-handed)
+    gunsGap: 240, // ...and another every this many frames (4 s; owner 2026-10-07: slower, was 1.5 s): everyone races for them (at 1 s / 2.5 s a third of the bots' gun rounds were over in under 8 s, bare-handed)
     strongChance: 0.6, // once it can appear, this share of spawns are the strong one
-    maxLoose: 6, // never more pickups lying around than this
+    maxLoose: 3, // never more pickups lying around than this (was 6)
     airdropChance: 0.5, // a spawn falls from the sky (otherwise it appears at one of the fixed spots)
     spots: [0.18, 0.5, 0.82], // fixed spots along the platform (0 = left end, 1 = right end)
     startRules: { start: 0.5, spots: 0.25, sky: 0.25 }, // how a round begins: everyone armed, clubs on the floor at fixed spots, or clubs falling from the sky
@@ -934,7 +934,7 @@ export const tuning = {
     // knocked out through it) and of a bullet's crack, in frame widths.
     frame: { width: 0.018, hole: 3.2, crack: 0.9 },
     motion: { // swing trails, hit dabs and dust (render/motion.ts; looks only)
-      trailSpeed: 9, // a weapon's tip moving faster than this (m/s) leaves a brushstroke behind it...
+      trailDamage: 1, // a swing leaves a brushstroke only while it is fast enough to hurt: a hit at its tip would take at least this much hidden health (of 100). Per weapon (its hit factor), and measured as the swing, not the holder running or falling...
       trailFrames: 7, // ...this many frames long
       trailWidth: 0.07, trailAlpha: 0.55, // its width at the tip (m, tapering to nothing behind) and how solid it is; cream, or the era's hot colour after a charged swing
       dab: 0.16, bigDab: 0.36, bigImpact: 40, dabSeconds: 0.22, // a cream dab where a hit lands (m across); a hit this big or more gets the big burst with a red core

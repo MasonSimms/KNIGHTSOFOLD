@@ -35,7 +35,7 @@ export function createMotion(layer: Container, puff: Puff, markLayer: Container,
   const flying = Array.from({ length: 48 }, () => ({ x: 0, y: 0, vx: 0, vy: 0, r: 0, color: 0, life: 0 })); // a hurt fighter's paint, in the air
   const marks = Array.from({ length: 80 }, (_, i) => { const s = new Sprite(blobs[i % blobs.length]); s.anchor.set(0.5); s.visible = false; markLayer.addChild(s); return s; }); // ...and where it landed
   let nextFly = 0, nextMark = 0;
-  const tips = Array.from({ length: 4 }, () => ({ xs: new Float32Array(KEEP), ys: new Float32Array(KEEP), n: 0, seen: false, hot: false }));
+  const tips = Array.from({ length: 4 }, () => ({ xs: new Float32Array(KEEP), ys: new Float32Array(KEEP), n: 0, seen: false, hot: false, bx: [0, 0], by: [0, 0], factor: 1 })); // (bx, by: the holder's body now and a frame ago; factor: the weapon's hit factor)
   const dabs = Array.from({ length: 12 }, () => {
     const g = new Graphics(), core = new Graphics();
     star(g, CREAM); core.circle(0, 0, 0.32).fill(CORE); // (the core shows only on a big hit)
@@ -74,17 +74,20 @@ export function createMotion(layer: Container, puff: Puff, markLayer: Container,
       else if (e.t === 'dodge') dust(e.x, e.y + T.stand.height, 2, 0.12, 0.2, ground); // the push-off
       else if (e.t === 'stomp') for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; puff(e.x + Math.cos(a) * 0.35, e.y + Math.sin(a) * 0.15, 0.3, ground, M.dust, 0.55, 0.15); } // a ring of dust
     },
-    /** This frame, fighter i's weapon tip is at (x, y); `armed`: swinging it in a hand; `hot`: after a charged swing. */
-    track(i: number, x: number, y: number, armed: boolean, hot: boolean) {
+    /** This frame, fighter i's weapon tip is at (x, y) and their body at (bx, by); `armed`: swinging it in a hand; `hot`: after a charged
+     *  swing; `factor`: the weapon's hit factor (how hard a hit at a given speed is: content/weapons.ts impactFactor). */
+    track(i: number, x: number, y: number, armed: boolean, hot: boolean, factor: number, bx: number, by: number) {
       const t = tips[i];
       if (!t) return;
       if (!armed) { t.n = 0; return; }
       t.xs.copyWithin(1, 0); t.ys.copyWithin(1, 0); // (newest first)
       t.xs[0] = x; t.ys[0] = y; t.n = Math.min(KEEP, t.n + 1); t.seen = true; t.hot = hot;
+      t.bx[1] = t.bx[0]; t.by[1] = t.by[0]; t.bx[0] = bx; t.by[0] = by; t.factor = factor;
     },
     /** Each frame, after the fighters have moved: the trails, the dabs, and the paint in the air (landing on the arena A's floor). */
     draw(seconds: number, era: string, A: Arena) {
-      const M = T.finish.motion, hot = hex(paintingFor(era).hot);
+      const M = T.finish.motion, hot = hex(paintingFor(era).hot), C = T.combat;
+      const hurts = C.impactMin + (M.trailDamage / C.damageScale) ** (1 / C.damageExp); // the smallest hit (impact) that takes trailDamage hidden health (sim/combat.ts damageFor, backwards)
       trails.clear(); paint.clear();
       for (const d of flying) {
         if (d.life <= 0) continue;
@@ -104,7 +107,8 @@ export function createMotion(layer: Container, puff: Puff, markLayer: Container,
         if (!t.seen) { t.n = 0; continue; } // (not tracked this frame: no weapon in hand)
         t.seen = false;
         const n = Math.min(t.n, M.trailFrames);
-        if (n < 3 || seconds <= 0 || Math.hypot(t.xs[0] - t.xs[1], t.ys[0] - t.ys[1]) / seconds < M.trailSpeed) continue; // only through a fast swing
+        const swing = Math.hypot(t.xs[0] - t.xs[1] - (t.bx[0] - t.bx[1]), t.ys[0] - t.ys[1] - (t.by[0] - t.by[1])) / seconds; // the tip's speed through the swing (not the holder's running or falling)
+        if (n < 3 || seconds <= 0 || swing * t.factor < hurts) continue; // only while the swing is fast enough to hurt (owner: no trail on a swing too slow to do damage)
         const left: number[] = [], right: number[] = [];
         for (let k = 0; k < n; k++) { // the stroke's edges, narrowing from the tip back to nothing
           const a = Math.max(0, k - 1), b = Math.min(n - 1, k + 1), dx = t.xs[a] - t.xs[b], dy = t.ys[a] - t.ys[b], d = Math.hypot(dx, dy) || 1, w = (M.trailWidth / 2) * (1 - k / (n - 1));
