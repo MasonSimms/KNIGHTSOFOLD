@@ -84,6 +84,11 @@ export const PROPS: Record<string, PropSpec> = {
   ...GUN_LOCKER,
   chest: { len: 0.8, thick: 0.55, mass: 7, factor: 2.6, box: true, breaks: { hp: 50, into: ['plank', 'stave', 'stave'] } }, // a sea chest (Tidal Cove): breakable scenery, like a crate
   'aqueduct-block': { len: 1.0, thick: 0.45, mass: 14, factor: 2.6, material: 'stone', box: true }, // a block of the Aqueduct Bridge's deck (its length is the bridge's: the span over its blocks)
+  // the Mead Hall (Vikings): a long table (too heavy to lift: stand on it, shove it, tip it over onto someone), a bench (a long club) and
+  // an iron ring of candles hanging on a rope over the floor (a light; a club hit or a shot cuts it down onto whoever is under it)
+  table: { len: 2.4, thick: 0.8, mass: 40, factor: 2.6, box: true, toughness: 8 },
+  bench: { len: 1.6, thick: 0.18, mass: 5, factor: 2.7, toughness: 4 },
+  chandelier: { len: 1.5, thick: 0.3, mass: 28, factor: 2.6, material: 'metal', box: true, hangs: 1.1 },
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

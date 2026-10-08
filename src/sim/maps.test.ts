@@ -77,11 +77,12 @@ describe('maps', () => {
       const near = () => { const x = f.torso.body.translation().x; return pits.some((p) => x > p.x - p.run - 1.4 && x < p.x); }; // (walk up to a pit's edge rather than hop into it)
       let leaping = false, from = 0; // (a leap is held until you land, as a player holds the jump button; down onto a lower roof it is a hop)
       const down = () => { const x = f.torso.body.translation().x; return pits.some((p) => p.down && x > p.x - p.run && x < p.x + p.w); };
-      while (f.torso.body.translation().x < x1 && n++ < (pits.length ? 360 : 240) * Math.max(1, (x1 - x0) / 13) && !f.limp) { // (4 s; 6 with leaps to make; longer on a wider map)
+      const heavy = sim.props.some((p) => !p.back && p.body.isDynamic() && p.body.mass() > T.props.maxLift); // (furniture too heavy to lift is jumped onto, like a pit)
+      while (f.torso.body.translation().x < x1 && n++ < (pits.length || heavy ? 360 : 240) * Math.max(1, (x1 - x0) / 13) && !f.limp) { // (4 s; 6 with leaps to make; longer on a wider map)
         if (f.grounded && f.torso.body.linvel().y > -1) { const was = leaping; leaping = leap(); if (leaping && !was) from = n; }
         const vy = f.torso.body.linvel().y, stalled = !f.grounded && Math.abs(vy) < 0.5; // (caught on an edge: press again, as a player would)
         const held = leaping && down() ? n - from < 6 : stalled ? n % 10 < 5 : !(f.grounded && f.prevJump && vy > -1);
-        sim.step([{ ...NEUTRAL, moveX: 1, jump: hop && (leaping ? held : f.grounded && n % 20 < 10 && !near()) }, NEUTRAL]);
+        sim.step([{ ...NEUTRAL, moveX: 1, jump: hop && (leaping || stalled ? held : f.grounded && n % 20 < 10 && !near()) }, NEUTRAL]); // (pressed against the side of something: press jump, as a player would)
       }
       expect(f.torso.body.translation().x, hop ? 'hopping' : 'walking').toBeGreaterThan(x1); // across in under 4 s (a straight run takes about 2)
       expect(f.limp).toBe(false);

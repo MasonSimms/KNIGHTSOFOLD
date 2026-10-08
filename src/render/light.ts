@@ -22,7 +22,7 @@ export function lightsOf(sim: Sim, time: number): Light[] {
   const L = T.light, A = sim.arena, out: Light[] = [];
   const flick = (ph: number) => 1 - L.flicker * (0.5 + 0.5 * Math.sin(time * 13 + ph) * Math.sin(time * 7.3 + ph * 2.1));
   A.fires.forEach((z, i) => out.push({ x: z.x + z.w / 2, y: A.platformTop - z.up - 0.45, power: flick(i) }));
-  sim.props.forEach((p, i) => { if (p.weapon?.id === 'lantern') out.push({ x: p.cx, y: p.cy, power: 0.8 * flick(i + 5) }); });
+  sim.props.forEach((p, i) => { if (p.weapon?.id === 'lantern') out.push({ x: p.cx, y: p.cy, power: 0.8 * flick(i + 5) }); else if (p.weapon?.id === 'chandelier' && p.links?.length) out.push({ x: p.cx, y: p.cy, power: 1.1 * flick(i + 9) }); }); // (a chandelier's candles go out when it falls)
   return out;
 }
 
