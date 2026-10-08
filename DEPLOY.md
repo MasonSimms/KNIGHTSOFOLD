@@ -34,6 +34,9 @@ After any change: `npm run deploy`. That updates the page and the server togethe
 is told "the game has been updated: reload"). A deploy restarts the server and ends every fight on it (the 2026-10-06 playtest lost its
 match that way), so `npm run deploy` first asks the live server and refuses while anyone is fighting. `npm run deploy -- --force` goes
 up anyway: anyone in a fight is told to make a new room in a minute.
+It also refuses a copy that is behind GitHub's master (it would put older code live and undo other windows' fixes: on 2026-10-08 a
+stale checkout went live over the day's online fixes) or has unsaved changes; `npm run deploy -- --stale` skips that. Each release is
+labelled with its commit: `fly releases --app knightsofold --image` shows what is live.
 
 ## Checking on it
 
