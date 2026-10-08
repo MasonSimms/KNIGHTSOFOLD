@@ -920,7 +920,7 @@ export const tuning = {
     // picture for freezeFrames frames (0 = never). A lost limb drips paint from its cut end (render/limbs.ts): for dripSeconds, about
     // dripsPerSecond drops of radius drop (m) lasting dropSeconds; once it has lain still for poolAfter seconds it lies in a pool of its
     // owner's paint, pool px across at 1080p, poolDrop m below its middle.
-    hits: { freezeImpact: 40, freezeFrames: 3, dripSeconds: 3, dripsPerSecond: 7, drop: 0.025, dropSeconds: 0.45, poolAfter: 0.4, pool: 26, poolDrop: 0.06 },
+    hits: { freezeImpact: 40, freezeFrames: 0, dripSeconds: 3, dripsPerSecond: 7, drop: 0.025, dropSeconds: 0.45, poolAfter: 0.4, pool: 26, poolDrop: 0.06 },
     // Water and era extras (render/extras.ts): a splash throws crownDrops drops up at crownRise m/s (the full crown from crownSpeed m/s of
     // fall); ripples widen by `ripple` m over rippleSeconds; a wet fighter drips for dripSeconds at dripsPerSecond; a tar pit bubbles about
     // every bubbleEvery s, each swelling to `bubble` m over bubbleSeconds; a Space Age hit's spark (m, s); the Gravity Hammer's rings close
