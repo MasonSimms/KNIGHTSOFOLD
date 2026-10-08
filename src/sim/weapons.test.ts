@@ -183,3 +183,24 @@ describe('parry', () => {
     expect(parried).toBe(false);
   });
 });
+
+// Owner, 2026-10-07: blades cut (they hurt from less speed, and more, and shove less), a point hurts most, blunt weapons shove more.
+describe('blades, points and blunt weapons', () => {
+  it('a katana edge cuts, its tip is the point, a club is blunt; with edges off everything is as before', async () => {
+    const { cutFor, damageFor } = await import('./combat');
+    const { weaponById } = await import('../content/weapons');
+    const { tuning: TT } = await import('../content/tuning');
+    const katana = weaponById('katana'), club = weaponById('bone-club'), C = TT.combat;
+    const edge = cutFor(katana, 0), tip = cutFor(katana, katana.length / 2 - 0.02), blunt = cutFor(club, club.length / 2 - 0.02);
+    expect(edge.kind).toBe('blade'); expect(tip.kind).toBe('point'); expect(blunt.kind).toBe('blunt');
+    const slow = C.impactMin * 0.85; // a gentle hit: a blunt weapon does nothing, a blade cuts
+    expect(damageFor(slow, blunt.mul, blunt.min)).toBe(0);
+    expect(damageFor(slow, edge.mul, edge.min)).toBeGreaterThan(0);
+    const hard = 30; // a solid hit: the point hurts more than the edge, the edge more than blunt
+    expect(damageFor(hard, tip.mul, tip.min)).toBeGreaterThan(damageFor(hard, edge.mul, edge.min));
+    expect(damageFor(hard, edge.mul, edge.min)).toBeGreaterThan(damageFor(hard, blunt.mul, blunt.min));
+    expect(edge.knock).toBeLessThan(1); expect(blunt.knock).toBeGreaterThan(1);
+    C.edges = false;
+    try { expect(cutFor(katana, katana.length / 2 - 0.02)).toEqual({ kind: 'blunt', mul: 1, min: C.impactMin, knock: 1 }); } finally { C.edges = true; }
+  });
+});

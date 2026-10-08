@@ -158,7 +158,7 @@ describe('ship to ship', () => {
       for (const b of sim.boats) worst = Math.max(worst, Math.abs(b.body.rotation()));
     }
     console.log(`worst tilt in a 20 s brawl: ${(worst * 180 / Math.PI).toFixed(1)} degrees`);
-    expect(worst).toBeLessThan(0.26); // 15 degrees (four fighters piled on one end of the long ship tip it about 17)
+    expect(worst).toBeLessThan(0.3); // 17 degrees, what four fighters piled on one end of the long ship tip it (the old rope bug levered them far past this and held them there)
   }, 30_000);
 
   it('a weapon meets a rope, a body passes through it', async () => {

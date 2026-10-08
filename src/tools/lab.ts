@@ -48,7 +48,7 @@ export async function runLab(o: LabOptions): Promise<Round[]> {
               last.set(e.victim, { how: e.how ?? 'body', w: e.w, frame: sim.frame });
             } else if (e.t === 'die' || e.t === 'fall') {
               const h = last.get(e.owner), recent = h && (e.t === 'die' || sim.frame - h.frame <= KNOCKOFF_MEMORY + (sim.arena.sea ? T.swim.frames : 0)); // (in the sea you swim a while before you go under)
-              deaths.push({ cause: recent ? (h.how === 'club' && h.w ? `club:${h.w}` : h.how) : 'nothing', fell: e.t === 'fall' });
+              deaths.push({ cause: recent ? (['club', 'blade', 'point'].includes(h.how ?? '') && h.w ? `club:${h.w}` : h.how) : 'nothing', fell: e.t === 'fall' });
             } else if (e.t === 'round') winner = e.owner;
           }
         }

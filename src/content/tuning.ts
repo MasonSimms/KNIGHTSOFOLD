@@ -764,6 +764,11 @@ export const tuning = {
   },
   combat: {
     impactMin: 10, // below this nothing happens (resting contact never hurts)
+    // Blades, points and blunt weapons (owner, 2026-10-07; weapons.ts and props.ts edge / point). Off: every weapon is as before.
+    edges: true,
+    blade: { min: 0.6, mul: 1.25, knock: 0.7 }, // a blade's edge (or a point) starts hurting at this share of impactMin, hurts this many times more, and shoves this much
+    pointZone: 0.15, pointMul: 1.5, // a hit with the last pointZone of a pointed weapon's length is the point: this many times the damage
+    bluntKnock: 1.25, // a blunt weapon (no edge) shoves this many times harder
     damageScale: 0.115, // how much every hit hurts (was 0.3: owner wants 20 s rounds, 2026-10-07; guns are scaled back up by tuning.guns.hurt so they stay as deadly)
     damageExp: 1.5, // 1 = damage grows in a straight line with impact; above 1, big committed swings are worth disproportionately more
     damageMax: 100,

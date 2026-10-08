@@ -1,7 +1,8 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
-import { damageFor, impactValue, knockbackFor } from './combat';
+import { cutFor, damageFor, impactValue, knockbackFor } from './combat';
+import type { Cut } from './combat';
 import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWeapon, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, ropeGroups, setBackPlane, shove, syncStickGroups, terrainGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
 import { eraById } from '../content/eras';
@@ -1307,7 +1308,8 @@ export class Sim {
     const impact = impactValue(closing, W.impactFactor) * (own?.spear && !f.grip ? T.special.spearThrown : 1); // (a spear thrown point-first)
     this.tryDisarm(f, victim, vp, pt, impact, nx, ny, sa, sb); // a great hit on the hand or arm can knock the club out
     const punch = att.kind === 'fist' && f.punch > 0 && !f.grip; // a quick punch (owner: it knocks a rival away more than it hurts)
-    let dmg = damageFor(impact, head ? T.combat.headMult : 1) * (punch ? (this.arena.noWeapons ? T.punch.fistsOnlyHurt : T.punch.hurt) : 1);
+    const cut = this.cutOf(att, pt); // a blade's edge or a point (owner, 2026-10-07): it hurts from less speed, and more; a blunt weapon shoves more
+    let dmg = damageFor(impact, (head ? T.combat.headMult : 1) * cut.mul, cut.min) * (punch ? (this.arena.noWeapons ? T.punch.fistsOnlyHurt : T.punch.hurt) : 1);
     if (dmg <= 0) return;
     // A huge club blow to a limb takes the limb, not the life: the victim is left with a few HP (unless they were already nearly dead).
     const maiming = att.kind === 'stick' && impact >= T.maim.impact && !head && ['upper', 'fore', 'thigh', 'shin'].includes(vp.role);
@@ -1319,7 +1321,7 @@ export class Sim {
     victim.stun = T.combat.stunFrames;
     if (victim.hold && impact >= T.grab.breakImpact) letGo(this.world, victim, false, this.events); // a good hit on a grabber, from the one they hold or anyone else, breaks the hold
     const killing = victim.hp <= 0;
-    const k = knockbackFor(impact) * (att.kind === 'fist' ? T.fist.knockbackMul : 1) * (own?.push ?? 1), pull = own?.pull ? -1 : 1; // punches shove much less than a club; a shield shoves more; the gravity hammer pulls
+    const k = knockbackFor(impact) * (att.kind === 'fist' ? T.fist.knockbackMul : 1) * (own?.push ?? 1) * cut.knock, pull = own?.pull ? -1 : 1; // punches shove much less than a club; a shield shoves more; the gravity hammer pulls
     shove(victim, pull * nx * k, pull * ny * k - impact * T.combat.knockbackUp);
     if (punch) { const m = fighterMass(victim); shove(victim, (Math.sign(nx) || f.side) * T.punch.knock * m, -T.punch.lift * m); } // ...back, and a little off their feet
     if (punch && T.punch.disarmsGuns && victim.grip && victim.stick?.weapon?.gun && !killing) { // ...and their gun flies out of their hand (owner: like Stick Fight)
@@ -1329,9 +1331,20 @@ export class Sim {
     if (!killing) this.knockdown(victim, impact, nx);
     // A hit tips the victim backward (head swings away from the blow) a little: smooth and funny, not a random flip.
     victim.torso.body.applyTorqueImpulse(-Math.sign(nx || 1) * impact * T.combat.spinScale * (0.8 + 0.4 * this.rng()), true);
-    this.events.push({ t: 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head, how: att.kind === 'stick' ? 'club' : 'fist', w: att.kind === 'stick' ? att.part.weapon?.id : undefined, d: dmg });
+    this.events.push({ t: 'hit', x: pt.x, y: pt.y, v: impact, owner: f.index, victim: victim.index, head, how: att.kind === 'stick' ? (cut.kind === 'blunt' ? 'club' : cut.kind) : 'fist', w: att.kind === 'stick' ? att.part.weapon?.id : undefined, d: dmg });
     if (maiming && !killing) this.maim(victim, vp, nx, ny);
     if (killing) this.kill(victim, false, impact, { how: att.kind === 'stick' ? 'club' : 'fist', part: vp, head, nx, ny });
+  }
+
+  /**
+   * What part of a weapon landed (owner, 2026-10-07): its point (the last tuning.combat.pointZone of its length, on a weapon with a point),
+   * its edge (a blade) or something blunt; and so the damage multiplier, the impact it starts hurting from, and how hard it shoves.
+   * Fists, and everything with combat.edges off, are as before.
+   */
+  private cutOf(att: Attacker, pt: { x: number; y: number }): Cut {
+    if (att.kind !== 'stick') return cutFor(undefined, 0);
+    const t = att.part.body.translation(), a = att.part.body.rotation();
+    return cutFor(att.part.weapon, (pt.x - t.x) * Math.cos(a) + (pt.y - t.y) * Math.sin(a), att.part.flipped); // (where along it: + toward the tip, the grip is behind the middle)
   }
 
   private kill(f: Fighter, fell: boolean, impact = 0, cause?: Cause): void {

@@ -18,6 +18,9 @@ export interface Weapon {
   hook?: boolean; // a grappling hook: a click throws the hook on a rope (sim/hook.ts)
   net?: boolean; // a net: a click throws it, and it tangles the first fighter it touches (sim/tangle.ts)
   lasso?: boolean; // ...a lasso: thrown the same way, but it only takes people and loose things (it passes the scenery by) and holds them longer
+  edge?: 'blade'; // a blade (owner, 2026-10-07): it cuts, so it hurts from less speed and more, and shoves less (tuning.combat.blade); no edge = blunt (shoves more)
+  point?: boolean; // it has a point: a hit with its last bit (tuning.combat.pointZone of its length) hurts more (tuning.combat.pointMul)
+  thrust?: boolean; // a spear, a lance: charged, it draws back level along the aim and drives forward (sim/fighter.ts), instead of rising over the head
 }
 
 /** A chain weapon (props.ts chain): a head of this weight and radius on a chain this long from the handle's far end (sim/fighter.ts addHead). */
@@ -67,19 +70,19 @@ export interface GunSpec {
 
 export const weapons: Weapon[] = [
   { id: 'bone-club', name: 'Bone Club', length: 1.05, thickness: 0.14, mass: 1.7, gripFromEnd: 0.15, impactFactor: 2.5, material: 'wood', toughness: 4 },
-  { id: 'katana', name: 'Katana', length: 1.25, thickness: 0.08, mass: 0.9, gripFromEnd: 0.15, impactFactor: 2.4, material: 'metal' },
+  { id: 'katana', name: 'Katana', length: 1.25, thickness: 0.08, mass: 0.9, gripFromEnd: 0.15, impactFactor: 2.4, material: 'metal', edge: 'blade', point: true },
   { id: 'rifle', name: 'Rifle (as a club)', length: 1.15, thickness: 0.08, mass: 1.4, gripFromEnd: 0.15, impactFactor: 2.2, material: 'wood', toughness: 4 },
   { id: 'shovel', name: 'Trench Shovel', length: 1.05, thickness: 0.09, mass: 1.5, gripFromEnd: 0.15, impactFactor: 2.3, material: 'metal' },
-  { id: 'machete', name: 'Machete', length: 1.05, thickness: 0.08, mass: 0.8, gripFromEnd: 0.15, impactFactor: 2.2, material: 'metal' },
+  { id: 'machete', name: 'Machete', length: 1.05, thickness: 0.08, mass: 0.8, gripFromEnd: 0.15, impactFactor: 2.2, material: 'metal', edge: 'blade' },
   { id: 'baton', name: 'Riot Baton', length: 1.05, thickness: 0.08, mass: 0.9, gripFromEnd: 0.15, impactFactor: 2.1, material: 'wood', toughness: 3 },
   { id: 'energy-staff', name: 'Energy Staff', length: 1.4, thickness: 0.08, mass: 0.8, gripFromEnd: 0.15, impactFactor: 2.3, material: 'metal' },
   { id: 'longbow', name: 'Longbow (as a staff)', length: 1.3, thickness: 0.08, mass: 0.7, gripFromEnd: 0.15, impactFactor: 2.1, material: 'wood', toughness: 2 },
   { id: 'bat', name: 'Baseball Bat', length: 1.05, thickness: 0.1, mass: 1.1, gripFromEnd: 0.15, impactFactor: 2.3, material: 'wood', toughness: 3 },
-  { id: 'khopesh', name: 'Khopesh', length: 1.05, thickness: 0.08, mass: 1.0, gripFromEnd: 0.15, impactFactor: 2.4, material: 'metal' },
-  { id: 'gladius', name: 'Gladius', length: 1.05, thickness: 0.08, mass: 0.8, gripFromEnd: 0.15, impactFactor: 2.2, material: 'metal' },
-  { id: 'axe', name: 'Battle Axe', length: 1.05, thickness: 0.1, mass: 1.6, gripFromEnd: 0.15, impactFactor: 2.6, material: 'metal' },
-  { id: 'longsword', name: 'Longsword', length: 1.2, thickness: 0.08, mass: 1.1, gripFromEnd: 0.15, impactFactor: 2.4, material: 'metal' },
-  { id: 'cutlass', name: 'Cutlass', length: 1.05, thickness: 0.08, mass: 0.9, gripFromEnd: 0.15, impactFactor: 2.3, material: 'metal' },
+  { id: 'khopesh', name: 'Khopesh', length: 1.05, thickness: 0.08, mass: 1.0, gripFromEnd: 0.15, impactFactor: 2.4, material: 'metal', edge: 'blade' },
+  { id: 'gladius', name: 'Gladius', length: 1.05, thickness: 0.08, mass: 0.8, gripFromEnd: 0.15, impactFactor: 2.2, material: 'metal', edge: 'blade', point: true },
+  { id: 'axe', name: 'Battle Axe', length: 1.05, thickness: 0.1, mass: 1.6, gripFromEnd: 0.15, impactFactor: 2.6, material: 'metal', edge: 'blade' },
+  { id: 'longsword', name: 'Longsword', length: 1.2, thickness: 0.08, mass: 1.1, gripFromEnd: 0.15, impactFactor: 2.4, material: 'metal', edge: 'blade', point: true },
+  { id: 'cutlass', name: 'Cutlass', length: 1.05, thickness: 0.08, mass: 0.9, gripFromEnd: 0.15, impactFactor: 2.3, material: 'metal', edge: 'blade', point: true },
   { id: 'stone-axe', name: 'Stone Axe', length: 1.0, thickness: 0.13, mass: 1.9, gripFromEnd: 0.15, impactFactor: 2.6, material: 'stone' }, // (a map's own weapon: Standing Stones)
 ];
 

@@ -362,7 +362,7 @@ export function cutJoint(world: World, f: Fighter, j: ImpulseJoint | null): void
 }
 
 /** A loose object in the world: a plank, a log, a bone. A capsule on its side; it can be picked up and used as a club. */
-export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; net?: boolean; chain?: ChainSpec }): Part {
+export function createProp(world: World, x: number, y: number, angle: number, spec: { kind: string; len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number }; box?: boolean; back?: boolean; fixed?: boolean; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; net?: boolean; chain?: ChainSpec; edge?: 'blade'; point?: boolean; thrust?: boolean }): Part {
   const r = spec.thick / 2, hl = Math.max(0.01, spec.len / 2 - r);
   const body = world.createRigidBody((spec.fixed ? RAPIER.RigidBodyDesc.fixed() : RAPIER.RigidBodyDesc.dynamic()).setTranslation(x, y).setRotation(angle).setLinearDamping(0.05).setAngularDamping(0.5).setCcdEnabled(true));
   // A block (a stone, a crate, a pane of glass) or, by default, a rod (a plank, a club, a barrel on its side)
@@ -373,7 +373,7 @@ export function createProp(world: World, x: number, y: number, angle: number, sp
   const part: Part = {
     body, shapes, colliders: [collider], role: 'prop', owner: -1,
     px: x, py: y, pa: angle, cx: x, cy: y, ca: angle, vx: 0, vy: 0, w: 0,
-    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse, hook: spec.hook, lasso: spec.lasso, net: spec.net },
+    weapon: { id: spec.kind, name: spec.kind, length: spec.len, thickness: spec.thick, mass: spec.mass, gripFromEnd: gripOf(spec), impactFactor: spec.factor ?? T.props.factor, material: spec.material, toughness: spec.toughness, gun: spec.gun, push: spec.push, pull: spec.pull, spear: spec.spear, fuse: spec.fuse, hook: spec.hook, lasso: spec.lasso, net: spec.net, edge: spec.edge, point: spec.point, thrust: spec.thrust },
     ...(spec.gun ? { ammo: spec.gun.ammo } : {}), ...(spec.breaks ? { hp: spec.breaks.hp } : {}), ...(spec.back ? { back: true } : {}),
   };
   if (spec.chain) addHead(world, part, spec.chain);
