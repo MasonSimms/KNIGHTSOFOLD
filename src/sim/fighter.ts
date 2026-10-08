@@ -25,6 +25,7 @@ export interface Part {
   back?: boolean; // stands a step behind the fighters (props.ts back): touches the ground and loose things only
   hang?: { x: number; y: number }; // hangs on a rope from this point (a lantern)
   bolted?: boolean; // part of a map's machine (a catapult's lever): nobody picks it up
+  clock?: boolean; // moved by the clock, not by the physics (a pure function of the frame): an online page puts it at the frame it predicts (Sim.poseMachines), instead of steering it to a snapshot
   head?: Part; // a chain weapon (props.ts chain): its head, hanging on its chain from this handle's far end; it goes wherever the handle goes
   chainOf?: Part; // ...and on the head: its handle
   netLive?: number; // a thrown net: frames it can still tangle someone it touches (sim/tangle.ts)

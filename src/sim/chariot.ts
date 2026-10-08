@@ -26,11 +26,17 @@ export function buildChariot(sim: Sim): Chariot {
   return { body, run: p.run, hit: new Set() };
 }
 
-/** Before the physics each frame: the chariot on to where it is next frame, and whatever it touches flung ahead of it. */
-export function stepChariot(sim: Sim, ch: Chariot): void {
-  const A = sim.arena, H = T.chariot, n = chariotAt(A, sim.frame + 1), now = ch.body.translation();
+/** The chariot on to where it is at `frame` (next frame, on the server; an online page, the frame it is predicting). */
+export function placeChariot(sim: Sim, ch: Chariot, frame: number): ReturnType<typeof chariotAt> {
+  const n = chariotAt(sim.arena, frame), now = ch.body.translation();
   if (Math.abs(n.x - now.x) > 3) ch.body.setTranslation({ x: n.x, y: n.y }, true); // (to the start of a run, or away: no sweep across)
   else ch.body.setNextKinematicTranslation({ x: n.x, y: n.y });
+  return n;
+}
+
+/** Before the physics each frame: the chariot on to where it is next frame, and whatever it touches flung ahead of it. */
+export function stepChariot(sim: Sim, ch: Chariot): void {
+  const H = T.chariot, n = placeChariot(sim, ch, sim.frame + 1);
   if (n.run !== ch.run) { ch.run = n.run; ch.hit.clear(); }
   if (!n.dir) return;
   const col = ch.body.collider(0), hit: Part[] = [];

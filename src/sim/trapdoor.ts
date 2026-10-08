@@ -43,10 +43,10 @@ export function buildDoors(sim: Sim): Trapdoor[] {
   });
 }
 
-/** Before the physics each frame: every door to where it is next frame. */
-export function stepDoors(sim: Sim, doors: Trapdoor[]): void {
+/** Before the physics each frame: every door to where it is next frame (or at `frame`: an online page, predicting). */
+export function stepDoors(sim: Sim, doors: Trapdoor[], frame = sim.frame + 1): void {
   for (const { body, door } of doors) {
-    const p = doorPose(sim.arena, door, sim.frame + 1);
+    const p = doorPose(sim.arena, door, frame);
     body.setNextKinematicTranslation({ x: p.x, y: p.y });
     body.setNextKinematicRotation(p.rot);
   }

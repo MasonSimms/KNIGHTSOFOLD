@@ -186,6 +186,10 @@ let pendingClip: Clip | null = null, clipAt = 0, roundSeenAt = 0, lastAlpha = 1;
 async function eraChange() {
   if (replaying) return;
   replaying = true; freeze = 0;
+  try { await museumBetween(); } catch (e) { museum.close(); hideCards(); console.error(e); } // (anything going wrong in the museum must not leave the fight frozen behind it)
+  finally { replaying = false; last = performance.now(); acc = 0; }
+}
+async function museumBetween() {
   const now = museum.newCanvas();
   renderer.draw(lastAlpha, 0, undefined, now); // the freeze
   museum.hangNow(now, view.era);
@@ -198,7 +202,6 @@ async function eraChange() {
   if (view.endsMatch) { // the last round: no next era; the podium comes up over the wall (the museum closes when everyone goes back to the Hall)
     hideCards();
     if (!net && !room) sim.finishRoundPause();
-    replaying = false; last = performance.now(); acc = 0;
     return;
   }
   const next = museum.newCanvas();
@@ -212,7 +215,6 @@ async function eraChange() {
   for (let i = 0; i < 300 && net && mirror && mirror.newestRound <= view.round; i++) await new Promise((ok) => setTimeout(ok, 20)); // (online: the next round starts once everyone's is painted, 3 s at most: the painting stays up until it has)
   museum.close();
   if (net) settle();
-  replaying = false; last = performance.now(); acc = 0;
 }
 
 /** The next era's painting: its arena with everyone at their starting spots, drawn from a copy of the next round (nothing runs in it). */
@@ -340,7 +342,7 @@ function padInput(slot: number, index: number, pads: Gamepad[]): PlayerInput {
 function frame(now: number) {
   requestAnimationFrame(frame);
   if (paused || replaying) return;
-  const ft = Math.min(now - last, 100); // clamp so a tab switch doesn't cause a huge catch-up
+  const ft = Math.min(Math.max(0, now - last), 100); // clamp so a tab switch doesn't cause a huge catch-up (and never below 0: a frame's time can be earlier than a `last` set after an await, and a step back in time broke a colour: 'Unable to convert color')
   last = now;
   const frozen = freeze > 0; // a heavy hit: the fight (or, online, our copy of it) stands still this frame
   if (frozen) freeze--; else acc += (ft / 1000) * speed;

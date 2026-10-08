@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { NEUTRAL } from '../sim/types';
 import type { PlayerInput } from '../sim/types';
 import { Sim } from '../sim/world';
+import { mapNamed } from '../content/eras';
+import { tuning as T } from '../content/tuning';
 import { Predictor } from './predict';
 import { Mirror } from './snapshot';
 import type { Snapshot } from './snapshot';
@@ -11,8 +13,9 @@ import { Room } from './room';
 const LAG = 6;
 const wire = (s: Snapshot): Snapshot => JSON.parse(JSON.stringify(s));
 
-async function setup(seed = 4) {
+async function setup(seed = 4, map?: { era: string; name: string }) {
   const server = await Sim.create(seed, 2, false), client = await Sim.create(seed, 2, false);
+  if (map) for (const s of [server, client]) { s.forceEra = map.era; s.forceMap = mapNamed(map.era, map.name); s.reset(); } // (the caller keeps tuning.eras.changeGameplay on)
   const room = new Room(server), mirror = new Mirror(client), pred = new Predictor(mirror, 0);
   const up: { at: number; i: PlayerInput; n: number }[] = [], down: { at: number; s: Snapshot }[] = [];
   const server0 = () => server.fighters[0].torso.body.translation();
@@ -35,6 +38,21 @@ async function setup(seed = 4) {
 }
 
 describe('prediction', () => {
+  it('standing on a trapdoor as it opens, your fighter drops with the server, not a snap later (the door is where it is at the frame being guessed)', async () => {
+    const was = T.eras.changeGameplay;
+    T.eras.changeGameplay = true;
+    try {
+      const { step, pred, server, client } = await setup(4, { era: 'gladiators', name: 'Colosseum Floor' });
+      const d = server.arena.trapdoors[0], x = d.x + d.w / 2;
+      for (const sim of [server, client]) { const f = sim.fighters[0], t = f.torso.body.translation(); for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + x - t.x, y: q.y }, true); } }
+      for (let i = 0; i < 60 * (d.at + T.trapdoor.swing + 1.5); i++) step(NEUTRAL);
+      expect(server.fighters[0].torso.body.translation().y).toBeGreaterThan(server.arena.platformTop + 1); // the server's fighter fell through
+      expect(pred.stats.snaps).toBe(0);
+      expect(pred.stats.worst).toBeLessThan(0.3); // and this page's guess went with it (left on a closed door, it was a metre and more off)
+      void client;
+    } finally { T.eras.changeGameplay = was; }
+  }, 60_000);
+
   it('your own jump (its sound and dust) comes from your own screen at once, not a round trip later', async () => {
     const { step, pred } = await setup();
     for (let i = 0; i < 90; i++) step(NEUTRAL);

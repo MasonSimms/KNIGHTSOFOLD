@@ -39,7 +39,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const wrap = (a: number) => a - Math.PI * 2 * Math.floor((a + Math.PI) / (Math.PI * 2));
 
 export function mix(a: number, b: number, t: number): number {
-  const ch = (s: number) => Math.round(lerp((a >> s) & 255, (b >> s) & 255, t));
+  const ch = (s: number) => Math.min(255, Math.max(0, Math.round(lerp((a >> s) & 255, (b >> s) & 255, t)))); // (clamped: a colour out of range throws in Pixi and loses the frame)
   return (ch(16) << 16) | (ch(8) << 8) | ch(0);
 }
 
@@ -728,7 +728,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       for (const e of entries) {
         const { f, c } = e;
         const so = light.shadowOf(lerp(f.torso.px, f.torso.cx, alpha), lerp(f.torso.py, f.torso.cy, alpha), SH); // the shadow falls away from the nearest light
-        e.vis += ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds);
+        e.vis = Math.min(1, Math.max(0, e.vis + ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds)));
         if (e.crushed) e.sq = Math.min(1, e.sq + frameSeconds / T.death.squashSeconds);
         const tint = mix(0xffffff, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker (no damage tint: health stays hidden)
         e.blur.strength = e.vis * T.dodge.visualBlur * px;

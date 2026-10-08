@@ -62,11 +62,12 @@ export class Predictor {
       drive(p.body, p, alpha);
       for (const c of p.colliders) { const gr = c.collisionGroups(); if (gr & meBit) c.setCollisionGroups(((gr & 0xffff0000) | (gr & 0xffff & ~meBit)) >>> 0); }
     }
-    for (const p of sim.props) { if (p.links?.length) unlink(sim.world, p); drive(p.body, p, alpha); }
+    for (const p of sim.props) { if (p.clock) continue; if (p.links?.length) unlink(sim.world, p); drive(p.body, p, alpha); } // (a clock-driven one is put where it will be: poseMachines)
     for (const s of sim.boats) follow(s.body, { px: s.px, py: s.py, pa: s.pa, cx: s.cx, cy: s.cy, ca: s.ca }, alpha);
     for (const p of mine) { if (!p.body.isDynamic()) p.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true); if (p.body.gravityScale() !== 1) p.body.setGravityScale(1, true); }
     if (starting) this.start(f, alpha, n - 1);
     this.shift.x *= T.net.predict.smooth; this.shift.y *= T.net.predict.smooth;
+    sim.poseMachines(this.frameOf(n));
     const shown = sim.predictStep(this.slot, input);
     for (const p of mine) { const t = p.body.translation(); p.px = p.cx; p.py = p.cy; p.pa = p.ca; p.cx = t.x; p.cy = t.y; p.ca = p.body.rotation(); }
     const t = f.torso.body.translation();
@@ -158,6 +159,7 @@ export class Predictor {
     for (let k = Math.max(L.ack + 1, upTo - T.net.predict.replayMax + 1); k <= upTo; k++) {
       const i = this.sent.get(k);
       if (!i) continue;
+      this.mirror.sim.poseMachines(this.frameOf(k));
       this.mirror.sim.predictStep(this.slot, i);
       const t = f.torso.body.translation();
       this.hist.set(k, { x: t.x, y: t.y });
@@ -165,6 +167,10 @@ export class Predictor {
     for (const p of mine) { const t = p.body.translation(); p.px = p.cx = t.x; p.py = p.cy = t.y; p.pa = p.ca = p.body.rotation(); }
     return true;
   }
+
+  /** The server frame your input number n will be used on (one input a tick from the newest snapshot's): where the clock-driven machines
+   *  are when your guessed fighter meets them. */
+  private frameOf(n: number): number { const L = this.last; return L ? L.frame + Math.max(0, n - L.ack) : this.mirror.sim.frame; }
 
   /** The parts that move with you (not a club you dropped, not a limb you lost). */
   private mine(f: Fighter): Part[] { return attachedParts(f); }

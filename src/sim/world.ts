@@ -22,7 +22,7 @@ import { buildDrawbridge } from './drawbridge';
 import { buildTilt } from './tilt';
 import { buildCatapult, stepCatapult } from './catapult';
 import type { Catapult } from './catapult';
-import { buildChariot, stepChariot } from './chariot';
+import { buildChariot, placeChariot, stepChariot } from './chariot';
 import type { Chariot } from './chariot';
 import type { Trapdoor } from './trapdoor';
 import type { Passing } from './train';
@@ -686,6 +686,14 @@ export class Sim {
    * Everything else must already be set to follow the server (kinematic). Nothing is decided here (hits, deaths, pickups, rounds): the
    * server does that and says so; this only moves the body, so your own fighter answers your keys at once.
    */
+  /** Online, on a page: the machines that move by the clock (not by the physics), put where they are at server frame `frame` (the one
+   *  its own fighter is being guessed at: net/predict.ts). Left where they were built, or where a snapshot from the past had them, your
+   *  fighter stood on a trapdoor the server had opened, or on a plane a buffer behind (snaps). A machine of that kind adds itself here. */
+  poseMachines(frame: number): void {
+    if (this.doors.length) stepDoors(this, this.doors, frame);
+    if (this.chariot) placeChariot(this, this.chariot, frame);
+  }
+
   predictStep(slot: number, input: PlayerInput): SimEvent[] {
     const f = this.fighters[slot];
     if (!f || f.limp) return [];
