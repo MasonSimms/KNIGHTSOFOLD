@@ -663,6 +663,7 @@ export class Sim {
     const f = this.fighters[slot];
     if (!f || f.limp) return [];
     applyWater(this.arena, this.frame, [f], [], []);
+    applyFalls(this, [f]); // (the aqueduct's falling water pushes you on your own screen too, or your guess and the server part: snaps)
     controlFighter(this.world, f, input, this.predictEvents, 0);
     this.predictEvents.length = 0; // (no sounds or paint from a guess: the server's events bring those)
     const shown: SimEvent[] = []; // ...except a shot of your own: its flash, bang and kick are at once (owner: instant feel)

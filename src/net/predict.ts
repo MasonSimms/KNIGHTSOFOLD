@@ -1,5 +1,5 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
-import type { RigidBody } from '@dimforge/rapier2d-deterministic-compat';
+import type { RigidBody, World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
 import { attachedParts, isWeapon } from '../sim/fighter';
 import type { Fighter, Part } from '../sim/fighter';
@@ -55,7 +55,7 @@ export class Predictor {
       drive(p.body, p, alpha);
       for (const c of p.colliders) { const gr = c.collisionGroups(); if (gr & meBit) c.setCollisionGroups(((gr & 0xffff0000) | (gr & 0xffff & ~meBit)) >>> 0); }
     }
-    for (const p of sim.props) drive(p.body, p, alpha);
+    for (const p of sim.props) { if (p.links?.length) unlink(sim.world, p); drive(p.body, p, alpha); }
     for (const s of sim.boats) follow(s.body, { px: s.px, py: s.py, pa: s.pa, cx: s.cx, cy: s.cy, ca: s.ca }, alpha);
     for (const p of mine) { if (!p.body.isDynamic()) p.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true); if (p.body.gravityScale() !== 1) p.body.setGravityScale(1, true); }
     if (starting) this.start(f, alpha, n - 1);
@@ -162,6 +162,14 @@ function drive(b: RigidBody, p: { px: number; py: number; pa: number; cx: number
   const k = T.net.predict.drive; // (soft: pushed, it gives way like a fighter standing there; what you see of it is the server's picture anyway)
   b.setLinvel({ x: (x - t.x) * k + (p.cx - p.px) * 60, y: (y - t.y) * k + (p.cy - p.py) * 60 }, true);
   b.setAngvel(wrap(p.pa + wrap(p.ca - p.pa) * alpha + wrap(p.ca - p.pa) - b.rotation()) * 60, true);
+}
+
+/** A bridge plank's or a hanging thing's joints, on this page: gone. The server holds the bridge together and breaks it; here every piece is
+ *  steered to where the server has it, and a joint the server has broken would drag its neighbours after it (a fallen aqueduct block
+ *  piled four more up into a heap on every page, and your fighter, standing on the heap, kept snapping back to the server's bridge). */
+function unlink(world: World, p: Part): void {
+  for (const j of p.links!) if (world.getImpulseJoint(j.handle)) world.removeImpulseJoint(j, true);
+  p.links = [];
 }
 
 /** A body that follows the server exactly: kinematic (the ship). */

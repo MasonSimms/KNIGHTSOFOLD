@@ -18,15 +18,15 @@ export function fallsOf(sim: Sim): { x0: number; x1: number; y: number }[] {
   return out;
 }
 
-/** Each frame: the falling water pushes down everything in it. */
-export function applyFalls(sim: Sim): void {
+/** Each frame: the falling water pushes down everything in it (only: just these fighters, for an online page guessing its own fighter). */
+export function applyFalls(sim: Sim, only?: Sim['fighters']): void {
   const W = T.aqueduct, dt = T.sim.dt;
   for (const f of fallsOf(sim)) {
     const push = (b: RigidBody) => {
       const t = b.translation();
       if (t.x > f.x0 && t.x < f.x1 && t.y > f.y - 0.6 && t.y < f.y + W.fallDepth) b.applyImpulse({ x: 0, y: W.fallPush * b.mass() * dt }, true);
     };
-    for (const g of sim.fighters) for (const p of g.parts) push(p.body);
-    for (const p of sim.props) if (p.body.isDynamic()) push(p.body);
+    for (const g of only ?? sim.fighters) for (const p of g.parts) push(p.body);
+    if (!only) for (const p of sim.props) if (p.body.isDynamic()) push(p.body);
   }
 }

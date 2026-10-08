@@ -9,6 +9,7 @@ import { Mirror } from '../net/snapshot';
 import type { Snapshot } from '../net/snapshot';
 import { Bot } from '../sim/bot';
 import { makeRng } from '../sim/rng';
+import { NEUTRAL } from '../sim/types';
 import type { PlayerInput } from '../sim/types';
 import { Sim } from '../sim/world';
 
@@ -16,6 +17,7 @@ import { Sim } from '../sim/world';
 // Their buttons are pressed by a bot brain; three bots on the server fight them (rounds, deaths, weapons dropping in: all of it). Both
 // ends are the real code: the server's Room, and the page's Mirror and Predictor, run as main.ts runs them (inputs on a 60 Hz clock,
 // snapshots blended on the screen's clock). Each line below is a kind of connection. Run it before and after any online change.
+// One map, the player standing still (it finds a map whose copy drifts from the server: snaps):  ERA=gladiators MAP=2 IDLE=1 npm run netlab
 // One way, in ms; jitter: up to this much extra per message; loss: share of messages lost (over a WebSocket a lost one is sent again,
 // and everything behind it waits: a stall of about a round trip). PLACEHOLDER lines until the playtest night's `fly logs` say what's real.
 const LINES = [
@@ -51,7 +53,8 @@ async function play(line: (typeof LINES)[number]) {
   const rng = makeRng(SEED * 31 + line.ms);
   const server = await Sim.create(SEED, 4, false), client = await Sim.create(SEED, 4, false);
   server.looks = server.looks.map((l, i) => (i === 0 ? { ...l } : botLook()));
-  server.reset();
+  if (process.env.ERA) for (const x of [server, client]) { x.forceEra = process.env.ERA; x.forceMap = Number(process.env.MAP ?? 0); } // (ERA=gladiators MAP=2: one map only)
+  server.reset(); client.reset();
   const room = new Room(server), mirror = new Mirror(client), pred = new Predictor(mirror, 0), brain = new Bot(SEED + 5);
   const up = new Pipe<{ i: PlayerInput; n: number }>(line.ms, line.jitter, line.loss, rng), down = new Pipe<string>(line.ms, line.jitter, line.loss, rng);
   const sentAt = new Map<number, number>(), inputDelay: number[] = [], behind: number[] = [], buffer: number[] = [], off: number[] = [], alone: number[] = [];
@@ -79,7 +82,7 @@ async function play(line: (typeof LINES)[number]) {
       lastFrame = clientAt;
       acc += ft;
       for (let k = 0; acc >= DT && k < T.sim.maxStepsPerFrame; k++, acc -= DT) {
-        const input = brain.think(server, server.fighters[0]); // (it decides from the server's world: what matters here is when it presses)
+        const input = process.env.IDLE ? NEUTRAL : brain.think(server, server.fighters[0]); // (IDLE=1: the player stands still and takes what comes) // (it decides from the server's world: what matters here is when it presses)
         n++; sentAt.set(n, clientAt); sentAt.delete(n - 600);
         up.send(clientAt, { i: input, n });
         pred.tick(input, n, shownAlpha);
