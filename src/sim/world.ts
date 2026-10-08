@@ -720,7 +720,7 @@ export class Sim {
     const strong = rare.length > 0 && (!common.length || (this.frame >= S.strongAfterFrames && this.rng() < S.strongChance));
     const from = strong ? rare : common; // (the common ones, or later the strong ones: one of them at random)
     const kind = from.length > 1 ? from[Math.floor(this.rng() * from.length)] : from[0], A = this.arena;
-    const sky = this.rng() < S.airdropChance, x = sky ? A.platformX + 0.8 + this.rng() * (A.platformW - 1.6) : A.platformX + A.platformW * S.spots[Math.floor(this.rng() * S.spots.length)];
+    const sky = this.rng() < S.airdropChance, x = sky ? A.platformX + 0.8 + this.rng() * (A.platformW - 1.6) : A.platformX + A.platformW * (A.spawnSpots ?? S.spots)[Math.floor(this.rng() * (A.spawnSpots ?? S.spots).length)]; // (a map's own spots: Main Street's are in the street, not inside the shops)
     const y = sky ? -1.5 : A.platformTop - 0.4;
     this.addProp(kind, x, y);
     this.events.push({ t: 'spawn', x, y, v: PROP_KINDS.indexOf(kind), owner: -1, victim: -1 });

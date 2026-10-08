@@ -24,6 +24,7 @@ export interface EraArena {
   train?: { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }; // a train map (see tuning.arena.train)
   roll?: number; // the painting slides by (m/s)
   noWeapons?: boolean; // fists and throws only
+  spawnSpots?: number[]; // where weapons appear when they do not fall from the sky (share of the platform; default tuning.spawn.spots)
   gunsOnly?: boolean; // (see also Era.gunRounds) nobody starts armed and only the era's guns drop in, early and often: a race for them (owner, 2026-10-07)
   tower?: { x: number; w: number }; // a water tower's tank (see tuning.arena.tower)
   wind?: { base: number; gust: number; dir: -1 | 1 }; // a windy map (see tuning.arena.wind)
@@ -96,7 +97,7 @@ export const eras: Era[] = [
       props: [{ kind: 'plank', x: 9.5, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'crate', x: 12.0, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }], outfits: ['captain', 'buccaneer', 'first mate', 'cabin boy'] },
   // Main Street (owner's list; the era's main map, with shop windows): the street between two shops; each shop's window is real glass you can be thrown
   // through (or punch or shoot out) into the shop. The shop roofs and the porch roof in the middle are ledges. Barrels; revolvers.
-  { id: 'westerns', name: 'The Wild West', special: false, pickups: ['derringer', 'revolver', 'coach-gun', 'pickaxe', 'buffalo-rifle'], strong: 2, sky: 0xc9915a, platform: 0x8a6240, wall: 0x6a4a34, weapon: 'rifle', arena: { name: 'Main Street', gunsOnly: true, platformX: 1.5, platformW: 21, walls: [{ side: -1, up: 1.9, gap: 0 }, { side: 1, up: 1.9, gap: 0 }],
+  { id: 'westerns', name: 'The Wild West', special: false, pickups: ['derringer', 'revolver', 'coach-gun', 'pickaxe', 'buffalo-rifle'], strong: 2, sky: 0xc9915a, platform: 0x8a6240, wall: 0x6a4a34, weapon: 'rifle', arena: { name: 'Main Street', gunsOnly: true, spawnSpots: [0.33, 0.5, 0.67], platformX: 1.5, platformW: 21, walls: [{ side: -1, up: 1.9, gap: 0 }, { side: 1, up: 1.9, gap: 0 }],
     ledges: [{ x: 1.5, up: 1.9, w: 4.5 }, { x: 10.5, up: 1.9, w: 3.0 }, { x: 18.0, up: 1.9, w: 4.5 }], fightSpawnX: [9.43, 14.57, 11.2, 12.8],
     scenery: [{ kind: 'pane', x: 5.95, up: 0 }, { kind: 'pane', x: 18.05, up: 0 }, { kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, alt: [ // (the old western street is retired: the era is the owner's five)
     // The Train (owner's list): on the roofs of a moving train, no weapons; signs and tunnel mouths come at you (a whistle first): get

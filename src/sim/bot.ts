@@ -185,6 +185,8 @@ export class Bot {
     const tx = this.target ? this.seen.x : p.x;
     if (!me.grip && !me.armLost) { // (no arm: nothing to hold it with)
       const loose = this.looseWeapons(sim, me).sort((a, b) => Math.abs(a.body.translation().x - p.x) - Math.abs(b.body.translation().x - p.x))[0];
+      const gun = this.looseWeapons(sim, me).filter((q) => q.weapon?.gun && (q.ammo ?? 0) > 0 && !q.flipped).sort((a, b) => Math.abs(a.body.translation().x - p.x) - Math.abs(b.body.translation().x - p.x))[0]; // a loaded gun: race for it
+      if (gun && Math.abs(gun.body.translation().x - p.x) < B.gunFetchRange) { this.start({ kind: 'fetch', part: gun }, now); return; }
       if (loose && Math.abs(loose.body.translation().x - p.x) < Math.min(B.fetchRange, Math.abs(tx - p.x) + 1)) { this.start({ kind: 'fetch', part: loose }, now); return; }
     }
     if (!this.target) { this.start({ kind: 'idle' }, now); return; }

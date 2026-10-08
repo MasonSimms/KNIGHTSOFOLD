@@ -55,6 +55,7 @@ export const tuning = {
     tower: null as null | { x: number; w: number }, // a water tower's tank (see tuning.tower): from x, w wide, its top at the platform top: shoot its side and it leaks
     wind: null as null | { base: number; gust: number; dir: -1 | 1 }, // a windy map (see tuning.wind): a steady `base` m/s plus gusts up to `gust` more, blowing toward dir
     noWeapons: false, // nobody starts armed, nothing lies about and no pickups come (the train: fists and throws)
+    spawnSpots: null as null | number[], // where on this map weapons appear when they do not fall from the sky (share of the platform; null = tuning.spawn.spots)
     gunsOnly: false, // nobody starts armed and only the era's guns drop in, early and often (eras.ts gunsOnly; tuning.spawn.gunsFirst, gunsGap)
     train: null as null | { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }, // a train map (see tuning.train): things pass at speed (m/s), each at its second `at` of every `cycle` seconds
     chase: null as null | { speed: number; mammothX: number; obstacles: string[]; gap: number }, // a treadmill map (see tuning.chase): the floor slides left at speed (m/s) toward a mammoth at mammothX; obstacles (props.ts kinds) ride in from the right, gap metres apart
@@ -743,6 +744,7 @@ export const tuning = {
     tossChance: 0.25, // ...or a right-click toss (otherwise it swings them up and flings them)
     dodgeChance: 0.3, // someone close winding up a big swing: it dodges this often
     fetchRange: 7, // m: empty-handed, it goes for a loose weapon this close (if it is nearer than the fight)
+    gunFetchRange: 25, // m: ...but a loaded gun it races for from this far, fight or no fight (the race for the guns, owner 2026-10-07)
     hesitate: 0.08, // share of decisions that are a moment of doing nothing
     hopChance: 0.04, // share of decisions with a hop for no reason
     stuckFrames: 30, // lying down, or pushing to walk and getting nowhere, this long: it jumps out of it
