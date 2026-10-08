@@ -14,7 +14,7 @@ import type { Arena } from './world';
  * A floating ship: its hull body, where it drifts back to (homeX: its starting place home0, moved `away` toward `dir` once every rope
  * tying it to another ship is cut), and its pose last frame and this frame (for the renderer to blend between).
  */
-export interface Boat { body: RigidBody; w: number; depth: number; homeX: number; home0: number; dir: number; away: number; sinks?: Sinking; px: number; py: number; pa: number; cx: number; cy: number; ca: number }
+export interface Boat { body: RigidBody; w: number; depth: number; homeX: number; home0: number; dir: number; away: number; sinks?: Sinking; tilt?: number; crack: boolean; cracks: number; sunkAt: number; crackWait: number; px: number; py: number; pa: number; cx: number; cy: number; ca: number } // (tilt: this boat's own tuning.boat.tilt; crack: an ice floe, floe.ts: how often it has cracked, the frame it began to sink)
 /** A wreck (arena.boats sinks): over its first `seconds` of a round it settles `settle` metres deeper and leans `tilt` radians bow down
  *  (the right end), slowly at first, then faster as it floods. */
 export interface Sinking { seconds: number; tilt: number; settle: number }
@@ -57,9 +57,10 @@ function slopeAt(A: Arena, frame: number, x: number): number {
   return s;
 }
 
-/** A ship: a hull floating with its deck from x0, w wide, at the platform top, `depth` from the deck to the keel (a rowboat is shallower). */
-export function buildBoat(world: World, A: Arena, x0: number, w: number, depth = T.boat.depth, sinks?: Sinking): Boat {
-  const B = T.boat, d = depth, x = x0 + w / 2, y = A.platformTop + d / 2;
+/** A ship (an arena.boats entry): a hull floating with its deck from x, w wide, at the platform top, `depth` from the deck to the keel (a
+ *  rowboat is shallower). */
+export function buildBoat(world: World, A: Arena, e: Arena['boats'][number]): Boat {
+  const B = T.boat, w = e.w, d = e.depth ?? B.depth, x = e.x + w / 2, y = A.platformTop + d / 2;
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y).setCanSleep(false));
   // The deck on top; the sides go straight down to just under the waterline (no overhang: a swimmer can kick straight up beside it and
   // climb aboard), then slope in to the keel.
@@ -68,7 +69,7 @@ export function buildBoat(world: World, A: Arena, x0: number, w: number, depth =
   const desc = RAPIER.ColliderDesc.convexHull(hull)!.setFriction(A.friction).setCollisionGroups(terrainGroups)
     .setMassProperties(B.mass, { x: 0, y: 0 }, (B.mass * (w * w + d * d)) / 12);
   world.createCollider(desc, body);
-  return { body, w, depth: d, homeX: x, home0: x, dir: Math.sign(x - A.viewW / 2), away: 0, sinks, px: x, py: y, pa: 0, cx: x, cy: y, ca: 0 };
+  return { body, w, depth: d, homeX: x, home0: x, dir: Math.sign(x - A.viewW / 2), away: 0, sinks: e.sinks, tilt: e.tilt, crack: !!e.crack, cracks: 0, sunkAt: -1, crackWait: 0, px: x, py: y, pa: 0, cx: x, cy: y, ca: 0 };
 }
 
 const tv = { x: 0, y: 0 };
@@ -93,13 +94,14 @@ function floatBoat(A: Arena, frame: number, boat: Boat, fighters: Fighter[]): vo
   let surf = 0;
   for (let i = 0; i < 5; i++) surf += surfaceY(A, frame, t.x + (i / 4 - 0.5) * boat.w) / 5;
   const s = boat.sinks, k = s ? Math.min(1, (frame * dt) / s.seconds) ** 2 : 0; // (a wreck: how far it has gone down)
-  const draft = Math.max(0.1, boat.depth - (A.sea?.level ?? 0)) + (s ? s.settle * k : 0); // how deep the empty hull sits at rest
+  const cracked = boat.sunkAt >= 0 ? Math.min(1, ((frame - boat.sunkAt) * dt) / T.floe.sinkSeconds) : 0; // (a floe cracked through: going under)
+  const draft = Math.max(0.1, boat.depth - (A.sea?.level ?? 0)) + (s ? s.settle * k : 0) + cracked * 2 * boat.depth; // how deep the empty hull sits at rest
   const sunk = Math.max(0, Math.min(boat.depth, t.y + boat.depth / 2 - surf));
   tv.x = (-B.home * (t.x - boat.homeX) - B.drift * v.x) * B.mass * dt;
   tv.y = (-B.mass * g * (sunk / draft) - B.heaveDamping * B.mass * v.y) * dt;
   b.applyImpulse(tv, true);
   // Rolling: one fighter at the very end tips it by tuning.boat.tilt, so the spring is that fighter's weight times half the deck, per radian.
-  const spring = (fighterMass(fighters[0]) * g * (boat.w / 2)) / B.tilt, want = Math.atan(slopeAt(A, frame, t.x)) * B.roll + (s ? s.tilt * k : 0);
+  const spring = (fighterMass(fighters[0]) * g * (boat.w / 2)) / (boat.tilt ?? B.tilt), want = Math.atan(slopeAt(A, frame, t.x)) * B.roll + (s ? s.tilt * k : 0);
   const a = Math.atan2(Math.sin(b.rotation()), Math.cos(b.rotation()));
   b.applyTorqueImpulse((-spring * (a - want) - B.rollDamping * b.principalInertia() * b.angvel()) * dt, true);
 }

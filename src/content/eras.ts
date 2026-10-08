@@ -16,7 +16,7 @@ export interface EraArena {
   fightSpawnX?: number[]; // where the fighters of a 2-4 player fight start (metres; for maps where the standard spots would be over a gap)
   ice?: number; // an icy floor: the share of grip your feet lose (see tuning.arena.ice)
   sea?: { level: number; tide?: { rise: number; seconds: number }; chop?: number }; // (chop: waves this many times higher, a rough sea) // water under the stage (see tuning.arena.sea); tide: it rises `rise` m over the round's first `seconds`
-  boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice' }[]; // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
+  boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice'; tilt?: number; crack?: boolean }[]; // (tilt: how far one fighter at its end tips it, instead of tuning.boat.tilt; crack: an ice floe that cracks and sinks, tuning.floe) // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
   ropes?: { x0: number; up0: number; x1: number; up1: number }[]; // ropes tied between them (see tuning.rope)
   tar?: { x: number; w: number; level: number }[]; // tar pits (see tuning.arena.tar)
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
@@ -104,7 +104,14 @@ export const eras: Era[] = [
     // Longship Deck (owner chose the Vikings' plan, 2026-10-07): a longship on a choppy fjord (waves 1.8 times the usual: the deck rocks
     // and pitches), a striped square sail and shields along its rail, its oars lying on deck (long clubs) and a chest of loot.
     { name: 'Longship Deck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9, chop: 1.8 }, boats: [{ x: 5.75, w: 12.5, look: 'longship' }],
-      props: [{ kind: 'oar', x: 9.45, up: 0 }, { kind: 'oar', x: 14.55, up: 0 }], scenery: [{ kind: 'chest', x: 12.0, up: 0 }] }], outfits: ['jarl', 'raider', 'shieldmaiden', 'berserker'] },
+      props: [{ kind: 'oar', x: 9.45, up: 0 }, { kind: 'oar', x: 14.55, up: 0 }], scenery: [{ kind: 'chest', x: 12.0, up: 0 }] },
+    // Ice Floe Fjord (owner chose the Vikings' plan, 2026-10-07): five floes of ice floating apart on the fjord, slippery underfoot. They
+    // are small and light: they tip when someone stands near an edge. A hard landing or a slam cracks one, and the second crack sinks
+    // it, taking whoever is on it into the water (tuning.floe). Jump from floe to floe.
+    { name: 'Ice Floe Fjord', ice: 0.85, sea: { level: 0.25 }, fightSpawnX: [4.75, 20.5, 8.8, 16.5], spawnX: [8.8, 12.6, 4.75, 16.5],
+      boats: [{ x: 3.0, w: 3.5, depth: 0.6, look: 'ice', tilt: 0.25, crack: true }, { x: 7.3, w: 3.0, depth: 0.6, look: 'ice', tilt: 0.25, crack: true },
+        { x: 11.0, w: 3.2, depth: 0.6, look: 'ice', tilt: 0.25, crack: true }, { x: 15.0, w: 3.0, depth: 0.6, look: 'ice', tilt: 0.25, crack: true },
+        { x: 18.8, w: 3.4, depth: 0.6, look: 'ice', tilt: 0.25, crack: true }] }], outfits: ['jarl', 'raider', 'shieldmaiden', 'berserker'] },
   { id: 'medieval', name: 'Medieval Knights', special: false, pickups: ['mace', 'lance'], sky: 0x7a8aa6, platform: 0x7a7a78, wall: 0x56565a, weapon: 'longsword', arena: { walls: [/* the castle wall across a moat: fall in and wall-jump out */ { side: -1, up: 2.5, gap: 1.2 }], ledges: [{ x: 6.25, up: 1.8, w: 2.0 }, { x: 15.75, up: 1.8, w: 2.0 }], scenery: [{ kind: 'crate', x: 18.1, up: 0 }] }, outfits: ['knight', 'squire', 'archer', 'bishop'] },
   { id: 'samurai', name: 'Samurai Knights', special: false, pickups: ['iron-fan', 'naginata'], style: { blur: 7, grain: 0.025 }, sky: 0x8a6f86, platform: 0x6b4a3a, wall: 0x4a3a34, weapon: 'katana', arena: { platformX: 6.625, platformW: 10.75, walls: [/* Dojo Ridge: narrow walls both sides */ { side: -1, up: 2.0, gap: 1.0 }, { side: 1, up: 2.0, gap: 1.0 }], fightSpawnX: [7.2, 16.8, 10.4, 13.6] }, alt: [{ name: 'Rope Bridge', ground: [{ x: 5.25, w: 3.5 }, { x: 15.25, w: 3.5 }], bridge: { x0: 8.75, x1: 15.25, planks: 8 } }], outfits: ['armoured lord', 'ronin', 'ashigaru', 'monk'] },
   { id: 'pirates', name: 'Pirates', special: false, gunRounds: 0.5, pickups: ['duckfoot', 'pistol', 'blunderbuss', 'boat-hook'], strong: 2, sky: 0x5a9aa8, platform: 0x6a4a30, wall: 0x4a3626, weapon: 'cutlass', arena: { name: 'Ship Deck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boats: [{ x: 5.75, w: 12.5 }], props: [{ kind: 'plank', x: 10.0, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, alt: [

@@ -48,7 +48,7 @@ export const tuning = {
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
     scenery: [] as { kind: string; x: number; up: number }[], // breakable scenery that belongs to the map (barrels, crates): always there, unlike the loose weapons (owner: environments have destructible elements)
     sea: null as null | { level: number; tide?: { rise: number; seconds: number }; chop?: number }, // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
-    boats: [] as { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice' }[], // floating ships instead of solid ground (needs a sea; see tuning.boat): each deck from x, w wide, its top at the platform top
+    boats: [] as { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice'; tilt?: number; crack?: boolean }[], // floating ships instead of solid ground (needs a sea; see tuning.boat): each deck from x, w wide, its top at the platform top
     ropes: [] as { x0: number; up0: number; x1: number; up1: number }[], // ropes (see tuning.rope) from (x0, up0 m above the deck) to (x1, up1), each end tied to the ship under it; cut every one and the ships drift apart
     tar: [] as { x: number; w: number; level: number }[], // tar pits (see tuning.tar): from x, w wide (a gap in the ground), the surface `level` m below the platform top
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
@@ -644,6 +644,14 @@ export const tuning = {
     fling: { x: 16, y: 7 }, // m/s: whoever it catches flies ahead of it and up
     impact: 40, // how hard it hits (as a club's impact)
     tell: 1.2, // s of dust before it comes in
+  },
+  floe: {
+    // Ice floes (Vikings: Ice Floe Fjord, arena.boats crack: sim/floe.ts): a body coming down on one this fast cracks it; after `cracks`
+    // cracks it sinks over `sinkSeconds`, taking whoever is on it into the water.
+    crackSpeed: 8, // m/s (a jump's landing is about 6; a slam, a flung body or a fall from high is more)
+    cracks: 2,
+    sinkSeconds: 2.5,
+    wait: 20, // frames before the same floe can crack again (one landing is one crack)
   },
   trapdoor: {
     // Trapdoors (Gladiators: Colosseum Floor, arena.trapdoors): each one rattles for `tell` seconds, drops open (a quarter turn, in

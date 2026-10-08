@@ -35,3 +35,18 @@ describe('the Frozen River', () => {
     expect(sim.bridge.some((p) => !p.links?.length)).toBe(true);
   });
 });
+
+describe('the Ice Floe Fjord', () => {
+  it('two hard landings crack a floe through and it sinks; a floe nobody lands on stays up', async () => {
+    const sim = await onMap(mapNamed('vikings', 'Ice Floe Fjord')), A = sim.arena, floe = sim.boats[2], other = sim.boats[4];
+    const drop = () => { put(sim, floe.home0, A.platformTop - 4); for (let i = 0; i < 50; i++) sim.step([NEUTRAL, NEUTRAL]); };
+    drop();
+    expect(floe.cracks).toBe(1);
+    drop();
+    expect(floe.cracks).toBe(2);
+    for (let i = 0; i < Math.round((T.floe.sinkSeconds + 1) / T.sim.dt); i++) sim.step([NEUTRAL, NEUTRAL]);
+    const deck = (b: typeof floe) => b.body.translation().y - b.depth / 2;
+    expect(deck(floe)).toBeGreaterThan(A.platformTop + A.sea!.level + 0.3); // under the water
+    expect(deck(other)).toBeLessThan(A.platformTop + 0.3); // still afloat
+  });
+});

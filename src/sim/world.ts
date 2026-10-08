@@ -23,6 +23,7 @@ import type { Trapdoor } from './trapdoor';
 import type { Passing } from './train';
 import { applyJets } from './tower';
 import { applyFalls } from './falls';
+import { crackFloes } from './floe';
 import { applyWind } from './wind';
 import { aimSpears, fuses, goneOff, stickSpears } from './special';
 import { moveHooks } from './hook';
@@ -262,7 +263,7 @@ export class Sim {
     this.world.numSolverIterations = T.sim.solverIterations;
     this.world.numInternalPgsIterations = T.sim.pgsIterations;
     const slabs = A.chase ? [] : A.ground.length ? A.ground : A.boats.length ? [] : [{ x: A.platformX, w: A.platformW }]; // (on a ship the deck is the floor, unless the map has ground of its own as well: a pier; on a treadmill, its moving sections)
-    this.boats = A.sea ? A.boats.map((b) => buildBoat(this.world, A, b.x, b.w, b.depth, b.sinks)) : [];
+    this.boats = A.sea ? A.boats.map((b) => buildBoat(this.world, A, b)) : [];
     const grounds = slabs.map((g: Arena['ground'][number]) => {
       const th = g.thick ?? A.platformThickness, body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(g.x + g.w / 2, A.platformTop - (g.up ?? 0) + th / 2));
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(g.w / 2, th / 2).setFriction(A.friction).setCollisionGroups(terrainGroups), body);
@@ -634,6 +635,7 @@ export class Sim {
     this.resolveHits();
     this.resolveBodyHits();
     this.resolveBridge();
+    crackFloes(this);
     this.resolveCrashes();
     this.resolveSlams();
     this.resolveBodySlams();
