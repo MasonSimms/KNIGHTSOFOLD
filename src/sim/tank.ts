@@ -36,11 +36,12 @@ export function buildTank(sim: Sim, top: number): Tank {
   return { part, next: [] };
 }
 
-/** The tank on to where its timetable has it at `frame` (next frame, on the server; an online page, the frame it is predicting). */
-export function placeTank(sim: Sim, k: Tank, frame: number): void {
+/** The tank on to where its timetable has it at `frame` (next frame, on the server; an online page, the frame it is predicting). `jump`:
+ *  put it there at once, moving as its timetable moves it (an online page starting to guess again). */
+export function placeTank(sim: Sim, k: Tank, frame: number, jump = false): void {
   if (!sim.props.includes(k.part)) return; // (gone: nothing to steer)
   const b = k.part.body, t = b.translation(), x = tankAt(sim.arena, frame).x;
-  if (Math.abs(x - t.x) > 3) { b.setTranslation({ x, y: t.y }, true); b.setLinvel({ x: 0, y: 0 }, true); return; } // (far off: put it there)
+  if (jump || Math.abs(x - t.x) > 3) { b.setTranslation({ x, y: t.y }, true); b.setLinvel({ x: (x - tankAt(sim.arena, frame - 1).x) / T.sim.dt, y: 0 }, true); return; } // (or far off)
   b.setLinvel({ x: (x - t.x) / T.sim.dt, y: 0 }, true);
 }
 
