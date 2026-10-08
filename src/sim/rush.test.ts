@@ -68,7 +68,7 @@ describe('the race for the guns', () => {
         for (const e of sim.events) if (e.t === 'spawn' && e.owner === -1) drops.push({ frame: sim.frame, kind: PROP_KINDS[e.v] });
       }
       expect(drops[0].frame).toBeLessThanOrEqual(T.spawn.gunsFirst + 2);
-      expect(drops.length).toBeGreaterThanOrEqual(4);
+      expect(drops.length).toBeGreaterThanOrEqual(Math.min(3, T.spawn.maxLoose)); // (nobody picks them up here: it stops at the cap)
       for (const d of drops) expect(PROPS[d.kind].gun, d.kind).toBeTruthy();
     } finally {
       T.eras.changeGameplay = was.change; T.spawn.enabled = was.spawn;
