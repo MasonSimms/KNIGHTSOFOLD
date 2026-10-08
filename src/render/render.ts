@@ -539,11 +539,6 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       builtVersion = -1; // (repaint everything)
     },
     show(s: Sim) { sim = s; builtVersion = -1; paintedEra = ''; shownRound = -1; shake = 0; },
-    /** Screen pixels -> world metres. */
-    toWorld(px: number, py: number) { return { x: (px - view.x) / view.scale.x, y: (py - view.y) / view.scale.y }; },
-    onEvent(e: SimEvent) {
-      fx.onEvent(e);
-      motion.onEvent(e, sim.era);
     /** Everything a fight in `s` needs, painted before it starts (owner): the fighters' and weapons' pictures still unpainted, this
      *  round's backdrop and the next one's. Resolves when done, or after `maxMs` so a slow machine still gets its fight. */
     async preload(s: Sim, maxMs: number): Promise<void> {
@@ -556,6 +551,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       const up = s.upcoming(), left = Math.max(0, maxMs - (performance.now() - t0));
       await Promise.race([Promise.all([backdrops.ready(s.era, s.arena), backdrops.ready(up.era, up.arena)]), new Promise((ok) => setTimeout(ok, left))]);
     },
+    /** Screen pixels -> world metres. */
+    toWorld(px: number, py: number) { return { x: (px - view.x) / view.scale.x, y: (py - view.y) / view.scale.y }; },
+    onEvent(e: SimEvent) {
+      fx.onEvent(e);
+      motion.onEvent(e, sim.era);
       frame.onEvent(e, A.viewW, A.viewH);
       if (e.t === 'hit' || e.t === 'stomp') {
         const boost = e.head ? 1.5 : 1;
