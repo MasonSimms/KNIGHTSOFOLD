@@ -1,17 +1,19 @@
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { paintingFor } from '../content/paintings';
 import { tuning as T } from '../content/tuning';
-import { surfaceY } from '../sim/water';
+import type { Part } from '../sim/fighter';
+import { surfaceY, tarAt } from '../sim/water';
 import type { Sim } from '../sim/world';
 import { paintedHull, paintedWater } from './painter/sprites';
 
 // The sea on the screen (maps with water): the painted ship, riding where the physics puts it, and the near water in front of the play
-// plane, its surface following the waves (submerged bodies and the hull show through it a little). A fighter going in makes a ring.
+// plane, its surface following the waves (submerged bodies and the hull show through it a little). Anything going in is reported to
+// `enter` (a fighter or a loose thing: where, how fast, and whether it is tar) for the ring and the splash.
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
-export function createSea(ring: (x: number, y: number, color: number) => void) {
+export function createSea(enter: (x: number, y: number, speed: number, tar: boolean) => void) {
   const hull = new Container(), water = new Container(); // hull: in the play plane, behind everyone; water: in front of the play plane
   const mask = new Graphics(), crest = new Graphics(), pts: number[] = [];
   water.addChild(mask, crest);
@@ -19,6 +21,7 @@ export function createSea(ring: (x: number, y: number, color: number) => void) {
   let sea: Sprite | null = null;
   const pits: Sprite[] = []; // tar pits: still, black, glossy
   const wasWet: boolean[] = [];
+  const propIn = new WeakMap<Part, boolean>(); // loose things: under the surface last frame?
 
   return {
     hull, water,
@@ -58,10 +61,15 @@ export function createSea(ring: (x: number, y: number, color: number) => void) {
     },
     draw(sim: Sim, alpha: number) {
       const A = sim.arena;
-      for (const f of sim.fighters) { // into the water (or the tar): a ring where they went in
+      for (const f of sim.fighters) { // into the water (or the tar): a splash where they went in
         const wet = f.wet > T.swim.wetAt;
-        if (wet && !wasWet[f.index]) { const t = f.torso.body.translation(); ring(t.x, surfaceY(A, sim.frame, t.x), f.tar ? 0x3a2c20 : 0xffffff); }
+        if (wet && !wasWet[f.index]) { const t = f.torso; enter(t.cx, surfaceY(A, sim.frame, t.cx), (t.cy - t.py) * 60, f.tar); }
         wasWet[f.index] = wet;
+      }
+      if (sim.frame > 5) for (const p of sim.props) { // loose things going in (not what starts the round under the surface)
+        const tar = tarAt(A, p.cx), inside = (!!A.sea || !!tar) && p.cy > surfaceY(A, sim.frame, p.cx);
+        if (inside && !propIn.get(p)) enter(p.cx, surfaceY(A, sim.frame, p.cx), (p.cy - p.py) * 60, !!tar);
+        propIn.set(p, inside);
       }
       if (!A.sea || !sea) return;
       sim.boats.forEach((b, k) => { const ship = ships[k]; if (ship) { ship.position.set(lerp(b.px, b.cx, alpha), lerp(b.py, b.cy, alpha)); ship.rotation = b.pa + wrap(b.ca - b.pa) * alpha; } });
