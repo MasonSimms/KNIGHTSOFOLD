@@ -1,5 +1,6 @@
 import './menu.css';
 import { geoOf, paintPicture } from '../render/painter/backdrops';
+import { eras } from '../content/eras';
 import { arenaFor } from '../sim/world';
 
 // What every menu screen shares: the museum wall they hang on, and paintings for their frames. Screens are plain HTML over the game.
@@ -19,10 +20,49 @@ export function openMenu(cls: string, html: string): HTMLElement {
 export const closeMenu = (): void => document.getElementById('menu')?.remove();
 
 /** Paint an era's arena (its usual one, or map `map`) into a frame's canvas (with the painter the fight uses; kept in storage, so only the
- *  first visit waits). */
-export function hangPicture(canvas: HTMLCanvasElement, era: string, w: number, h: number, map = 0): void {
+ *  first visit waits). Resolves once it is on the canvas. */
+export function hangPicture(canvas: HTMLCanvasElement, era: string, w: number, h: number, map = 0): Promise<void> {
   canvas.width = w; canvas.height = h;
-  paintPicture(era, geoOf(arenaFor(era, map)), w, h).then((b) => { if (b) canvas.getContext('2d')!.drawImage(b, 0, 0, w, h); });
+  return paintPicture(era, geoOf(arenaFor(era, map)), w, h).then((b) => { if (b) canvas.getContext('2d')!.drawImage(b, 0, 0, w, h); });
+}
+
+// The loading screen (owner: never show anything half-painted; a screen appears all at once when its pictures are done). The museum wall
+// with, in the middle, a small gilt frame in which a stroke of paint is laid on again and again: no words. index.html shows the same one
+// while the game itself is still arriving (#boot).
+export const LOADER = '<div class="loading"><div class="lframe"><div class="stroke"></div></div></div>';
+
+/** The loading screen on its own (before a fight: its backdrops being painted). */
+export const openLoading = (): HTMLElement => openMenu('waiting', LOADER);
+
+/** Hold a screen out of sight, behind the loading screen, until `pending` (its pictures) are done or `maxMs` has gone by, then show it all
+ *  at once. Resolves false if the screen was closed meanwhile. */
+export async function whenReady(root: HTMLElement, pending: Promise<unknown>[], maxMs = 8000): Promise<boolean> {
+  const screen = root.firstElementChild as HTMLElement | null;
+  screen?.classList.add('unready');
+  root.insertAdjacentHTML('beforeend', LOADER);
+  await Promise.race([Promise.allSettled([...pending, document.fonts?.ready]), new Promise((ok) => setTimeout(ok, maxMs))]);
+  if (!root.isConnected) return false;
+  root.querySelector(':scope > .loading')?.remove();
+  screen?.classList.remove('unready');
+  bootDone();
+  return true;
+}
+
+/** The game has its first screen up: the loading screen the page opened with (index.html #boot) fades away. */
+export function bootDone(): void {
+  const boot = document.getElementById('boot');
+  if (!boot) return;
+  boot.classList.add('gone');
+  setTimeout(() => boot.remove(), 400);
+}
+
+/** Paint ahead, in the background, the pictures other screens will want (each era's maps for the training menu, each era for the
+ *  highlights), so they open at once. They are kept in storage: after the first visit this costs nothing. */
+export function paintAhead(): void {
+  for (const e of eras) {
+    for (let map = 0; map <= (e.alt?.length ?? 0); map++) void paintPicture(e.id, geoOf(arenaFor(e.id, map)), 192, 108);
+    void paintPicture(e.id, geoOf(arenaFor(e.id, 0)), 400, 225);
+  }
 }
 
 /** The wall is painted too: soft horizontal brush strokes, lighter and darker, on a tile that repeats without seams. */

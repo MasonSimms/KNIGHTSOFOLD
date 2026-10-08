@@ -7,7 +7,7 @@ import type { Recording } from '../replay/recording';
 import type { SimEvent } from '../sim/types';
 import type { Sim } from '../sim/world';
 import { notice } from './lobby';
-import { BACK, closeMenu, hangPicture, openMenu } from './menu';
+import { BACK, closeMenu, hangPicture, openMenu, whenReady } from './menu';
 
 // The highlights gallery (owner: highlights may become part of the game). The best moments of this session hang on the museum wall as
 // paintings of their era, with what happened engraved underneath. Click one to watch it again in slow motion; save it as a video clip
@@ -52,7 +52,7 @@ function gallery(list: Moment[]): Promise<Pick | null> {
     <div class="spacer"></div>
     <button class="openfile">Open a replay file</button>
     <div class="hint">Click a painting to watch it again &middot; Esc goes back</div>`);
-  root.querySelectorAll<HTMLCanvasElement>('.clips canvas').forEach((c, i) => hangPicture(c, shown[i].rec.era, 400, 225));
+  void whenReady(root, [...root.querySelectorAll<HTMLCanvasElement>('.clips canvas')].map((c, i) => hangPicture(c, shown[i].rec.era, 400, 225))); // (all at once, when painted)
   const pics = [...root.querySelectorAll<HTMLElement>('.clips .pic')];
   let focus = -1, raf = 0;
   const light = () => pics.forEach((el, i) => el.classList.toggle('lit', i === focus));

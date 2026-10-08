@@ -26,7 +26,7 @@ import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
 import { runHome } from './ui/home';
-import { closeMenu, openMenu } from './ui/menu';
+import { bootDone, closeMenu, openLoading, openMenu } from './ui/menu';
 import { warmPortraits } from './render/portrait';
 import { clearBanner, hideCards, showCards, updateHud } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
@@ -74,6 +74,7 @@ const sendInput = (i: PlayerInput, n: number) => { net?.send({ t: 'in', i, n });
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
   const url = serverUrl(onlineParam);
+  bootDone(); // (the room screen is the first screen)
   const r = await runLobby(url, undefined, renderer.prepare);
   net = r.client; mySlot = r.you;
   const m = new Mirror(await Sim.create(r.seed, 4, false)); // online is always 4 fighters: empty seats are parked out of sight
@@ -285,7 +286,7 @@ async function menu(screen: 'home' | 'hall') {
 const PRELOAD_MAX_MS = 8000; // the longest a fight waits for its pictures (a first visit paints two backdrops, about a second each)
 /** Everything the next round needs, painted before it starts (owner: nothing arrives after the fight has begun), behind a short note. */
 async function preload() {
-  openMenu('hall', '<div class="spacer"></div><div class="note">Painting the arena…</div>');
+  openLoading(); // (the loading screen: no words)
   await renderer.preload(sim, PRELOAD_MAX_MS);
   closeMenu();
 }
@@ -441,7 +442,8 @@ if (botsParam) {
 }
 
 requestAnimationFrame(frame);
-if (mode === 'training') void menu('home');
+if (mode === 'training') void menu('home'); // (the home screen takes the loading screen away once its pictures are painted)
+else void renderer.preload(sim, PRELOAD_MAX_MS).then(bootDone); // (a testing link or online: straight in, once the first round is painted)
 
 if (import.meta.env.DEV) (window as unknown as { sim: Sim }).sim = sim; // dev-only handle for console poking and browser tests
 if (import.meta.env.DEV) (window as unknown as { view: Sim; mirror: Mirror | null }).view = view; // (online: the copy that is drawn)

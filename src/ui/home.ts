@@ -1,5 +1,5 @@
 import { menuPresses } from '../input/input';
-import { closeMenu, hangPicture, openMenu } from './menu';
+import { closeMenu, hangPicture, openMenu, paintAhead, whenReady } from './menu';
 
 // The home screen: a gallery of five painted arenas. Play (centre) opens the Hall of Champions, Online the room screen, Training a
 // practice round with the dummy, Settings the picture and sound, Highlights the best moments so far.
@@ -18,7 +18,9 @@ export function runHome(): Promise<HomeChoice> {
     <div class="lamp"></div><div class="frame"><div class="art"><canvas></canvas></div></div>
     ${p.label ? `<div class="label">${p.label}</div>` : ''}${p.sub ? `<div class="sub">${p.sub}</div>` : ''}</div>`).join('');
   const root = openMenu('gallery', html);
-  root.querySelectorAll('canvas').forEach((c, i) => hangPicture(c, PICS[i].era, PICS[i].w, PICS[i].h));
+  const painted = [...root.querySelectorAll('canvas')].map((c, i) => hangPicture(c, PICS[i].era, PICS[i].w, PICS[i].h));
+  let ready = false; // (nothing to press until it is all there)
+  void whenReady(root, painted).then(() => { ready = true; paintAhead(); }); // (behind the loading screen until every picture is painted; then the other screens' pictures, quietly)
   const go = [...root.querySelectorAll<HTMLElement>('[data-go]')]; // in page order: online, settings, play, training, highlights
   const PLAY = go.findIndex((el) => el.dataset.go === 'play');
   let focus = -1, raf = 0; // every lamp is off until you point at a picture (owner); a key or the gamepad starts on Play
@@ -31,6 +33,7 @@ export function runHome(): Promise<HomeChoice> {
     const move = (d: number) => { focus = focus < 0 ? PLAY : Math.max(0, Math.min(go.length - 1, focus + d)); light(); };
     go.forEach((el, i) => { el.onmouseenter = () => { focus = i; light(); }; el.onmouseleave = () => { focus = -1; light(); }; el.onclick = () => pick(el); });
     const onKey = (e: KeyboardEvent) => {
+      if (!ready) return;
       if (e.code === 'ArrowLeft' || e.code === 'ArrowUp') move(-1);
       else if (e.code === 'ArrowRight' || e.code === 'ArrowDown') move(1);
       else if (e.code === 'Enter' || e.code === 'Space') pick(go[focus < 0 ? PLAY : focus]);
@@ -38,7 +41,7 @@ export function runHome(): Promise<HomeChoice> {
     addEventListener('keydown', onKey);
     const tick = () => {
       raf = requestAnimationFrame(tick);
-      for (const p of menuPresses()) {
+      for (const p of ready ? menuPresses() : []) {
         if (p.b === 'left' || p.b === 'up') move(-1);
         else if (p.b === 'right' || p.b === 'down') move(1);
         else if (p.b === 'a' || p.b === 'start') return pick(go[focus < 0 ? PLAY : focus]);

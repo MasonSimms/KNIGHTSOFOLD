@@ -14,6 +14,18 @@
            text-shadow: 0 2px 2px #1a1206, 0 0 12px rgba(0,0,0,.7); pointer-events: none; white-space: nowrap; }
   #banner { position: fixed; top: 22%; left: 50%; transform: translateX(-50%); font: 58px 'Fell SC', Georgia, serif; letter-spacing: .1em;
             text-shadow: 0 3px 0 #2a1d08, 0 5px 16px #000; pointer-events: none; white-space: nowrap; }
+  /* The loading screen while the game itself arrives (owner: never anything half-painted): the museum wall and a small gilt frame with a stroke
+     of paint laid across it again and again. The game takes it away when its first screen is fully painted (src/ui/menu.ts bootDone). */
+  #boot { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; transition: opacity .35s;
+          background: radial-gradient(120% 95% at 50% 32%, #2b4838 0%, #1b3025 52%, #0c1611 100%); }
+  #boot.gone { opacity: 0; pointer-events: none; }
+  #boot .lframe { width: 170px; height: 104px; padding: 9px; box-sizing: border-box; filter: brightness(.8);
+          background: linear-gradient(145deg, #f7df92 0%, #c99a3e 17%, #8a6020 38%, #e9c66c 54%, #a2752a 74%, #f1d483 100%);
+          box-shadow: 0 9px 18px rgba(0,0,0,.45), inset 0 0 0 1px #5a3e10, inset 0 0 0 3px rgba(255,236,170,.35), inset 0 0 0 5px #7a5618; }
+  #boot .stroke { position: relative; width: 100%; height: 100%; overflow: hidden; background: #1d1a14; box-shadow: inset 0 0 12px rgba(0,0,0,.7); }
+  #boot .stroke::before { content: ''; position: absolute; left: 10%; top: 40%; height: 20%; width: 0; border-radius: 45% 55% 50% 50% / 60% 40% 60% 40%;
+          background: linear-gradient(90deg, rgba(239,227,194,.25), #efe3c2 18%, #e3c375 70%, rgba(201,154,62,.6)); animation: boot-paint 1.5s ease-in-out infinite; }
+  @keyframes boot-paint { 0% { width: 0; opacity: 1; } 65% { width: 80%; opacity: 1; } 100% { width: 80%; opacity: 0; } }
   #hint { position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%); color: #ddd; font: 13px sans-serif;
           background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 4px; pointer-events: none; }
 </style>
@@ -23,6 +35,7 @@
 <div id="score"></div>
 <div id="banner"></div>
 <div id="hint">A D move &middot; Space jump &middot; Mouse aims &middot; left-click: club = hold to charge, release to lunge &middot; empty hands: tap = punch, hold = grab, let go to fling, right-click to toss, jump back and hold S to slam &middot; right-click drops the club (swing first to throw it) or picks it up &middot; Shift dodge &middot; S crouch &middot; hold toward a wall to slide, jump to wall-jump &middot; R reset &middot; Esc menu &middot; Tab training settings &middot; H highlights &middot; F3 overlay</div>
+<div id="boot"><div class="lframe"><div class="stroke"></div></div></div>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
