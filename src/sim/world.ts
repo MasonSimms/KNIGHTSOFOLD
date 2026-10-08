@@ -434,7 +434,7 @@ export class Sim {
     if (att.kind !== 'stick' || !plank.links?.length) return;
     const c = this.contact(att.part, plank, pt, n);
     const impact = impactValue(c.closing, (att.part.weapon ?? T.stick).impactFactor);
-    if (impact < T.bridge.cutImpact || plank.weapon?.material === 'stone') return; // (a stone block only comes out to a slam)
+    if (impact < T.bridge.cutImpact || PROPS[plank.weapon?.id ?? '']?.slam) return; // (a block of stone or ice only comes out to a slam: props.ts slam)
     this.ripFree(plank);
     this.events.push({ t: 'cut', x: pt.x, y: pt.y, v: impact, owner: att.part.owner, victim: -1 });
   }
@@ -530,8 +530,8 @@ export class Sim {
           if (!plank.links?.length || m.numSolverContacts() === 0) return;
           const pt = m.solverContactPoint(0, this.tmpP) ?? this.tmpP;
           const c = this.contact(part, plank, pt, m.normal(this.tmpN));
-          const stone = plank.weapon?.material === 'stone', span = stone ? 0 : B.breakSpan; // (a stone block: that one alone, and harder)
-          if (c.closing < (stone ? T.aqueduct.slamSpeed : B.slamSpeed)) return;
+          const slam = PROPS[plank.weapon?.id ?? '']?.slam, span = slam ? 0 : B.breakSpan; // (a block of stone or ice: that one alone, at its own speed)
+          if (c.closing < (slam ?? B.slamSpeed)) return;
           for (let k = Math.max(0, i - span); k <= Math.min(this.bridge.length - 1, i + span); k++) this.ripFree(this.bridge[k]);
           this.events.push({ t: 'cut', x: pt.x, y: pt.y, v: c.closing, owner: part.owner, victim: -1 });
         });
@@ -571,6 +571,7 @@ export class Sim {
     const foe = this.dummy && index === 1; // the training partner: armed or not as the training menu says
     const f = buildFighter(this.world, index, x, y, player, !this.arena.noWeapons && !this.arena.gunsOnly && (foe ? this.training.foeArmed : T.fighter.startArmed), this.weapon, player && x > this.arena.viewW / 2 ? -1 : 1); // (facing the middle; the dummy never aims: it faces right, the way its controls point)
     for (const p of f.parts) this.partByBody.set(p.body.handle, p);
+    f.slip = this.arena.ice; // (an icy floor: your feet barely grip)
     return f;
   }
 

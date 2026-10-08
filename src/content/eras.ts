@@ -14,6 +14,7 @@ export interface EraArena {
   front?: { kind: 'grass' | 'sign'; x: number; y: number; scale?: number; speed?: number }[]; // the front plane (see tuning.arena.front)
   spawnX?: number[]; // where you and the training dummy start, playing alone (metres)
   fightSpawnX?: number[]; // where the fighters of a 2-4 player fight start (metres; for maps where the standard spots would be over a gap)
+  ice?: number; // an icy floor: the share of grip your feet lose (see tuning.arena.ice)
   sea?: { level: number; tide?: { rise: number; seconds: number } }; // water under the stage (see tuning.arena.sea); tide: it rises `rise` m over the round's first `seconds`
   boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number } }[]; // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
   ropes?: { x0: number; up0: number; x1: number; up1: number }[]; // ropes tied between them (see tuning.rope)
@@ -93,7 +94,13 @@ export const eras: Era[] = [
       fightSpawnX: [8.8, 15.2, 10.4, 13.6], spawnX: [9.15, 14.5, 7.0, 17.0], // (written for the standard floor: stretched to this one's, they are 7.5, 16.5, 9.75 and 14.25)
       scenery: [{ kind: 'table', x: 5.0, up: 0 }, { kind: 'table', x: 19.0, up: 0 }, { kind: 'mug', x: 4.5, up: 0.8 }, { kind: 'mug', x: 5.6, up: 0.8 }, { kind: 'mug', x: 19.4, up: 0.8 },
         { kind: 'chandelier', x: 8.6, up: 3.0 }, { kind: 'chandelier', x: 15.4, up: 3.0 }],
-      props: [{ kind: 'bench', x: 7.0, up: 0 }, { kind: 'bench', x: 17.0, up: 0 }] }], outfits: ['jarl', 'raider', 'shieldmaiden', 'berserker'] },
+      props: [{ kind: 'bench', x: 7.0, up: 0 }, { kind: 'bench', x: 17.0, up: 0 }] },
+    // Frozen River (owner chose the Vikings' plan, 2026-10-07): two snowy banks and the frozen river between, everything icy underfoot
+    // (you skate, and slide on when you stop). The river is a sheet of ice slabs over the water: a hard landing or a slam breaks one out
+    // (props.ts ice-block slam), and whoever goes through is in the icy water: swim, then sink.
+    { name: 'Frozen River', ice: 0.85, sea: { level: 0.1 }, ground: [{ x: 1.0, w: 6.5, thick: 6 }, { x: 16.5, w: 6.5, thick: 6 }],
+      bridge: { x0: 7.5, x1: 16.5, planks: 9, kind: 'ice-block' },
+      fightSpawnX: [4.0, 20.0, 6.5, 17.5], spawnX: [3.5, 6.0, 18.0, 20.5], props: [{ kind: 'log', x: 2.5, up: 0 }] }], outfits: ['jarl', 'raider', 'shieldmaiden', 'berserker'] },
   { id: 'medieval', name: 'Medieval Knights', special: false, pickups: ['mace', 'lance'], sky: 0x7a8aa6, platform: 0x7a7a78, wall: 0x56565a, weapon: 'longsword', arena: { walls: [/* the castle wall across a moat: fall in and wall-jump out */ { side: -1, up: 2.5, gap: 1.2 }], ledges: [{ x: 6.25, up: 1.8, w: 2.0 }, { x: 15.75, up: 1.8, w: 2.0 }], scenery: [{ kind: 'crate', x: 18.1, up: 0 }] }, outfits: ['knight', 'squire', 'archer', 'bishop'] },
   { id: 'samurai', name: 'Samurai Knights', special: false, pickups: ['iron-fan', 'naginata'], style: { blur: 7, grain: 0.025 }, sky: 0x8a6f86, platform: 0x6b4a3a, wall: 0x4a3a34, weapon: 'katana', arena: { platformX: 6.625, platformW: 10.75, walls: [/* Dojo Ridge: narrow walls both sides */ { side: -1, up: 2.0, gap: 1.0 }, { side: 1, up: 2.0, gap: 1.0 }], fightSpawnX: [7.2, 16.8, 10.4, 13.6] }, alt: [{ name: 'Rope Bridge', ground: [{ x: 5.25, w: 3.5 }, { x: 15.25, w: 3.5 }], bridge: { x0: 8.75, x1: 15.25, planks: 8 } }], outfits: ['armoured lord', 'ronin', 'ashigaru', 'monk'] },
   { id: 'pirates', name: 'Pirates', special: false, gunRounds: 0.5, pickups: ['duckfoot', 'pistol', 'blunderbuss', 'boat-hook'], strong: 2, sky: 0x5a9aa8, platform: 0x6a4a30, wall: 0x4a3626, weapon: 'cutlass', arena: { name: 'Ship Deck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boats: [{ x: 5.75, w: 12.5 }], props: [{ kind: 'plank', x: 10.0, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, alt: [

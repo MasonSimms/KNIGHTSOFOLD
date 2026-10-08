@@ -6,7 +6,7 @@ import type { ChainSpec, GunSpec, Material } from './weapons';
 // weapons that spawn in as a round goes on: heavier or longer, hitting harder.
 /** breaks: scenery that breaks (owner: environments have destructible elements): how much it takes (bullets by calibre x 10, hard hits by
  *  impact) and the loose pieces it leaves (kinds in this list). */
-export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean; hangs?: number; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; net?: boolean; chain?: ChainSpec } // chain: a head on a chain (sim/fighter.ts addHead); hook: a grappling hook (sim/hook.ts); grip: where the hand holds it, as a share of its length from the back end (the ring on art-guide/visuals/weapons.png)
+export interface PropSpec { len: number; thick: number; mass: number; factor?: number; material?: Material; toughness?: number; gun?: GunSpec; breaks?: { hp: number; into: string[]; min?: number }; box?: boolean; back?: boolean; fixed?: boolean; shatters?: boolean; hangs?: number; push?: number; pull?: boolean; spear?: boolean; fuse?: number; grip?: number; hook?: boolean; lasso?: boolean; net?: boolean; chain?: ChainSpec; slam?: number } // chain: a head on a chain (sim/fighter.ts addHead); hook: a grappling hook (sim/hook.ts); grip: where the hand holds it, as a share of its length from the back end (the ring on art-guide/visuals/weapons.png)
 
 /** The guns (owner: the revolver and the flintlock first). PLACEHOLDER numbers until the playtest. */
 const REVOLVER: GunSpec = { ammo: 6, cooldown: 14, speed: 70, calibre: 1, impact: 31, push: 9, recoil: 2.5, kick: 6 }; // 6 quick shots, each about half a full club hit
@@ -83,12 +83,13 @@ export const PROPS: Record<string, PropSpec> = {
   lasso: { len: 0.5, thick: 0.12, mass: 0.6, factor: 1.2, material: 'light', hook: true, lasso: true, grip: 0.3 }, // the lasso (weapons batch two, step 4; owner places it later): a coil in the hand, thrown like the grappling hook (sim/hook.ts)
   ...GUN_LOCKER,
   chest: { len: 0.8, thick: 0.55, mass: 7, factor: 2.6, box: true, breaks: { hp: 50, into: ['plank', 'stave', 'stave'] } }, // a sea chest (Tidal Cove): breakable scenery, like a crate
-  'aqueduct-block': { len: 1.0, thick: 0.45, mass: 14, factor: 2.6, material: 'stone', box: true }, // a block of the Aqueduct Bridge's deck (its length is the bridge's: the span over its blocks)
+  'aqueduct-block': { len: 1.0, thick: 0.45, mass: 14, factor: 2.6, material: 'stone', box: true, slam: 9 }, // a block of the Aqueduct Bridge's deck (its length is the bridge's: the span over its blocks)
   // the Mead Hall (Vikings): a long table (too heavy to lift: stand on it, shove it, tip it over onto someone), a bench (a long club) and
   // an iron ring of candles hanging on a rope over the floor (a light; a club hit or a shot cuts it down onto whoever is under it)
   table: { len: 2.4, thick: 0.8, mass: 40, factor: 2.6, box: true, toughness: 8 },
   bench: { len: 1.6, thick: 0.18, mass: 5, factor: 2.7, toughness: 4 },
   chandelier: { len: 1.5, thick: 0.3, mass: 28, factor: 2.6, material: 'metal', box: true, hangs: 1.1 },
+  'ice-block': { len: 1.0, thick: 0.3, mass: 9, factor: 2.4, material: 'stone', box: true, slam: 6.5 }, // a slab of the Frozen River's ice (a bridge of them over the water: a hard landing or a slam breaks one out)
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

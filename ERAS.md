@@ -65,7 +65,7 @@ Pickups: **Round Shield** (hold it to parry bigger hits), **Throwing Spear** (pi
 2. **Ice Floe Fjord**: floating ice slabs that tilt and drift. Heavy hits crack them.
 3. **Mead Hall**: a long table and benches (all props), plus a chandelier on a rope you can cut. **BUILT 2026-10-07** (vikings map 1; owner chose the Vikings' plan): the hall between pillar walls, the long hearth burning in the middle, a heavy table at each end (stand on it, shove it, tip it onto someone), benches to swing, drinking horns that shatter, and two iron rings of candles on ropes: a club hit or a shot brings one down on whoever is under it (28 kg: it crushes), and its candles go out.
 4. **Rune Stone Cliff**: tall standing stones to hide behind, with a high cliff edge and sea below.
-5. **Frozen River**: a slippery ice floor (low friction) with a crack zone that breaks under a hard landing.
+5. **Frozen River**: a slippery ice floor (low friction) with a crack zone that breaks under a hard landing. **BUILT 2026-10-07** (vikings map 2): two snowy banks and a 9 m sheet of ice slabs over the river; everything is icy (arena.ice 0.85: you skate, and slide on about three times as far when you stop); a hard landing or a slam (6.5 m/s) breaks a slab out and you are in the icy water.
 
 ## 5. Medieval Knights
 Pickups: **Mace** (heavy, small head: the biggest hit of any one-hand weapon), **Lance** (very long, only good in a lunge).
