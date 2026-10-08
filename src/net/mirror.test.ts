@@ -62,4 +62,20 @@ describe('the online copy', () => {
       T.eras.changeGameplay = was.g; T.spawn.enabled = was.s; T.eras.mixStarts = was.m; T.props.lying = was.l; T.eras.gunRounds = was.r;
     }
   }, 300_000);
+
+  it('a limb lost on the server comes off in the online copy too (kept on there, it dragged your own fighter about: up to 300 snaps a minute)', async () => {
+    const server = await Sim.create(42, 2, false), client = await Sim.create(42, 2, false);
+    const room = new Room(server), mirror = new Mirror(client, 0);
+    const feed = () => { const s = room.tick(); if (s) { mirror.push(JSON.parse(JSON.stringify(s)), 0); mirror.show(s.frame); } };
+    for (let i = 0; i < 20; i++) feed();
+    const maim = (who: number, part: unknown) => (server as unknown as { maim(f: unknown, p: unknown, nx: number, ny: number): void }).maim(server.fighters[who], part, 1, -0.3);
+    const step = server.step.bind(server);
+    server.step = (inputs) => { step(inputs); server.step = step; maim(1, server.fighters[1].legs[0].thigh); maim(0, server.fighters[0].upper); }; // (inside a tick, as a hit does it)
+    for (let i = 0; i < 5; i++) feed();
+    expect(server.fighters[1].legLost[0] && server.fighters[0].armLost).toBe(true);
+    expect(client.fighters[1].legLost[0]).toBe(true);
+    expect(client.fighters[0].armLost).toBe(true);
+    expect(client.fighters[0].grip).toBeNull();
+    expect(mirror.desyncs).toBe(0);
+  });
 });

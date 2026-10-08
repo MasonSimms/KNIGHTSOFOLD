@@ -60,7 +60,7 @@ export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot 
 }
 
 /** Events that change which parts exist or who holds what: the only ones a client must replay to keep its parts in step. */
-export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround', 'gone', 'back', 'spawn', 'shot', 'snap', 'break', 'shatter', 'boom']);
+export const STRUCTURAL = new Set(['die', 'fall', 'pickup', 'respawn', 'newround', 'gone', 'back', 'spawn', 'shot', 'snap', 'break', 'shatter', 'boom', 'dismember']);
 
 /** Client side: a copy of the sim that is never stepped. It replays structural events, then has its poses written in from snapshots. */
 export class Mirror {
