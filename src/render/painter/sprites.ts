@@ -485,7 +485,7 @@ export function paintedFront(kind: 'grass' | 'sign', greens: string[], K: Sprite
 }
 
 /** How a boat is painted: a sailing ship (or, under T_SHIP long, a rowboat), a Viking longship, or an ice floe. */
-export type HullLook = 'ship' | 'longship' | 'ice';
+export type HullLook = 'ship' | 'longship' | 'ice' | 'barge';
 const T_SHIP = 5; // a boat this long or longer is a ship (mast, rigging, gunports); shorter, a rowboat
 const SEA_PPM = 60; // texture pixels per metre for the ship and the water (big pictures: painted at a little under screen size)
 const rgb = (s: string) => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];
@@ -500,12 +500,13 @@ export interface HullPaint { face: string; dark: string; lip: string; lipdark: s
  * middle (its physics body) sits in it, as an anchor (0..1).
  */
 export function paintedHull(w: number, depth: number, water: number, c: HullPaint, K: SpriteKnobs, look: HullLook = 'ship'): { tex: Texture; ax: number; ay: number; ppm: number } {
-  const key = `hull|${w}|${depth}|${water}|${look}|${JSON.stringify(c)}|${JSON.stringify(K)}`, k = SEA_PPM, mastH = 5.2, up = mastH + 0.5, pad = 6, ext = look === 'longship' ? 0.7 : 0; // (ext: the longship's curled stem and stern reach past its deck)
+  const key = `hull|${w}|${depth}|${water}|${look}|${JSON.stringify(c)}|${JSON.stringify(K)}`, k = SEA_PPM, mastH = 5.2, up = mastH + 0.5, pad = 6, ext = look === 'longship' ? 0.7 : look === 'barge' ? 0.9 : 0; // (ext: the longship's curled stem and stern, the barge's papyrus ends, reach past its deck)
   const W = Math.ceil((w + 2 * ext) * k + 2 * pad), H = Math.ceil((up + depth) * k + 2 * pad), N = W * H;
   const ax = (pad + (ext + w / 2) * k) / W, ay = (pad + (up + depth / 2) * k) / H;
   const hit = cache.get(key);
   if (hit) return { tex: hit[0], ax, ay, ppm: k };
   if (look === 'longship') c = { ...c, face: '#6B4A2E', dark: '#3D2A1A', lip: '#8C6440', lipdark: '#4A3220', seam: '#4A3220' }; // (a longship is oak, whatever the era's ground)
+  if (look === 'barge') c = { ...c, face: '#C29A52', dark: '#7A5E30', lip: '#D9B868', lipdark: '#8A6A36', seam: '#9A7A40' }; // (a barge is bundled papyrus reeds)
   const X = (m: number) => pad + (m + ext) * k, Y = (m: number) => pad + (up + m) * k; // metres along the deck from its left end; metres below the deck
   const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
   const poly = (pts: number[][], fill: string) => { g.fillStyle = fill; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.fill(); };
@@ -533,6 +534,24 @@ export function paintedHull(w: number, depth: number, water: number, c: HullPain
     g.beginPath(); g.moveTo(X(w - 0.4), Y(0.2)); g.quadraticCurveTo(X(w + 0.6), Y(-0.2), X(w + 0.35), Y(-1.3)); g.stroke(); // the prow's neck
     g.fillStyle = c.face; g.beginPath(); g.ellipse(X(w + 0.5), Y(-1.42), 0.28 * k, 0.15 * k, -0.3, 0, Math.PI * 2); g.fill(); // the dragon's head
     g.fillStyle = c.hot; g.beginPath(); g.arc(X(w + 0.52), Y(-1.48), 0.04 * k, 0, Math.PI * 2); g.fill(); // its eye
+  } else if (look === 'barge') { // a Nile barge: an awning on poles amidships, a steering oar over the stern, both ends sweeping up to a papyrus flower
+    for (const px of [w * 0.34, w * 0.66]) poly([[px - 0.05, -2.25], [px + 0.05, -2.25], [px + 0.06, 0], [px - 0.06, 0]], '#5A3A22');
+    for (let i = 0; i < 7; i++) { const x0 = w * 0.3 + (i * w * 0.4) / 7, x1 = x0 + (w * 0.4) / 7; poly([[x0, -2.45], [x1, -2.45], [x1, -2.18], [x0, -2.18]], i % 2 ? '#E8DCC0' : c.hot); } // the striped awning
+    g.strokeStyle = '#5A3A22'; g.lineCap = 'round'; g.lineWidth = 0.07 * k;
+    g.beginPath(); g.moveTo(X(0.9), Y(-1.5)); g.lineTo(X(-0.5), Y(water + 0.35)); g.stroke(); // the steering oar
+    poly([[-0.62, water + 0.05], [-0.38, water], [-0.5, water + 0.7], [-0.74, water + 0.62]], '#5A3A22'); // its blade
+    g.strokeStyle = c.face; g.lineWidth = 0.3 * k;
+    g.beginPath(); g.moveTo(X(0.8), Y(0.35)); g.quadraticCurveTo(X(-0.6), Y(0.2), X(-0.7), Y(-1.5)); g.stroke(); // the stern, sweeping up
+    g.beginPath(); g.moveTo(X(w - 0.8), Y(0.35)); g.quadraticCurveTo(X(w + 0.6), Y(0.2), X(w + 0.7), Y(-1.3)); g.stroke(); // the prow
+    g.strokeStyle = c.seam; g.lineWidth = 0.05 * k;
+    for (const [x, y] of [[-0.55, -0.4], [-0.68, -0.9], [w + 0.55, -0.35], [w + 0.67, -0.8]]) { g.beginPath(); g.moveTo(X(x - 0.17), Y(y)); g.lineTo(X(x + 0.17), Y(y)); g.stroke(); } // rope lashings round the reeds
+    for (const [x, y, dir] of [[-0.7, -1.5, -1], [w + 0.7, -1.3, 1]]) for (let i = -2; i <= 2; i++) { // a papyrus flower: a fan of fronds
+      const a = -Math.PI / 2 + i * 0.32 + dir * 0.25;
+      g.strokeStyle = i % 2 ? '#7E9A46' : '#A8B85A'; g.lineWidth = 0.06 * k;
+      g.beginPath(); g.moveTo(X(x), Y(y)); g.lineTo(X(x + Math.cos(a) * 0.5), Y(y + Math.sin(a) * 0.5)); g.stroke();
+    }
+    g.fillStyle = '#F2E8D0'; g.beginPath(); g.ellipse(X(w - 0.35), Y(0.22), 0.13 * k, 0.07 * k, 0, 0, Math.PI * 2); g.fill(); // the eye on the prow
+    g.fillStyle = '#1A120C'; g.beginPath(); g.arc(X(w - 0.33), Y(0.22), 0.05 * k, 0, Math.PI * 2); g.fill();
   }
   // rigging, mast, yard, furled sail, crow's nest, pennant (above the deck, behind the fighters)
   if (ship) {
@@ -555,6 +574,7 @@ export function paintedHull(w: number, depth: number, water: number, c: HullPain
   g.fillStyle = c.dark; g.fillRect(0, Y(water - 0.05), W, H);
   g.fillStyle = c.seam; for (let y = 0.22; y < depth; y += 0.22) g.fillRect(0, Y(y), W, 2);
   if (look === 'ship') { g.fillStyle = '#B8893A'; g.fillRect(0, Y(0.14), W, 0.1 * k); } // (a gold wale on a pirate ship)
+  if (look === 'barge') { g.fillStyle = c.seam; for (let x = 0.5; x < w; x += 0.9) g.fillRect(X(x), 0, 0.06 * k, H); } // (rope lashings round the reed bundles)
   if (ship) for (let x = 0.9; x < w - 0.5; x += 1.55) { poly([[x - 0.03, 0.33], [x + 0.31, 0.33], [x + 0.31, 0.63], [x - 0.03, 0.63]], c.lipdark); poly([[x, 0.36], [x + 0.28, 0.36], [x + 0.28, 0.6], [x, 0.6]], '#1A120C'); }
   g.restore();
   poly([[0, -0.03], [w, -0.03], [w, 0.07], [0, 0.07]], c.lip);

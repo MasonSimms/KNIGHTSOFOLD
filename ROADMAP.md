@@ -38,6 +38,7 @@ Date (owner, 2026-10-06): Sunday 2026-10-11. Building does not pause for it.
 
 Weapons first: real painted shapes for every weapon, then the grappling hook, then chain weapons. Then Pirates' 4 other arenas (built 2026-10-07),
 the round-break screens, and costumes for the showcase eras (Wild West, Cavemen, Pirates: final paint by 2026-11-01).
+All of that is built (2026-10-07). Now: the other eras' arenas, an era at a time (Ancient Egypt has its five, 2026-10-08), then the specials.
 
 ## The demo
 

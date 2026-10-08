@@ -44,7 +44,7 @@ export function createSea(enter: (x: number, y: number, speed: number, tar: bool
       if (!A.sea) return;
       const pa = paintingFor(sim.era);
       const top = A.platformTop + A.sea.level - (A.sea.tide?.rise ?? 0) - 0.4, h = A.viewH - top + 0.5; // (as high as the tide will come)
-      const wt = paintedWater(A.viewW + 1, h, pa.void[0], pa.void[1], pa.mist, K);
+      const wt = paintedWater(A.viewW + 1, h, A.sea.water?.[0] ?? pa.void[0], A.sea.water?.[1] ?? pa.void[1], pa.mist, K); // (a river can have its own colours: the era's void is sand in Egypt)
       sea = new Sprite(wt.tex);
       sea.position.set(-0.5, top);
       sea.scale.set(1 / wt.ppm);

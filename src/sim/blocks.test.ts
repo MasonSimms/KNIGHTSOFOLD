@@ -76,6 +76,46 @@ describe('Standing Stones', () => {
   });
 });
 
+describe('Toppling Obelisk', () => {
+  async function court() {
+    T.eras.changeGameplay = true;
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'egypt'; sim.forceMap = mapNamed('egypt', 'Toppling Obelisk'); sim.reset();
+    T.eras.changeGameplay = false;
+    return sim;
+  }
+  const obelisks = (sim: Sim) => sim.props.filter((p) => p.weapon?.id === 'obelisk').sort((a, b) => a.body.translation().x - b.body.translation().x);
+  /** Fighter `i` flies at `vx` m/s into the left obelisk, `up` metres above its terrace. */
+  function fling(sim: Sim, i: number, vx: number, up: number) {
+    const v = sim.fighters[i], o = obelisks(sim)[0].body.translation(), t = v.torso.body.translation(), A = sim.arena;
+    for (const p of v.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + o.x - 1.0 - t.x, y: q.y + A.platformTop - 1.9 - up - t.y }, true); p.body.setLinvel({ x: vx, y: -1 }, true); }
+    v.thrown = 40; v.thrownBy = 1 - i;
+  }
+
+  it('left alone, both obelisks stand on their terraces', async () => {
+    const sim = await court(), [a, b] = obelisks(sim);
+    for (let i = 0; i < 600; i++) sim.step([NEUTRAL, NEUTRAL]);
+    for (const o of [a, b]) expect(Math.abs(o.body.rotation())).toBeLessThan(0.02);
+    expect((sim as unknown as Internals).itemOf(a)).toBeNull(); // (too heavy to lift)
+  });
+
+  it('a fighter flung into one tips it over toward the gap: it comes down across it, onto the far side, and crushes whoever is there', async () => {
+    const sim = await court(), o = obelisks(sim)[0], v = sim.fighters[0], A = sim.arena;
+    for (let i = 0; i < 20; i++) sim.step([NEUTRAL, NEUTRAL]);
+    const t = v.torso.body.translation(); // fighter 0 stands on the far side, just past the gap, where the tip comes down
+    for (const p of v.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + 13.8 - t.x, y: q.y }, true); }
+    fling(sim, 1, 10, 1.4);
+    const events: SimEvent[] = [];
+    for (let i = 0; i < 240; i++) { sim.step([NEUTRAL, NEUTRAL]); events.push(...sim.events.map((e) => ({ ...e }))); }
+    const c = o.body.translation(), a = o.body.rotation(), half = 2.5;
+    expect(Math.abs(a)).toBeGreaterThan(1); // down
+    expect(c.y).toBeLessThan(A.platformTop + 0.5); // not fallen into the gap
+    expect(c.x + Math.abs(Math.sin(a)) * half).toBeGreaterThan(13.3); // its far end over the far side
+    expect(c.x - Math.abs(Math.sin(a)) * half).toBeLessThan(10.7); // its near end over the near side: across the gap
+    expect(events.some((e) => e.t === 'hit' && e.how === 'crush' && e.victim === 0)).toBe(true);
+  });
+});
+
 describe('Main Street windows', () => {
   async function street() {
     T.eras.changeGameplay = true;

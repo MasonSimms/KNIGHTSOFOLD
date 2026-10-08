@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { mapNamed } from '../content/eras';
 import { tuning as T } from '../content/tuning';
 import { hashSim } from './hash';
 import { NEUTRAL } from './types';
@@ -214,5 +215,25 @@ describe('sinking wreck', () => {
     expect(end(-1)).toBeLessThan(surfaceY(A, sim.frame, A.boats[0].x)); // the stern is not
     sim.reset(); run(sim, 30);
     afloat();
+  }, 30_000);
+});
+
+describe('Nile Barge', () => {
+  it('one fighter at the end tips the reed barge about twice as far as the pirate ship', async () => {
+    const lean = async (era: string, map: number, end: boolean) => {
+      const sim = await Sim.create(3, 2, false);
+      sim.forceEra = era; sim.forceMap = map; sim.reset();
+      run(sim, 60);
+      const A = sim.arena;
+      moveTo(sim, 0, A.platformX + A.platformW * (end ? 1 : 0.5) - (end ? 0.6 : 1.2), A.platformTop - T.stand.height - 0.1); // one at the end (or in the middle)
+      moveTo(sim, 1, A.platformX + A.platformW / 2 + 1.2, A.platformTop - T.stand.height - 0.1); // one in the middle
+      let sum = 0;
+      for (let i = 0; i < 120; i++) { run(sim, 1); if (i >= 60) sum += sim.boats[0].body.rotation(); }
+      return sum / 60; // (averaged over a second)
+    };
+    const tip = async (era: string, map: number) => (await lean(era, map, true)) - (await lean(era, map, false)); // (less the waves' own rocking)
+    const ship = await tip('pirates', 0), barge = await tip('egypt', mapNamed('egypt', 'Nile Barge'));
+    console.log(`one fighter at the end: the ship tips ${(ship * 180 / Math.PI).toFixed(1)} degrees, the barge ${(barge * 180 / Math.PI).toFixed(1)}`);
+    expect(Math.abs(barge)).toBeGreaterThan(Math.abs(ship) * 1.8);
   }, 30_000);
 });

@@ -94,6 +94,10 @@ export const PROPS: Record<string, PropSpec> = {
   chandelier: { len: 1.5, thick: 0.3, mass: 28, factor: 2.6, material: 'metal', box: true, hangs: 1.1 },
   'ice-block': { len: 1.0, thick: 0.3, mass: 9, factor: 2.4, material: 'stone', box: true, slam: 6.5 },
   oar: { len: 2.0, thick: 0.09, mass: 2.2, factor: 2.6, toughness: 4, grip: 0.12 }, // a longship's oar (Longship Deck): a long club with a wide blade // a slab of the Frozen River's ice (a bridge of them over the water: a hard landing or a slam breaks one out)
+  // Toppling Obelisk (Egypt): a tall stone needle standing on a terrace, too heavy to lift; a body flung into it tips it over, and it
+  // comes down across the gap (a bridge) or on whoever is under it (it crushes). PLACEHOLDER numbers.
+  obelisk: { len: 0.55, thick: 5.0, mass: 60, factor: 2.6, material: 'stone', box: true },
+  jar: { len: 0.34, thick: 0.44, mass: 2.5, factor: 2.4, material: 'light', shatters: true, box: true }, // a clay jar (Nile Barge): throw it, or smash it on someone
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

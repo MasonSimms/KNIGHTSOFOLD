@@ -15,8 +15,8 @@ export interface EraArena {
   spawnX?: number[]; // where you and the training dummy start, playing alone (metres)
   fightSpawnX?: number[]; // where the fighters of a 2-4 player fight start (metres; for maps where the standard spots would be over a gap)
   ice?: number; // an icy floor: the share of grip your feet lose (see tuning.arena.ice)
-  sea?: { level: number; tide?: { rise: number; seconds: number }; chop?: number }; // (chop: waves this many times higher, a rough sea) // water under the stage (see tuning.arena.sea); tide: it rises `rise` m over the round's first `seconds`
-  boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice'; tilt?: number; crack?: boolean }[]; // (tilt: how far one fighter at its end tips it, instead of tuning.boat.tilt; crack: an ice floe that cracks and sinks, tuning.floe) // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
+  sea?: { level: number; tide?: { rise: number; seconds: number }; chop?: number; water?: [string, string] }; // (water: its own colours, top and deep, instead of the era's void: a river) // (chop: waves this many times higher, a rough sea) // water under the stage (see tuning.arena.sea); tide: it rises `rise` m over the round's first `seconds`
+  boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice' | 'barge'; tilt?: number; crack?: boolean }[]; // (tilt: how far one fighter at its end tips it, instead of tuning.boat.tilt; crack: an ice floe that cracks and sinks, tuning.floe) // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
   ropes?: { x0: number; up0: number; x1: number; up1: number }[]; // ropes tied between them (see tuning.rope)
   tar?: { x: number; w: number; level: number; lava?: boolean }[]; // tar pits, or lava pools (see tuning.arena.tar)
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
@@ -80,7 +80,19 @@ export const eras: Era[] = [
     // are carried. The pillars are too heavy to lift: knock one over onto someone, or club it until it breaks into rubble.
     { name: 'Sandstorm Temple', wind: { base: 1, gust: 11, dir: 1 }, gusts: 1, platformX: 3.5, platformW: 16.5, walls: [{ side: -1, up: 3.2, gap: 0 }],
       ledges: [{ x: 9.0, up: 1.9, w: 5.0 }], scenery: [{ kind: 'pillar', x: 9.5, up: 0 }, { kind: 'pillar', x: 13.5, up: 0 }],
-      fightSpawnX: [6.0, 18.0, 8.0, 16.0], spawnX: [6.0, 11.5, 18.0, 16.0] }], outfits: ['pharaoh', 'priest', 'guard', 'scribe'] },
+      fightSpawnX: [6.0, 18.0, 8.0, 16.0], spawnX: [6.0, 11.5, 18.0, 16.0] },
+    // Nile Barge (the era plan): a reed barge on the river, far tippier than a ship: run to one end and it leans hard (tilt), so loose
+    // things and fighters slide toward the water. An oar to swing, clay jars to throw or smash. Reeds along the bank in front.
+    { name: 'Nile Barge', platformX: 5.75, platformW: 12.5, sea: { level: 0.5, water: ['#5E8C80', '#22403C'] }, boats: [{ x: 5.75, w: 12.5, depth: 1.0, look: 'barge', tilt: 0.28 }],
+      props: [{ kind: 'oar', x: 9.0, up: 0 }], scenery: [{ kind: 'jar', x: 7.6, up: 0 }, { kind: 'jar', x: 16.4, up: 0 }],
+      front: [{ kind: 'grass', x: 1.0, y: 13.8, scale: 2.8 }, { kind: 'grass', x: 3.4, y: 13.95, scale: 2.0 }, { kind: 'grass', x: 22.6, y: 13.85, scale: 2.6 }] },
+    // Toppling Obelisk (the era plan): a temple court split by a gap (a running jump crosses it), a terrace each side with an obelisk
+    // standing on it. Fling someone into an obelisk and it tips over: toward the gap it comes down across it (a ramp to the far side),
+    // away from it onto the court below; either way it crushes whoever it lands on. The terraces stand back from the gap, so a jump
+    // across it never hits its head on them.
+    { name: 'Toppling Obelisk', platformThickness: 6, ground: [{ x: 2.0, w: 8.7 }, { x: 13.3, w: 8.7 }],
+      ledges: [{ x: 7.0, up: 1.9, w: 2.2 }, { x: 14.8, up: 1.9, w: 2.2 }], scenery: [{ kind: 'obelisk', x: 8.875, up: 1.9 }, { kind: 'obelisk', x: 15.125, up: 1.9 }, { kind: 'jar', x: 5.5, up: 0 }, { kind: 'jar', x: 18.5, up: 0 }],
+      fightSpawnX: [4.0, 20.0, 7.0, 17.0], spawnX: [5.0, 9.5, 14.5, 19.0] }], outfits: ['pharaoh', 'priest', 'guard', 'scribe'] },
   { id: 'gladiators', name: 'Roman Gladiators', special: false, pickups: ['trident', 'chain-mace'], sky: 0xb5875a, platform: 0xa88d68, wall: 0x7a6a56, weapon: 'gladius', arena: { platformX: 5.625, platformW: 12.75, walls: [/* a low parapet each side: nobody walks off, you are thrown (or jump) over it */ { side: -1, up: 1.0, gap: 0 }, { side: 1, up: 1.0, gap: 0 }], props: [{ kind: 'plank', x: 10.0, up: 0 }] }, alt: [/* Lion's Pit: $1*/ { name: "Lion's Pit",  walls: [/* tall arena walls: the pit is the only way out */ { side: -1, up: 2.5, gap: 0 }, { side: 1, up: 2.5, gap: 0 }], ground: [{ x: 5.25, w: 5.25 }, { x: 13.5, w: 5.25 }], ledges: [{ x: 11.125, up: 0, w: 1.75 }], fightSpawnX: [6.75, 17.25, 9.0, 15.0] },
     // Aqueduct Bridge (owner chose it from the plan, 2026-10-07): a hill each side of a deep valley and between them the aqueduct, a
     // deck of stone blocks on piers with the water running along it. A club cannot chip a block out; a body slammed or flung into the

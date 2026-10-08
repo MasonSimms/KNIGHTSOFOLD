@@ -24,6 +24,7 @@ const LACQUER = ['#9A3428', '#641C14', '#2E0C08'], OLIVE = ['#86906A', '#5C6646'
 const ROPE = ['#DCC48E', '#B49A62', '#76603A'], VIOLET = ['#ABADCC', '#7C7FA6', '#45486C'], SPADE = ['#A3A598', '#75786C', '#45473F'];
 const CYAN = ['#F4FFFF', '#7FF2F4', '#1FA9B8'], PINK = ['#FFF0FB', '#F45FD4', '#A21F8A'], PURPLE = ['#6A58C0', '#3E2E8C', '#1C1448'];
 const ICE = ['#F2FAFF', '#B9DCF0', '#5FA8D4'], SHIELD = ['#C4D4DE', '#94AABA', '#5E7484'], ORANGE = ['#F2A04A', '#D4762A', '#7E3E12'];
+const SAND = ['#EBD3A0', '#C9A86A', '#7E6438'], CARVED = ['#9A7A48', '#6E5430', '#3E2E18'], CLAY = ['#D98A56', '#A85A32', '#5E2E18'];
 
 const rod = (x0: number, x1: number, w0: number, w1: number, c: Paint, o: { y?: [number, number]; bend?: number; grip?: true; glow?: true } = {}): Piece =>
   ({ k: 'rod', a: [x0, o.y?.[0] ?? 0], b: [x1, o.y?.[1] ?? 0], w: [w0, w1], bend: o.bend, c, grip: o.grip, glow: o.glow });
@@ -107,6 +108,9 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
   'wizard-staff': { len: 1.5, pieces: [rod(0, 1.4, 0.016, 0.02, DARKWOOD, { bend: 0.02, grip: true }), rod(1.38, 1.5, 0.02, 0.012, DARKWOOD, { y: [0, -0.06], bend: 0.05 }), ball(1.44, 0.03, ICE, { glow: true })] },
   'war-hammer': { len: 1.0, pieces: [rod(0, 0.86, 0.017, 0.017, WOOD, { grip: true }), rod(0.6, 0.86, 0.019, 0.019, IRON), rod(0.9, 0.9, 0.045, 0.04, IRON, { y: [0.02, -0.12] }), rod(0.9, 0.9, 0.03, 0.002, IRON, { y: [0.02, 0.16] }), rod(0.93, 1.0, 0.015, 0, IRON)] },
   crowbar: { len: 0.8, pieces: [rod(0, 0.7, 0.012, 0.012, RED, { grip: true }), rod(0, 0.04, 0.006, 0.012, IRON), rod(0.66, 0.8, 0.012, 0.006, RED, { y: [0, 0.07], bend: -0.05 })] },
-  oar: { len: 2.0, pieces: [rod(0, 1.55, 0.022, 0.022, WOOD, { grip: true }), poly(WOOD, [[1.45, -0.03], [1.6, -0.09], [2.0, -0.08], [2.0, 0.08], [1.6, 0.09], [1.45, 0.03]])] },
+  // standing things (box props: x across their width, y up and down, the base at the bottom)
+  obelisk: { len: 0.55, pieces: [poly(SAND, [[0, 2.5], [0.55, 2.5], [0.47, -2.18], [0.08, -2.18]]), poly(GOLD, [[0.08, -2.18], [0.47, -2.18], [0.275, -2.5]]), ...[-1.7, -1.1, -0.5, 0.1, 0.7, 1.3].map((y, i) => (i % 2 ? rod(0.2, 0.35, 0.025, 0.025, CARVED, { y: [y, y] }) : ball(0.275, 0.07, CARVED, { y })))] }, // (carved signs down its face)
+  jar: { len: 0.34, pieces: [poly(CLAY, [[0.12, -0.22], [0.22, -0.22], [0.21, -0.15], [0.3, -0.08], [0.33, 0.02], [0.27, 0.15], [0.2, 0.22], [0.14, 0.22], [0.07, 0.15], [0.01, 0.02], [0.04, -0.08], [0.13, -0.15]]), rod(0.05, 0.29, 0.012, 0.012, BLACK, { y: [-0.03, -0.03] })] }, // (a dark band round its belly)
+  oar: { len: 2.0, pieces:[rod(0, 1.55, 0.022, 0.022, WOOD, { grip: true }), poly(WOOD, [[1.45, -0.03], [1.6, -0.09], [2.0, -0.08], [2.0, 0.08], [1.6, 0.09], [1.45, 0.03]])] },
   'lead-pipe': { len: 1.0, pieces: [rod(0, 1.0, 0.022, 0.022, GREY, { grip: true }), rod(0, 0.06, 0.027, 0.027, IRON), rod(0.88, 1.0, 0.03, 0.03, IRON)] },
 };
