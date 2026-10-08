@@ -21,6 +21,10 @@ const NO_GROUND = { slabs: [], ledges: [], ledgeThick: 0, top: 1080, thick: 0, w
 
 let app: Promise<Application> | null = null;
 let land: Promise<ImageBitmap | null> | null = null;
+const startApp = () => (app ??= (async () => { const a = new Application(); await a.init({ width: PORTRAIT.w, height: PORTRAIT.h, backgroundAlpha: 0, antialias: true, preference: 'webgl' }); return a; })());
+const startLand = () => (land ??= paintPicture(BACKGROUND, NO_GROUND, 640, 360));
+/** Start the slow parts (the renderer and the landscape behind every portrait) now, so the first portrait appears at once later. */
+export function warmPortraits(): void { startApp(); startLand(); }
 
 /**
  * The three painted variants of one player's portrait (seat picks the stretch of landscape behind them). bare: the figure alone, no
@@ -38,9 +42,7 @@ export function paintPortrait(look: Look, seat: number, opts: { bare?: boolean; 
 const kept = new Map<string, Promise<HTMLCanvasElement[]>>();
 
 async function paint(look: Look, seat: number, opts: { bare?: boolean; crown?: boolean }): Promise<HTMLCanvasElement[]> {
-  app ??= (async () => { const a = new Application(); await a.init({ width: PORTRAIT.w, height: PORTRAIT.h, backgroundAlpha: 0, antialias: true, preference: 'webgl' }); return a; })();
-  land ??= paintPicture(BACKGROUND, NO_GROUND, 640, 360);
-  const [a, back] = await Promise.all([app, opts.bare ? null : land]);
+  const [a, back] = await Promise.all([startApp(), opts.bare ? null : startLand()]);
   const { w: W, h: H } = PORTRAIT, F = T.fighter, LG = T.legs, P = T.finish.paint, K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under };
   const hex = look.bot ? BOT_GRAYS[seat % BOT_GRAYS.length] : COLORS[look.color]?.hex ?? COLORS[0].hex, limb = mix(hex, 0x000000, 0.18);
 

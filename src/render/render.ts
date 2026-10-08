@@ -541,6 +541,18 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     onEvent(e: SimEvent) {
       fx.onEvent(e);
       motion.onEvent(e, sim.era);
+    /** Everything a fight in `s` needs, painted before it starts (owner): the fighters' and weapons' pictures still unpainted, this
+     *  round's backdrop and the next one's. Resolves when done, or after `maxMs` so a slow machine still gets its fight. */
+    async preload(s: Sim, maxMs: number): Promise<void> {
+      const t0 = performance.now();
+      let sliceAt = t0;
+      while (prewarm.length && performance.now() - t0 < maxMs) { // the warm-up's jobs, a slice of a frame at a time (the wait screen keeps moving)
+        prewarm.shift()!();
+        if (performance.now() - sliceAt > 40) { await new Promise((ok) => setTimeout(ok, 0)); sliceAt = performance.now(); }
+      }
+      const up = s.upcoming(), left = Math.max(0, maxMs - (performance.now() - t0));
+      await Promise.race([Promise.all([backdrops.ready(s.era, s.arena), backdrops.ready(up.era, up.arena)]), new Promise((ok) => setTimeout(ok, left))]);
+    },
       frame.onEvent(e, A.viewW, A.viewH);
       if (e.t === 'hit' || e.t === 'stomp') {
         const boost = e.head ? 1.5 : 1;

@@ -26,6 +26,8 @@ import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
 import { runHome } from './ui/home';
+import { closeMenu, openMenu } from './ui/menu';
+import { warmPortraits } from './render/portrait';
 import { clearBanner, hideCards, showCards, updateHud } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
@@ -34,6 +36,7 @@ import { applyTraining, leaveTraining, loadTraining, runTraining } from './ui/tr
 import { hiddenSeconds, reportErrors, tellServer } from './ui/oops';
 
 reportErrors(); // (a crash in someone's browser shows on their screen and reaches the server's log)
+warmPortraits(); // (the Hall's portraits: their renderer and landscape are ready before anyone sits down)
 
 const T = tuning;
 // Open http://localhost:5173/?stress to add two scripted flailing fighters: a 4-fighter frame-time check, not AI.
@@ -269,11 +272,20 @@ async function menu(screen: 'home' | 'hall') {
     mySlot = Math.max(0, devices.indexOf('kb'));
     sim.reseed(Math.floor(Math.random() * 2 ** 31)); // a new match: a new order of maps and weapon drops
     sim.setPlayers(seats.length); // one player: practice on the dummy; two or more (people or bots): a real fight
+    await preload();
     break;
   }
   flushInput(); // (keys pressed in the menus do not reach the fight)
   last = performance.now(); acc = 0;
   paused = false;
+}
+
+const PRELOAD_MAX_MS = 8000; // the longest a fight waits for its pictures (a first visit paints two backdrops, about a second each)
+/** Everything the next round needs, painted before it starts (owner: nothing arrives after the fight has begun), behind a short note. */
+async function preload() {
+  openMenu('hall', '<div class="spacer"></div><div class="note">Painting the arena…</div>');
+  await renderer.preload(sim, PRELOAD_MAX_MS);
+  closeMenu();
 }
 
 /** The training settings over the paused fight. */
@@ -283,6 +295,7 @@ async function trainingMenu() {
   flushInput(); // (keys pressed in the panel do not reach the fight)
   last = performance.now(); acc = 0;
   if (r === 'lobby') { void menu('hall'); return; }
+  await preload(); // (a new map may have been chosen: its backdrop first)
   paused = false;
 }
 

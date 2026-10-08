@@ -42,11 +42,12 @@ export function paintPicture(era: string, geo: ArenaGeo, w: number, h: number): 
 
 export function createBackdrops() {
   const worker = newWorker();
-  const done = new Map<string, Texture>(), pending = new Set<string>(), order: string[] = [];
+  const done = new Map<string, Texture>(), pending = new Set<string>(), order: string[] = [], waiting = new Map<string, (() => void)[]>();
   const keyOf = (era: string, A: Arena) => `${era}|${JSON.stringify(geoOf(A))}|${JSON.stringify(knobsOf(era))}|${T.finish.paint.width}`;
   worker?.addEventListener('message', (e: MessageEvent<BakeResult>) => {
     const r = e.data;
     pending.delete(r.key);
+    waiting.get(r.key)?.forEach((ok) => ok()); waiting.delete(r.key);
     if (!r.bitmap) { console.warn('backdrop painting failed', r.error); return; }
     done.set(r.key, Texture.from(r.bitmap));
     order.push(r.key);
@@ -66,6 +67,12 @@ export function createBackdrops() {
     get(era: string, A: Arena): Texture | null { return done.get(request(era, A)) ?? null; },
     /** Start painting a backdrop that will be needed soon. */
     prefetch(era: string, A: Arena) { request(era, A); },
+    /** Resolves once this backdrop is painted (at once if it already is, or if painting is impossible here). */
+    ready(era: string, A: Arena): Promise<void> {
+      const key = request(era, A);
+      if (!pending.has(key)) return Promise.resolve();
+      return new Promise((ok) => waiting.set(key, [...(waiting.get(key) ?? []), ok]));
+    },
     available: !!worker,
   };
 }
