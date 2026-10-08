@@ -342,3 +342,23 @@ describe('headshots', () => {
     expect(PROPS.blunderbuss.gun!.pellets).toBeGreaterThan(1); // (pellets are left out of the rule: guns.ts strike)
   });
 });
+
+describe('a bullet and a light loose thing', () => {
+  it('a heavy shot sends it off no faster than tuning.guns.pushCap (a flintlock sent a light thing off at over 100 m/s)', async () => {
+    const sim = await duel(), gun = arm(sim, 0, 'pistol');
+    placeNear(sim, 1, sim.fighters[0].torso.body.translation().x + 5 * sim.fighters[0].side);
+    let helm: typeof gun | undefined, most = 0;
+    for (let i = 0; i < 60; i++) {
+      const a = sim.fighters[0].torso.body.translation(), t = sim.fighters[1].torso.body.translation(), b = { x: t.x, y: t.y - 0.1 }, aim = Math.atan2(b.y - a.y, b.x - a.x);
+      if (i === 21) { // a helm (2 kg: the flintlock's shove would send it off at 27 m/s) just in front of the muzzle, as it fires
+        const g = gun.body.translation(), r = gun.body.rotation(), L = (gun.weapon?.length ?? 0.45) / 2;
+        sim.spawnItem('helm', g.x + Math.cos(r) * L + Math.cos(aim) * 0.5, g.y + Math.sin(r) * L + Math.sin(aim) * 0.5);
+        helm = sim.props[sim.props.length - 1];
+      }
+      sim.step([{ ...NEUTRAL, aim, reach: Math.hypot(b.y - a.y, b.x - a.x), attack: i >= 22 && i < 26 }, NEUTRAL]);
+      if (helm && sim.props.includes(helm)) most = Math.max(most, Math.hypot(helm.body.linvel().x, helm.body.linvel().y));
+    }
+    expect(most).toBeGreaterThan(8); // it was hit
+    expect(most).toBeLessThan(T.guns.pushCap + 3);
+  });
+});

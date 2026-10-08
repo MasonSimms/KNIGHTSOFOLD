@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { mapNamed } from '../content/eras';
+import { tuning as T } from '../content/tuning';
 import { placeLoose } from './fighter';
 import type { PlayerInput } from './types';
 import { Sim } from './world';
@@ -91,5 +93,27 @@ describe('grappling hook', () => {
     expect(s.hk![0]).toBe(0);
     expect(s.hk![3]).toBe(1);
     expect((s.f[0].st ?? 0) & HOOKED).toBe(HOOKED);
+  });
+});
+
+describe('tractor beam on the map', () => {
+  it('passes over a rope still tied between the ships (reeled in or flung, its joints threw it at hundreds of m/s)', async () => {
+    T.eras.changeGameplay = true;
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'pirates'; sim.forceMap = mapNamed('pirates', 'Ship to Ship'); sim.reset();
+    T.eras.changeGameplay = false;
+    for (let i = 0; i < 30; i++) sim.step([idle(), idle()]);
+    const f = sim.fighters[0], t = f.torso.body.translation(), links = sim.props.filter((p) => p.weapon?.id === 'rope');
+    if (f.stick) placeLoose(sim.world, f, t.x - 3 * f.side, t.y, 0);
+    sim.spawnItem('tractor-beam', t.x, t.y - 1.5);
+    (sim as unknown as Internals).acquire(f, { kind: 'prop', index: sim.props.length - 1 });
+    for (let i = 0; i < 20; i++) sim.step([idle(), idle()]);
+    const near = links.reduce((a, b) => (Math.abs(b.body.translation().x - t.x) < Math.abs(a.body.translation().x - t.x) ? b : a)), at = near.body.translation(), me = f.torso.body.translation();
+    const aim = Math.atan2(at.y - me.y, at.x - me.x);
+    for (let i = 0; i < 60; i++) {
+      sim.step([idle({ aim, reach: 3, attack: i < 40 }), idle()]);
+      for (const h of sim.hooks) expect(links.some((l) => l.body === h.body)).toBe(false);
+    }
+    for (const l of links) expect(Math.hypot(l.body.linvel().x, l.body.linvel().y)).toBeLessThan(100); // (knocked by what the beam flung is fine: fighting their joints they flew at over 200)
   });
 });
