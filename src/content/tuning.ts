@@ -416,7 +416,8 @@ export const tuning = {
     // more than for hurting them). PLACEHOLDER numbers.
     knock: 3.5, // m/s: it knocks them back this fast (away from the puncher), however hard it landed: about 2.5-3 m back
     lift: 1.5, // m/s: ...and this much up, off their feet a little
-    hurt: 1, // share of a fist's usual damage it does (0.5 made the fists-only Saloon last 47 s: no edges to knock anyone off)
+    hurt: 0.5, // share of a fist's usual damage it does (the long lunge lands punches at 15-20 m/s: at full damage bare-handed gun rounds were over in 6 s)...
+    fistsOnlyHurt: 1, // ...but all of it on a fists-only map (the Saloon, the Train: fists are the weapon there, and at half the walled Saloon lasted 47 s)
     disarmsGuns: true, // a quick punch knocks a gun out of the hand it lands on (owner, 2026-10-07; clubs only come loose on a hit to the hand: tuning.disarm)
     gunFling: 4, // m/s: ...and the gun flies off this fast, the way the punch went (and half that up)
   },
@@ -456,8 +457,8 @@ export const tuning = {
     minGap: 150, // ...shrinking to this by rampFrames (2.5 s)
     rampFrames: 1800, // half a minute
     strongAfterFrames: 720, // the era's strong pickups can only appear after this (12 s)
-    gunsFirst: 60, // a guns-only arena (eras.ts gunsOnly): the first gun drops this soon (1 s)...
-    gunsGap: 150, // ...and another every this many frames (2.5 s): everyone races for them
+    gunsFirst: 20, // a guns-only arena (eras.ts gunsOnly): the first gun drops this soon (0.3 s)...
+    gunsGap: 90, // ...and another every this many frames (1.5 s): everyone races for them (at 1 s / 2.5 s a third of the bots' gun rounds were over in under 8 s, bare-handed)
     strongChance: 0.6, // once it can appear, this share of spawns are the strong one
     maxLoose: 6, // never more pickups lying around than this
     airdropChance: 0.5, // a spawn falls from the sky (otherwise it appears at one of the fixed spots)

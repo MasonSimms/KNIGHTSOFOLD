@@ -905,7 +905,7 @@ export class Sim {
   private resolveBodyHits(): void {
     const B = T.body;
     for (const f of this.fighters) {
-      if (f.limp || f.inBack || f.thrown > 0 || this.frame < f.bodyHitAt) continue; // a flung fighter's crashes are the slam rules instead
+      if (f.limp || f.inBack || f.thrown > 0 || f.knock > 0 || this.frame < f.bodyHitAt) continue; // a flung fighter's crashes are the slam rules instead; a knocked-down one tumbling is not attacking anyone (one launched by a squeeze into the floor killed the one who had just slammed them)
       for (const p of f.parts) {
         if (p.role !== 'torso' && p.role !== 'thigh' && p.role !== 'shin') continue;
         if (this.detached(f, p)) continue;
@@ -1181,6 +1181,7 @@ export class Sim {
       for (const att of f.attackers) {
         if (this.frame < att.nextHit) continue;
         if ((f.limp || f.armLost) && att.kind === 'fist') continue; // a dead fighter's floppy fists hurt nobody (a club they threw still does)
+        if (f.knock > 0 && att.kind === 'fist') continue; // ...nor do a knocked-down one's: a fist flailing past is not a punch (one flung past at 25 m/s 'punched' for 60); a club is a club, swung or not
         // Clubs first: a parry throws this swing back, so it must cancel the hits it would otherwise land on the body in the same frame.
         for (const clubsOnly of [true, false]) {
           if (this.frame < att.nextHit) break;
@@ -1291,7 +1292,7 @@ export class Sim {
     const impact = impactValue(closing, W.impactFactor) * (own?.spear && !f.grip ? T.special.spearThrown : 1); // (a spear thrown point-first)
     this.tryDisarm(f, victim, vp, pt, impact, nx, ny, sa, sb); // a great hit on the hand or arm can knock the club out
     const punch = att.kind === 'fist' && f.punch > 0 && !f.grip; // a quick punch (owner: it knocks a rival away more than it hurts)
-    let dmg = damageFor(impact, head ? T.combat.headMult : 1) * (punch ? T.punch.hurt : 1);
+    let dmg = damageFor(impact, head ? T.combat.headMult : 1) * (punch ? (this.arena.noWeapons ? T.punch.fistsOnlyHurt : T.punch.hurt) : 1);
     if (dmg <= 0) return;
     // A huge club blow to a limb takes the limb, not the life: the victim is left with a few HP (unless they were already nearly dead).
     const maiming = att.kind === 'stick' && impact >= T.maim.impact && !head && ['upper', 'fore', 'thigh', 'shin'].includes(vp.role);

@@ -105,4 +105,15 @@ describe('the race for the guns', () => {
       expect(rounds(sim).every(Boolean)).toBe(true);
     } finally { T.eras.changeGameplay = was; T.eras.gunRounds = false; }
   }, 30_000);
+
+  it('a knocked-down fighter tumbling into someone is not a body attack (one launched by a squeeze killed the one who had slammed them)', async () => {
+    const sim = await faceOff(36, 1.6);
+    const f = sim.fighters[0], g = sim.fighters[1], hp = g.hp;
+    f.knock = 40;
+    for (const p of f.parts) p.body.setLinvel({ x: 25 * f.side, y: 0 }, true);
+    let body = false;
+    for (let i = 0; i < 20; i++) { sim.step([NEUTRAL, NEUTRAL]); body ||= sim.events.some((e) => e.t === 'hit' && e.how === 'body' && e.owner === 0); }
+    expect(body).toBe(false);
+    expect(g.hp).toBe(hp);
+  }, 30_000);
 });

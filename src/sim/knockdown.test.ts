@@ -36,7 +36,7 @@ describe('knockdown: a big hit sends them tumbling, and they get up by themselve
       if (f.knock > 0) { knocked++; if (f.charge > 0) controlled = false; }
     }
     expect(knocked).toBeGreaterThan(10);
-    expect(turned).toBeGreaterThan(3); // really flipped over (half a turn at least, all in)
+    expect(turned).toBeGreaterThan(2.6); // really flipped over (about half a turn, all in; it was over 3 when the tumbler's own flailing fist still clashed with a club and spun them more: since 2026-10-07 a knocked-down fighter's fists hit nobody)
     expect(controlled).toBe(true); // (and could not start a swing while down)
     expect(f.limp).toBe(false);
     step(sim, 160);
