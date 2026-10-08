@@ -9,6 +9,8 @@ import { BOT_GRAYS, drawRobotHead } from './robot';
 import { createSea } from './sea';
 import { createFx } from './fx';
 import { createLimbs } from './limbs';
+import { createDrops } from './drops';
+import { createExtras } from './extras';
 import { createMotion } from './motion';
 import { createFrame } from './frame';
 import { createFlames } from './flames';
@@ -396,7 +398,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   };
   const fxLayer = new Container(); // gunfire: bullets and their trails, flashes, sparks, splinters, smoke
   actors.addChild(fxLayer);
-  const limbs = createLimbs(paintLayer, fxLayer, splatTexs); // a lost limb: paint dripping from its cut end, a pool where it lies
+  const drops = createDrops(fxLayer); // drips and drops: paint off a lost limb, water off a wet fighter, a splash's crown
+  const extras = createExtras(fxLayer, drops); // water and era extras: splash crowns, ripples, tar bubbles, Space sparks, Gravity Hammer rings
+  const limbs = createLimbs(paintLayer, drops, splatTexs); // a lost limb: paint dripping from its cut end, a pool where it lies
   const fx = createFx(fxLayer, splatTexs);
   const motion = createMotion(fxLayer, fx.puff); // swing trails, hit dabs, dust
   const flames = createFlames(fxLayer); // the arena's fires, and flames on whatever is burning
@@ -407,9 +411,10 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const jets = createJets(fxLayer); // water leaking from the water tower
   /** A weapon's or a thing's colour: a gun's metal, scenery's own wood, otherwise the stick colour. */
   const thingColor = (p: Part) => (p.weapon?.gun ? T.colors.gun : T.colors.things[p.weapon?.id ?? ''] ?? T.colors.stick);
-  const sea = createSea(ring); // the ship and the near water, on a map with a sea
+  const sea = createSea((x, y, speed, tar) => { ring(x, y, tar ? 0x3a2c20 : 0xffffff); extras.splash(sim, x, y, speed, tar); }); // the ship and the near water, on a map with a sea; a ring and a crown where something goes in
   actors.addChildAt(sea.hull, 0); // (the ship is the floor: behind everything in the play plane)
   view.addChildAt(sea.water, view.getChildIndex(front)); // the water: in front of the play plane, behind the front plane
+  view.addChildAt(extras.surface, view.getChildIndex(sea.water) + 1); // ripples and tar bubbles: on the water's surface, in front of it
   const playerColor = (i: number) => (sim.looks[i]?.bot ? BOT_GRAYS[i % BOT_GRAYS.length] : COLORS[sim.looks[i]?.color ?? i % COLORS.length].hex); // each player's chosen colour (a bot is a shade of gray)
   const fighterColor = (f: Fighter) => (f.controlled ? playerColor(f.index) : T.colors.dummy); // the training dummy has its own colour
 
@@ -563,6 +568,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     toWorld(px: number, py: number) { return { x: (px - view.x) / view.scale.x, y: (py - view.y) / view.scale.y }; },
     onEvent(e: SimEvent) {
       fx.onEvent(e);
+      extras.onEvent(e, sim);
       motion.onEvent(e, sim.era);
       frame.onEvent(e, A.viewW, A.viewH);
       if (e.t === 'hit' || e.t === 'stomp') {
@@ -601,8 +607,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         if (v) v.crushed = true;
         ring(e.x, e.y + 0.3, 0xcccccc);
         shake = Math.max(shake, T.death.shake);
-      } else if (e.t === 'splash') {
+      } else if (e.t === 'splash') { // a bullet into the water: a ring and a small crown
         ring(e.x, e.y, 0xffffff);
+        extras.splash(sim, e.x, e.y, T.finish.extras.crownSpeed * 0.4, false);
       } else if (e.t === 'parry') {
         ring(e.x, e.y, 0x9fe8ff); // a bright double ring where a swing is blocked, and a little shake
         ring(e.x, e.y, 0xffffff);
@@ -634,6 +641,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         for (const s of streaks) s.visible = false;
         fx.clear();
         limbs.clear();
+        extras.clear();
+        drops.clear();
         motion.clear();
         frame.clear();
         growing.length = 0; flying.length = 0;
@@ -802,6 +811,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       sea.draw(sim, alpha);
       fx.draw(sim, alpha, frameSeconds, wind);
       limbs.draw(alpha, frameSeconds);
+      extras.draw(sim, frameSeconds);
+      drops.draw(frameSeconds);
       flames.draw(sim, alpha, frameSeconds, variant, wind);
       mammoth.draw(sim, alpha);
       passing.draw(sim, alpha);
