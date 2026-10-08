@@ -98,11 +98,11 @@ export const tuning = {
     jumpCut: 0.5, // letting go of jump early cuts the jump short by this much (1 = no cut)
     jumpCutMinSpeed: 2, // ...but only while still rising faster than this (m/s)
     wallSlideSpeed: 1.5, // fall speed while sliding down a wall you are pushing toward (m/s)
-    wallJumpX: 6.5, // speed kicked away from the wall (m/s)
-    wallJumpY: 10, // upward speed of a wall jump (a bit lower than a normal jump)
+    wallJumpX: 3.5, // speed kicked away from the wall (m/s) (owner 2026-10-07: less of a leap away, more up: was 6.5)
+    wallJumpY: 11.5, // upward speed of a wall jump (owner 2026-10-07: more up, a bit more than a normal jump: was 10)
     wallCoyoteFrames: 6, // a wall jump still works this long after leaving the wall
     wallTuckFrames: 30, // after a wall jump the club is held up over the head this long (0.5 s), so it does not snag the platform edge on the way out
-    wallLockFrames: 10, // after a wall jump, steering is switched off for this long so you do not drift back into the wall
+    wallLockFrames: 6, // after a wall jump, steering is switched off for this long so you do not drift back into the wall (owner 2026-10-07, with the smaller push away: was 10)
   },
   landDip: {
     // Landing bends the knees for a moment, deeper the harder you land, then you spring back up (owner: more fluid movement, less stiff).

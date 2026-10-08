@@ -329,7 +329,7 @@ describe('walls: slide and jump', () => {
       if (jump) jumped = true;
       if (jumped) held++;
       sim.step([idle({ moveX: jumped ? 1 : -1, jump: jumped && held <= 12 })]); // jump held for the full height (a tap is a short hop)
-      if (jump) expect(f().torso.body.linvel().x).toBeGreaterThan(4); // kicked away from the wall
+      if (jump) { const v = f().torso.body.linvel(); expect(v.x).toBeGreaterThan(2); expect(-v.y).toBeGreaterThan(2 * v.x); } // kicked away from the wall, but mostly up (owner, 2026-10-07)
       if (jumped && f().grounded && f().torso.body.translation().x > T.arena.platformX + 0.1) back = true;
     }
     expect(jumped).toBe(true);
