@@ -938,6 +938,7 @@ export const tuning = {
       trailFrames: 7, // ...this many frames long
       trailWidth: 0.07, trailAlpha: 0.55, // its width at the tip (m, tapering to nothing behind) and how solid it is; cream, or the era's hot colour after a charged swing
       dab: 0.16, bigDab: 0.36, bigImpact: 40, dabSeconds: 0.22, // a cream dab where a hit lands (m across); a hit this big or more gets the big burst with a red core
+      hitPaint: { minImpact: 12, drops: [2, 7], speed: [1.5, 4], up: [1.5, 3.5], size: 0.035, mark: 0.14, alpha: 0.85 }, // a hurt fighter's paint: drops (more for a harder hit) flung off the way the blow went (m/s), up (m/s), each this big (m), landing as a mark this wide (m) on the floor
       landMin: 6, landFull: 14, dust: 0.55, // a landing faster than landMin (m/s) kicks up dust from the floor, the most at landFull; how solid the dust is
     },
     bullets: { shotShake: 0.4, hitShake: 0.35, streak: 0.7, streakWidth: 0.05, trailWidth: 0.05, trailAlpha: 0.35, tailBack: 1.5, trailFadeSeconds: 0.35, flashSeconds: 0.08, twirlSeconds: 0.35 }, // the near water: how much it hides what is under the surface (1 = all of it), and the light line along the top of the waves (m, 0..1)

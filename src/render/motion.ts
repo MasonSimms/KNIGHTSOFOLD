@@ -1,11 +1,14 @@
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Sprite } from 'pixi.js';
+import type { Texture } from 'pixi.js';
 import { paintingFor } from '../content/paintings';
 import { tuning as T } from '../content/tuning';
 import type { SimEvent } from '../sim/types';
+import type { Arena } from '../sim/world';
 
 // Motion on the screen (owner's visuals handoff, effects): a tapered cream brushstroke trailing a weapon's tip through a fast swing (the
 // era's hot colour after a charged swing), a cream dab where any hit lands (a big burst with a red core for a big hit), and dust kicked
-// up off the floor in the floor's own colour: a landing (more the harder), a wall jump's scuff, a dodge's push-off, a stomp's ring.
+// up off the floor in the floor's own colour: a landing (more the harder), a wall jump's scuff, a dodge's push-off, a stomp's ring. And a
+// hurt fighter's paint: a few drops in their colour fly off them the way the blow went and land on the floor, leaving a mark there.
 // Looks only; everything is pooled.
 
 type Puff = (x: number, y: number, size: number, color: number, alpha: number, life: number, rise: number) => void;
@@ -16,9 +19,22 @@ const hex = (s: string) => parseInt(s.slice(1), 16);
 /** A four-pointed star, radius 1 (a painter's dab of light). */
 const star = (g: Graphics, color: number, r = 1) => g.poly([0, -r, 0.22 * r, -0.22 * r, r, 0, 0.22 * r, 0.22 * r, 0, r, -0.22 * r, 0.22 * r, -r, 0, -0.22 * r, -0.22 * r]).fill(color);
 
-export function createMotion(layer: Container, puff: Puff) {
-  const trails = new Graphics();
-  layer.addChild(trails);
+/** The top of the floor or ledge a drop falling from y0 to y1 at x lands on (only solid, still ones: not a ship, a treadmill, a train). */
+function landing(A: Arena, x: number, y0: number, y1: number): number | null {
+  if (A.boats.length || A.chase || A.train) return null;
+  const tops = (A.ground.length ? A.ground : [{ x: A.platformX, w: A.platformW, up: 0 }]).map((g): [number, number, number] => [g.x, g.x + g.w, A.platformTop - (g.up ?? 0)])
+    .concat(A.ledges.map((l): [number, number, number] => [l.x, l.x + l.w, A.platformTop - l.up]));
+  let best: number | null = null;
+  for (const [a, b, top] of tops) if (x >= a && x <= b && y0 <= top && y1 >= top && (best === null || top < best)) best = top;
+  return best;
+}
+
+export function createMotion(layer: Container, puff: Puff, markLayer: Container, blobs: Texture[]) {
+  const trails = new Graphics(), paint = new Graphics();
+  layer.addChild(trails, paint);
+  const flying = Array.from({ length: 48 }, () => ({ x: 0, y: 0, vx: 0, vy: 0, r: 0, color: 0, life: 0 })); // a hurt fighter's paint, in the air
+  const marks = Array.from({ length: 80 }, (_, i) => { const s = new Sprite(blobs[i % blobs.length]); s.anchor.set(0.5); s.visible = false; markLayer.addChild(s); return s; }); // ...and where it landed
+  let nextFly = 0, nextMark = 0;
   const tips = Array.from({ length: 4 }, () => ({ xs: new Float32Array(KEEP), ys: new Float32Array(KEEP), n: 0, seen: false, hot: false }));
   const dabs = Array.from({ length: 12 }, () => {
     const g = new Graphics(), core = new Graphics();
@@ -41,6 +57,15 @@ export function createMotion(layer: Container, puff: Puff) {
   };
 
   return {
+    /** A hit of `impact` at (x, y) on a fighter whose paint is `color`, the blow going toward dir (+1 right, -1 left): drops fly off. */
+    hitPaint(x: number, y: number, dir: number, color: number, impact: number) {
+      const H = T.finish.motion.hitPaint, k = Math.min(1, impact / 100), lerp = (r: number[], t: number) => r[0] + (r[1] - r[0]) * t;
+      if (impact < H.minImpact) return; // (a tap: nothing)
+      for (let i = 0, n = Math.round(lerp(H.drops, k)); i < n; i++) {
+        const d = flying[nextFly++ % flying.length], speed = lerp(H.speed, Math.random()) * (0.6 + 0.6 * k);
+        Object.assign(d, { x, y, vx: dir * speed + (Math.random() - 0.5), vy: -lerp(H.up, Math.random()), r: H.size * (0.7 + 0.6 * Math.random()), color, life: 2 });
+      }
+    },
     onEvent(e: SimEvent, era: string) {
       const M = T.finish.motion, ground = hex(paintingFor(era).plat.lip);
       if (e.t === 'hit' || e.t === 'stomp') dab(e.x, e.y, e.v >= M.bigImpact);
@@ -57,10 +82,24 @@ export function createMotion(layer: Container, puff: Puff) {
       t.xs.copyWithin(1, 0); t.ys.copyWithin(1, 0); // (newest first)
       t.xs[0] = x; t.ys[0] = y; t.n = Math.min(KEEP, t.n + 1); t.seen = true; t.hot = hot;
     },
-    /** Each frame, after the fighters have moved: the trails and the dabs. */
-    draw(seconds: number, era: string) {
+    /** Each frame, after the fighters have moved: the trails, the dabs, and the paint in the air (landing on the arena A's floor). */
+    draw(seconds: number, era: string, A: Arena) {
       const M = T.finish.motion, hot = hex(paintingFor(era).hot);
-      trails.clear();
+      trails.clear(); paint.clear();
+      for (const d of flying) {
+        if (d.life <= 0) continue;
+        d.life -= seconds;
+        const y0 = d.y;
+        d.vy += T.sim.gravity * seconds; d.x += d.vx * seconds; d.y += d.vy * seconds;
+        const top = d.vy > 0 ? landing(A, d.x, y0, d.y) : null;
+        if (top !== null) { // landed: a flat mark of paint on the floor, there for the rest of the round
+          const m = marks[nextMark++ % marks.length], w = (M.hitPaint.mark * d.r) / M.hitPaint.size / 45; // (the painted blob is about 45 texture px across)
+          m.position.set(d.x, top); m.scale.set(w, w * 0.35); m.rotation = (Math.random() - 0.5) * 0.2; m.tint = d.color; m.alpha = M.hitPaint.alpha; m.visible = true;
+          d.life = 0;
+          continue;
+        }
+        paint.circle(d.x, d.y, d.r).fill({ color: d.color, alpha: Math.min(1, d.life * 2) });
+      }
       for (const t of tips) {
         if (!t.seen) { t.n = 0; continue; } // (not tracked this frame: no weapon in hand)
         t.seen = false;
@@ -83,6 +122,6 @@ export function createMotion(layer: Container, puff: Puff) {
       }
     },
     /** A new round: nothing carries over. */
-    clear() { for (const t of tips) t.n = 0; for (const d of dabs) d.g.visible = false; trails.clear(); },
+    clear() { for (const t of tips) t.n = 0; for (const d of dabs) d.g.visible = false; for (const d of flying) d.life = 0; for (const m of marks) m.visible = false; trails.clear(); paint.clear(); },
   };
 }

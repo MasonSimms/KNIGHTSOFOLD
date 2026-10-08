@@ -402,7 +402,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const extras = createExtras(fxLayer, drops); // water and era extras: splash crowns, ripples, tar bubbles, Space sparks, Gravity Hammer rings
   const limbs = createLimbs(paintLayer, drops, splatTexs); // a lost limb: paint dripping from its cut end, a pool where it lies
   const fx = createFx(fxLayer, splatTexs);
-  const motion = createMotion(fxLayer, fx.puff); // swing trails, hit dabs, dust
+  const motion = createMotion(fxLayer, fx.puff, paintLayer, splatTexs); // swing trails, hit dabs, dust, a hurt fighter's paint landing on the floor
   const flames = createFlames(fxLayer); // the arena's fires, and flames on whatever is burning
   const mammoth = createMammoth(propLayer);
   const passing = createPassing(fxLayer); // signs and tunnels passing the train (in front of everyone)
@@ -576,6 +576,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const big = e.v * boost - T.shake.minImpact; // only big hits shake the screen
         if (big > 0) shake = Math.min(T.shake.max, Math.max(shake, big * T.shake.perImpact));
         if (e.victim >= 0) spray(e, fighterColor(sim.fighters[e.victim] ?? sim.fighters[0])); // the hurt player's own paint
+        if (e.victim >= 0) { const a = sim.fighters[e.owner]?.torso, b = sim.fighters[e.victim]?.torso; motion.hitPaint(e.x, e.y, a && b ? Math.sign(b.cx - a.cx) || 1 : 1, paintOf(fighterColor(sim.fighters[e.victim] ?? sim.fighters[0])), e.v); } // ...flying off onto the floor
         if (e.v * boost >= T.indicator.minImpact) ring(e.x, e.y, T.indicator.color);
         if (e.how === 'shot') shake = Math.max(shake, Math.min(T.shake.max, (PROPS[e.w ?? '']?.gun?.push ?? 0) * T.guns.pushMul * T.finish.bullets.hitShake)); // shot: a jolt, bigger the harder the gun shoves
       } else if (e.t === 'shot') { // a gun going off kicks the picture, the big ones hard (owner: guns felt at both ends)
@@ -762,7 +763,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis + T.death.squashDrop * e.sq);
         e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis) * (1 + T.death.squashWide * e.sq), lerp(1, 0.97, e.vis) * (1 - T.death.squashFlat * e.sq));
       }
-      motion.draw(frameSeconds, sim.era);
+      motion.draw(frameSeconds, sim.era, sim.arena);
       for (const p of [...sim.props, ...sim.fighters.flatMap((f) => f.parts)]) { // chain weapons: the chain, a run of links from the handle's far end to its head
         const h = p.head;
         if (!h) continue;
