@@ -38,11 +38,17 @@ export function buildPlane(sim: Sim): Part {
   return part;
 }
 
-/** The plane on to where its flight has it at `frame` (next frame, on the server; an online page, the frame it is predicting). */
+/** The plane on to where its flight has it at `frame` (next frame, on the server; an online page, the frame it is predicting). `jump`: put
+ *  it there at once, moving as its flight moves it (an online page starting to guess again: its plane was left where it last was). */
 export function placePlane(sim: Sim, part: Part, frame: number, jump = false): void {
   if (!sim.props.includes(part)) return; // (gone: nothing to steer)
   const n = planeAt(sim.arena, frame), b = part.body, t = b.translation(), dt = T.sim.dt;
-  if (jump || Math.hypot(n.x - t.x, n.y - t.y) > 3) { b.setTranslation({ x: n.x, y: n.y }, true); b.setRotation(n.rot, true); b.setLinvel({ x: 0, y: 0 }, true); b.setAngvel(0, true); return; } // (far off: put it there)
+  if (jump || Math.hypot(n.x - t.x, n.y - t.y) > 3) { // (or far off)
+    const p = planeAt(sim.arena, frame - 1);
+    b.setTranslation({ x: n.x, y: n.y }, true); b.setRotation(n.rot, true);
+    b.setLinvel({ x: (n.x - p.x) / dt, y: (n.y - p.y) / dt }, true); b.setAngvel(wrap(n.rot - p.rot) / dt, true);
+    return;
+  }
   b.setLinvel({ x: (n.x - t.x) / dt, y: (n.y - t.y) / dt }, true);
   b.setAngvel(wrap(n.rot - b.rotation()) / dt, true);
 }
