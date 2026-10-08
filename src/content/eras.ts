@@ -16,12 +16,13 @@ export interface EraArena {
   fightSpawnX?: number[]; // where the fighters of a 2-4 player fight start (metres; for maps where the standard spots would be over a gap)
   ice?: number; // an icy floor: the share of grip your feet lose (see tuning.arena.ice)
   sea?: { level: number; tide?: { rise: number; seconds: number }; chop?: number; water?: [string, string] }; // (water: its own colours, top and deep, instead of the era's void: a river) // (chop: waves this many times higher, a rough sea) // water under the stage (see tuning.arena.sea); tide: it rises `rise` m over the round's first `seconds`
-  boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice' | 'barge'; tilt?: number; crack?: boolean }[]; // (tilt: how far one fighter at its end tips it, instead of tuning.boat.tilt; crack: an ice floe that cracks and sinks, tuning.floe) // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
+  boats?: { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice' | 'barge' | 'patrol'; tilt?: number; crack?: boolean }[]; // (tilt: how far one fighter at its end tips it, instead of tuning.boat.tilt; crack: an ice floe that cracks and sinks, tuning.floe) // floating ships (see tuning.boat; depth: a rowboat is shallower than tuning.boat.depth; sinks: a wreck, water.ts Sinking)
   ropes?: { x0: number; up0: number; x1: number; up1: number }[]; // ropes tied between them (see tuning.rope)
   tar?: { x: number; w: number; level: number; lava?: boolean; mud?: boolean }[]; // tar pits, or lava pools (see tuning.arena.tar), or a mud sump (mud: painted as mud)
   fires?: { x: number; w: number; up: number }[]; // fires (see tuning.arena.fires)
   weapon?: string; // this map's own weapon (weapons.ts), instead of the era's
   chase?: { speed: number; mammothX: number; obstacles: string[]; gap: number }; // a treadmill map (see tuning.arena.chase)
+  heli?: { x: number; up: number }; // a helicopter hovering over the floor: its skid and roof are floors (see tuning.heli)
   plane?: { x: number }; // a biplane in flight: its wings are the floor (see tuning.plane)
   tank?: { x0: number; x1: number; speed: number; wait: number }; // a tank crawling across the field (see tuning.tank)
   chariot?: { at: number; cycle: number; speed: number; dir: 1 | -1 }; // a runaway chariot charging across on a timetable (see tuning.chariot)
@@ -36,7 +37,7 @@ export interface EraArena {
   gunsOnly?: boolean; // (see also Era.gunRounds) nobody starts armed and only the era's guns drop in, early and often: a race for them (owner, 2026-10-07)
   tower?: { x: number; w: number }; // a water tower's tank (see tuning.arena.tower)
   wire?: { x: number; w: number }[]; // barbed wire coils on the ground: whoever is in one is snagged (see tuning.wire)
-  streams?: { x: number; w: number; speed: number }[]; // shallow water running over the floor, carrying whoever stands in it (see tuning.stream)
+  streams?: { x: number; w: number; speed: number; slow?: number }[]; // shallow water over the floor, carrying whoever stands in it (speed) and slowing them (slow; see tuning.stream)
   decor?: { kind: string; x: number; up: number }[]; // looks only: painted things behind the fighters (weaponArt.ts pictures)
   wind?: { base: number; gust: number; dir: -1 | 1 }; // a windy map (see tuning.arena.wind)
   gusts?: number; // the wind shows as blown sand (0..1; see tuning.arena.gusts)
@@ -276,7 +277,33 @@ export const eras: Era[] = [
     { name: "No Man's Land", platformThickness: 6, ground: [{ x: 1.5, w: 4.0, up: 0.3 }, { x: 5.5, w: 2.4, up: -0.6 }, { x: 7.9, w: 3.2, up: 0.2 }, { x: 11.1, w: 1.8, up: -0.8 },
       { x: 12.9, w: 3.2, up: 0.2 }, { x: 16.1, w: 2.4, up: -0.6 }, { x: 18.5, w: 4.0, up: 0.3 }], wire: [{ x: 8.6, w: 1.6 }, { x: 13.6, w: 1.6 }], rocks: { kind: 'shell', first: 4, every: 3 },
       fightSpawnX: [3.0, 21.0, 6.7, 17.3], spawnX: [3.0, 6.7, 17.3, 21.0] }], outfits: ['infantry', 'officer', 'medic', 'trench raider'] },
-  { id: 'vietnam', name: 'Vietnam', special: false, gunRounds: 0.5, pickups: ['bamboo-stick', 'jungle-carbine', 'thumper', 'bayonet-knife'], strong: 2, sky: 0x5f8a5a, platform: 0x6a5a3c, wall: 0x4a5a3c, weapon: 'machete', arena: { platformW: 12.5, ledges: [{ x: 11.25, up: 1.8, w: 2.0 }], front: [{ kind: 'grass', x: 1.25, y: 13.75, scale: 3.0 }, { kind: 'grass', x: 4.0, y: 13.9, scale: 2.1 }, { kind: 'grass', x: 22.25, y: 13.8, scale: 2.75 }] }, outfits: ['jungle grunt', 'scout', 'radioman', 'tunnel rat'] },
+  { id: 'vietnam', name: 'Vietnam', special: false, gunRounds: 0.5, pickups: ['bamboo-stick', 'jungle-carbine', 'thumper', 'bayonet-knife'], strong: 2, sky: 0x5f8a5a, platform: 0x6a5a3c, wall: 0x4a5a3c, weapon: 'machete', arena: { platformW: 12.5, ledges: [{ x: 11.25, up: 1.8, w: 2.0 }], front: [{ kind: 'grass', x: 1.25, y: 13.75, scale: 3.0 }, { kind: 'grass', x: 4.0, y: 13.9, scale: 2.1 }, { kind: 'grass', x: 22.25, y: 13.8, scale: 2.75 }] }, alt: [
+    // Rice Paddy (the era plan): three flooded paddies between low dikes. Wading, you walk at a little over half your speed (you can still
+    // jump); the dikes are dry ground to stand on. Off either end is the void. Rice in front.
+    { name: 'Rice Paddy', platformThickness: 6, ground: [{ x: 2.0, w: 2.4, up: 0.6 }, { x: 4.4, w: 3.6 }, { x: 8.0, w: 2.0, up: 0.6 }, { x: 10.0, w: 4.0 }, { x: 14.0, w: 2.0, up: 0.6 }, { x: 16.0, w: 3.6 }, { x: 19.6, w: 2.4, up: 0.6 }],
+      streams: [{ x: 4.4, w: 3.6, speed: 0, slow: 0.45 }, { x: 10.0, w: 4.0, speed: 0, slow: 0.45 }, { x: 16.0, w: 3.6, speed: 0, slow: 0.45 }],
+      front: [{ kind: 'grass', x: 1.5, y: 13.8, scale: 2.4 }, { kind: 'grass', x: 6.2, y: 13.95, scale: 1.8 }, { kind: 'grass', x: 12.0, y: 13.9, scale: 2.0 }, { kind: 'grass', x: 17.8, y: 13.95, scale: 1.8 }, { kind: 'grass', x: 22.5, y: 13.8, scale: 2.4 }],
+      fightSpawnX: [3.2, 20.8, 9.0, 15.0], spawnX: [3.2, 9.0, 15.0, 20.8] },
+    // Jungle Canopy (the era plan): the jungle floor, open at both ends, and over it three tree platforms with a board hanging on a rope
+    // between each two, a little higher: it swings when you land on it and tilts under your weight. Hit it hard or shoot its rope and it comes down, with
+    // whoever is on it, on whoever is under it (it crushes).
+    { name: 'Jungle Canopy', platformX: 2.0, platformW: 20, platformThickness: 6, ledges: [{ x: 2.0, up: 1.9, w: 2.6 }, { x: 10.7, up: 1.9, w: 2.6 }, { x: 19.4, up: 1.9, w: 2.6 }],
+      scenery: [{ kind: 'canopy-board', x: 7.65, up: 2.6 }, { kind: 'canopy-board', x: 16.35, up: 2.6 }], // (2.6 m up: out of reach of a weapon raised under it, a jump from a tree platform onto it)
+      decor: [{ kind: 'jungle-tree', x: 3.3, up: 0 }, { kind: 'jungle-tree', x: 12.0, up: 0 }, { kind: 'jungle-tree', x: 20.7, up: 0 }],
+      fightSpawnX: [6.26, 17.74, 11.19, 12.81], spawnX: [7.61, 10.52, 13.49, 16.39] }, // (start spots for the standard floor: at 3.5, 20.5, 10.8, 13.2 here, and alone 5.5 and 9.8: never under a board, which a raised weapon cuts down)
+    // River Boat (the era plan): a small river patrol boat on a brown jungle river, lighter than the pirates' ship (it tips more and rides a
+    // choppier river), and a mud bank at each end of the picture to swim to and climb out on. Reeds in front.
+    { name: 'River Boat', platformX: 8.0, platformW: 8.0, sea: { level: 0.55, chop: 1.4, water: ['#6E7A4C', '#28301C'] }, boats: [{ x: 8.0, w: 8.0, depth: 1.0, look: 'patrol', tilt: 0.16 }],
+      ground: [{ x: 1.0, w: 3.5, up: 0.3, thick: 6 }, { x: 19.5, w: 3.5, up: 0.3, thick: 6 }],
+      front: [{ kind: 'grass', x: 1.0, y: 13.8, scale: 2.6 }, { kind: 'grass', x: 5.5, y: 13.95, scale: 1.8 }, { kind: 'grass', x: 18.5, y: 13.95, scale: 1.8 }, { kind: 'grass', x: 22.8, y: 13.85, scale: 2.6 }],
+      fightSpawnX: [7.78, 16.22, -4.03, 28.03], spawnX: [7.78, 16.22, -4.03, 28.03] }, // (start spots for the standard floor: on the boat at 9.5 and 14.5, on the banks at 2.5 and 21.5)
+    // Helicopter Pad (the era plan): a firebase's helipad on a hilltop (off its edges is the void) and a helicopter hovering low over it:
+    // its skid is a floor (you walk under it, or jump up onto it) and its cabin roof another. It dips when you land on it, tips when the
+    // weight is at one end, and sways from side to side. Sandbags at the edges of the pad.
+    { name: 'Helicopter Pad', platformX: 6.0, platformW: 12.0, platformThickness: 6, heli: { x: 12.0, up: 1.9 },
+      scenery: [{ kind: 'sandbag', x: 6.6, up: 0 }, { kind: 'sandbag', x: 17.4, up: 0 }],
+      front: [{ kind: 'grass', x: 1.5, y: 13.8, scale: 2.8 }, { kind: 'grass', x: 22.5, y: 13.85, scale: 2.6 }],
+      fightSpawnX: [6.94, 17.06, 9.75, 14.25], spawnX: [7.5, 12.56, 9.75, 16.5] }], outfits: ['jungle grunt', 'scout', 'radioman', 'tunnel rat'] }, // (start spots for the standard floor: at 7.5, 16.5, 10, 14 here; the dummy at 12.5, under the skid)
   { id: 'modern', name: 'Modern Warfare', special: false, pickups: ['combat-knife', 'smg', 'beanbag', 'marksman', 'riot-shield', 'rocket-tube'], strong: 3, sky: 0x7a8794, platform: 0x585d63, wall: 0x42474c, weapon: 'baton', arena: { gunsOnly: true, platformX: 6.0, platformW: 12.0, walls: [/* a building across the alley */ { side: 1, up: 3.0, gap: 1.4 }], ledges: [{ x: 10.75, up: 1.8, w: 2.5 }] }, outfits: ['rifleman', 'sniper', 'operator', 'engineer'] },
   { id: 'scifi', name: 'Space Age', special: false, gunRounds: 0.5, pickups: ['plasma-blade', 'ray-pistol', 'plasma-repeater', 'freeze-ray', 'swap-pistol', 'bubble-blaster', 'tractor-beam', 'gravity-hammer', 'rail-gun', 'black-hole'], strong: 3, style: { blur: 3, haze: 0.06, grain: 0.02 }, sky: 0x3a3f6b, platform: 0x4a5a7a, wall: 0x2e3350, weapon: 'energy-staff', arena: { platformX: 5.875, platformW: 12.25, ledges: [{ x: 6.75, up: 1.8, w: 2.0 }, { x: 15.25, up: 1.8, w: 2.0 }, { x: 10.75, up: 3.6, w: 2.5 }] }, outfits: ['pilot', 'android', 'marine', 'scientist'] },
   // Intermittent specials (the list will grow):

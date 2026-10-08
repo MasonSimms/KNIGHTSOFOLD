@@ -27,6 +27,7 @@ const ICE = ['#F2FAFF', '#B9DCF0', '#5FA8D4'], SHIELD = ['#C4D4DE', '#94AABA', '
 const MORTAR = ['#8F887C', '#6E685E', '#4A453E'], SAND = ['#EBD3A0', '#C9A86A', '#7E6438'], CARVED = ['#9A7A48', '#6E5430', '#3E2E18'], CLAY = ['#D98A56', '#A85A32', '#5E2E18'];
 const LEAF = ['#8FBF5A', '#5E8C34', '#2F4E18'], GLAZE = ['#7A8CA0', '#4C5C70', '#26303C'], VERMILION = ['#F0704A', '#D8402A', '#7E1E10'];
 const BURLAP = ['#C8B48A', '#9A845A', '#5A4A30'], CANVAS = ['#F0E6CC', '#D2C29C', '#8E7E5C'];
+const BARK = ['#7A6040', '#4E3C26', '#261C10'], GLASS = ['#C8E0E8', '#8AAFC0', '#4A6A7A'];
 
 const rod = (x0: number, x1: number, w0: number, w1: number, c: Paint, o: { y?: [number, number]; bend?: number; grip?: true; glow?: true } = {}): Piece =>
   ({ k: 'rod', a: [x0, o.y?.[0] ?? 0], b: [x1, o.y?.[1] ?? 0], w: [w0, w1], bend: o.bend, c, grip: o.grip, glow: o.glow });
@@ -134,6 +135,14 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
   shell: { len: 0.45, pieces: [rod(0, 0.3, 0.085, 0.085, IRON), poly(IRON, [[0.3, -0.085], [0.45, 0], [0.3, 0.085]]), rod(0.04, 0.09, 0.09, 0.09, BRASS)] }, // (an artillery shell: its point first)
   wire: { len: 1.0, pieces: [rod(0.05, 0.05, 0.025, 0.02, WOOD, { y: [0, -0.68] }), rod(0.95, 0.95, 0.025, 0.02, WOOD, { y: [0, -0.68] }), // (a coil of barbed wire between two stakes: looks only, its foot at y = 0)
     ...Array.from({ length: 8 }, (_, i) => rod(i * 0.125, i * 0.125 + 0.14, 0.008, 0.008, IRON, { y: [-0.05 - (i % 2) * 0.5, -0.55 + (i % 2) * 0.5], bend: 0.06 })), rod(0, 1.0, 0.007, 0.007, IRON, { y: [-0.3, -0.32] }), rod(0, 1.0, 0.007, 0.007, IRON, { y: [-0.55, -0.53] })] },
+  'canopy-board': { len: 2.6, pieces: [rod(0, 2.6, 0.1, 0.1, WOOD), rod(0, 2.6, 0.01, 0.01, DARKWOOD, { y: [-0.02, -0.02] }), ...[0.25, 1.3, 2.35].map((x) => rod(x, x, 0.03, 0.03, ROPE, { y: [-0.11, 0.11] }))] }, // (planks lashed together)
+  'jungle-tree': { len: 2.6, pieces: [poly(BARK, [[0.9, 0], [1.08, -0.4], [1.12, -1.95], [1.48, -1.95], [1.52, -0.4], [1.7, 0]]), rod(1.3, 1.3, 0.025, 0.02, BARK, { y: [-1.2, -0.5], bend: 0.05 }), // (a trunk up to its platform, a vine, leaves over it)
+    ...[[0.5, -2.3], [1.1, -2.6], [1.7, -2.5], [2.2, -2.2], [1.4, -2.15], [0.8, -2.05]].map(([x, y]) => ball(x, 0.34, LEAF, { y, rx: 0.42 })), rod(2.0, 2.05, 0.012, 0.01, LEAF, { y: [-2.0, -0.9], bend: 0.08 })] },
+  huey: { len: 4.6, pieces: [ // a helicopter from the side, its nose to the right: the skid (y = 0) and its struts, the cabin with its door open, the roof, the tail boom and fin, the rotor
+    poly(OLIVE, [[0.6, -1.0], [0.6, -1.45], [-2.4, -1.42], [-2.4, -1.26]]), poly(OLIVE, [[-2.4, -1.26], [-2.15, -1.3], [-2.45, -1.95], [-2.68, -1.9]]), rod(-2.55, -2.55, 0.02, 0.02, BLACK, { y: [-1.85, -1.15] }), ball(-1.0, 0.1, CREAM, { y: -1.33 }),
+    rod(1.2, 1.35, 0.035, 0.035, BLACK, { y: [0, -0.5] }), rod(3.3, 3.15, 0.035, 0.035, BLACK, { y: [0, -0.5] }), rod(0, 4.35, 0.06, 0.06, BLACK), rod(4.3, 4.65, 0.05, 0.04, BLACK, { y: [0, -0.2] }),
+    poly(OLIVE, [[0.55, -0.5], [3.9, -0.5], [4.45, -0.85], [4.35, -1.4], [3.8, -1.66], [0.85, -1.66], [0.5, -1.2]]), poly(BLACK, [[1.5, -0.56], [2.9, -0.56], [2.9, -1.52], [1.5, -1.52]]), poly(GLASS, [[3.95, -0.58], [4.38, -0.86], [4.28, -1.36], [3.86, -1.36]]),
+    poly(OLIVE, [[0.8, -1.82], [4.2, -1.82], [4.2, -1.66], [0.8, -1.66]]), rod(2.5, 2.5, 0.05, 0.05, BLACK, { y: [-1.82, -2.06] }), rod(-1.6, 6.6, 0.025, 0.025, BLACK, { y: [-2.08, -2.08] })] },
   bamboo: { len: 2.6, pieces: [rod(0, 2.5, 0.04, 0.032, BAMBOO, { grip: true }), ...[0.45, 0.9, 1.35, 1.8, 2.25].map((x) => rod(x - 0.015, x + 0.015, 0.047, 0.047, LEAF)), // (its nodes, then a few leaves at the top)
     poly(LEAF, [[2.2, 0], [2.45, -0.16], [2.62, -0.21], [2.42, -0.04]]), poly(LEAF, [[2.08, 0], [2.32, 0.15], [2.5, 0.21], [2.3, 0.04]]), poly(LEAF, [[2.36, 0], [2.56, -0.05], [2.64, 0.02], [2.5, 0.03]])] },
   'roof-tile': { len: 0.36, pieces: [poly(GLAZE, [[0, -0.03], [0.36, -0.05], [0.36, 0.03], [0, 0.05]]), rod(0.03, 0.33, 0.008, 0.008, ['#C8D4E0', '#9AA8B6', '#6A7886'], { y: [-0.02, -0.035] })] },

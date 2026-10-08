@@ -131,6 +131,10 @@ export const PROPS: Record<string, PropSpec> = {
   tank: { len: 4.0, thick: 1.1, mass: 3000, factor: 2.6, material: 'metal', box: true }, // the Slow Tank's hull (sim/tank.ts; its turret is tuning.tank)
   biplane: { len: 10.0, thick: 0.25, mass: 4000, factor: 2.6, material: 'metal', box: true }, // Biplane Wing: the lower wing (sim/plane.ts; the upper wing is tuning.plane). Metal to the game: never shot to pieces or set alight (a wooden plane snapped under the bots' bullets and the round had no floor)
   shell: { len: 0.45, thick: 0.17, mass: 6, factor: 2.4, material: 'metal', fuse: 1.5 }, // No Man's Land: an artillery shell falling from the sky (arena.rocks): it goes off as it lands (a grenade's blast)
+  // Vietnam: Jungle Canopy's boards, hanging on a rope between the trees (they swing and tilt under you; a club hit or a shot cuts the rope, and
+  // one crushes whoever it lands on)
+  'canopy-board': { len: 2.6, thick: 0.2, mass: 30, factor: 2.6, box: true, toughness: 8, hangs: 1.5 },
+  huey: { len: 4.6, thick: 0.14, mass: 200, factor: 2.6, material: 'metal', box: true }, // Helicopter Pad: the helicopter's skid (sim/heli.ts; its cabin roof is tuning.heli)
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

@@ -49,19 +49,20 @@ export const tuning = {
     props: [] as { kind: string; x: number; up: number }[], // loose objects lying on the arena
     scenery: [] as { kind: string; x: number; up: number }[], // breakable scenery that belongs to the map (barrels, crates): always there, unlike the loose weapons (owner: environments have destructible elements)
     sea: null as null | { level: number; tide?: { rise: number; seconds: number }; chop?: number; water?: [string, string] }, // (water: its colours, top and deep, instead of the era's void) // water under the stage: its calm surface is `level` metres below the platform top (see tuning.water)
-    boats: [] as { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice' | 'barge'; tilt?: number; crack?: boolean }[], // floating ships instead of solid ground (needs a sea; see tuning.boat): each deck from x, w wide, its top at the platform top
+    boats: [] as { x: number; w: number; depth?: number; sinks?: { seconds: number; tilt: number; settle: number }; look?: 'ship' | 'longship' | 'ice' | 'barge' | 'patrol'; tilt?: number; crack?: boolean }[], // floating ships instead of solid ground (needs a sea; see tuning.boat): each deck from x, w wide, its top at the platform top
     ropes: [] as { x0: number; up0: number; x1: number; up1: number }[], // ropes (see tuning.rope) from (x0, up0 m above the deck) to (x1, up1), each end tied to the ship under it; cut every one and the ships drift apart
     tar: [] as { x: number; w: number; level: number; lava?: boolean; mud?: boolean }[], // tar pits (see tuning.tar), or lava pools (lava: true; tuning.lava): from x, w wide (a gap in the ground), the surface `level` m below the platform top
     weapon: '', // this map's own weapon (an id in weapons.ts), instead of the era's
     roll: 0, // the painting slides by at this speed (m/s): a moving map (the train, the mammoth chase)
     tower: null as null | { x: number; w: number }, // a water tower's tank (see tuning.tower): from x, w wide, its top at the platform top: shoot its side and it leaks
     wire: [] as { x: number; w: number }[], // barbed wire coils on the ground (sim/wire.ts, tuning.wire): from x, w wide; whoever is in one is snagged
-    streams: [] as { x: number; w: number; speed: number }[], // shallow water running over the floor (see tuning.stream): from x, w wide, at speed m/s (+ toward +x); standing in it carries you
+    streams: [] as { x: number; w: number; speed: number; slow?: number }[], // shallow water over the floor (see tuning.stream): from x, w wide, running at speed m/s (+ toward +x; 0: still, a paddy); standing in it carries you, and wading in it takes away the share slow of your walking speed
     decor: [] as { kind: string; x: number; up: number }[], // looks only: a painted thing behind the fighters (its picture is weaponArt.ts kind), its middle at x, its foot up m above the floor
     wind: null as null | { base: number; gust: number; dir: -1 | 1 }, // a windy map (see tuning.wind): a steady `base` m/s plus gusts up to `gust` more, blowing toward dir
     noWeapons: false, // nobody starts armed, nothing lies about and no pickups come (the train: fists and throws)
     spawnSpots: null as null | number[], // where on this map weapons appear when they do not fall from the sky (share of the platform; null = tuning.spawn.spots)
     gunsOnly: false, // nobody starts armed and only the era's guns drop in, early and often (eras.ts gunsOnly; tuning.spawn.gunsFirst, gunsGap)
+    heli: null as null | { x: number; up: number }, // a helicopter hovering (sim/heli.ts, tuning.heli): its skid (props.ts huey) held over x, its top up m above the floor
     plane: null as null | { x: number }, // a biplane in flight (sim/plane.ts, tuning.plane): its lower wing (props.ts biplane) is the floor, its middle at x; no ground of its own
     tank: null as null | { x0: number; x1: number; speed: number; wait: number }, // a tank crawling across the field (sim/tank.ts, tuning.tank): its middle from x0 to x1 at speed (m/s), waiting wait s at each end (and at the start)
     chariot: null as null | { at: number; cycle: number; speed: number; dir: 1 | -1 }, // a runaway chariot across the track (see tuning.chariot): first run at second `at`, then every `cycle` s, at `speed` m/s, first toward `dir` (then back)
@@ -682,6 +683,15 @@ export const tuning = {
     maxJets: 6,
     stagger: 12, // caught in it, you are off balance this many frames (no braking): it carries you
   },
+  heli: {
+    // Helicopter Pad (Vietnam, arena.heli; sim/heli.ts): the skid is props.ts huey. PLACEHOLDER numbers.
+    roof: 3.4, roofThick: 0.16, gap: 1.75, roofX: 0.2, // the cabin roof: its length, thickness, how far its top is over the skid's (m), and how far toward the nose
+    calm: 2.5, ease: 1.5, // it hangs still for this long (s), then its swaying comes in over this long
+    sway: 1.2, swayPeriod: 6, // it drifts this far each way from its spot (m), once every swayPeriod s
+    bob: 0.15, bobPeriod: 2, // and rises and falls this much (m)
+    pull: 40, damping: 9, // how hard its rotor pulls it back to where it holds itself (per second squared, per metre off), and how quickly a bounce settles
+    tilt: 0.12, rollDamping: 2.5, // one fighter at the end of the skid tips it this far (radians: 0.12 is 7 degrees); how quickly its rocking settles
+  },
   plane: {
     // Biplane Wing (World War I, arena.plane; sim/plane.ts): the lower wing is props.ts biplane. PLACEHOLDER numbers.
     upper: 8.6, upperThick: 0.2, gap: 1.9, // the upper wing: its span, thickness, and how far its top is over the lower wing's (m)
@@ -1035,7 +1045,7 @@ export const tuning = {
     outline: 0x3a2618,
     stick: 0x8c5a2f,
     gun: 0x4c505a, // a gun's metal (its handle is the stick colour)
-    things: { pillar: 0xd8c08a, rubble: 0xc8b07c, barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c, 'aqueduct-block': 0xc9bda4, trapdoor: 0x6a4a2a, chariot: 0x8a5a2c, horse: 0x5a3a24, table: 0x6a4426, bench: 0x7a5232, chandelier: 0x3a3430, 'ice-block': 0xc4dde8, oar: 0x8a6a42, obelisk: 0xd8c08a, jar: 0xa85a32, cage: 0x3a3430, armour: 0xaeb6bf, helm: 0xaeb6bf, greave: 0xaeb6bf, 'great-chandelier': 0x3a3430, bamboo: 0x9ab95a, 'roof-tile': 0x4c5c70, sandbag: 0xb09a6a, tank: 0x5c6646, biplane: 0xc8b48a, shell: 0x686e75 } as Record<string, number>, // breakable scenery and its pieces
+    things: { pillar: 0xd8c08a, rubble: 0xc8b07c, barrel: 0x6e4626, crate: 0xa07a4a, stave: 0x7a5232, upright: 0x7d7a70, capstone: 0x8a867a, boulder: 0x6f6b62, sign: 0x9a6a3c, post: 0x4a3222, tunnel: 0x4c4440, car: 0x7a3a24, wheel: 0x241a14, pane: 0xcfe6ee, stool: 0x6a4426, mug: 0xd9a441, lantern: 0xe8b04a, 'round-shield': 0x8a5a32, 'riot-shield': 0x9fb4c0, grenade: 0x4f5a3a, rope: 0xb09a6a, gangplank: 0x7a5232, chest: 0x6e3f1c, 'aqueduct-block': 0xc9bda4, trapdoor: 0x6a4a2a, chariot: 0x8a5a2c, horse: 0x5a3a24, table: 0x6a4426, bench: 0x7a5232, chandelier: 0x3a3430, 'ice-block': 0xc4dde8, oar: 0x8a6a42, obelisk: 0xd8c08a, jar: 0xa85a32, cage: 0x3a3430, armour: 0xaeb6bf, helm: 0xaeb6bf, greave: 0xaeb6bf, 'great-chandelier': 0x3a3430, bamboo: 0x9ab95a, 'roof-tile': 0x4c5c70, sandbag: 0xb09a6a, tank: 0x5c6646, biplane: 0xc8b48a, shell: 0x686e75, 'canopy-board': 0x7a5232, huey: 0x5c6646 } as Record<string, number>, // breakable scenery and its pieces
     players: [0xd8402a, 0x2d5db0, 0xe8b931, 0x2f9e6b], // player 1 to 4: vermilion, ultramarine, cadmium yellow, viridian (the art guide's pigments)
     dummy: 0xe9ddc1, // the training dummy
   },

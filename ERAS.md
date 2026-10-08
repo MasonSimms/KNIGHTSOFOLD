@@ -113,11 +113,11 @@ Pickups: **Bayonet Rifle** (long, good lunge), **Stick Grenade** (thrown, goes o
 
 ## 10. Vietnam
 Pickups: **Bamboo Stick** (long, bendy, light), **Bayonet Knife** (very short, very fast).
-1. **Rice Paddy**: shallow water that slows everyone, with dikes (low walls) to stand on.
-2. **Tunnel Network**: cramped low ceilings, so crouch and crawl are important.
-3. **Jungle Canopy**: tree platforms linked by ropes. Cut a rope and a platform swings away.
-4. **River Boat**: a small patrol boat on a river (water tech, a lighter boat than the pirate ship).
-5. **Helicopter Pad**: a hovering helicopter's skid sways. The whole platform tips if everyone stands on one side.
+1. **Rice Paddy**: shallow water that slows everyone, with dikes (low walls) to stand on. **BUILT 2026-10-08** (vietnam map 1): three flooded paddies between low dikes 0.6 m up (arena.streams with speed 0 and slow 0.45: wading, you walk at 55% of your speed and can still jump); rice in front; off either end, the void.
+2. **Tunnel Network**: cramped low ceilings, so crouch and crawl are important. **DROPPED 2026-10-08** (owner): low ceilings break the rule that nothing over you is in the way.
+3. **Jungle Canopy**: tree platforms linked by ropes. Cut a rope and a platform swings away. **BUILT 2026-10-08** (vietnam map 2): the jungle floor and three tree platforms 1.9 m up (painted trunks: arena.decor jungle-tree), with a board hanging on a rope between each two, 2.6 m up (props.ts canopy-board: it swings and tilts under you; a club hit or a shot cuts its rope and it falls, crushing whoever is under it).
+4. **River Boat**: a small patrol boat on a river (water tech, a lighter boat than the pirate ship). **BUILT 2026-10-08** (vietnam map 3): an 8 m patrol boat (painted: a wheelhouse, a radio mast, a bow gun, a flag) on a brown-green river, choppier (chop 1.4) and tippier (tilt 0.16) than the ship, with a mud bank at each end to swim to.
+5. **Helicopter Pad**: a hovering helicopter's skid sways. The whole platform tips if everyone stands on one side. **BUILT 2026-10-08** (vietnam map 4): a firebase helipad on a hilltop and a helicopter hovering 1.9 m over it (arena.heli, sim/heli.ts): its skid and its cabin roof are floors; a real body on springs, it dips when you land on it, tips when the weight is at one end (7 degrees for one fighter at the end), rights itself and sways 1.2 m each way.
 
 ## 11. Modern Warfare
 Pickups: **Combat Knife** (very short, very fast), **Riot Shield** (big shield: blocks and shoves).

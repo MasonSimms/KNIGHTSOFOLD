@@ -31,6 +31,7 @@ import { applyFalls } from './falls';
 import { crackFloes } from './floe';
 import { applyStreams } from './stream';
 import { applyWire } from './wire';
+import { buildHeli, stepHeli } from './heli';
 import { buildPlane, placePlane, stepPlane } from './plane';
 import { buildTank, placeTank, stepTank } from './tank';
 import type { Tank } from './tank';
@@ -134,6 +135,7 @@ export class Sim {
   chariot: Chariot | null = null; // the runaway chariot (see chariot.ts)
   tank: Tank | null = null; // the Slow Tank (see tank.ts)
   plane: Part | null = null; // the biplane in flight (see plane.ts)
+  heli: Part | null = null; // the helicopter over the pad (see heli.ts)
   jets: Jet[] = []; // water leaking from the water tower's tank (see tower.ts)
   private cutLinks = new Set<unknown>(); // bridge joints already removed
   private eraOverride: string | null = null; // (a client rebuilding the round the server is in)
@@ -299,6 +301,7 @@ export class Sim {
     this.chariot = A.chariot ? buildChariot(this) : null;
     this.tank = A.tank ? buildTank(this, A.platformTop) : null;
     this.plane = A.plane ? buildPlane(this) : null;
+    this.heli = A.heli ? buildHeli(this) : null;
     this.jets = [];
 
     // The map's side walls (if any): a backstop at an end, or a wall across a gap you can fall into and wall-jump out of.
@@ -657,6 +660,7 @@ export class Sim {
     if (this.chariot) stepChariot(this, this.chariot);
     if (this.tank) stepTank(this, this.tank);
     if (this.plane) stepPlane(this, this.plane);
+    if (this.heli) stepHeli(this, this.heli);
     applyWind(this);
     applyStreams(this);
     applyWire(this);

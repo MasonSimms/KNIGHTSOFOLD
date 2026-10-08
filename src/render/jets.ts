@@ -37,7 +37,7 @@ export function createJets(layer: Container) {
       for (const s of A.streams) { // a stream: a sheet of water over the floor, light streaks running with it
         const y = floorAt(A, s.x + s.w / 2), dir = Math.sign(s.speed);
         g.rect(s.x, y - D * 0.55, s.w, D * 0.55 + 0.05).fill({ color: C.color, alpha: C.alpha * 0.6 });
-        for (let i = 0; i < s.w / 0.5; i++) {
+        for (let i = 0; s.speed && i < s.w / 0.5; i++) { // (still water, a paddy: no streaks)
           const x = s.x + ((((i * 0.5 + time * s.speed) % s.w) + s.w) % s.w), y1 = y - D * (0.15 + 0.3 * ((i * 0.37) % 1));
           g.moveTo(x, y1).lineTo(Math.min(s.x + s.w, Math.max(s.x, x + dir * 0.3)), y1).stroke({ width: 0.035, color: 0xffffff, alpha: C.alpha * 0.7, cap: 'round' });
         }

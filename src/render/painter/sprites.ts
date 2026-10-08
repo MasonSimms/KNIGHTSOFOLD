@@ -485,7 +485,7 @@ export function paintedFront(kind: 'grass' | 'sign', greens: string[], K: Sprite
 }
 
 /** How a boat is painted: a sailing ship (or, under T_SHIP long, a rowboat), a Viking longship, or an ice floe. */
-export type HullLook = 'ship' | 'longship' | 'ice' | 'barge';
+export type HullLook = 'ship' | 'longship' | 'ice' | 'barge' | 'patrol';
 const T_SHIP = 5; // a boat this long or longer is a ship (mast, rigging, gunports); shorter, a rowboat
 const SEA_PPM = 60; // texture pixels per metre for the ship and the water (big pictures: painted at a little under screen size)
 const rgb = (s: string) => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];
@@ -507,6 +507,7 @@ export function paintedHull(w: number, depth: number, water: number, c: HullPain
   if (hit) return { tex: hit[0], ax, ay, ppm: k };
   if (look === 'longship') c = { ...c, face: '#6B4A2E', dark: '#3D2A1A', lip: '#8C6440', lipdark: '#4A3220', seam: '#4A3220' }; // (a longship is oak, whatever the era's ground)
   if (look === 'barge') c = { ...c, face: '#C29A52', dark: '#7A5E30', lip: '#D9B868', lipdark: '#8A6A36', seam: '#9A7A40' }; // (a barge is bundled papyrus reeds)
+  if (look === 'patrol') c = { ...c, face: '#5E6A5A', dark: '#3A4438', lip: '#7A8676', lipdark: '#46503F', seam: '#4A5446' }; // (a river patrol boat: grey-green)
   const X = (m: number) => pad + (m + ext) * k, Y = (m: number) => pad + (up + m) * k; // metres along the deck from its left end; metres below the deck
   const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
   const poly = (pts: number[][], fill: string) => { g.fillStyle = fill; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.fill(); };
@@ -552,6 +553,16 @@ export function paintedHull(w: number, depth: number, water: number, c: HullPain
     }
     g.fillStyle = '#F2E8D0'; g.beginPath(); g.ellipse(X(w - 0.35), Y(0.22), 0.13 * k, 0.07 * k, 0, 0, Math.PI * 2); g.fill(); // the eye on the prow
     g.fillStyle = '#1A120C'; g.beginPath(); g.arc(X(w - 0.33), Y(0.22), 0.05 * k, 0, Math.PI * 2); g.fill();
+  } else if (look === 'patrol') { // a river patrol boat: a wheelhouse with windows and a canopy, a radio mast, a gun at the bow, a flag at the stern
+    const h0 = w * 0.38, h1 = w * 0.6;
+    poly([[h0, -1.45], [h1, -1.45], [h1 + 0.1, 0], [h0 - 0.05, 0]], c.lipdark);
+    for (let x = h0 + 0.15; x < h1 - 0.3; x += 0.45) poly([[x, -1.25], [x + 0.3, -1.25], [x + 0.3, -0.9], [x, -0.9]], '#1E2A2E'); // (its windows)
+    poly([[h0 - 0.3, -1.6], [h1 + 0.3, -1.6], [h1 + 0.3, -1.45], [h0 - 0.3, -1.45]], '#4A5440'); // (the canopy over it)
+    g.strokeStyle = '#2E3430'; g.lineWidth = 0.05 * k; g.beginPath(); g.moveTo(X(h1 - 0.2), Y(-1.6)); g.lineTo(X(h1 - 0.1), Y(-3.0)); g.stroke(); // the radio mast
+    g.lineWidth = 0.09 * k; g.beginPath(); g.moveTo(X(w - 0.9), Y(-0.75)); g.lineTo(X(w - 0.1), Y(-0.85)); g.stroke(); // the bow gun...
+    poly([[w - 1.15, -0.5], [w - 0.75, -0.5], [w - 0.7, 0], [w - 1.2, 0]], '#3A4438'); // ...on its mount
+    g.lineWidth = 0.03 * k; g.beginPath(); g.moveTo(X(0.4), Y(0)); g.lineTo(X(0.4), Y(-1.3)); g.stroke(); // the flagstaff
+    poly([[0.42, -1.3], [1.0, -1.18], [0.42, -1.05]], c.hot);
   }
   // rigging, mast, yard, furled sail, crow's nest, pennant (above the deck, behind the fighters)
   if (ship) {

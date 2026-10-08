@@ -329,3 +329,60 @@ describe("No Man's Land", () => {
     expect(Math.abs(boom!.y - floorAt(sim.arena, boom!.x))).toBeLessThan(0.8); // on the ground, not in the air
   });
 });
+
+describe('Vietnam', () => {
+  async function on(name: string) {
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'vietnam'; sim.forceMap = mapNamed('vietnam', name); sim.reset();
+    setBackPlane(sim.fighters[1], true); sim.fighters[1].dodge = 1e9;
+    return sim;
+  }
+  const put = (sim: Sim, f: Fighter, x: number, top = floorAt(sim.arena, x)) => moveTo(f, x, top - T.stand.height - f.torso.body.translation().y);
+  const walked = (sim: Sim, f: Fighter, frames: number) => { const x0 = f.torso.body.translation().x; run(sim, frames, () => ({ ...NEUTRAL, moveX: 1 })); return f.torso.body.translation().x - x0; };
+
+  it('Rice Paddy: wading you walk at a little over half your speed, and can still jump; on a dike you walk freely', async () => {
+    const sim = await on('Rice Paddy'), f = sim.fighters[0], p = sim.arena.streams[1];
+    put(sim, f, p.x + 0.5);
+    run(sim, 20);
+    const wet = walked(sim, f, 40);
+    expect(f.wade).toBeGreaterThan(0);
+    const y0 = f.torso.body.translation().y;
+    let top = y0;
+    for (let i = 0; i < 20; i++) { run(sim, 1, () => ({ ...NEUTRAL, jump: i < 5 })); top = Math.min(top, f.torso.body.translation().y); }
+    expect(y0 - top).toBeGreaterThan(1); // a jump
+    const dry = await on('Rice Paddy'), g = dry.fighters[0];
+    put(dry, g, 3.0);
+    run(dry, 20);
+    const onDike = walked(dry, g, 40);
+    expect(wet).toBeLessThan(onDike * 0.75);
+  });
+
+  it('Jungle Canopy: a hanging board holds you up; cut down, it crushes whoever is under it', async () => {
+    const sim = await on('Jungle Canopy'), f = sim.fighters[0], v = sim.fighters[1], board = sim.props.find((p) => p.weapon?.id === 'canopy-board')!;
+    setBackPlane(v, false); v.dodge = 0;
+    const b = board.body.translation();
+    put(sim, f, b.x, b.y - PROPS['canopy-board'].thick / 2);
+    put(sim, v, b.x + 0.4);
+    run(sim, 90);
+    expect(f.torso.body.translation().y).toBeLessThan(sim.arena.platformTop - 1.5); // still up on it
+    sim.shootLoose(board, b.x, b.y, 0);
+    const events = run(sim, 90);
+    expect(events.some((e) => e.t === 'hit' && e.how === 'crush' && e.victim === 1)).toBe(true);
+  });
+
+  it('Helicopter Pad: it hangs over the pad, tips under someone at the end of its skid, rights itself, and stays over the pad', async () => {
+    const sim = await on('Helicopter Pad'), f = sim.fighters[0], H = sim.heli!, A = sim.arena;
+    run(sim, 60);
+    expect(Math.abs(H.body.rotation())).toBeLessThan(0.02);
+    expect(Math.abs(H.body.translation().y - (A.platformTop - A.heli!.up + PROPS.huey.thick / 2))).toBeLessThan(0.05);
+    const h = H.body.translation();
+    put(sim, f, h.x + PROPS.huey.len / 2 - 0.4, h.y - PROPS.huey.thick / 2);
+    run(sim, 60);
+    expect(Math.abs(H.body.rotation())).toBeGreaterThan(T.heli.tilt * 0.4);
+    put(sim, f, A.platformX + 1.4); // off it, down on the pad (clear of the skid)
+    run(sim, 120);
+    expect(Math.abs(H.body.rotation())).toBeLessThan(0.03);
+    run(sim, 900); // swaying for a while
+    expect(Math.abs(H.body.translation().x - A.heli!.x)).toBeLessThan(T.heli.sway + 0.5);
+  });
+});
