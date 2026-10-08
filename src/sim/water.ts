@@ -44,7 +44,8 @@ export function surfaceY(A: Arena, frame: number, x: number): number {
   if (pit) return A.platformTop + pit.level;
   let y = A.platformTop + seaLevel(A, frame);
   const t = frame * T.sim.dt;
-  for (const w of T.water.waves) y += w.amp * Math.sin(2 * Math.PI * (x / w.length - t / w.period));
+  const chop = A.sea?.chop ?? 1; // (a choppier sea: higher waves)
+  for (const w of T.water.waves) y += chop * w.amp * Math.sin(2 * Math.PI * (x / w.length - t / w.period));
   return y;
 }
 
@@ -52,7 +53,7 @@ export function surfaceY(A: Arena, frame: number, x: number): number {
 function slopeAt(A: Arena, frame: number, x: number): number {
   let s = 0;
   const t = frame * T.sim.dt;
-  for (const w of T.water.waves) s += w.amp * (2 * Math.PI / w.length) * Math.cos(2 * Math.PI * (x / w.length - t / w.period));
+  for (const w of T.water.waves) s += (A.sea?.chop ?? 1) * w.amp * (2 * Math.PI / w.length) * Math.cos(2 * Math.PI * (x / w.length - t / w.period));
   return s;
 }
 

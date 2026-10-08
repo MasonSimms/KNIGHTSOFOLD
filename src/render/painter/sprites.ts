@@ -484,6 +484,8 @@ export function paintedFront(kind: 'grass' | 'sign', greens: string[], K: Sprite
   return out[0];
 }
 
+/** How a boat is painted: a sailing ship (or, under T_SHIP long, a rowboat), a Viking longship, or an ice floe. */
+export type HullLook = 'ship' | 'longship' | 'ice';
 const T_SHIP = 5; // a boat this long or longer is a ship (mast, rigging, gunports); shorter, a rowboat
 const SEA_PPM = 60; // texture pixels per metre for the ship and the water (big pictures: painted at a little under screen size)
 const rgb = (s: string) => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];
@@ -497,16 +499,41 @@ export interface HullPaint { face: string; dark: string; lip: string; lipdark: s
  * crow's nest and rigging. `w`, `depth` and `water` (the waterline below the deck) in metres. Returns the texture and where the hull's
  * middle (its physics body) sits in it, as an anchor (0..1).
  */
-export function paintedHull(w: number, depth: number, water: number, c: HullPaint, K: SpriteKnobs): { tex: Texture; ax: number; ay: number; ppm: number } {
-  const key = `hull|${w}|${depth}|${water}|${JSON.stringify(c)}|${JSON.stringify(K)}`, k = SEA_PPM, mastH = 5.2, up = mastH + 0.5, pad = 6;
-  const W = Math.ceil(w * k + 2 * pad), H = Math.ceil((up + depth) * k + 2 * pad), N = W * H;
-  const ax = (pad + (w / 2) * k) / W, ay = (pad + (up + depth / 2) * k) / H;
+export function paintedHull(w: number, depth: number, water: number, c: HullPaint, K: SpriteKnobs, look: HullLook = 'ship'): { tex: Texture; ax: number; ay: number; ppm: number } {
+  const key = `hull|${w}|${depth}|${water}|${look}|${JSON.stringify(c)}|${JSON.stringify(K)}`, k = SEA_PPM, mastH = 5.2, up = mastH + 0.5, pad = 6, ext = look === 'longship' ? 0.7 : 0; // (ext: the longship's curled stem and stern reach past its deck)
+  const W = Math.ceil((w + 2 * ext) * k + 2 * pad), H = Math.ceil((up + depth) * k + 2 * pad), N = W * H;
+  const ax = (pad + (ext + w / 2) * k) / W, ay = (pad + (up + depth / 2) * k) / H;
   const hit = cache.get(key);
   if (hit) return { tex: hit[0], ax, ay, ppm: k };
-  const X = (m: number) => pad + m * k, Y = (m: number) => pad + (up + m) * k; // metres along the deck from its left end; metres below the deck
+  if (look === 'longship') c = { ...c, face: '#6B4A2E', dark: '#3D2A1A', lip: '#8C6440', lipdark: '#4A3220', seam: '#4A3220' }; // (a longship is oak, whatever the era's ground)
+  const X = (m: number) => pad + (m + ext) * k, Y = (m: number) => pad + (up + m) * k; // metres along the deck from its left end; metres below the deck
   const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
   const poly = (pts: number[][], fill: string) => { g.fillStyle = fill; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.fill(); };
-  const mx = w * 0.46, side = water + 0.35, ship = w >= T_SHIP; // (a rowboat: no mast, rigging, far rail or gunports)
+  const mx = w * 0.46, side = water + 0.35, ship = look === 'ship' && w >= T_SHIP; // (a rowboat: no mast, rigging, far rail or gunports)
+  if (look === 'ice') { // an ice floe: a slab of ice, snow on top, its sides rough, pale under the water
+    const R = makeRandom(Math.round(w * 97)), edge: number[][] = [[0, 0], [w, 0]];
+    for (let i = 0; i <= 6; i++) edge.push([w - (i % 2 ? 0.08 : 0) - (i / 6) * 0.25, (i / 6) * depth]);
+    for (let i = 6; i >= 0; i--) edge.push([(i / 6) * 0.25 + (i % 2 ? 0.08 : 0), (i / 6) * depth]);
+    poly(edge.map(([x, y]) => [x, y + (y > 0 && y < depth ? R.range(-0.04, 0.04) : 0)]), '#CFE6F0');
+    g.save(); g.beginPath(); edge.forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.clip();
+    g.fillStyle = '#93BFD3'; g.fillRect(0, Y(water - 0.05), W, H);
+    g.restore();
+    poly([[0, -0.06], [w, -0.06], [w - 0.05, 0.06], [0.05, 0.06]], '#F6FBFE'); // the snow on top
+  } else if (look === 'longship') { // a Viking longship: a square striped sail, shields along the rail, a curled stern and a dragon at the prow
+    g.strokeStyle = '#3A2A1C'; g.lineWidth = 2;
+    for (const [x0, y0, x1, y1] of [[mx, -mastH + 0.4, w * 0.08, -0.3], [mx, -mastH + 0.4, w * 0.92, -0.3]]) { g.beginPath(); g.moveTo(X(x0), Y(y0)); g.lineTo(X(x1), Y(y1)); g.stroke(); }
+    poly([[mx - 0.08, -mastH + 0.3], [mx + 0.08, -mastH + 0.3], [mx + 0.1, 0], [mx - 0.1, 0]], '#4A3020');
+    const sw = 3.6, top = -mastH + 0.9, bottom = -1.4;
+    for (let i = 0; i < 8; i++) poly([[mx - sw / 2 + (i * sw) / 8, top], [mx - sw / 2 + ((i + 1) * sw) / 8, top], [mx - sw / 2 + ((i + 1) * sw) / 8 + 0.05, bottom], [mx - sw / 2 + (i * sw) / 8 + 0.05, bottom]], i % 2 ? '#E8DCC0' : c.hot);
+    poly([[mx - sw / 2 - 0.2, top - 0.1], [mx + sw / 2 + 0.2, top - 0.1], [mx + sw / 2 + 0.2, top + 0.02], [mx - sw / 2 - 0.2, top + 0.02]], '#4A3020'); // the yard
+    const colors = [c.hot, '#E8DCC0', '#3A5A7A', '#D9B04A'];
+    for (let x = 0.7, i = 0; x < w - 0.5; x += 0.62, i++) { g.fillStyle = colors[i % 4]; g.beginPath(); g.arc(X(x), Y(-0.18), 0.24 * k, 0, Math.PI * 2); g.fill(); g.fillStyle = '#5A5048'; g.beginPath(); g.arc(X(x), Y(-0.18), 0.06 * k, 0, Math.PI * 2); g.fill(); } // shields along the rail
+    g.strokeStyle = c.face; g.lineCap = 'round'; g.lineWidth = 0.2 * k;
+    g.beginPath(); g.moveTo(X(0.4), Y(0.2)); g.quadraticCurveTo(X(-0.6), Y(-0.2), X(-0.35), Y(-1.2)); g.quadraticCurveTo(X(-0.2), Y(-1.5), X(0.05), Y(-1.3)); g.stroke(); // the stern, curling over
+    g.beginPath(); g.moveTo(X(w - 0.4), Y(0.2)); g.quadraticCurveTo(X(w + 0.6), Y(-0.2), X(w + 0.35), Y(-1.3)); g.stroke(); // the prow's neck
+    g.fillStyle = c.face; g.beginPath(); g.ellipse(X(w + 0.5), Y(-1.42), 0.28 * k, 0.15 * k, -0.3, 0, Math.PI * 2); g.fill(); // the dragon's head
+    g.fillStyle = c.hot; g.beginPath(); g.arc(X(w + 0.52), Y(-1.48), 0.04 * k, 0, Math.PI * 2); g.fill(); // its eye
+  }
   // rigging, mast, yard, furled sail, crow's nest, pennant (above the deck, behind the fighters)
   if (ship) {
     g.strokeStyle = '#3A2A1C'; g.lineWidth = 2;
@@ -522,14 +549,16 @@ export function paintedHull(w: number, depth: number, water: number, c: HullPain
     poly([[0, -0.5], [w, -0.5], [w, -0.42], [0, -0.42]], c.lip);
   }
   // the hull: planks, a gold wale, gunports, a darker bottom below the waterline, the gunwale the fighters stand on
+  if (look !== 'ice') {
   poly([[0, 0], [w, 0], [w, side], [w * 0.9, depth], [w * 0.08, depth], [0, side]], c.face);
   g.save(); g.beginPath(); [[0, 0], [w, 0], [w, side], [w * 0.9, depth], [w * 0.08, depth], [0, side]].forEach(([x, y], i) => (i ? g.lineTo(X(x), Y(y)) : g.moveTo(X(x), Y(y)))); g.closePath(); g.clip();
   g.fillStyle = c.dark; g.fillRect(0, Y(water - 0.05), W, H);
   g.fillStyle = c.seam; for (let y = 0.22; y < depth; y += 0.22) g.fillRect(0, Y(y), W, 2);
-  g.fillStyle = '#B8893A'; g.fillRect(0, Y(0.14), W, 0.1 * k);
+  if (look === 'ship') { g.fillStyle = '#B8893A'; g.fillRect(0, Y(0.14), W, 0.1 * k); } // (a gold wale on a pirate ship)
   if (ship) for (let x = 0.9; x < w - 0.5; x += 1.55) { poly([[x - 0.03, 0.33], [x + 0.31, 0.33], [x + 0.31, 0.63], [x - 0.03, 0.63]], c.lipdark); poly([[x, 0.36], [x + 0.28, 0.36], [x + 0.28, 0.6], [x, 0.6]], '#1A120C'); }
   g.restore();
   poly([[0, -0.03], [w, -0.03], [w, 0.07], [0, 0.07]], c.lip);
+  }
   const d = g.getImageData(0, 0, W, H).data, img = newImg(W, H), alpha = new Float32Array(N), ang = new Float32Array(N), R = makeRandom(53);
   for (let i = 0; i < N; i++) {
     alpha[i] = d[4 * i + 3] / 255;

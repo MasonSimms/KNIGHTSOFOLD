@@ -89,7 +89,8 @@ export const PROPS: Record<string, PropSpec> = {
   table: { len: 2.4, thick: 0.8, mass: 40, factor: 2.6, box: true, toughness: 8 },
   bench: { len: 1.6, thick: 0.18, mass: 5, factor: 2.7, toughness: 4 },
   chandelier: { len: 1.5, thick: 0.3, mass: 28, factor: 2.6, material: 'metal', box: true, hangs: 1.1 },
-  'ice-block': { len: 1.0, thick: 0.3, mass: 9, factor: 2.4, material: 'stone', box: true, slam: 6.5 }, // a slab of the Frozen River's ice (a bridge of them over the water: a hard landing or a slam breaks one out)
+  'ice-block': { len: 1.0, thick: 0.3, mass: 9, factor: 2.4, material: 'stone', box: true, slam: 6.5 },
+  oar: { len: 2.0, thick: 0.09, mass: 2.2, factor: 2.6, toughness: 4, grip: 0.12 }, // a longship's oar (Longship Deck): a long club with a wide blade // a slab of the Frozen River's ice (a bridge of them over the water: a hard landing or a slam breaks one out)
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

@@ -107,5 +107,6 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
   'wizard-staff': { len: 1.5, pieces: [rod(0, 1.4, 0.016, 0.02, DARKWOOD, { bend: 0.02, grip: true }), rod(1.38, 1.5, 0.02, 0.012, DARKWOOD, { y: [0, -0.06], bend: 0.05 }), ball(1.44, 0.03, ICE, { glow: true })] },
   'war-hammer': { len: 1.0, pieces: [rod(0, 0.86, 0.017, 0.017, WOOD, { grip: true }), rod(0.6, 0.86, 0.019, 0.019, IRON), rod(0.9, 0.9, 0.045, 0.04, IRON, { y: [0.02, -0.12] }), rod(0.9, 0.9, 0.03, 0.002, IRON, { y: [0.02, 0.16] }), rod(0.93, 1.0, 0.015, 0, IRON)] },
   crowbar: { len: 0.8, pieces: [rod(0, 0.7, 0.012, 0.012, RED, { grip: true }), rod(0, 0.04, 0.006, 0.012, IRON), rod(0.66, 0.8, 0.012, 0.006, RED, { y: [0, 0.07], bend: -0.05 })] },
+  oar: { len: 2.0, pieces: [rod(0, 1.55, 0.022, 0.022, WOOD, { grip: true }), poly(WOOD, [[1.45, -0.03], [1.6, -0.09], [2.0, -0.08], [2.0, 0.08], [1.6, 0.09], [1.45, 0.03]])] },
   'lead-pipe': { len: 1.0, pieces: [rod(0, 1.0, 0.022, 0.022, GREY, { grip: true }), rod(0, 0.06, 0.027, 0.027, IRON), rod(0.88, 1.0, 0.03, 0.03, IRON)] },
 };

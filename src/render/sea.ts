@@ -51,13 +51,13 @@ export function createSea(enter: (x: number, y: number, speed: number, tar: bool
       sea.alpha = T.finish.water.alpha;
       sea.mask = mask;
       water.addChildAt(sea, 0);
-      for (const b of sim.boats) {
-        const h2 = paintedHull(b.w, b.depth, A.sea.level, { ...pa.plat, hot: pa.hot }, K), ship = new Sprite(h2.tex);
+      sim.boats.forEach((b, i) => {
+        const h2 = paintedHull(b.w, b.depth, A.sea!.level, { ...pa.plat, hot: pa.hot }, K, A.boats[i]?.look), ship = new Sprite(h2.tex);
         ship.anchor.set(h2.ax, h2.ay);
         ship.scale.set(1 / h2.ppm);
         hull.addChild(ship);
         ships.push(ship);
-      }
+      });
     },
     draw(sim: Sim, alpha: number) {
       const A = sim.arena;

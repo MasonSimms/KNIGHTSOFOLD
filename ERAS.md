@@ -61,7 +61,7 @@ Pickups: **Trident** (long reach, prod), **Net** (thrown to tangle; needs the "e
 
 ## 4. Vikings
 Pickups: **Round Shield** (hold it to parry bigger hits), **Throwing Spear** (picked up, then thrown).
-1. **Longship Deck**: a second boat (water tech): choppy fjord, rocking deck, oars as props.
+1. **Longship Deck**: a second boat (water tech): choppy fjord, rocking deck, oars as props. **BUILT 2026-10-07** (vikings map 3): a 12.5 m longship (painted as one: oak, a red and cream striped square sail, shields along the rail, a curled stern and a dragon at the prow) on a fjord whose waves are 1.8 times the usual (arena.sea chop), two oars on deck (2 m clubs) and a chest.
 2. **Ice Floe Fjord**: floating ice slabs that tilt and drift. Heavy hits crack them.
 3. **Mead Hall**: a long table and benches (all props), plus a chandelier on a rope you can cut. **BUILT 2026-10-07** (vikings map 1; owner chose the Vikings' plan): the hall between pillar walls, the long hearth burning in the middle, a heavy table at each end (stand on it, shove it, tip it onto someone), benches to swing, drinking horns that shatter, and two iron rings of candles on ropes: a club hit or a shot brings one down on whoever is under it (28 kg: it crushes), and its candles go out.
 4. **Rune Stone Cliff**: tall standing stones to hide behind, with a high cliff edge and sea below.
