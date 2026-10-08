@@ -37,7 +37,8 @@ const home = () => { forgetSession(); location.href = location.pathname; }; // b
  * The online room: connect (or, with `existing`, come back to the room after a match on the same connection), the door (make or join),
  * then the Hall until the host starts. Resolves when you are in a fight.
  */
-export function runLobby(url: string, existing?: NetClient): Promise<{ client: NetClient; seed: number; you: number; queued: boolean; host: boolean }> {
+/** `prepare` is told the next match's seed as soon as the room says it (and again whenever it changes), to paint its first rounds early. */
+export function runLobby(url: string, existing?: NetClient, prepare?: (seed: number) => void): Promise<{ client: NetClient; seed: number; you: number; queued: boolean; host: boolean }> {
   notice('');
   const root = openMenu('door', `<button class="back" title="Back">${BACK}</button><h1>Old Masters</h1><div class="body">${existing ? 'Back to the room...' : 'Connecting...'}</div><div class="err"></div>`);
   const body = root.querySelector('.body') as HTMLElement, err = root.querySelector('.err') as HTMLElement;
@@ -107,6 +108,7 @@ export function runLobby(url: string, existing?: NetClient): Promise<{ client: N
           problem = '';
           code = m.code;
           saveSession({ code: m.code, token: m.token });
+          prepare?.(m.seed);
           if (!hall) {
             hall = mountHall({
               look: (i, l) => { if (last && i === last.you) client.send({ t: 'look', ...l }); },

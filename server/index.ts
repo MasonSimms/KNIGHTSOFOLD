@@ -84,7 +84,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
   const lobby = (r: GameRoom) => {
     const list = r.present;
     const looks = r.seats.map((s) => s?.look ?? null), ready = r.seats.map((s) => !!s?.ready);
-    list.forEach((s) => send(s.ws, { t: 'lobby', code: r.code, n: list.length, you: slotOf(r, s), host: s === list[0], token: s.token, looks, ready }));
+    list.forEach((s) => send(s.ws, { t: 'lobby', code: r.code, n: list.length, you: slotOf(r, s), host: s === list[0], token: s.token, looks, ready, seed: seeds.get(r)! }));
   };
 
   /** Tell a player they are in the fight, with everything their client needs to build (or rebuild) its copy of it. */
@@ -93,10 +93,14 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     send(seat.ws, { t: 'start', seed, you: slotOf(r, seat), queued, token: seat.token, ...(resync ? { resync } : {}) });
     send(seat.ws, { t: 'snap', s: g.room.catchUp() });
   }
+  // The seed of the room's next match (its order of maps): drawn as the room is made and after each match, and sent with the lobby so
+  // every page can paint the first rounds while everyone readies up.
   const seeds = new WeakMap<GameRoom, number>();
+  const drawSeed = (r: GameRoom) => seeds.set(r, Math.floor(Math.random() * 2 ** 31));
 
   function endGame(r: GameRoom, why: string) {
     r.game = null;
+    drawSeed(r);
     r.seats = r.seats.filter((s): s is Seat => !!s && (!!s.ws || !!s.bot)); // back to a lobby of whoever is still connected (and the bots)
     for (const s of r.seats) if (s) s.ready = !!s.bot;
     r.present.forEach((s) => send(s.ws, { t: 'over', why }));
@@ -170,6 +174,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       if (mine.length >= createLimit) return send(ws, { t: 'error', why: 'too many rooms made from here: try again in a few minutes' });
       created.set(c.ip, [...mine, now]);
       const r = new GameRoom(newCode());
+      drawSeed(r);
       rooms.set(r.code, r);
       const seat = newSeat(r);
       r.seats.push(seat);
@@ -236,7 +241,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       const r = at.room;
       if (r.seats.length < MIN_PLAYERS) return send(ws, { t: 'error', why: `need at least ${MIN_PLAYERS} players` });
       if (r.seats.some((s) => s && !s.ready)) return send(ws, { t: 'error', why: 'not everyone is ready' });
-      const seed = Math.floor(Math.random() * 2 ** 31);
+      const seed = seeds.get(r)!; // (the lobby already told everyone: their first backdrops are painted)
       Sim.create(seed, MAX_PLAYERS, false).then((sim) => {
         if (r.game || !r.seats.length) return;
         while (r.seats.length < MAX_PLAYERS) r.seats.push(null);
@@ -244,7 +249,6 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
         sim.looks = Array.from({ length: MAX_PLAYERS }, (_, i) => ({ ...(r.seats[i]?.look ?? { color: i, hat: 'none' as const, eyes: 'round' as const }) }));
         sim.reset();
         r.game = { room: new Room(sim), sim };
-        seeds.set(r, seed);
         for (const s of r.present) sendStart(r, s, false, seed);
       });
     } else if (m.t === 'end') {

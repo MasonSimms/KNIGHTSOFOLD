@@ -18,6 +18,7 @@ import { createDoors } from './trapdoors';
 import { createChariot } from './chariot';
 import { createJets } from './jets';
 import { windAt } from '../sim/wind';
+import { eraFor, mapFor } from '../sim/era';
 import { createLight } from './light';
 import { makeGoogly, makeHat } from './hat';
 import type { HatView } from './hat';
@@ -28,7 +29,7 @@ import type { Eyes } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import type { Fighter, Part, Shape } from '../sim/fighter';
 import type { SimEvent } from '../sim/types';
-import { wallsOf } from '../sim/world';
+import { arenaFor, wallsOf } from '../sim/world';
 import type { Arena, Sim } from '../sim/world';
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -546,6 +547,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     show(s: Sim) { sim = s; builtVersion = -1; paintedEra = ''; shownRound = -1; shake = 0; },
     /** Everything a fight in `s` needs, painted before it starts (owner): the fighters' and weapons' pictures still unpainted, this
      *  round's backdrop and the next one's. Resolves when done, or after `maxMs` so a slow machine still gets its fight. */
+    /** Online: the Hall knows the match's seed before the host starts, so its first two rounds' backdrops are painted while everyone readies up. */
+    prepare(seed: number) { for (const round of [1, 2]) { const era = eraFor(seed, round).id; backdrops.prefetch(era, arenaFor(era, mapFor(seed, round, era))); } },
     async preload(s: Sim, maxMs: number): Promise<void> {
       const t0 = performance.now();
       let sliceAt = t0;

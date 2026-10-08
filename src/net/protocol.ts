@@ -25,7 +25,7 @@ export type ClientMsg =
   | { t: 'stats'; ping: number; pingMax: number; buffer: number; stalls: number; carried: number; off: number; snaps: number; fps: number; slow: number; hidden: number; fast?: boolean }; // every 30 s in a fight: how this page's connection is going (into the server's log, fly logs: what real connections are like)
 
 export type ServerMsg =
-  | { t: 'lobby'; code: string; n: number; you: number; host: boolean; token: string; looks: (Look | null)[]; ready: boolean[] } // who is in the room and who is ready (sent to everyone whenever it changes); `token` is your private key to rejoin
+  | { t: 'lobby'; code: string; n: number; you: number; host: boolean; token: string; looks: (Look | null)[]; ready: boolean[]; seed: number } // who is in the room and who is ready (sent to everyone whenever it changes); `token` is your private key to rejoin; `seed` is the next match's (paint its first rounds now)
   | { t: 'start'; seed: number; you: number; queued: boolean; token: string; resync?: boolean } // you are in a fight (new, or back): build or reset the Mirror (always 4 fighters; the snapshot that follows says which seats are empty), you are fighter `you`; `queued` = you appear next round
   | { t: 'snap'; s: Snapshot }
   | { t: 'over'; why: string } // the host ended the fight (or everyone left): back to the menu

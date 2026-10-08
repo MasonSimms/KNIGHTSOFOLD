@@ -58,6 +58,9 @@ query.get('eyes')?.split(',').forEach((e, i) => { if (sim.looks[i]) sim.looks[i]
 if (query.has('smooth')) { T.net.jitter.percentile = 1; T.net.extrapolateTicks = 3; } // ?smooth: the playback buffer covers every hiccup (as before 2026-10-07): the others shown later, never carried on (compare with the default)
 const lagMs = Number(query.get('lag')) || 0;
 const stallMs = Number(query.get('stall')) || 0; // ...and ?lag=100&stall=200: every 2 s the snapshots stop for 200 ms and then arrive in a bunch (wifi): watch the F3 overlay's buffer widen to cover it
+// The renderer comes first so the online Hall can paint the match's first rounds while everyone readies up (it is shown the fight's copy below).
+const renderer = await createRenderer(sim, document.body);
+applySettings(loadSettings(), renderer);
 const room = lagMs ? new Room(sim) : null;
 let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 2)) : null;
 // Open http://localhost:5173/?online to play for real: make or join a room, the host starts. (Needs the room server: npm run server.)
@@ -71,7 +74,7 @@ const sendInput = (i: PlayerInput, n: number) => { net?.send({ t: 'in', i, n });
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
   const url = serverUrl(onlineParam);
-  const r = await runLobby(url);
+  const r = await runLobby(url, undefined, renderer.prepare);
   net = r.client; mySlot = r.you;
   const m = new Mirror(await Sim.create(r.seed, 4, false)); // online is always 4 fighters: empty seats are parked out of sight
   mirror = m;
@@ -110,7 +113,7 @@ if (onlineParam !== null) {
     paused = true;
     notice('');
     museum.close(); hideCards();
-    const r = await runLobby(url, c);
+    const r = await runLobby(url, c, renderer.prepare);
     mySlot = r.you; isHost = r.host;
     if (predictor) { predictor.stop(); predictor.slot = r.you; }
     m.sim.reseed(r.seed);
@@ -136,6 +139,7 @@ if (onlineParam !== null) {
 }
 let desyncsSeen = 0, resyncAt = 0;
 const view = mirror ? mirror.sim : sim; // what is drawn
+renderer.show(view);
 if (mirror && loadSettings().predict) predictor = new Predictor(mirror, mySlot);
 // The game opens on the menus (home, then the Hall of Champions or training). Testing links skip them and keep the old rules: plugging in
 // a gamepad adds a player. Online has its own room screen.
@@ -151,8 +155,6 @@ function flail(frame: number, who: number): PlayerInput {
   const t = frame * (0.05 + who * 0.013);
   return { moveX: Math.sin(t * 0.7), jump: frame % (90 + who * 17) === 0, aim: Math.sin(t) * 3, attack: frame % 120 < 30, drop: false, crouch: false, dodge: frame % 400 === 150 + who * 20 };
 }
-const renderer = await createRenderer(view, document.body);
-applySettings(loadSettings(), renderer);
 // Every local round is recorded (the buttons pressed, a few hundred kilobytes) and the spotter picks out the moments worth seeing again.
 const recorder = new Recorder(), spotter = new Spotter(), tape = new Tape();
 const museum = createMuseum(renderer);
