@@ -341,6 +341,7 @@ function padInput(slot: number, index: number, pads: Gamepad[]): PlayerInput {
 
 function frame(now: number) {
   requestAnimationFrame(frame);
+  renderer.warm(paused); // (the warm-up paints only while a menu is up)
   if (paused || replaying) return;
   const ft = Math.min(Math.max(0, now - last), 100); // clamp so a tab switch doesn't cause a huge catch-up (and never below 0: a frame's time can be earlier than a `last` set after an await, and a step back in time broke a colour: 'Unable to convert color')
   last = now;

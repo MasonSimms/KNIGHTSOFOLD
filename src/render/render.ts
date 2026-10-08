@@ -432,13 +432,13 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   }
   // every era's costume, in the order a match plays them (round 1 needs the first at once); one per colour where it is dyed in the wearer's
   for (const era of eras) if (COSTUMES[era.id]) for (const hex of COSTUMES[era.id].some((p) => p.c === 'player') ? [...COLORS.map((c) => c.hex), T.colors.dummy] : [0]) prewarm.push(() => paintedCostume(era.id, costumeBody(), hex, K0));
-  for (const it of ITEMS) prewarm.push(() => paintedWeapon(it.id, it.spec.len, K0)); // every weapon's picture
+  for (const it of ITEMS) if (it.spec.len * it.spec.thick <= 1.5) prewarm.push(() => paintedWeapon(it.id, it.spec.len, K0)); // every weapon's picture (not the big scenery: a gatehouse or an obelisk took seconds; a map paints its own when it is loaded)
   for (const hat of HATS) for (const c of COLORS) prewarm.push(() => { const k = new Container(); makeHat(hat, k, 0, 0, T.fighter.headRadius, c.hex); k.destroy({ children: true }); }); // and every hat (painted once; the cap, top hat and beanie per colour)
   // Only while nothing is being drawn (a menu is up): one job can take over 100 ms, a visible freeze in a fight. Anything still unpainted
   // when it is needed is painted then, as before the warm-up.
-  let drawnAt = 0;
+  let drawnAt = 0, warmOn = true; // warmOn: only while a menu is up (main.ts): in a match the museum between rounds draws without draw(), and a job there froze it (or the round after it) for seconds
   const idle = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 50));
-  const warmNext = () => { if (performance.now() - drawnAt < 300) { idle(warmNext); return; } const job = prewarm.shift(); if (job) { job(); idle(warmNext); } };
+  const warmNext = () => { if (!warmOn || performance.now() - drawnAt < 300) { idle(warmNext); return; } const job = prewarm.shift(); if (job) { job(); idle(warmNext); } };
   idle(warmNext);
 
   let scale = 1, shake = 0, builtVersion = -1;
@@ -553,6 +553,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       grain.visible = Q.grain;
       builtVersion = -1; // (repaint everything)
     },
+    /** The warm-up may paint (a menu is up) or not (a match, its museum). */
+    warm(on: boolean) { warmOn = on; },
     show(s: Sim) { sim = s; builtVersion = -1; paintedEra = ''; shownRound = -1; shake = 0; },
     /** Everything a fight in `s` needs, painted before it is shown (owner: nothing half-painted): its fighters (colours, costumes, hats), the
      *  things on its map, the era's pickups, and its backdrop (the next round's is started). Only what it needs: the rest of the warm-up
