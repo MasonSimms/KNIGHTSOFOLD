@@ -31,8 +31,8 @@ import { applyFalls } from './falls';
 import { crackFloes } from './floe';
 import { applyStreams } from './stream';
 import { applyWire } from './wire';
-import { buildPlane, stepPlane } from './plane';
-import { buildTank, stepTank } from './tank';
+import { buildPlane, placePlane, stepPlane } from './plane';
+import { buildTank, placeTank, stepTank } from './tank';
 import type { Tank } from './tank';
 import { applyWind } from './wind';
 import { aimSpears, fuses, goneOff, stickSpears } from './special';
@@ -703,6 +703,8 @@ export class Sim {
   poseMachines(frame: number): void {
     if (this.doors.length) stepDoors(this, this.doors, frame);
     if (this.chariot) placeChariot(this, this.chariot, frame);
+    if (this.tank) placeTank(this, this.tank, frame);
+    if (this.plane) placePlane(this, this.plane, frame);
   }
 
   predictStep(slot: number, input: PlayerInput): SimEvent[] {

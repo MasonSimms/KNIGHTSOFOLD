@@ -31,16 +31,24 @@ export function buildTank(sim: Sim, top: number): Tank {
   part.colliders.push(sim.world.createCollider(RAPIER.ColliderDesc.cuboid(turret.hw, turret.hh).setTranslation(turret.x, turret.y).setFriction(0.8), part.body));
   part.shapes.push(turret);
   for (const c of part.colliders) c.setCollisionGroups(terrainGroups); // (ground: you stand on it, and a swing passes through it)
-  part.bolted = true;
+  part.bolted = true; part.clock = true; // (an online page puts it where its flight has it: Sim.poseMachines)
   sim.props.push(part); sim.machine.push(part); sim.partByBody.set(part.body.handle, part);
   return { part, next: [] };
+}
+
+/** The tank on to where its timetable has it at `frame` (next frame, on the server; an online page, the frame it is predicting). */
+export function placeTank(sim: Sim, k: Tank, frame: number): void {
+  if (!sim.props.includes(k.part)) return; // (gone: nothing to steer)
+  const b = k.part.body, t = b.translation(), x = tankAt(sim.arena, frame).x;
+  if (Math.abs(x - t.x) > 3) { b.setTranslation({ x, y: t.y }, true); b.setLinvel({ x: 0, y: 0 }, true); return; } // (far off: put it there)
+  b.setLinvel({ x: (x - t.x) / T.sim.dt, y: 0 }, true);
 }
 
 /** Before the physics each frame: the tank on to where it is next frame; whoever is in front of its tracks is run over. */
 export function stepTank(sim: Sim, k: Tank): void {
   if (!sim.props.includes(k.part)) return; // (gone: nothing to steer)
-  const A = sim.arena, H = T.tank, dt = T.sim.dt, b = k.part.body, t = b.translation(), n = tankAt(A, sim.frame + 1), now = tankAt(A, sim.frame);
-  b.setLinvel({ x: (n.x - t.x) / dt, y: 0 }, true);
+  const A = sim.arena, H = T.tank, dt = T.sim.dt, t = k.part.body.translation(), now = tankAt(A, sim.frame);
+  placeTank(sim, k, sim.frame + 1);
   if (!now.dir) return;
   const front = t.x + (now.dir * PROPS.tank.len) / 2;
   for (const f of sim.fighters) {

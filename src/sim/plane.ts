@@ -33,15 +33,21 @@ export function buildPlane(sim: Sim): Part {
   part.colliders.push(sim.world.createCollider(RAPIER.ColliderDesc.cuboid(upper.hw, upper.hh).setTranslation(upper.x, upper.y).setFriction(0.8), part.body));
   part.shapes.push(upper);
   for (const c of part.colliders) c.setCollisionGroups(terrainGroups); // (ground: you stand on it, and a swing passes through it)
-  part.bolted = true;
+  part.bolted = true; part.clock = true; // (an online page puts it where its flight has it: Sim.poseMachines)
   sim.props.push(part); sim.machine.push(part); sim.partByBody.set(part.body.handle, part);
   return part;
 }
 
-/** Before the physics each frame: the plane on to where its flight has it next frame. */
-export function stepPlane(sim: Sim, part: Part): void {
+/** The plane on to where its flight has it at `frame` (next frame, on the server; an online page, the frame it is predicting). */
+export function placePlane(sim: Sim, part: Part, frame: number): void {
   if (!sim.props.includes(part)) return; // (gone: nothing to steer)
-  const n = planeAt(sim.arena, sim.frame + 1), b = part.body, t = b.translation(), dt = T.sim.dt;
+  const n = planeAt(sim.arena, frame), b = part.body, t = b.translation(), dt = T.sim.dt;
+  if (Math.hypot(n.x - t.x, n.y - t.y) > 3) { b.setTranslation({ x: n.x, y: n.y }, true); b.setRotation(n.rot, true); b.setLinvel({ x: 0, y: 0 }, true); b.setAngvel(0, true); return; } // (far off: put it there)
   b.setLinvel({ x: (n.x - t.x) / dt, y: (n.y - t.y) / dt }, true);
   b.setAngvel(wrap(n.rot - b.rotation()) / dt, true);
+}
+
+/** Before the physics each frame: the plane on to where its flight has it next frame. */
+export function stepPlane(sim: Sim, part: Part): void {
+  placePlane(sim, part, sim.frame + 1);
 }
