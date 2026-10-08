@@ -812,6 +812,12 @@ export class Sim {
   /** Someone close is winding up a weapon, lunging, punching or grabbing at this fighter (they brace with their free arm and lean away):
    * the side they are on (+1 = toward +x, -1 = toward -x), or 0 for nobody. */
   private threatened(f: Fighter): number {
+    const J = T.sim.maxJointedSpeed;
+    for (const p of this.props) {
+      if (!p.links?.length || !p.body.isDynamic()) continue;
+      const v = p.body.linvel(this.tmpV), s = Math.hypot(v.x, v.y);
+      if (s > J) p.body.setLinvel({ x: (v.x / s) * J, y: (v.y / s) * J }, true);
+    }
     const t = f.torso.body.translation(), R = T.offArm.braceRange;
     const g = this.fighters.find((g) => {
       if (g === f || g.limp || g.inBack || !(g.charge > 8 || g.release > 0 || g.punch > 0 || g.reaching)) return false;

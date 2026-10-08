@@ -145,7 +145,7 @@ function meets(sim: Sim, u: Bullet, c: Collider): boolean {
 /** What happens where a bullet meets something. 'stop' ends it; 'on' = it carries on (sent back). */
 function strike(sim: Sim, u: Bullet, c: Collider, dx: number, dy: number, nx: number, ny: number): 'stop' | 'on' {
   const G = T.guns, body = c.parent()!, part = sim.partByBody.get(body.handle), at = { x: u.x, y: u.y };
-  const push = (k: number) => body.applyImpulseAtPoint({ x: dx * u.push * k, y: dy * u.push * k }, at, true);
+  const push = (k: number) => { const j = Math.min(u.push * k, G.pushCap * body.mass()); body.applyImpulseAtPoint({ x: dx * j, y: dy * j }, at, true); }; // (light things no faster than pushCap)
   const ev = (t: 'spark' | 'splinter' | 'impact', victim = -1) => sim.events.push({ t, x: u.x, y: u.y, v: Math.atan2(ny, nx), owner: u.owner, victim });
   if (!part && u.bounces > 0 && (nx || ny)) { // a bouncing shot: off the ground or the wall it goes (not when fired from inside it: no surface)
     const S = PROPS[u.gun]?.gun;

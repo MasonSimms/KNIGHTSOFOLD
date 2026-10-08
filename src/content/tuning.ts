@@ -6,6 +6,7 @@ export const tuning = {
     gravity: 22, // heavier than Earth: snappier, more comedic arcs
     maxStepsPerFrame: 5,
     maxPartSpeed: 60, // m/s: a safety cap on any body part (real play stays far below it: club tips reach about 35); stops rare solver blow-ups
+    maxJointedSpeed: 20, // m/s: a loose thing still jointed into the map (a bridge's plank, a rope's link, a hanging cage, bamboo) moves no faster. A weapon in a hand pressed on the pier's planks set them fighting their joints, and in three frames the bridge was flying at 350 m/s
     maxFallSpeed: 18, // terminal fall speed (m/s): a body landing faster than this on its legs gets blasted back out of the floor
     solverIterations: 32, // Rapier default is 4; more = stiffer joints (arm chain) at some CPU cost
     pgsIterations: 4,
@@ -559,6 +560,7 @@ export const tuning = {
     waterSlow: 0.8, // in the sea a bullet keeps this share of its speed each frame
     blockPush: 0.3, // a weapon that blocks a bullet is pushed this share of the bullet's shove
     woodToughness: 3, // a wooden thing with no toughness of its own snaps after this much shooting (calibres added up)
+    pushCap: 20, // a bullet speeds a loose thing up by at most this much (m/s): its shove is the same whatever it hits, so a light thing (a rope's link, a mug, a plank) went off at hundreds of m/s
     sceneryDamage: 12, // a bullet's damage to breakable scenery, per calibre (barrel 60, crate 45: see props.ts)
     sceneryMinImpact: 30, // a club hit or a crash this hard (or harder) damages breakable scenery by its impact
     minPiece: 0.18, // a snapped weapon's shortest half (m)

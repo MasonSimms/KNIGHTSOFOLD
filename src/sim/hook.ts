@@ -100,6 +100,7 @@ function catches(sim: Sim, f: Fighter, c: Collider): boolean {
   const body = c.parent(), part = body ? sim.partByBody.get(body.handle) : undefined;
   if (!part) return !picky(f.stick); // the ground, a wall, a ledge, a ship (a lasso or a tractor beam passes them by)
   if (part.back) return false;
+  if (picky(f.stick) && (part.links?.length || !body!.isDynamic())) return false; // (a lasso or a tractor beam takes only what is loose: not a rope's link, a bridge's plank, a hanging cage, the bamboo or a machine: reeled or flung, the joints holding one fought back and threw it at hundreds of m/s)
   if (part.owner === f.index) return false;
   const g = part.owner >= 0 ? sim.fighters[part.owner] : undefined;
   return !g?.inBack;
