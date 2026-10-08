@@ -129,6 +129,11 @@ export const WEAPON_ART: Record<string, WeaponArt> = {
   drawbridge: { len: 5.5, pieces: [poly(WOOD, [[0, -0.15], [5.5, -0.15], [5.5, 0.15], [0, 0.15]]), rod(0, 5.5, 0.03, 0.03, DARKWOOD, { y: [0.12, 0.12] }),
     ...[0.3, 1.1, 1.9, 2.7, 3.5, 4.3, 5.1].flatMap((x) => [rod(x, x, 0.035, 0.035, IRON, { y: [-0.15, 0.15] }), ball(x, 0.025, IRON, { y: -0.08 }), ball(x, 0.025, IRON, { y: 0.08 })]), ball(5.35, 0.07, IRON, { y: -0.17 })] },
   'drawbridge-chain': { len: 7.0, pieces: [{ k: 'chain', x: [0, 7.0], r: 0.05, c: IRON }] },
+  // Tournament Lists: the tilt's rail (oak, banded red), a trestle (an A-frame with a top bar and a brace), a banner on its crossbar (red, a
+  // cream stripe, a gold boss, a swallowtail)
+  'tilt-rail': { len: 3.2, pieces: [rod(0, 3.2, 0.07, 0.07, WOOD), ...[0.2, 0.9, 1.6, 2.3, 3.0].map((x) => rod(x - 0.18, x + 0.18, 0.072, 0.072, RED))] },
+  trestle: { len: 0.7, pieces: [rod(0.05, 0.3, 0.035, 0.035, WOOD, { y: [0.5, -0.46] }), rod(0.65, 0.4, 0.035, 0.035, WOOD, { y: [0.5, -0.46] }), rod(0.06, 0.64, 0.04, 0.04, DARKWOOD, { y: [-0.46, -0.46] }), rod(0.16, 0.54, 0.025, 0.025, DARKWOOD, { y: [0.1, 0.1] })] },
+  banner: { len: 0.8, pieces: [rod(0, 0.8, 0.025, 0.025, WOOD, { y: [-0.63, -0.63] }), poly(RED, [[0.08, -0.6], [0.72, -0.6], [0.72, 0.65], [0.4, 0.4], [0.08, 0.65]]), poly(CREAM, [[0.33, -0.6], [0.47, -0.6], [0.47, 0.48], [0.4, 0.4], [0.33, 0.48]]), ball(0.4, 0.09, GOLD, { y: -0.15 })] },
   gatehouse: { len: 1.8, pieces: [poly(STONE, [[0, 2.6], [1.8, 2.6], [1.8, -2.6], [0, -2.6]]), ...[0, 0.5, 1.0, 1.5].map((x) => poly(STONE, [[x, -2.6], [x + 0.3, -2.6], [x + 0.3, -2.88], [x, -2.88]])),
     ...[-2.0, -1.35, -0.7, -0.05, 0.6].map((y) => rod(0, 1.8, 0.012, 0.012, MORTAR, { y: [y, y] })), poly(BLACK, [[0.85, -1.75], [0.95, -1.75], [0.95, -1.15], [0.85, -1.15]]),
     poly(BLACK, [[0.45, 2.6], [0.45, 1.3], ...half(0.9, 1.3, 0.45, Math.PI, 2 * Math.PI), [1.35, 2.6]]), ...[0.58, 0.74, 0.9, 1.06, 1.22].map((x) => rod(x, x, 0.016, 0.01, IRON, { y: [0.95, 1.45] })),

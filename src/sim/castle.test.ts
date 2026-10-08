@@ -50,3 +50,29 @@ describe('Castle Drawbridge', () => {
     expect(deck && chain && sim.props.includes(deck) && sim.props.includes(chain)).toBe(true);
   });
 });
+
+describe('Tournament Lists', () => {
+  const kind = (sim: Sim, id: string) => sim.props.filter((p) => p.weapon?.id === id);
+
+  it('the tilt stands between the fighters: a fighter walking at it does not get through', async () => {
+    const { sim, A } = await castle('Tournament Lists'), R = A.tilt!, f = sim.fighters[0];
+    moveTo(sim, 0, R.x - 1.0, A.platformTop - T.stand.height);
+    for (let i = 0; i < 180; i++) sim.step([{ ...NEUTRAL, moveX: 1 }, NEUTRAL]);
+    expect(f.torso.body.translation().x).toBeLessThan(R.x + R.w / 2); // stopped at the fence (or pushing it), not through it
+    const [rail] = kind(sim, 'tilt-rail');
+    expect(rail.links?.length).toBe(2); // still on its trestles
+    expect((sim as unknown as Internals).itemOf(rail)).toBeNull();
+    expect((sim as unknown as Internals).itemOf(kind(sim, 'trestle')[0])).toBeNull();
+  });
+
+  it('knocked off its trestles, the rail is a club anyone can pick up; a cut banner drops', async () => {
+    const { sim, A } = await castle('Tournament Lists'), [rail] = kind(sim, 'tilt-rail'), banners = kind(sim, 'banner'), y0 = banners[0].body.translation().y;
+    for (let i = 0; i < 30; i++) sim.step([NEUTRAL, NEUTRAL]);
+    sim.shootLoose(rail, rail.body.translation().x, rail.body.translation().y, 0);
+    sim.shootLoose(banners[0], banners[0].body.translation().x, y0, 0);
+    for (let i = 0; i < 120; i++) sim.step([NEUTRAL, NEUTRAL]);
+    expect((sim as unknown as Internals).itemOf(rail)).not.toBeNull();
+    expect(banners[0].body.translation().y).toBeGreaterThan(A.platformTop - 1); // on the floor
+    expect(Math.abs(banners[1].body.translation().y - y0)).toBeLessThan(0.05); // the other still hangs
+  });
+});

@@ -19,6 +19,7 @@ import type { Chase } from './chase';
 import { buildTrain, stepTrain } from './train';
 import { buildDoors, stepDoors } from './trapdoor';
 import { buildDrawbridge } from './drawbridge';
+import { buildTilt } from './tilt';
 import { buildChariot, stepChariot } from './chariot';
 import type { Chariot } from './chariot';
 import type { Trapdoor } from './trapdoor';
@@ -112,7 +113,7 @@ export class Sim {
   bridge: Part[] = []; // the planks of this round's bridge, in order
   bridgeHome: { x: number; y: number }[] = []; // ...and where each one was built (the aqueduct's water pours through where one has gone: falls.ts)
   boats: Boat[] = []; // this round's ships, on a map with them (see water.ts)
-  machine: Part[] = []; // the map's own moving parts that are loose things (a drawbridge's deck and chain): a training clear keeps them
+  machine: Part[] = []; // the map's own moving parts that are loose things (a drawbridge's deck and chain, the tilt): a training clear keeps them
   private ropes: Part[][] = []; // the links of each rope, in order (arena.ropes)
   private ropeEnds: { body: RAPIER.RigidBody; ship: Boat; x: number; y: number }[] = []; // rope ends tied on a ship: where on it (see buildRope)
   chase: Chase | null = null; // this round's treadmill and mammoth, on the Mammoth Chase (see chase.ts)
@@ -275,6 +276,7 @@ export class Sim {
     });
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
     if (A.drawbridge) buildDrawbridge(this, A.drawbridge, A.platformTop);
+    if (A.tilt) buildTilt(this, A.tilt, A.platformTop);
     for (const r of A.ropes) this.ropes.push(this.buildRope(r, A));
     this.chase = A.chase ? buildChase(this) : null;
     this.passing = A.train ? buildTrain(this) : [];
