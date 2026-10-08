@@ -25,6 +25,7 @@ export interface EraArena {
   chariot?: { at: number; cycle: number; speed: number; dir: 1 | -1 }; // a runaway chariot charging across on a timetable (see tuning.chariot)
   drawbridge?: { x: number; w: number; hinge: -1 | 1; chain: { x: number; up: number } }; // a drawbridge held up by a chain you can cut (see tuning.arena.drawbridge)
   tilt?: { x: number; w: number }; // a jousting barrier: a rail on two trestles (see tuning.arena.tilt)
+  catapult?: { x: number; lever: number }; // a catapult and its lever (see tuning.arena.catapult)
   trapdoors?: { x: number; w: number; hinge: -1 | 1; at: number }[]; // doors in the floor over a gap that open on a timetable (see tuning.trapdoor)
   train?: { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }; // a train map (see tuning.arena.train)
   roll?: number; // the painting slides by (m/s)
@@ -169,7 +170,15 @@ export const eras: Era[] = [
     // 15.5 here; playing alone, the tilt stands between you and the dummy.)
     { name: 'Tournament Lists', platformX: 3.5, platformW: 17, ledges: [{ x: 3.5, up: 1.6, w: 2.2 }, { x: 18.3, up: 1.6, w: 2.2 }], tilt: { x: 10.4, w: 3.2 },
       scenery: [{ kind: 'banner', x: 7.5, up: 2.3 }, { kind: 'banner', x: 16.5, up: 2.3 }], props: [{ kind: 'lance', x: 4.6, up: 0 }, { kind: 'lance', x: 19.4, up: 0 }],
-      fightSpawnX: [7.235, 16.765, 9.221, 14.779], spawnX: [9.221, 14.779, 7.235, 16.765] }], outfits: ['knight', 'squire', 'archer', 'bishop'] }, // (start spots for the standard floor: at 5, 19, 9.6, 14.4 here)
+      fightSpawnX: [7.235, 16.765, 9.221, 14.779], spawnX: [9.221, 14.779, 7.235, 16.765] },
+    // Battlements and Catapult (the era plan): the wall walk between two towers, high over the ground. On it a catapult throws toward the
+    // left tower: load its cup (a stone, a barrel, a fighter standing in it) and knock its lever over, and the arm whips up and throws it.
+    // It winds back down by itself, ready again. Stones lie about to load it with. (Start spots for the standard floor: at 7.5, 19.2 on
+    // the right tower, 9.6, 11.6 here; playing alone, the dummy stands by the lever.)
+    { name: 'Battlements and Catapult', platformX: 3.5, platformW: 17, platformThickness: 6,
+      ground: [{ x: 3.5, w: 2.6, up: 1.6, thick: 7.6 }, { x: 6.1, w: 11.8 }, { x: 17.9, w: 2.6, up: 1.6, thick: 7.6 }], catapult: { x: 14.6, lever: 12.9 },
+      scenery: [{ kind: 'catapult-frame', x: 14.6, up: 0 }], props: [{ kind: 'rubble', x: 8.2, up: 0 }, { kind: 'rubble', x: 11.2, up: 0 }],
+      fightSpawnX: [8.426, 17.718, 10.094, 11.682], spawnX: [9.221, 11.603, 7.712, 17.718] }], outfits: ['knight', 'squire', 'archer', 'bishop'] }, // (start spots for the standard floor: at 5, 19, 9.6, 14.4 here)
   { id: 'samurai', name: 'Samurai Knights', special: false, pickups: ['iron-fan', 'naginata'], style: { blur: 7, grain: 0.025 }, sky: 0x8a6f86, platform: 0x6b4a3a, wall: 0x4a3a34, weapon: 'katana', arena: { platformX: 6.625, platformW: 10.75, walls: [/* Dojo Ridge: narrow walls both sides */ { side: -1, up: 2.0, gap: 1.0 }, { side: 1, up: 2.0, gap: 1.0 }], fightSpawnX: [7.2, 16.8, 10.4, 13.6] }, alt: [{ name: 'Rope Bridge', ground: [{ x: 5.25, w: 3.5 }, { x: 15.25, w: 3.5 }], bridge: { x0: 8.75, x1: 15.25, planks: 8 } }], outfits: ['armoured lord', 'ronin', 'ashigaru', 'monk'] },
   { id: 'pirates', name: 'Pirates', special: false, gunRounds: 0.5, pickups: ['duckfoot', 'pistol', 'blunderbuss', 'boat-hook'], strong: 2, sky: 0x5a9aa8, platform: 0x6a4a30, wall: 0x4a3626, weapon: 'cutlass', arena: { name: 'Ship Deck', platformX: 5.75, platformW: 12.5, sea: { level: 0.9 }, boats: [{ x: 5.75, w: 12.5 }], props: [{ kind: 'plank', x: 10.0, up: 0 }], scenery: [{ kind: 'barrel', x: 7.3, up: 0 }, { kind: 'barrel', x: 16.7, up: 0 }] }, alt: [
     // Ship to Ship (owner, 2026-10-06): two ships lashed side by side, a gangplank across the 1.5 m gap and two ropes in an X from each

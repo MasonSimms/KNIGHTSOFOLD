@@ -116,6 +116,11 @@ export const PROPS: Record<string, PropSpec> = {
   'tilt-rail': { len: 3.2, thick: 0.14, mass: 16, factor: 2.6, toughness: 10 },
   trestle: { len: 0.7, thick: 1.0, mass: 12, factor: 2.4, box: true, toughness: 8 },
   banner: { len: 0.8, thick: 1.3, mass: 1.5, factor: 1.4, box: true, hangs: 0.8 },
+  // Battlements and Catapult (Medieval): the catapult's arm (moved by the rules, not the physics: sim/catapult.ts; its length is
+  // tuning.catapult arm + back), the frame it stands in (behind the fighters, fixed), and its lever (on a sprung hinge, bolted). PLACEHOLDER.
+  'catapult-arm': { len: 3.3, thick: 0.16, mass: 30, factor: 2.6, toughness: 16 },
+  'catapult-frame': { len: 1.6, thick: 1.25, mass: 200, box: true, back: true, fixed: true },
+  lever: { len: 0.9, thick: 0.08, mass: 1.5, factor: 2.2, toughness: 4 },
 };
 // What each pickup is made of (what a bullet does to it in your hand). Anything not listed is wood.
 // (as on the weapon sheet, art-guide/visuals/weapons.png)

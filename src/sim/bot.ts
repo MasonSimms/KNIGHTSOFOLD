@@ -229,7 +229,7 @@ export class Bot {
   private looseWeapons(sim: Sim, me: Fighter): Part[] {
     const out: Part[] = [];
     for (const g of sim.fighters) if (g.stick && !g.grip && g.dropCooldown <= 0 && (g === me || g.stick.owner === g.index)) out.push(g.stick);
-    for (const p of sim.props) if (!p.links?.length && !p.chainOf && p.body.isDynamic() && p.body.mass() <= T.props.maxLift && p.body.translation().y < sim.arena.platformTop + 0.5) out.push(p);
+    for (const p of sim.props) if (!p.links?.length && !p.chainOf && !p.bolted && p.body.isDynamic() && p.body.mass() <= T.props.maxLift && p.body.translation().y < sim.arena.platformTop + 0.5) out.push(p);
     const y = me.torso.body.translation().y;
     return out.filter((w) => y - w.body.translation().y < T.bot.reachUp); // not up out of reach (on a high step)
   }

@@ -61,6 +61,7 @@ export const tuning = {
     chariot: null as null | { at: number; cycle: number; speed: number; dir: 1 | -1 }, // a runaway chariot across the track (see tuning.chariot): first run at second `at`, then every `cycle` s, at `speed` m/s, first toward `dir` (then back)
     drawbridge: null as null | { x: number; w: number; hinge: -1 | 1; chain: { x: number; up: number } }, // a drawbridge (sim/drawbridge.ts): a deck from x, w wide, level with the floor, hinged at its left (-1) or right (1) end; its other end hangs on a chain from (chain.x, chain.up m above the floor). Cut the chain (a club hit of tuning.bridge.cutImpact, or a bullet) and it swings down
     tilt: null as null | { x: number; w: number }, // a jousting barrier (sim/tilt.ts): a rail from x, w wide, fixed on two trestles standing on the floor; a club hit of tuning.bridge.cutImpact or a bullet knocks the rail off
+    catapult: null as null | { x: number; lever: number }, // a catapult (sim/catapult.ts, tuning.catapult): its axle at x, its lever standing on the floor at `lever`; it throws toward the left
     trapdoors: [] as { x: number; w: number; hinge: -1 | 1; at: number }[], // doors in the floor over a gap (see tuning.trapdoor): from x, w wide, hinged at its left (-1) or right (1) edge, first opening at second `at`
     train: null as null | { speed: number; cycle: number; passing: { kind: 'sign' | 'tunnel'; at: number }[] }, // a train map (see tuning.train): things pass at speed (m/s), each at its second `at` of every `cycle` seconds
     chase: null as null | { speed: number; mammothX: number; obstacles: string[]; gap: number }, // a treadmill map (see tuning.chase): the floor slides left at speed (m/s) toward a mammoth at mammothX; obstacles (props.ts kinds) ride in from the right, gap metres apart
@@ -672,6 +673,15 @@ export const tuning = {
     cracks: 2,
     sinkSeconds: 2.5,
     wait: 20, // frames before the same floe can crack again (one landing is one crack)
+  },
+  catapult: {
+    // The catapult (Medieval: Battlements and Catapult; sim/catapult.ts): an arm on an axle `pivot` m above the floor, reaching `arm` m
+    // behind it to the cup and `back` m in front, lying cocked with the cup `cupLow` m off the floor. Knock its lever more than `trip`
+    // radians over (it swings `leverSwing` either way, sprung upright by stiffness `leverStiff`, damping `leverDamp`) and the arm swings
+    // up at `spin` rad/s (the cup moves at spin x arm m/s) to stand `release` radians above level, throwing whatever is in the cup up
+    // and toward the left; it holds `hold` s, winds back down over `wind` s, and can be fired again. PLACEHOLDER numbers.
+    pivot: 1.1, arm: 2.4, back: 0.9, cupLow: 0.35, spin: 6.5, release: 0.8, hold: 0.8, wind: 3,
+    trip: 0.3, leverSwing: 1.0, leverStiff: 170, leverDamp: 12, // (below about 150 the spring cannot stand the lever back up once it is over; held down, the catapult fires again each time it is wound)
   },
   trapdoor: {
     // Trapdoors (Gladiators: Colosseum Floor, arena.trapdoors): each one rattles for `tell` seconds, drops open (a quarter turn, in

@@ -24,6 +24,7 @@ export interface Part {
   crushAt?: number; // a heavy loose thing: the frame it may crush someone again
   back?: boolean; // stands a step behind the fighters (props.ts back): touches the ground and loose things only
   hang?: { x: number; y: number }; // hangs on a rope from this point (a lantern)
+  bolted?: boolean; // part of a map's machine (a catapult's lever): nobody picks it up
   head?: Part; // a chain weapon (props.ts chain): its head, hanging on its chain from this handle's far end; it goes wherever the handle goes
   chainOf?: Part; // ...and on the head: its handle
   netLive?: number; // a thrown net: frames it can still tangle someone it touches (sim/tangle.ts)

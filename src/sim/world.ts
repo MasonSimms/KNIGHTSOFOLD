@@ -20,6 +20,8 @@ import { buildTrain, stepTrain } from './train';
 import { buildDoors, stepDoors } from './trapdoor';
 import { buildDrawbridge } from './drawbridge';
 import { buildTilt } from './tilt';
+import { buildCatapult, stepCatapult } from './catapult';
+import type { Catapult } from './catapult';
 import { buildChariot, stepChariot } from './chariot';
 import type { Chariot } from './chariot';
 import type { Trapdoor } from './trapdoor';
@@ -113,12 +115,13 @@ export class Sim {
   bridge: Part[] = []; // the planks of this round's bridge, in order
   bridgeHome: { x: number; y: number }[] = []; // ...and where each one was built (the aqueduct's water pours through where one has gone: falls.ts)
   boats: Boat[] = []; // this round's ships, on a map with them (see water.ts)
-  machine: Part[] = []; // the map's own moving parts that are loose things (a drawbridge's deck and chain, the tilt): a training clear keeps them
+  machine: Part[] = []; // the map's own moving parts that are loose things (a drawbridge's deck and chain, the tilt, a catapult): a training clear keeps them
   private ropes: Part[][] = []; // the links of each rope, in order (arena.ropes)
   private ropeEnds: { body: RAPIER.RigidBody; ship: Boat; x: number; y: number }[] = []; // rope ends tied on a ship: where on it (see buildRope)
   chase: Chase | null = null; // this round's treadmill and mammoth, on the Mammoth Chase (see chase.ts)
   passing: Passing[] = []; // the signs and tunnels coming past the train (see train.ts)
   doors: Trapdoor[] = []; // the trapdoors in the floor (see trapdoor.ts)
+  catapult: Catapult | null = null; // the catapult (see catapult.ts)
   chariot: Chariot | null = null; // the runaway chariot (see chariot.ts)
   jets: Jet[] = []; // water leaking from the water tower's tank (see tower.ts)
   private cutLinks = new Set<unknown>(); // bridge joints already removed
@@ -277,6 +280,7 @@ export class Sim {
     if (A.bridge) this.buildBridge(A.bridge, grounds, A);
     if (A.drawbridge) buildDrawbridge(this, A.drawbridge, A.platformTop);
     if (A.tilt) buildTilt(this, A.tilt, A.platformTop);
+    this.catapult = A.catapult ? buildCatapult(this, A.catapult, A.platformTop) : null;
     for (const r of A.ropes) this.ropes.push(this.buildRope(r, A));
     this.chase = A.chase ? buildChase(this) : null;
     this.passing = A.train ? buildTrain(this) : [];
@@ -627,6 +631,7 @@ export class Sim {
     for (const f of this.fighters) { const v = f.torso.body.linvel(this.tmpV); this.preV[2 * f.index] = v.x; this.preV[2 * f.index + 1] = v.y; }
     if (this.passing.length) stepTrain(this, this.passing);
     if (this.doors.length) stepDoors(this, this.doors);
+    if (this.catapult) stepCatapult(this, this.catapult);
     if (this.chariot) stepChariot(this, this.chariot);
     applyWind(this);
     moveHooks(this);
@@ -877,7 +882,7 @@ export class Sim {
   /** What an object is, if a hand can take it: a prop, a club nobody is holding, or a limb that has come off. */
   private itemOf(part: Part): Item | null {
     if (part.chainOf) return this.itemOf(part.chainOf); // (a chain weapon's head: you take it by the handle)
-    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && (part.body.isDynamic() || !!part.weapon?.spear) && !part.links?.length && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
+    if (part.role === 'prop') { const i = this.props.indexOf(part); return i >= 0 && (part.body.isDynamic() || !!part.weapon?.spear) && !part.links?.length && !part.bolted && part.body.mass() <= T.props.maxLift ? { kind: 'prop', index: i } : null; } // (a standing stone is too heavy to lift)
     const g = this.fighters[part.owner];
     if (!g) return null;
     if (part.role === 'stick') return g.stick === part && !g.grip && g.dropCooldown <= 0 ? { kind: 'stick', from: g.index } : null;

@@ -76,3 +76,36 @@ describe('Tournament Lists', () => {
     expect(Math.abs(banners[1].body.translation().y - y0)).toBeLessThan(0.05); // the other still hangs
   });
 });
+
+describe('Battlements and Catapult', () => {
+  const knock = (sim: Sim) => { const l = sim.catapult!.lever.body; l.setAngvel(-8, true); }; // (a shove to the lever, toward the left)
+
+  it('left alone, the catapult stays cocked; its lever stands and cannot be carried off', async () => {
+    const { sim } = await castle('Battlements and Catapult'), c = sim.catapult!, a0 = c.arm.body.rotation();
+    let fired = false;
+    for (let i = 0; i < 600; i++) { sim.step([NEUTRAL, NEUTRAL]); fired ||= c.fired >= 0; }
+    expect(fired).toBe(false); // (never, not even as the round starts)
+    expect(Math.abs(c.arm.body.rotation() - a0)).toBeLessThan(0.01);
+    expect(Math.abs(c.lever.body.rotation() + Math.PI / 2)).toBeLessThan(0.1);
+    expect((sim as unknown as Internals).itemOf(c.lever)).toBeNull();
+  });
+
+  it('knock the lever over and a fighter standing in the cup is thrown far to the left; then it winds back down, ready again', async () => {
+    const { sim, A } = await castle('Battlements and Catapult'), c = sim.catapult!, v = sim.fighters[1], C = T.catapult;
+    const cup = c.pivot.x + Math.cos(c.low) * (C.arm - 0.3);
+    moveTo(sim, 1, cup, A.platformTop - C.cupLow - 0.2 - T.stand.height);
+    for (let i = 0; i < 60; i++) sim.step([NEUTRAL, NEUTRAL]);
+    const x0 = v.torso.body.translation().x;
+    knock(sim);
+    let top = Infinity;
+    for (let i = 0; i < 90; i++) { sim.step([NEUTRAL, NEUTRAL]); top = Math.min(top, v.torso.body.translation().y); }
+    expect(c.fired).toBeGreaterThan(0);
+    expect(x0 - v.torso.body.translation().x).toBeGreaterThan(4); // flung toward the left...
+    expect(top).toBeLessThan(A.platformTop - 2.5); // ...and up
+    for (let i = 0; i < 60 * (C.hold + C.wind + 0.5); i++) sim.step([NEUTRAL, NEUTRAL]);
+    expect(c.fired).toBe(-1); // wound back down
+    knock(sim);
+    for (let i = 0; i < 10; i++) sim.step([NEUTRAL, NEUTRAL]);
+    expect(c.fired).toBeGreaterThan(0); // and it fires again
+  });
+});
