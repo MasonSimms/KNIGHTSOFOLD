@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mapNamed } from '../content/eras';
+import { PROPS } from '../content/props';
 import { tuning as T } from '../content/tuning';
 import { NEUTRAL } from './types';
 import type { SimEvent } from './types';
@@ -144,5 +145,45 @@ describe('Main Street windows', () => {
     for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + pane.body.translation().x + 1.5 - t.x, y: q.y }, true); }
     for (let i = 0; i < 90; i++) sim.step([{ ...NEUTRAL, moveX: -1 }, NEUTRAL]);
     expect(sim.props.includes(pane)).toBe(true);
+  });
+});
+
+describe('Dungeon Cages', () => {
+  async function dungeon() {
+    T.eras.changeGameplay = true;
+    const sim = await Sim.create(5, 2, false);
+    sim.forceEra = 'medieval'; sim.forceMap = mapNamed('medieval', 'Dungeon Cages'); sim.reset();
+    T.eras.changeGameplay = false;
+    return sim;
+  }
+  const cages = (sim: Sim) => sim.props.filter((p) => p.weapon?.id === 'cage').sort((a, b) => a.body.translation().x - b.body.translation().x);
+  const moveTo = (sim: Sim, i: number, x: number, y: number) => { const f = sim.fighters[i], t = f.torso.body.translation(); for (const p of f.parts) { const q = p.body.translation(); p.body.setTranslation({ x: q.x + x - t.x, y: q.y + y - t.y }, true); p.body.setLinvel({ x: 0, y: 0 }, true); } };
+
+  it('left alone, the cages hang on their chains (too heavy to take down by hand)', async () => {
+    const sim = await dungeon(), cs = cages(sim), y0 = cs.map((c) => c.body.translation().y);
+    for (let i = 0; i < 600; i++) sim.step([NEUTRAL, NEUTRAL]);
+    cs.forEach((c, i) => expect(Math.abs(c.body.translation().y - y0[i])).toBeLessThan(0.05));
+    expect((sim as unknown as Internals).itemOf(cs[0])).toBeNull();
+  });
+
+  it('cut down, a cage crashes onto whoever is under it: crushed', async () => {
+    const sim = await dungeon(), c = cages(sim)[0], A = sim.arena;
+    moveTo(sim, 1, c.body.translation().x, A.platformTop - T.stand.height);
+    for (let i = 0; i < 20; i++) sim.step([NEUTRAL, NEUTRAL]);
+    sim.shootLoose(c, c.body.translation().x, c.body.translation().y, 0);
+    const events: SimEvent[] = [];
+    for (let i = 0; i < 90; i++) { sim.step([NEUTRAL, NEUTRAL]); events.push(...sim.events.map((e) => ({ ...e }))); }
+    expect(events.some((e) => e.t === 'hit' && e.how === 'crush' && e.victim === 1)).toBe(true);
+  });
+
+  it('the cage in the pit holds a fighter standing on it; cut down, it takes them into the pit', async () => {
+    const sim = await dungeon(), c = cages(sim)[1], A = sim.arena, top = c.body.translation().y - PROPS.cage.thick / 2;
+    moveTo(sim, 1, c.body.translation().x, top - T.stand.height);
+    for (let i = 0; i < 120; i++) sim.step([NEUTRAL, NEUTRAL]);
+    const v = sim.fighters[1];
+    expect(v.torso.body.translation().y).toBeLessThan(A.platformTop); // still up, on the cage
+    sim.shootLoose(c, c.body.translation().x, c.body.translation().y, 0);
+    for (let i = 0; i < 120 && !v.limp; i++) sim.step([NEUTRAL, NEUTRAL]);
+    expect(v.limp).toBe(true); // fell into the pit (a knock-off)
   });
 });
