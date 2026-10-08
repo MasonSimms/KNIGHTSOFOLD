@@ -65,3 +65,17 @@ describe('Mammoth Chase', () => {
     expect(hashes[0]).toBe(hashes[1]);
   });
 });
+
+// The training panel's "clear the loose things" (Sim.clearLoose) used to take the chase's own rocks and logs away while the chase still
+// moved them: the physics engine stopped on the next step.
+describe('clearing the loose things on the Mammoth Chase', () => {
+  it('keeps its rocks and logs, and the chase runs on', async () => {
+    const sim = await chase();
+    run(sim, 30);
+    const riders = sim.chase!.obstacles.length;
+    sim.clearLoose();
+    run(sim, 120);
+    expect(sim.chase!.obstacles.every((o) => sim.props.includes(o))).toBe(true);
+    expect(sim.chase!.obstacles.length).toBe(riders);
+  });
+});

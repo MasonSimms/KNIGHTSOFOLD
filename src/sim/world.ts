@@ -706,10 +706,10 @@ export class Sim {
   /** Training: drop a weapon or pickup (an id from content/props.ts ITEMS) in at a point. */
   spawnItem(kind: string, x: number, y: number): void { this.edits.push({ f: this.frame, item: kind, x, y }); this.addProp(kind, x, y); }
 
-  /** Training: take every loose weapon and object off the map (a bridge keeps its planks; clubs dropped by fighters stay). */
+  /** Training: take every loose weapon and object off the map (a bridge keeps its planks, ropes their links, the Mammoth Chase its rocks and logs; clubs dropped by fighters stay). */
   clearLoose(): void {
     this.edits.push({ f: this.frame });
-    const kept = (q: Part) => this.bridge.includes(q) || this.ropes.some((r) => r.includes(q));
+    const kept = (q: Part) => this.bridge.includes(q) || this.ropes.some((r) => r.includes(q)) || !!this.chase?.obstacles.includes(q); // (the map's own machinery stays: the chase moves its rocks and logs every step)
     for (const p of this.props.filter((q) => !kept(q))) {
       this.partByBody.delete(p.body.handle);
       this.world.removeRigidBody(p.body);
