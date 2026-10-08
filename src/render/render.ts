@@ -231,7 +231,7 @@ interface Entry {
 /** Graphics quality levels. High = everything; Medium = no extra resolution on high-density screens; Low = for slower computers. */
 export type Quality = 'high' | 'medium' | 'low';
 const QUALITY: Record<Quality, { maxResolution: number; paintWidth: number; boil: boolean; shadows: boolean; blur: boolean; grain: boolean }> = {
-  high: { maxResolution: 3, paintWidth: 1280, boil: true, shadows: true, blur: true, grain: true },
+  high: { maxResolution: 2, paintWidth: 1280, boil: true, shadows: true, blur: true, grain: true },
   medium: { maxResolution: 1, paintWidth: 1280, boil: true, shadows: true, blur: true, grain: true },
   low: { maxResolution: 0.75, paintWidth: 960, boil: false, shadows: false, blur: false, grain: false },
 };

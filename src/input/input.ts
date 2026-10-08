@@ -29,6 +29,7 @@ function syncButtons(e: PointerEvent): void {
 addEventListener('pointerdown', syncButtons);
 addEventListener('pointerup', syncButtons);
 addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('pointercancel', () => { mouseDown = false; rightWas = false; }); // (the browser took the press away: a drag it read as something else; no button left held)
 addEventListener('pointermove', (e) => { mouseX = e.clientX; mouseY = e.clientY; usePadAim = false; syncButtons(e); });
 
 /** One-shot key check (R, F3): true once per key press. */

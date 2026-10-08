@@ -16,6 +16,7 @@ export class Room {
   private pending: SimEvent[] = [];
   private log: SimEvent[] = []; // structural events since the round began, so a late joiner can catch up
   private tape = new Tape(); // the round, for its end-of-round replay
+  private backlog: number[]; // per player: ticks in a row with an input still waiting after this one (see tuning.net.inputTrim)
   private lastN: number[]; // per player: the number of the newest input taken (the same input comes over both lanes: the second is dropped)
   private recent: [number, SimEvent[]][] = []; // structural events of the last few ticks, repeated in every snapshot (Snapshot.back)
   /** Per player, how their buttons have been arriving (the server log, npm run netlab): ticks counted, inputs left waiting summed over
@@ -30,6 +31,7 @@ export class Room {
     this.queue = sim.fighters.map(() => []);
     this.acks = sim.fighters.map(() => 0);
     this.lastN = sim.fighters.map(() => 0);
+    this.backlog = sim.fighters.map(() => 0);
     this.stats = sim.fighters.map(() => ({ ticks: 0, waiting: 0, dry: 0, folded: 0 }));
     // Between rounds everyone sees the museum: the freeze, the camera pulling back, the replay in the painting, the slide to the next
     // painting and into it (render/museum.ts). The next round waits for all of it.
@@ -47,6 +49,14 @@ export class Room {
     while (q.length > T.net.inputQueue) this.fold(slot);
   }
 
+  /** The only input waiting is used now, merged with the one just taken (its presses count; one tick of movement is merged away). */
+  private trimOne(slot: number): void {
+    const x = this.queue[slot].shift()!, a = this.inputs[slot];
+    this.inputs[slot] = { ...x.i, jump: a.jump || x.i.jump, attack: a.attack || x.i.attack, drop: a.drop || x.i.drop, dodge: a.dodge || x.i.dodge };
+    this.acks[slot] = x.n;
+    this.stats[slot].folded++;
+  }
+
   /** The oldest waiting input is folded into the next: its presses still count, its tick of movement is merged away. */
   private fold(slot: number): void {
     const q = this.queue[slot], [a, b] = q;
@@ -61,6 +71,8 @@ export class Room {
       const x = q.shift(), st = this.stats[i];
       if (x) { this.inputs[i] = x.i; this.acks[i] = x.n; } else if (this.acks[i]) st.dry++;
       if (this.acks[i]) { st.ticks++; st.waiting += q.length; }
+      this.backlog[i] = q.length ? this.backlog[i] + 1 : 0;
+      if (this.backlog[i] > T.net.inputTrim && q.length >= 1) { q.length > 1 ? this.fold(i) : this.trimOne(i); this.backlog[i] = 0; } // (a tick of delay that has stayed: taken away)
     });
     const S = this.sim, round = S.round;
     if (this.hold && S.roundOver && !S.matchOver && !S.endsMatch && S.roundFrames + 1 >= T.match.resultFrames + S.extraRoundPause && this.hold(round + 1)) { S.extraRoundPause++; this.stretched++; } // (the next round waits a tick more)

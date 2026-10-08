@@ -7,7 +7,8 @@
 <link rel="icon" href="data:," />
 <style>
   @font-face { font-family: 'Fell SC'; src: url('/fonts/IMFellEnglishSC.ttf') format('truetype'); font-display: swap; } /* IM Fell English SC (SIL Open Font License, see public/fonts) */
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #141018; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #141018; -webkit-user-select: none; user-select: none; } /* (a drag in a fight selected the hint's text, and the browser then cancelled the held click) */
+  input { -webkit-user-select: text; user-select: text; }
   #overlay { position: fixed; top: 8px; left: 8px; margin: 0; padding: 6px 8px; color: #9f9; background: rgba(0,0,0,.6);
              font: 12px/1.35 Consolas, monospace; pointer-events: none; white-space: pre; }
   #score { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); font: 27px 'Fell SC', Georgia, serif; letter-spacing: .08em; color: #e3c375;
@@ -19,6 +20,8 @@
   #boot { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; transition: opacity .35s;
           background: radial-gradient(120% 95% at 50% 32%, #2b4838 0%, #1b3025 52%, #0c1611 100%); }
   #boot.gone { opacity: 0; pointer-events: none; }
+  #boot .fail { position: absolute; top: calc(50% + 80px); left: 50%; transform: translateX(-50%); width: min(80vw, 560px); margin: 0; text-align: center;
+          color: #e3c375; font: 18px/1.4 Georgia, serif; text-shadow: 0 2px 2px #1a1206; }
   #boot .lframe { width: 170px; height: 104px; padding: 9px; box-sizing: border-box; filter: brightness(.8);
           background: linear-gradient(145deg, #f7df92 0%, #c99a3e 17%, #8a6020 38%, #e9c66c 54%, #a2752a 74%, #f1d483 100%);
           box-shadow: 0 9px 18px rgba(0,0,0,.45), inset 0 0 0 1px #5a3e10, inset 0 0 0 3px rgba(255,236,170,.35), inset 0 0 0 5px #7a5618; }
@@ -36,6 +39,16 @@
 <div id="banner"></div>
 <div id="hint">A D move &middot; Space jump &middot; Mouse aims &middot; left-click: club = hold to charge, release to lunge &middot; empty hands: tap = punch, hold = grab, let go to fling, right-click to toss, jump back and hold S to slam &middot; right-click drops the club (swing first to throw it) or picks it up &middot; Shift dodge &middot; S crouch &middot; hold toward a wall to slide, jump to wall-jump &middot; R reset &middot; Esc menu &middot; Tab training settings &middot; H highlights &middot; F3 overlay</div>
 <div id="boot"><div class="lframe"><div class="stroke"></div></div></div>
+<script>
+  // If the game cannot start in this browser (graphics turned off, too old), say so on the loading screen instead of it going on for ever.
+  (function () {
+    function say(why) { var b = document.getElementById('boot'); if (!b || b.classList.contains('gone') || b.querySelector('.fail')) return; var p = document.createElement('p'); p.className = 'fail'; p.textContent = why; b.appendChild(p); }
+    var c = document.createElement('canvas');
+    if (!(c.getContext('webgl2') || c.getContext('webgl'))) say('This browser cannot draw the game. Turn on hardware acceleration in its settings (or play in Chrome or Edge), then reload.');
+    addEventListener('error', function () { setTimeout(function () { say('The game could not start in this browser. Update it, or play in Chrome or Edge.'); }, 5000); });
+    setTimeout(function () { say('The game is taking a long time to start. Reload the page, or play in Chrome or Edge.'); }, 45000);
+  })();
+</script>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

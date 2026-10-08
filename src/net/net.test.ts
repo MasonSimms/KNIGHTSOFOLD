@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { tuning as T } from '../content/tuning';
 import { fuzzer } from '../sim/fuzz';
 import { makeRng } from '../sim/rng';
+import { NEUTRAL } from '../sim/types';
 import { Sim } from '../sim/world';
 import { Mirror } from './snapshot';
 import type { Snapshot } from './snapshot';
@@ -30,6 +31,17 @@ function gap(server: Sim, client: Sim, tolerateLag = false): number {
 }
 
 describe('online mirror', () => {
+  it('an input that stays waiting at the server (a tick of delay for good) is taken away after a while (its presses folded in)', async () => {
+    const sim = await Sim.create(3, 2, false), room = new Room(sim);
+    let n = 0;
+    room.setInput(0, NEUTRAL, ++n); // one ahead: from now on, one always waits
+    for (let i = 0; i < T.net.inputTrim + 30; i++) { room.setInput(0, NEUTRAL, ++n); room.tick(); }
+    const st = room.stats[0];
+    expect(st.folded).toBeGreaterThan(0); // trimmed
+    const s = room.tick();
+    expect(s!.ack![0]).toBe(n); // no input left waiting: the newest one is in use
+  });
+
   it('a new round waits while the room is told to hold it (a page still painting), then starts, and the next pause is the usual one', async () => {
     const sim = await Sim.create(3, 2, false), room = new Room(sim), base = sim.extraRoundPause;
     let hold = true;
