@@ -166,7 +166,7 @@ let pendingClip: Clip | null = null, clipAt = 0, roundSeenAt = 0, lastAlpha = 1;
  */
 async function eraChange() {
   if (replaying) return;
-  replaying = true;
+  replaying = true; freeze = 0;
   const now = museum.newCanvas();
   renderer.draw(lastAlpha, 0, undefined, now); // the freeze
   museum.hangNow(now, view.era);
@@ -212,7 +212,7 @@ const excitement = new Excitement(); // how exciting the fight is: the music fol
 function play(e: SimEvent) {
   renderer.onEvent(e);
   excitement.event(e);
-  if (e.t === 'hit') sfx.hit(e.v, !!e.head);
+  if (e.t === 'hit') { sfx.hit(e.v, !!e.head); if (e.v * (e.head ? 1.5 : 1) >= T.finish.hits.freezeImpact) freeze = T.finish.hits.freezeFrames; } // (a heavy hit holds the picture for a few frames)
   else if (e.t === 'shot') sfx.shot((PROPS[e.w ?? '']?.gun?.kick ?? 0) >= 20); // (the big guns: the big bang)
   else if (e.t === 'break' && e.w === 'pane') sfx.shatter();
   else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.(); // some events (respawn, new round) have no sound
@@ -243,7 +243,7 @@ function toScreen(x: number, y: number) {
   return { x: (x - o.x) / metresPerPx, y: (y - o.y) / metresPerPx };
 }
 
-let acc = 0, last = performance.now();
+let acc = 0, last = performance.now(), freeze = 0; // freeze: frames the fight still waits after a heavy hit
 let frames = 0, msSum = 0, simMsSum = 0, statTime = last;
 let lastInput: PlayerInput = NEUTRAL;
 let players = 1; // how many people are playing: 1 plus every gamepad beyond the first
@@ -320,7 +320,8 @@ function frame(now: number) {
   if (paused || replaying) return;
   const ft = Math.min(now - last, 100); // clamp so a tab switch doesn't cause a huge catch-up
   last = now;
-  acc += (ft / 1000) * speed;
+  const frozen = freeze > 0; // a heavy hit: the fight (or, online, our copy of it) stands still this frame
+  if (frozen) freeze--; else acc += (ft / 1000) * speed;
 
   // Plugging in or unplugging a gamepad changes the number of players (2-4 starts a real fight; alone you get the training dummy).
   const pads = connectedPads();
@@ -390,7 +391,7 @@ function frame(now: number) {
   let alpha = acc / T.sim.dt;
   if (mirror) {
     while (toClient.length && toClient[0].at <= now) { const s = toClient.shift()!.s; mirror.push(s); predictor?.reconcile(s); }
-    const shown = mirror.update(ft / 1000);
+    const shown = mirror.update(frozen ? 0 : ft / 1000);
     if (net && mirror.desyncs > desyncsSeen && now - resyncAt > 2000) { net.send({ t: 'resync' }); resyncAt = now; } // our copy went wrong: ask for all of it again
     desyncsSeen = mirror.desyncs;
     alpha = shownAlpha = shown.alpha;

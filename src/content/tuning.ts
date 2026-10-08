@@ -869,6 +869,11 @@ export const tuning = {
     shadow: { alpha: 0.22, blur: 6, x: 0.05, y: 0.06 }, // the faint soft shadow that lifts each fighter off the map: strength, softness (px at 1080p), offset (m)
     front: { blur: 3.5 }, // how out of focus the front plane is (px at 1080p)
     water: { alpha: 0.8, crestWidth: 0.06, crestAlpha: 0.55 },
+    // Hits (owner's visuals handoff, effects): a heavy hit (impact at or above freezeImpact, a hit to the head counting 1.5x) holds the
+    // picture for freezeFrames frames (0 = never). A lost limb drips paint from its cut end (render/limbs.ts): for dripSeconds, about
+    // dripsPerSecond drops of radius drop (m) lasting dropSeconds; once it has lain still for poolAfter seconds it lies in a pool of its
+    // owner's paint, pool px across at 1080p, poolDrop m below its middle.
+    hits: { freezeImpact: 40, freezeFrames: 3, dripSeconds: 3, dripsPerSecond: 7, drop: 0.025, dropSeconds: 0.45, poolAfter: 0.4, pool: 26, poolDrop: 0.06 },
     jet: { width: 0.26, color: 0xcfe4ee, alpha: 0.85 },
     wind: { cape: 9, smoke: 0.12, flame: 0.03, trail: 0.05, spray: 0.04, grass: 0.025, jet: 0.03 }, // how much the wind (per m/s) moves: capes (m/s² of flap), smoke (drift share), flames (lean, radians), bullet trails, paint spray, grass (lean), water jets // a water tower leak: how thick, its colour, how see-through
     glassAlpha: 0.4, // how much a shop window hides what is behind it

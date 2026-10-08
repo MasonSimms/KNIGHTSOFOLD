@@ -8,6 +8,7 @@ import { createBackdrops } from './painter/backdrops';
 import { BOT_GRAYS, drawRobotHead } from './robot';
 import { createSea } from './sea';
 import { createFx } from './fx';
+import { createLimbs } from './limbs';
 import { createMotion } from './motion';
 import { createFrame } from './frame';
 import { createFlames } from './flames';
@@ -393,6 +394,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   };
   const fxLayer = new Container(); // gunfire: bullets and their trails, flashes, sparks, splinters, smoke
   actors.addChild(fxLayer);
+  const limbs = createLimbs(paintLayer, fxLayer, splatTexs); // a lost limb: paint dripping from its cut end, a pool where it lies
   const fx = createFx(fxLayer, splatTexs);
   const motion = createMotion(fxLayer, fx.puff); // swing trails, hit dabs, dust
   const flames = createFlames(fxLayer); // the arena's fires, and flames on whatever is burning
@@ -581,6 +583,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         shake = Math.max(shake, T.bridge.shake);
       } else if (e.t === 'dismember') {
         ring(e.x, e.y, 0xffffff);
+        limbs.onEvent(e, sim, playerColor(e.victim));
         splat(e.x, e.y, T.splat.radiusMax * 0.8, playerColor(e.victim));
       } else if (e.t === 'boom') {
         shake = Math.max(shake, T.shake.max * T.special.blastShake);
@@ -621,6 +624,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         for (const s of splats) s.visible = false;
         for (const s of streaks) s.visible = false;
         fx.clear();
+        limbs.clear();
         motion.clear();
         frame.clear();
         growing.length = 0; flying.length = 0;
@@ -788,6 +792,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
       sea.draw(sim, alpha);
       fx.draw(sim, alpha, frameSeconds, wind);
+      limbs.draw(alpha, frameSeconds);
       flames.draw(sim, alpha, frameSeconds, variant, wind);
       mammoth.draw(sim, alpha);
       passing.draw(sim, alpha);

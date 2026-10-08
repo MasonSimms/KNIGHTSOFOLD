@@ -10,7 +10,7 @@ import type { Sim } from '../sim/world';
 // Pools made once (nothing is allocated while playing).
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-interface Trail { id: number; ox: number; oy: number; x: number; y: number; fade: number; drift: number; color: number; orb: number } // fade: 1 while flying, falling to 0 after; drift: how far the wind has carried it (m); color, orb: its gun's look (props.ts)
+interface Trail { id: number; ox: number; oy: number; x: number; y: number; fade: number; drift: number; color: number; orb: number; dash: boolean } // fade: 1 while flying, falling to 0 after; drift: how far the wind has carried it (m); color, orb: its gun's look (props.ts); dash: sent back by a shield
 interface Bit { g: Graphics; x: number; y: number; vx: number; vy: number; spin: number; life: number; max: number; fall: boolean }
 interface Puff { s: Sprite; x: number; y: number; vy: number; life: number; max: number; size: number; a: number }
 
@@ -25,6 +25,9 @@ export function createFx(layer: Container, puffTex: Texture[]) {
   const flashList: { x: number; y: number; a: number; life: number }[] = [];
   const twirls = new Map<number, number>(); // fighter -> seconds into the twirl of an emptied gun
   const shotBy = new Map<number, string>(); // fighter -> the gun they fired last (online the bullets come without it)
+  let simNow: Sim | undefined; // the world as last drawn (for what people are holding when an event comes)
+  const METAL = new Set(['metal', 'shield', 'stone']);
+  const holding = (i: number) => simNow?.fighters[i]?.stick?.weapon?.material ?? 'wood';
 
   /** A flying bit: a short line (a spark, a splinter) that flies, spins, fades. */
   const bit = (x: number, y: number, ang: number, speed: number, len: number, width: number, color: number, life: number, fall: boolean) => {
@@ -32,6 +35,11 @@ export function createFx(layer: Container, puffTex: Texture[]) {
     b.g.clear().moveTo(-len / 2, 0).lineTo(len / 2, 0).stroke({ width, color, cap: 'round' });
     b.g.rotation = ang; b.g.alpha = 1; b.g.visible = true;
     Object.assign(b, { x, y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, spin: (Math.random() - 0.5) * (fall ? 18 : 0), life, max: life, fall });
+  };
+  /** Metal struck: yellow-white sparks flying back from the blow, and orange dots that fall. */
+  const sparks = (x: number, y: number, ang: number) => {
+    for (let i = 0; i < 7; i++) bit(x, y, ang + (Math.random() - 0.5) * 2.2, 4 + Math.random() * 5, 0.12 + Math.random() * 0.12, 0.025, i % 2 ? 0xffd27a : 0xfff6d0, 0.18, false);
+    for (let i = 0; i < 4; i++) bit(x, y, ang + (Math.random() - 0.5) * 2.6, 2 + Math.random() * 3, 0.03, 0.05, 0xff8a3c, 0.4, true);
   };
   const puff = (x: number, y: number, size: number, color: number, alpha: number, life: number, rise: number) => {
     const p = puffs[nextPuff++ % puffs.length];
@@ -54,8 +62,13 @@ export function createFx(layer: Container, puffTex: Texture[]) {
       } else if (e.t === 'empty') { // the dry click: a little puff, and the gun is twirled round
         puff(e.x, e.y, 0.22, 0xbdb6a8, 0.6, 0.6, 0.3);
         twirls.set(e.owner, 0);
-      } else if (e.t === 'spark') { // metal: a burst of sparks back toward the shot
-        for (let i = 0; i < 7; i++) bit(e.x, e.y, e.v + (Math.random() - 0.5) * 2.2, 4 + Math.random() * 5, 0.12 + Math.random() * 0.12, 0.025, 0xffd27a, 0.18, false);
+      } else if (e.t === 'spark') { // metal: a burst of sparks back toward the shot (a shield: the bullet's trail now dashed, from where it turned back)
+        sparks(e.x, e.y, e.v);
+        if (e.victim >= 0 && holding(e.victim) === 'shield') { const q = trailList.find((t) => t.fade >= 1 && Math.hypot(t.x - e.x, t.y - e.y) < 0.6); if (q) { q.dash = true; q.ox = e.x; q.oy = e.y; } }
+      } else if (e.t === 'parry') { // a swing blocked by a held weapon: sparks when both are metal, splinters when either is wood
+        const a = holding(e.victim), b = holding(e.owner), ang = Math.atan2(e.y - (simNow?.fighters[e.victim]?.torso.cy ?? e.y), e.x - (simNow?.fighters[e.victim]?.torso.cx ?? e.x));
+        if (METAL.has(a) && METAL.has(b)) sparks(e.x, e.y, ang);
+        else for (let i = 0; i < 5; i++) bit(e.x, e.y, ang + (Math.random() - 0.5) * 2.5, 2 + Math.random() * 3, 0.05 + Math.random() * 0.08, 0.035, i % 2 ? 0x8c5a2f : 0xc9a26a, 0.6, true);
       } else if (e.t === 'boom') { // a grenade: a flash, a ring of smoke, dirt and bits flying
         flashList.push({ x: e.x, y: e.y, a: -Math.PI / 2, life: B.flashSeconds * 3 });
         for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; puff(e.x + Math.cos(a) * 0.4, e.y + Math.sin(a) * 0.3, 0.9 + Math.random() * 0.5, 0x6a6258, 0.8, 1.6, 0.6); }
@@ -74,6 +87,7 @@ export function createFx(layer: Container, puffTex: Texture[]) {
     /** Each frame: the bullets (between the last two frames), their trails, and every bit and puff. */
     draw(sim: Sim, alpha: number, seconds: number, wind = 0) {
       const B = T.finish.bullets;
+      simNow = sim;
       // trails: one per bullet in flight; a bullet that is gone leaves its trail fading where it ended
       const live = new Set<number>();
       for (const u of sim.bullets) {
@@ -81,7 +95,7 @@ export function createFx(layer: Container, puffTex: Texture[]) {
         const x = lerp(u.px, u.x, alpha), y = lerp(u.py, u.y, alpha);
         const t = trailList.find((q) => q.id === u.id);
         const look = t ? undefined : PROPS[u.gun || shotBy.get(u.owner) || '']?.gun?.look;
-        if (t) { t.x = x; t.y = y; } else trailList.push({ id: u.id, ox: u.ox, oy: u.oy, x, y, fade: 1, drift: 0, color: look?.color ?? 0xffffff, orb: look?.orb ?? 0 });
+        if (t) { t.x = x; t.y = y; } else trailList.push({ id: u.id, ox: u.ox, oy: u.oy, x, y, fade: 1, drift: 0, color: look?.color ?? 0xffffff, orb: look?.orb ?? 0, dash: false });
       }
       trails.clear();
       for (let i = trailList.length - 1; i >= 0; i--) {
@@ -91,7 +105,7 @@ export function createFx(layer: Container, puffTex: Texture[]) {
         if (q.fade <= 0) { trailList.splice(i, 1); continue; }
         const dx = q.x - q.ox, dy = q.y - q.oy, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
         const tx = q.ox - ux * B.tailBack, ty = q.oy - uy * B.tailBack, n = 8; // the trail reaches back past the shooter
-        for (let k = 0; k < n; k++) { // fading in from the tail to the bullet
+        for (let k = q.dash ? 1 : 0; k < n; k += q.dash ? 2 : 1) { // fading in from the tail to the bullet (every other piece when it was sent back)
           const a0 = k / n, a1 = (k + 1) / n;
           trails.moveTo(lerp(tx, q.x, a0) + q.drift * (1 - a0), lerp(ty, q.y, a0)).lineTo(lerp(tx, q.x, a1) + q.drift * (1 - a1), lerp(ty, q.y, a1)).stroke({ width: B.trailWidth, color: q.color, alpha: B.trailAlpha * a1 * q.fade, cap: 'butt' });
         }
