@@ -21,6 +21,7 @@ export type ClientMsg =
   | { t: 'in'; i: PlayerInput; n?: number; r?: [number, PlayerInput][] } // my controls, sent every tick; n counts them (the snapshot says which one the server used last: prediction needs it). r: the few before it again (over the fast lane, where one can be lost)
   | { t: 'rtc'; sdp?: string; candidate?: string; mid?: string } // opening the fast lane (server/fast.ts): this page's offer, then its addresses
   | { t: 'resync' } // my copy of the fight went wrong (a missed event): send me all of it again
+  | { t: 'painted'; round: number } // my pictures for this round are painted (the round, and the match's first, waits for everyone's: tuning.net.paintWait at most)
   | { t: 'ping'; n: number } // send n straight back (to measure the round trip)
   | { t: 'stats'; ping: number; pingMax: number; buffer: number; stalls: number; carried: number; off: number; snaps: number; fps: number; slow: number; hidden: number; fast?: boolean; desyncs?: number }; // every 30 s in a fight: how this page's connection is going (into the server's log, fly logs: what real connections are like)
 

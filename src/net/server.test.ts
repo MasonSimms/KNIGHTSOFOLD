@@ -36,7 +36,7 @@ class Client {
 
 let server: Server | null = null;
 const clients: Client[] = [];
-async function boot(opts: ServerOptions = {}) { server = await startServer(0, opts); return server; }
+async function boot(opts: ServerOptions = {}) { server = await startServer(0, { paintWaitMs: 0, ...opts }); return server; } // (these test pages paint nothing: no waiting for them, but where a test asks)
 async function connect(hello = true) { const c = new Client(server!.port); clients.push(c); await c.ready(); if (hello) c.send({ t: 'hello', v: PROTOCOL, tuning: tuningFingerprint() }); return c; }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 afterEach(async () => { clients.splice(0).forEach((c) => c.ws.terminate()); await server?.close(); server = null; });
@@ -81,6 +81,24 @@ const kill = (sim: Sim, i: number) => (sim as unknown as { kill(f: unknown, fell
 const sameParts = (server: Sim, client: Sim) => server.fighters.every((f, i) => f.parts.length === client.fighters[i].parts.length);
 
 describe('room server', () => {
+  it('the first round waits until every page says its pictures are painted (owner: everyone waits for the slowest, 3 s at most)', async () => {
+    const { all, game } = await fightOf(2, { paintWaitMs: 1500 });
+    await sleep(300);
+    expect(game.sim.frame).toBe(0); // nobody has painted: nothing moves
+    all[0].send({ t: 'painted', round: 1 });
+    await sleep(300);
+    expect(game.sim.frame).toBe(0); // one still painting
+    all[1].send({ t: 'painted', round: 1 });
+    await sleep(200);
+    expect(game.sim.frame).toBeGreaterThan(0); // everyone: it starts
+  });
+
+  it('the first round starts anyway after the wait, if a page never says it has painted', async () => {
+    const { game } = await fightOf(2, { paintWaitMs: 500 });
+    await sleep(900);
+    expect(game.sim.frame).toBeGreaterThan(0);
+  });
+
   it('make a room, get a 4-letter code, others join by it, the host starts, everyone gets the same seed and their own slot', async () => {
     const { code, starts, host } = await fightOf(4);
     expect(code).toMatch(/^[A-HJ-KM-NP-Z]{4}$/);

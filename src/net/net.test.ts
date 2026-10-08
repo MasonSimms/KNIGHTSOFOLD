@@ -30,6 +30,18 @@ function gap(server: Sim, client: Sim, tolerateLag = false): number {
 }
 
 describe('online mirror', () => {
+  it('a new round waits while the room is told to hold it (a page still painting), then starts, and the next pause is the usual one', async () => {
+    const sim = await Sim.create(3, 2, false), room = new Room(sim), base = sim.extraRoundPause;
+    let hold = true;
+    room.hold = () => hold;
+    (sim as unknown as { kill(f: unknown, fell: boolean): void }).kill(sim.fighters[1], true);
+    let ticks = 0;
+    for (; ticks < 2000 && sim.round === 1; ticks++) { room.tick(); if (ticks === T.match.resultFrames + base + 120) hold = false; }
+    expect(sim.round).toBe(2);
+    expect(ticks).toBeGreaterThan(T.match.resultFrames + base + 110); // it waited past the usual pause
+    expect(sim.extraRoundPause).toBe(base);
+  });
+
   it.each([1, 2, 3])('seed %i: with every snapshot shown exactly, the client copy matches the server through deaths, pickups and new rounds', async (seed) => {
     const { room, mirror, server, client } = await pair(seed, 4, false);
     const inputs = fuzzer(seed * 7 + 1);

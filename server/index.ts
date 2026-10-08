@@ -25,20 +25,23 @@ const DT = 1000 / 60;
 
 /** A player's place in a room. It outlives their connection: `ws` is null while they are away, and `token` is how they prove they are the same person.
  *  A bot's seat never has a connection: it is always ready, and a person who joins can take it. */
-interface Seat { token: string; ws: WebSocket | null; leftAt: number; look: Look; ready: boolean; bot?: boolean; inputsWas?: { ticks: number; dry: number; folded: number } }
+interface Seat { token: string; ws: WebSocket | null; leftAt: number; look: Look; ready: boolean; bot?: boolean; painted?: number; inputsWas?: { ticks: number; dry: number; folded: number } }
 
 class GameRoom {
   seats: (Seat | null)[] = []; // in a lobby: join order. In a fight: exactly MAX_PLAYERS entries, the index is the fighter number
-  game: { room: Room; sim: Sim } | null = null;
+  game: { room: Room; sim: Sim; startBy: number } | null = null; // startBy: the first round starts then at the latest (it waits for everyone's pictures)
   emptySince = 0; // when the last player disconnected from a running fight (0 = someone is here)
   constructor(readonly code: string) {}
   get present(): Seat[] { return this.seats.filter((s): s is Seat => !!s?.ws); } // connected players, lowest seat first: the first is the host
 }
 
-export interface ServerOptions { maxRooms?: number; reserveMs?: number; emptyMs?: number; graceMs?: number; createLimit?: number; site?: string; fastPort?: number; publicIp?: string } // site: a folder with the built game page to serve too; fastPort: the UDP port of the fast lane (server/fast.ts), publicIp: the address pages dial it on
+export interface ServerOptions { paintWaitMs?: number; maxRooms?: number; reserveMs?: number; emptyMs?: number; graceMs?: number; createLimit?: number; site?: string; fastPort?: number; publicIp?: string } // site: a folder with the built game page to serve too; fastPort: the UDP port of the fast lane (server/fast.ts), publicIp: the address pages dial it on
 export interface Server { port: number; rooms: Map<string, GameRoom>; close(why?: string): Promise<void> }
 
 export async function startServer(port: number, opts: ServerOptions = {}): Promise<Server> {
+  const paintWaitMs = opts.paintWaitMs ?? T.net.paintWait * 1000;
+  /** Someone in room r has not said their pictures for `round` are painted yet. */
+  const unpainted = (r: GameRoom, round: number) => r.present.some((s) => !s.bot && (s.painted ?? 0) < round);
   const maxRooms = opts.maxRooms ?? 20, reserveMs = opts.reserveMs ?? RESERVE_MS, emptyMs = opts.emptyMs ?? EMPTY_MS, graceMs = opts.graceMs ?? GRACE_MS;
   const rooms = new Map<string, GameRoom>();
   const makeLane = opts.fastPort ? await fastLanes(opts.fastPort, opts.publicIp) : null, lanes = new WeakMap<WebSocket, Lane>(); // the fast lane of each connection that opened one
@@ -165,6 +168,8 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
       let lane = lanes.get(ws);
       if (!lane) { lane = makeLane((x) => send(ws, x), (raw) => { try { const f = JSON.parse(raw); if (f?.t === 'in') takeInput(ws, f); } catch { /* junk */ } }); lanes.set(ws, lane); }
       lane.signal(m);
+    } else if (m.t === 'painted') {
+      if (at?.room.game) at.seat.painted = Math.max(at.seat.painted ?? 0, Number(m.round) || 0);
     } else if (m.t === 'resync') {
       if (at?.room.game) sendStart(at.room, at.seat, false, seeds.get(at.room)!, true);
     } else if (m.t === 'create') {
@@ -248,7 +253,10 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
         sim.gone = r.seats.map((s) => !s); // empty seats are parked from the first round
         sim.looks = Array.from({ length: MAX_PLAYERS }, (_, i) => ({ ...(r.seats[i]?.look ?? { color: i, hat: 'none' as const, eyes: 'round' as const }) }));
         sim.reset();
-        r.game = { room: new Room(sim), sim };
+        for (const s of r.seats) if (s) s.painted = 0;
+        r.game = { room: new Room(sim), sim, startBy: Date.now() + paintWaitMs };
+        let holding = 0, since = 0; // (the round being held, and since when)
+        r.game.room.hold = (round) => { if (!unpainted(r, round)) return false; if (holding !== round) { holding = round; since = Date.now(); } return Date.now() - since < paintWaitMs; };
         for (const s of r.present) sendStart(r, s, false, seed);
       });
     } else if (m.t === 'end') {
@@ -288,6 +296,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
     for (; acc >= DT; acc -= DT) {
       for (const r of rooms.values()) {
         if (!r.game) continue;
+        if (r.game.sim.frame === 0 && r.game.sim.round === 1 && Date.now() < r.game.startBy && unpainted(r, 1)) continue; // (the first round waits for everyone's pictures)
         const t0 = performance.now(), s = r.game.room.tick(), w = performance.now() - t0;
         health.work += w; health.workMax = Math.max(health.workMax, w); health.ticks++;
         if (!s) continue;

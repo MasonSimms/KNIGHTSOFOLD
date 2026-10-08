@@ -21,6 +21,9 @@ export class Room {
   /** Per player, how their buttons have been arriving (the server log, npm run netlab): ticks counted, inputs left waiting summed over
    *  them (each one waiting is a tick of delay), ticks with none arrived (the last one used again), inputs folded into the next. */
   stats: { ticks: number; waiting: number; dry: number; folded: number }[];
+  /** Online: true while the next round (`round`) must wait (the server: not every page has its pictures painted yet). Null: never. */
+  hold: ((round: number) => boolean) | null = null;
+  private stretched = 0; // ticks the pause before this next round was stretched by (waiting for pictures): taken off again once it starts
 
   constructor(readonly sim: Sim, readonly snapEvery = T.net.snapEvery) {
     this.inputs = sim.fighters.map(() => NEUTRAL);
@@ -59,7 +62,10 @@ export class Room {
       if (x) { this.inputs[i] = x.i; this.acks[i] = x.n; } else if (this.acks[i]) st.dry++;
       if (this.acks[i]) { st.ticks++; st.waiting += q.length; }
     });
+    const S = this.sim, round = S.round;
+    if (this.hold && S.roundOver && !S.matchOver && !S.endsMatch && S.roundFrames + 1 >= T.match.resultFrames + S.extraRoundPause && this.hold(round + 1)) { S.extraRoundPause++; this.stretched++; } // (the next round waits a tick more)
     this.sim.step(this.inputs);
+    if (S.round !== round && this.stretched) { S.extraRoundPause -= this.stretched; this.stretched = 0; }
     this.ticks++;
     if (this.ticks % this.snapEvery !== 0) { this.tape.feed(this.sim); this.collect(); return null; }
     this.collect();

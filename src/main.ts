@@ -3,6 +3,7 @@ import { Excitement } from './audio/intensity';
 import { setMusicEra, updateMusic } from './audio/music';
 import { eraById } from './content/eras';
 import { asEyes, asHat, botLook } from './content/looks';
+import type { Look } from './content/looks';
 import { PROPS } from './content/props';
 import { tuning } from './content/tuning';
 import { connectedPads, flushInput, readInput, readPadInput, wasPressed } from './input/input';
@@ -65,12 +66,17 @@ const room = lagMs ? new Room(sim) : null;
 let mirror: Mirror | null = lagMs ? new Mirror(await Sim.create(1, stress ? 4 : 2)) : null;
 // Open http://localhost:5173/?online to play for real: make or join a room, the host starts. (Needs the room server: npm run server.)
 let net: NetClient | null = null, mySlot = 0, inputSeq = 0, ping = 0, isHost = false;
+let coverUntilPainted = false; // (online, back in mid-fight: the loading screen until the round the server is in is painted)
 let predictor: Predictor | null = null, shownAlpha = 0; // online: your own fighter moved at once (the Settings switch 'Controls: Instant')
 const netStats = { since: performance.now(), pings: 0, pingSum: 0, pingMax: 0, frames: 0, slow: 0 }; // online: this page's connection lately (sent to the server's log)
 let fast: FastLane | null = null; // online: the fast lane (UDP) beside the WebSocket, once it opens (net/fast.ts)
 const recentIn: [number, PlayerInput][] = []; // the last few inputs, sent again with each one by the fast lane (where one can be lost)
 /** Online: send this tick's controls by both lanes. */
 const sendInput = (i: PlayerInput, n: number) => { net?.send({ t: 'in', i, n }); fast?.send({ t: 'in', i, n, r: recentIn.slice() }); recentIn.push([n, i]); if (recentIn.length > 4) recentIn.shift(); };
+const PRELOAD_MAX_MS = 20000; // the longest a fight here waits for its pictures (it is paused meanwhile; a first visit paints its backdrop, about 5 s)
+const ONLINE_PRELOAD_MS = 8000; // ...online, where the fight goes on behind the loading screen (the server waits tuning.net.paintWait for everyone)
+/** Online, after this page was busy painting: the snapshots that queued meanwhile are not the line's fault (once they are in: a moment later). */
+const settle = () => setTimeout(() => mirror?.forgetJitter(), 250);
 const onlineParam = query.get('online');
 if (onlineParam !== null) {
   const url = serverUrl(onlineParam);
@@ -79,6 +85,14 @@ if (onlineParam !== null) {
   net = r.client; mySlot = r.you;
   const m = new Mirror(await Sim.create(r.seed, 4, false)); // online is always 4 fighters: empty seats are parked out of sight
   mirror = m;
+  /** Into a fight from the room: dressed as in the room, its pictures painted behind the loading screen (the room put it up), the server told. */
+  const paintFirst = async (c: NetClient, looks: (Look | null)[]) => {
+    looks.forEach((l, i) => { if (l && m.sim.looks[i]) m.sim.looks[i] = { ...l }; });
+    await renderer.preload(m.sim, ONLINE_PRELOAD_MS);
+    c.send({ t: 'painted', round: m.sim.round });
+    closeMenu();
+    settle();
+  };
   if (r.queued) notice('You join at the start of the next round');
   const snap = (s: Snapshot) => { m.push(s); predictor?.reconcile(s); }; // (by either lane: the second copy of a snapshot is ignored)
   const attach = (c: NetClient) => {
@@ -90,7 +104,7 @@ if (onlineParam !== null) {
       else if (msg.t === 'rtc') void fast?.signal(msg);
       else if (msg.t === 'pong') { ping = performance.now() - msg.n; netStats.pings++; netStats.pingSum += ping; netStats.pingMax = Math.max(netStats.pingMax, ping); showPing(ping, m.delay > T.net.blendTicks + 3); } // (amber when the round trip is long, or the line is shaky and the picture runs further behind to cover it)
       else if (msg.t === 'clip') { pendingClip = msg.c; clipAt = performance.now(); } // the round's best moment: it plays in the museum
-      else if (msg.t === 'start') { mySlot = msg.you; if (predictor) { predictor.stop(); predictor.slot = msg.you; } if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) notice(msg.queued ? 'You join at the start of the next round' : ''); } // (back after a drop: rebuild from the catch-up snapshot that follows)
+      else if (msg.t === 'start') { mySlot = msg.you; if (predictor) { predictor.stop(); predictor.slot = msg.you; } if (msg.seed !== m.sim.matchSeed) m.sim.reseed(msg.seed); m.reset(); if (!msg.resync) { notice(msg.queued ? 'You join at the start of the next round' : ''); openLoading(); coverUntilPainted = true; } } // (back after a drop: rebuild from the catch-up snapshot that follows)
       else if (msg.t === 'over') void backToRoom(c); // the match is over (or the host ended it): back to the room's Hall, ready for a rematch
       else if (msg.t === 'error' && msg.fatal) { forgetSession(); alert(msg.why); location.href = location.pathname; }
       else if (msg.t === 'error') { forgetSession(); alert(`Could not rejoin: ${msg.why}.`); location.reload(); }
@@ -119,6 +133,7 @@ if (onlineParam !== null) {
     if (predictor) { predictor.stop(); predictor.slot = r.you; }
     m.sim.reseed(r.seed);
     m.reset();
+    await paintFirst(c, r.looks);
     notice(r.queued ? 'You join at the start of the next round' : '');
     attach(c);
     flushInput(); last = performance.now(); acc = 0;
@@ -126,6 +141,7 @@ if (onlineParam !== null) {
   };
   isHost = r.host;
   attach(net);
+  await paintFirst(net, r.looks);
   setInterval(() => net?.send({ t: 'ping', n: performance.now() }), 2000); // the round trip, shown in a corner
   // Every 30 s in a fight, how this connection is going, for the server's log (fly logs): the playtest night's real connections.
   let was = { waits: 0, starved: 0, checks: 0, off: 0, snaps: 0, desyncs: 0 };
@@ -193,7 +209,9 @@ async function eraChange() {
   await museum.slide();
   await museum.zoomIn();
   if (!net && !room) sim.finishRoundPause(); // (here the next round starts now; online the server has been waiting the same time)
+  for (let i = 0; i < 300 && net && mirror && mirror.newestRound <= view.round; i++) await new Promise((ok) => setTimeout(ok, 20)); // (online: the next round starts once everyone's is painted, 3 s at most: the painting stays up until it has)
   museum.close();
+  if (net) settle();
   replaying = false; last = performance.now(); acc = 0;
 }
 
@@ -204,6 +222,8 @@ async function drawNextRound(target: ReturnType<typeof museum.newCanvas>) {
   pv.gone = [...view.gone];
   pv.forceMap = view.forceMap; pv.forceEra = view.forceEra;
   pv.buildRound(view.round + 1, up.era);
+  await renderer.preload(pv, net ? ONLINE_PRELOAD_MS : PRELOAD_MAX_MS); // (its pictures first: the museum waits, not the fight)
+  net?.send({ t: 'painted', round: view.round + 1 });
   renderer.show(pv);
   renderer.draw(1, 0, undefined, target);
   renderer.show(view);
@@ -283,7 +303,6 @@ async function menu(screen: 'home' | 'hall') {
   paused = false;
 }
 
-const PRELOAD_MAX_MS = 8000; // the longest a fight waits for its pictures (a first visit paints two backdrops, about a second each)
 /** Everything the next round needs, painted before it starts (owner: nothing arrives after the fight has begun), behind a short note. */
 async function preload() {
   openLoading(); // (the loading screen: no words)
@@ -399,6 +418,7 @@ function frame(now: number) {
     desyncsSeen = mirror.desyncs;
     alpha = shownAlpha = shown.alpha;
     for (const e of shown.events) if (!(e.t === 'shot' && e.owner === mySlot && predictor?.active)) play(e); // (your own shot already flashed and banged when you clicked)
+    if (coverUntilPainted && view.frame > 0 && view.round === mirror.newestRound) { coverUntilPainted = false; void renderer.preload(view, ONLINE_PRELOAD_MS).then(() => { closeMenu(); settle(); }); }
     if (shown.events.some((e) => e.t === 'round') && view.matchActive) roundSeenAt = now; // online: the round is won; the museum in half a second
     if (net && shown.events.some((e) => e.t === 'newround')) notice(''); // ("You join at the start of the next round": this is it)
     if (roundSeenAt && now - roundSeenAt >= (T.transition.freezeFrames / 60) * 1000) { roundSeenAt = 0; lastAlpha = alpha; void eraChange(); }
@@ -443,7 +463,7 @@ if (botsParam) {
 
 requestAnimationFrame(frame);
 if (mode === 'training') void menu('home'); // (the home screen takes the loading screen away once its pictures are painted)
-else void renderer.preload(sim, PRELOAD_MAX_MS).then(bootDone); // (a testing link or online: straight in, once the first round is painted)
+else if (!net) void renderer.preload(sim, PRELOAD_MAX_MS).then(bootDone); // (a testing link: straight in, once the first round is painted; online did its own)
 
 if (import.meta.env.DEV) (window as unknown as { sim: Sim }).sim = sim; // dev-only handle for console poking and browser tests
 if (import.meta.env.DEV) (window as unknown as { view: Sim; mirror: Mirror | null }).view = view; // (online: the copy that is drawn)

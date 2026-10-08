@@ -86,6 +86,12 @@ export class Mirror {
   constructor(readonly sim: Sim, delay = T.net.blendTicks, readonly keep = 60) { this.delay = delay; this.want = delay; } // keep: snapshots held (a replay clip holds all of its own)
   /** The server tick being shown now (the newest snapshot's minus the buffer, give or take). */
   get shown(): number { return this.head; }
+  /** This page has just been busy (painting behind the loading screen or in the museum): the snapshots that waited meanwhile came in a
+   *  bunch and look like a shaky line, which would keep the others shown far behind for half a minute. Forget them: the buffer starts
+   *  again from the usual and measures the line itself from here. */
+  forgetJitter(): void { this.late = []; this.want = this.delay = T.net.blendTicks; this.calm = 0; }
+  /** The round the server is in, by the newest snapshot (the page may still be showing the one before: the museum between them). */
+  get newestRound(): number { return this.snaps.at(-1)?.round ?? -1; }
 
   /** A snapshot from the server; `at` = when it arrived (ms, this page's clock). */
   push(s: Snapshot, at = performance.now()): void {

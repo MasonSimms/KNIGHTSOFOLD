@@ -837,6 +837,7 @@ export const tuning = {
     personalSpace: 0.8, // m: someone else this close in its way becomes who it fights (it does not walk into them)
   },
   net: {
+    paintWait: 3, // s: online, a match's first round (and every next round) waits at most this long for every page to have its arena painted (owner, 2026-10-08: everyone waits for the slowest, but not forever)
     // Online (owner: cut the lag cheaply before trying prediction). From pressing a key to seeing your fighter move online takes your ping,
     // plus a wait for the next snapshot, plus the blend buffer. A snapshot is about 1.3 KB: 60 a second is about 0.6 Mbit/s per player.
     snapEvery: 1, // the server sends a snapshot every this many 60 Hz ticks (1 = 60 a second; was 3 = 20 a second)

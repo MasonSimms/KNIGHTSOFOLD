@@ -550,19 +550,18 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       builtVersion = -1; // (repaint everything)
     },
     show(s: Sim) { sim = s; builtVersion = -1; paintedEra = ''; shownRound = -1; shake = 0; },
-    /** Everything a fight in `s` needs, painted before it starts (owner): the fighters' and weapons' pictures still unpainted, this
-     *  round's backdrop and the next one's. Resolves when done, or after `maxMs` so a slow machine still gets its fight. */
+    /** Everything a fight in `s` needs, painted before it is shown (owner: nothing half-painted): its fighters (colours, costumes, hats), the
+     *  things on its map, the era's pickups, and its backdrop (the next round's is started). Only what it needs: the rest of the warm-up
+     *  (every other colour, era and weapon) waits for idle moments. Resolves when done, or after `maxMs` so a slow machine still gets its fight. */
     /** Online: the Hall knows the match's seed before the host starts, so its first two rounds' backdrops are painted while everyone readies up. */
     prepare(seed: number) { for (const round of [1, 2]) { const era = eraFor(seed, round).id; backdrops.prefetch(era, arenaFor(era, mapFor(seed, round, era))); } },
     async preload(s: Sim, maxMs: number): Promise<void> {
-      const t0 = performance.now();
-      let sliceAt = t0;
-      while (prewarm.length && performance.now() - t0 < maxMs) { // the warm-up's jobs, a slice of a frame at a time (the wait screen keeps moving)
-        prewarm.shift()!();
-        if (performance.now() - sliceAt > 40) { await new Promise((ok) => setTimeout(ok, 0)); sliceAt = performance.now(); }
-      }
-      const up = s.upcoming(), left = Math.max(0, maxMs - (performance.now() - t0));
-      await Promise.race([Promise.all([backdrops.ready(s.era, s.arena), backdrops.ready(up.era, up.arena)]), new Promise((ok) => setTimeout(ok, left))]);
+      const t0 = performance.now(), shown = sim, up = s.upcoming();
+      const backdrop = backdrops.ready(s.era, s.arena); // (painted in its worker meanwhile)
+      sim = s; rebuild(); sim = shown; builtVersion = -1; // (everything this round shows is painted building it once; whatever is shown is built again next draw)
+      for (const id of eraById(s.era).pickups ?? []) { const p = PROPS[id]; if (p) paintedWeapon(id, p.len, K0); } // (and what will drop in)
+      await Promise.race([backdrop, new Promise((ok) => setTimeout(ok, Math.max(0, maxMs - (performance.now() - t0))))]);
+      backdrops.prefetch(up.era, up.arena);
     },
     /** Screen pixels -> world metres. */
     toWorld(px: number, py: number) { return { x: (px - view.x) / view.scale.x, y: (py - view.y) / view.scale.y }; },

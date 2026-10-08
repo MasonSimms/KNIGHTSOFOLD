@@ -3,7 +3,8 @@ import { NetClient } from '../net/client';
 import { MAX_PLAYERS, MIN_PLAYERS } from '../net/protocol';
 import type { ServerMsg } from '../net/protocol';
 import { mountHall, ROWS, step, takenBy } from './hall';
-import { BACK, closeMenu, openMenu } from './menu';
+import { BACK, closeMenu, openLoading, openMenu } from './menu';
+import type { Look } from '../content/looks';
 
 // Online: make a room or join one by its 4-letter code (also while a fight is under way: you appear next round), then the Hall of
 // Champions with the room code on a plaque. Everyone readies up and the host starts. Resolves when you are in a fight.
@@ -38,7 +39,7 @@ const home = () => { forgetSession(); location.href = location.pathname; }; // b
  * then the Hall until the host starts. Resolves when you are in a fight.
  */
 /** `prepare` is told the next match's seed as soon as the room says it (and again whenever it changes), to paint its first rounds early. */
-export function runLobby(url: string, existing?: NetClient, prepare?: (seed: number) => void): Promise<{ client: NetClient; seed: number; you: number; queued: boolean; host: boolean }> {
+export function runLobby(url: string, existing?: NetClient, prepare?: (seed: number) => void): Promise<{ client: NetClient; seed: number; you: number; queued: boolean; host: boolean; looks: (Look | null)[] }> {
   notice('');
   const root = openMenu('door', `<button class="back" title="Back">${BACK}</button><h1>Old Masters</h1><div class="body">${existing ? 'Back to the room...' : 'Connecting...'}</div><div class="err"></div>`);
   const body = root.querySelector('.body') as HTMLElement, err = root.querySelector('.err') as HTMLElement;
@@ -128,7 +129,8 @@ export function runLobby(url: string, existing?: NetClient, prepare?: (seed: num
           cancelAnimationFrame(raf);
           removeEventListener('keydown', onKey);
           if (hall) hall.close(); else closeMenu();
-          resolve({ client, seed: m.seed, you: m.you, queued: m.queued, host: !!last?.host });
+          openLoading(); // (until the fight's pictures are painted: the game takes it away)
+          resolve({ client, seed: m.seed, you: m.you, queued: m.queued, host: !!last?.host, looks: last?.looks ?? [] });
         }
       };
     }).catch((e: Error) => { body.textContent = ''; err.textContent = e.message; });
