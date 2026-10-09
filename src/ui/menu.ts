@@ -29,7 +29,7 @@ export function hangPicture(canvas: HTMLCanvasElement, era: string, w: number, h
 // The loading screen (owner: never show anything half-painted; a screen appears all at once when its pictures are done). The museum wall
 // with, in the middle, a small gilt frame in which a stroke of paint is laid on again and again: no words. index.html shows the same one
 // while the game itself is still arriving (#boot).
-export const LOADER = '<div class="loading"><div class="lframe"><div class="stroke"></div></div></div>';
+export const LOADER = '<div class="loading"><div class="pic lit lpic"><div class="lamp"></div><div class="frame"><div class="art"><div class="stroke"></div></div></div></div></div>';
 
 /** The loading screen on its own (before a fight: its backdrops being painted). */
 export const openLoading = (): HTMLElement => openMenu('waiting', LOADER);
@@ -66,7 +66,14 @@ export function paintAhead(): void {
 }
 
 /** The museum wall's painted tile, as a picture address for CSS (painted once). */
-export const wallUrl = (): string => (wall ||= paintWall());
+export const wallUrl = (): string => (wall ||= keptWall());
+const WALL_KEY = 'knights-wall'; // the painted wall, kept in the browser so the loading screen has it before the game has arrived (index.html)
+function keptWall(): string {
+  try { const w = localStorage.getItem(WALL_KEY); if (w) return w; } catch { /* storage blocked */ }
+  const w = paintWall();
+  try { localStorage.setItem(WALL_KEY, w); } catch { /* full or blocked: painted again next visit */ }
+  return w;
+}
 
 /** The wall is painted too: soft horizontal brush strokes, lighter and darker, on a tile that repeats without seams. */
 function paintWall(): string { return wallTile().toDataURL(); }
@@ -90,3 +97,7 @@ export function wallTile(): HTMLCanvasElement {
   }
   return c;
 }
+
+// The loading screen the page opened with is on the same wall as soon as the game is here (on later visits index.html has it at once).
+const boot = document.getElementById('boot');
+if (boot) { boot.style.setProperty('--wall', `url(${wallUrl()})`); boot.classList.add('walled'); }
