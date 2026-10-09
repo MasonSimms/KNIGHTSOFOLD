@@ -146,6 +146,25 @@ describe('online mirror', () => {
     expect(worst).toBeLessThan(0.01);
   }, 120_000);
 
+  it('a body blown apart is in pieces on the client too, and for a late joiner (a leg picked up from it stayed tied to the body on the page and threw your own fighter about)', async () => {
+    const { room, mirror, server, client } = await pair(14, 4, false);
+    const joints = (sim: Sim) => { let n = 0; for (const p of sim.fighters[1].parts) sim.world.impulseJoints.forEachJointHandleAttachedToRigidBody(p.body.handle, () => n++); return n; }; // (on the body blown apart)
+    const tick = () => { const s = room.tick(); if (s) { mirror.push(wire(s)); mirror.show(s.frame); } };
+    for (let i = 0; i < 30; i++) tick();
+    server.events.length = 0; // (events belong to a tick: the ones this makes are collected as Room.removePlayer does)
+    (server as unknown as { kill(f: unknown, fell: boolean, impact: number, cause: unknown): void }).kill(server.fighters[1], false, T.death.explodeImpact, { how: 'club', nx: 1, ny: 0 });
+    (room as unknown as { collect(): void }).collect();
+    for (let i = 0; i < 10; i++) tick();
+    expect(server.fighters[1].legLost).toEqual([true, true]); // (the server did blow it apart)
+    expect(client.fighters[1].legLost).toEqual([true, true]);
+    expect(joints(client)).toBe(joints(server));
+    const late = new Mirror(await Sim.create(14, 4, false));
+    const up = room.catchUp();
+    late.push(wire(up)); late.show(up.frame);
+    expect(joints(late.sim)).toBe(joints(server));
+    expect(mirror.desyncs + late.desyncs).toBe(0);
+  }, 60_000);
+
   it('training mode (a dummy that dies and respawns) stays in step too', async () => {
     const { room, mirror, server, client } = await pair(4, 2, true);
     const inputs = fuzzer(31);

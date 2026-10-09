@@ -765,6 +765,7 @@ export class Sim {
       const v = this.fighters[e.victim], j = e.w === 'arm' ? v?.shoulder : e.w === 'head' ? v?.neck : e.w?.startsWith('leg') ? v?.legs[Number(e.w.slice(3))]?.hip : undefined;
       if (v && j) { if (e.w === 'arm' && v.grip) { this.world.removeImpulseJoint(v.grip, true); v.grip = null; } cutJoint(this.world, v, j); }
     }
+    else if (e.t === 'explode') { const v = this.fighters[e.victim]; if (v) this.blowApart(v); } // (kept whole here, a leg picked up from the pieces stayed tied to the body and threw your own fighter about)
     else if (e.t === 'shatter') { const h = e.owner >= 0 ? this.fighters[e.owner] : undefined, p = h ? h.stick : this.props[e.victim]; if (p) shatter(this, p, h, false); }
   }
 
@@ -1438,7 +1439,7 @@ export class Sim {
   private stageDeath(f: Fighter, impact: number, c: Cause): void {
     const D = T.death, t = f.torso.body.translation();
     if (impact >= D.explodeImpact) {
-      for (const j of [f.shoulder, f.elbow, f.neck, f.offShoulder, f.offElbow, ...f.legs.flatMap((l) => [l.hip, l.knee])]) cutJoint(this.world, f, j);
+      this.blowApart(f);
       for (const p of f.parts) {
         if (isWeapon(p)) continue;
         const q = p.body.translation(), dx = q.x - t.x, dy = q.y - t.y, d = Math.hypot(dx, dy) || 1;
@@ -1454,6 +1455,11 @@ export class Sim {
       cutJoint(this.world, f, f.neck);
       if (head) { this.flingPart(head, c.nx, c.ny); this.events.push({ t: 'dismember', x: head.body.translation().x, y: head.body.translation().y, v: impact, owner: f.index, victim: f.index, w: 'head' }); }
     }
+  }
+
+  /** Every joint cut: the pieces fly loose (and each limb can be picked up). The online copies do the same on the 'explode' event. */
+  private blowApart(f: Fighter): void {
+    for (const j of [f.shoulder, f.elbow, f.neck, f.offShoulder, f.offElbow, ...f.legs.flatMap((l) => [l.hip, l.knee])]) cutJoint(this.world, f, j);
   }
 
   private flingPart(p: Part, nx: number, ny: number): void {
