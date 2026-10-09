@@ -982,6 +982,7 @@ export const tuning = {
   },
   finish: {
     vignetteAlpha: 0.35,
+    autoQuality: { minFps: 45, seconds: 3 }, // (owner, 2026-10-09) a fight below minFps for `seconds` steps the graphics down one level at the next break (High, Medium, Low; kept on this computer, no message)
     dusk: { seconds: 10, wash: 0.45, vignette: 0.6, color: 0x1a0d08, throb: 0.15, rate: 1.2 }, // sudden death (match.suddenDeath): over `seconds` the picture darkens (wash: how dark, in colour) and its edges close in (vignette), throbbing (share, beats a second)
     // Painted backdrops (art-guide/ART_STYLE.md): each round's backdrop and ground are painted with oil strokes in a background worker.
     // width = painting resolution; under = smooth underpaint showing through the strokes (higher = smoother); relief = paint thickness;

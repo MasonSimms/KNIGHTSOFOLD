@@ -32,6 +32,17 @@ export function applySettings(s: Settings, renderer: Renderer): void {
   setMusicVolume(s.master * s.music);
 }
 
+/** A fight running slow on this computer (main.ts): the graphics one step lower, and kept (owner, 2026-10-09: automatic, no message).
+ *  False if they are at Low already. */
+export function lowerQuality(renderer: Renderer): boolean {
+  const s = loadSettings(), i = QUALITIES.indexOf(s.quality);
+  if (i >= QUALITIES.length - 1) return false;
+  s.quality = QUALITIES[i + 1];
+  try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private window: for this visit only */ }
+  renderer.setQuality(s.quality);
+  return true;
+}
+
 /** Music volume, for the music player when there is one (master x music). */
 export const musicVolume = (): number => { const s = loadSettings(); return s.master * s.music; };
 

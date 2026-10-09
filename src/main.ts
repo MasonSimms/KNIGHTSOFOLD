@@ -32,7 +32,7 @@ import { warmPortraits } from './render/portrait';
 import { clearBanner, hideCards, showCards, updateHud, wipeIn, wipeOut } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
-import { applySettings, loadSettings, runSettings } from './ui/settings';
+import { applySettings, loadSettings, lowerQuality, runSettings } from './ui/settings';
 import { applyTraining, leaveTraining, loadTraining, runTraining } from './ui/training';
 import { hiddenSeconds, reportErrors, tellServer } from './ui/oops';
 
@@ -177,6 +177,11 @@ const recorder = new Recorder(), spotter = new Spotter(), tape = new Tape();
 const museum = createMuseum(renderer);
 let replaying = false; // the museum between eras is on screen (it draws itself; locally the fight waits, online it goes on and we catch up)
 let inBreak = false; // the quick break between two rounds of one era is under way (quickBreak)
+// Automatic graphics (owner, 2026-10-09): frames counted while fighting; a fight that runs slow on this computer steps the graphics down at
+// the next break (behind the wall or the museum, so the change is never seen mid-fight).
+const fighting = { frames: 0, ms: 0 };
+let lowerPending = false;
+const lowerIfSlow = () => { if (lowerPending) { lowerPending = false; lowerQuality(renderer); } };
 let pendingClip: Clip | null = null, clipAt = 0, roundSeenAt = 0, lastAlpha = 1;
 
 /**
@@ -191,6 +196,7 @@ async function eraChange() {
   finally { replaying = false; last = performance.now(); acc = 0; }
 }
 async function museumBetween() {
+  lowerIfSlow();
   const now = museum.newCanvas();
   renderer.draw(lastAlpha, 0, undefined, now); // the freeze
   museum.hangNow(now, view.era);
@@ -230,6 +236,7 @@ async function quickBreak() {
   const round = view.round;
   try {
     await wipeIn();
+    lowerIfSlow();
     (await paintNextRound()).world.free();
     clearBanner();
     if (!net && !room) sim.finishRoundPause(); // (here the next round starts now; online the server has been waiting the same time)
@@ -474,6 +481,10 @@ function frame(now: number) {
 
   frames++;
   netStats.frames++; if (ft > 34) netStats.slow++; // (a frame that took more than two: a visible hitch on this computer)
+  if (view.matchActive && !view.roundOver && view.countdown === 0 && !document.hidden) { // (only the fight: not a break, a countdown or a menu)
+    fighting.frames++; fighting.ms += ft;
+    if (fighting.ms >= T.finish.autoQuality.seconds * 1000) { if ((fighting.frames * 1000) / fighting.ms < T.finish.autoQuality.minFps) lowerPending = true; fighting.frames = fighting.ms = 0; }
+  } else fighting.frames = fighting.ms = 0;
   msSum += ft;
   if (now - statTime >= 500) {
     const fps = (frames * 1000) / (now - statTime);
