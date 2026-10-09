@@ -250,3 +250,13 @@
 #replaymark { position: fixed; top: 52px; left: 22px; z-index: 6; display: none; color: var(--gold); font-size: 46px; line-height: 1;
   text-shadow: 0 0 16px rgba(255, 200, 80, .4), 0 2px 6px #000; animation: replaypulse 1.2s ease-in-out infinite alternate; }
 @keyframes replaypulse { from { opacity: .55; } to { opacity: 1; } }
+
+/* The quick break between two rounds of one era (hud.ts wipeIn): the wall swept across the fight from the left like one broad brushstroke
+   (soft at its edges), and on off to the right once the next arena is set up behind it. Under the scoreboard and the banner. */
+#wipe { position: fixed; top: 0; bottom: 0; left: -20vw; width: 140vw; z-index: 7; pointer-events: none; visibility: hidden; transform: translateX(-100%);
+  background: var(--wall, none), radial-gradient(120% 95% at 50% 32%, #2b4838 0%, #1b3025 52%, #0c1611 100%); background-size: 512px 512px, auto;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); }
+#wipe.on { visibility: visible; transform: none; transition: transform var(--t) ease-in; }
+#wipe.off { visibility: visible; transform: translateX(100%); transition: transform var(--t) ease-out; }
+#score, #banner { z-index: 8; }
+#banner.count { top: 30%; font-size: 130px; color: var(--cream); }

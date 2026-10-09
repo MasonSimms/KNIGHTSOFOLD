@@ -18,7 +18,9 @@ It passes the gate if friends ask for another round and 4 players finish 10 figh
 1. Open https://knightsofold.fly.dev and click **Online**, then **Make a room**, then **Copy invite link**. Paste the link in the chat.
 2. Each friend opens the link. They land straight in your room.
 3. Everyone picks a hat, eyes and a colour, then clicks **Ready up**. You click **To Battle**.
-4. A match is 12 rounds, one per era, about 10 minutes. The winner is crowned and everyone goes back to the room. Ready up again for a rematch.
+4. A match is 12 rounds: four eras, three rounds each, about 10 minutes. Every round starts with 3, 2, 1. The winner is crowned and everyone goes
+   back to the room. Ready up again for a rematch. (To play the old way, one round per era with the museum after every round: set
+   quickRounds to false in src/content/tuning.ts, then deploy.)
 
 **If something goes wrong**
 - Someone drops out: they reload the page within a minute and get their seat and score back. Gone more than 5 s, their fighter dies

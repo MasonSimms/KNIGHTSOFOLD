@@ -904,9 +904,22 @@ export const tuning = {
   match: {
     // A fight: last fighter standing wins the round and scores a point. Dead fighters stay down until the round is over.
     resultFrames: 150, // how long the result is shown before the next round starts (2.5 s)
-    rounds: 12, // a match: one round per era (owner). A tie at the top after the last one plays extra rounds until someone leads
+    rounds: 12, // a match (owner). A tie at the top after the last one plays extra rounds until someone leads
     crownFrames: 480, // how long the crown screen shows the winner before everyone goes back to the Hall (8 s)
     suddenDeath: { after: 2700, rate: 2 }, // a round still going after `after` frames (45 s) drains everyone left: `rate` x the seconds since, a second (2: all 100 hidden health gone in 10 s)
+    // Quick rounds (owner, 2026-10-09): a match is a few eras, roundsPerEra rounds each, on a different arena of the era each round. The
+    // museum comes only when the era changes (its replay: the best moment of the era's rounds); between two rounds of one era, the quick
+    // break: slow motion after the last fall, the museum's wall swept across the picture and away again, everyone at their starting spots.
+    // Every round starts with a countdown. false = the match as before: one round per era (all 12, in order), the museum after every round.
+    quickRounds: true,
+    roundsPerEra: 3, // (12 rounds: 4 eras, picked at random each match and played in history order; tie-break rounds stay in the last era)
+    quick: {
+      slowSeconds: 1.0, // after the last fall, this long in slow motion...
+      slowRate: 0.35, // ...at this speed
+      wipe: 0.3, // s: the wall sweeping across (and again away)
+      countdown: 120, // frames at the start of every round with everyone held still (the wall sweeps away in the first of them)...
+      number: 30, // ...the last three of these showing 3, 2, 1 (0.5 s each)
+    },
   },
   respawn: {
     frames: 120,

@@ -228,6 +228,17 @@ export class Sim {
     return this.round >= T.match.rounds && scores.filter((s) => s === top).length === 1;
   }
 
+  /** The round just won is the last of its era (the next round is another era, or the match is over): the museum comes next. Otherwise
+   *  (quick rounds, two rounds of one era) the quick break. */
+  get eraEnds(): boolean {
+    if (!this.roundOver) return false;
+    return !T.match.quickRounds || this.endsMatch || (this.forceEra ?? eraFor(this.seed, this.round + 1).id) !== this.era;
+  }
+
+  /** Frames left of the countdown at the start of the round (quick rounds, a real fight): everyone is held still until it is 0. A pure
+   *  function of the round's own frame, which every online copy is told. */
+  get countdown(): number { return T.match.quickRounds && this.matchActive ? Math.max(0, T.match.quick.countdown - this.frame) : 0; }
+
   /** The pause after a round is over now (on this computer the museum between eras took its time): the next step starts the next round. */
   finishRoundPause(): void { if (this.roundOver) this.roundOverAt = this.frame - T.match.resultFrames - this.extraRoundPause; }
 
@@ -267,7 +278,7 @@ export class Sim {
     this.outfits = outfitsFor(this.seed, this.round);
     this.rng = makeRng(this.seed);
     this.frame = 0;
-    this.nextSpawn = this.arena.gunsOnly ? T.spawn.gunsFirst : T.spawn.firstGap;
+    this.nextSpawn = (this.arena.gunsOnly ? T.spawn.gunsFirst : T.spawn.firstGap) + this.countdown; // (counted from the end of the countdown)
     this.lastImpact = 0;
     this.events.length = 0;
     this.edits = []; // (a new list: last round's recording keeps the old one)
@@ -635,9 +646,10 @@ export class Sim {
         else { f.held.stun = Math.max(f.held.stun, 2); f.held.carried = 2; } // being held: no walking, weak balance, not standing on your own feet (so you can be lifted and swung)
       }
     }
+    const still = this.countdown > 0; // (the countdown: nobody moves yet)
     for (const f of this.fighters) {
       const bot = f.controlled && this.looks[f.index]?.bot ? (this.brains[f.index] ??= new Bot(this.seed * 7919 + f.index * 104729 + this.round * 7 + 1)) : null; // a computer player presses its own buttons
-      controlFighter(this.world, f, bot ? bot.think(this, f) : f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events, this.threatened(f));
+      controlFighter(this.world, f, still ? NEUTRAL : bot ? bot.think(this, f) : f.controlled ? (inputs[f.index] ?? NEUTRAL) : DUMMY_INPUT, this.events, this.threatened(f));
       syncStickGroups(f);
       for (const p of f.parts) {
         let v = p.body.linvel(this.tmpV);

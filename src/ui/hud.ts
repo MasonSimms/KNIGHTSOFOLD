@@ -3,6 +3,7 @@ import { tuning as T } from '../content/tuning';
 import { paintPortrait, PORTRAIT } from '../render/portrait';
 import { paintedSplats } from '../render/painter/sprites';
 import type { Sim } from '../sim/world';
+import { wallUrl } from './menu';
 
 // What is drawn over a real fight (2-4 players). Owner: as little text as possible. The scoreboard is each player's colour and their
 // rounds won, with a pip for every round of the match; a round ends with a short banner ("Red wins!") and, between eras, score cards
@@ -27,10 +28,25 @@ export function updateHud(sim: Sim): void {
   const R = T.match.rounds, pips = Array.from({ length: R }, (_, i) => `<i class="${i + 1 < sim.round || (i + 1 === sim.round && sim.roundOver) ? 'on' : i + 1 === sim.round ? 'now' : ''}"></i>`).join('') + (sim.tieBreak ? '<i class="tie"></i>' : '');
   const html = players.map((f) => `<span class="pl"><b style="color:${hex(nameOf(sim, f.index).hex)}">&#9679;</b>${sim.scores[f.index]}</span>`).join('') + `<span class="pips">${pips}</span>`;
   if (html !== lastScore) { score.innerHTML = html; lastScore = html; }
-  const text = sim.roundOver && !sim.matchOver ? (sim.roundWinner >= 0 ? `${nameOf(sim, sim.roundWinner).name} wins!` : 'Draw!') : '';
-  if (text !== lastBanner) { banner.textContent = text; banner.style.color = sim.roundWinner >= 0 ? hex(nameOf(sim, sim.roundWinner).hex) : '#fff'; lastBanner = text; }
+  const N = T.match.quick.number, count = Math.ceil(sim.countdown / N); // the countdown at a round's start: 3, 2, 1 (no words)
+  const text = count > 0 && count <= 3 ? String(count) : sim.roundOver && !sim.matchOver ? (sim.roundWinner >= 0 ? `${nameOf(sim, sim.roundWinner).name} wins!` : 'Draw!') : '';
+  if (text !== lastBanner) { banner.textContent = text; banner.classList.toggle('count', count > 0 && count <= 3); banner.style.color = sim.roundOver && sim.roundWinner >= 0 ? hex(nameOf(sim, sim.roundWinner).hex) : sim.roundOver ? '#fff' : ''; lastBanner = text; }
   showPodium(sim, sim.matchOver);
 }
+
+// The quick break between two rounds of one era (owner, 2026-10-09): the museum's wall swept across the picture like one broad brushstroke,
+// and on off the other side once the next arena is set up behind it (main.ts quickBreak).
+let wipe: HTMLElement | null = null;
+/** The wall sweeps across: resolves once it covers the picture. */
+export function wipeIn(): Promise<void> {
+  if (!wipe) { wipe = document.createElement('div'); wipe.id = 'wipe'; document.body.appendChild(wipe); }
+  wipe.style.setProperty('--wall', `url(${wallUrl()})`); wipe.style.setProperty('--t', `${T.match.quick.wipe}s`);
+  wipe.className = ''; void wipe.offsetWidth; // (back off to the left at once)
+  wipe.className = 'on';
+  return new Promise((ok) => setTimeout(ok, T.match.quick.wipe * 1000));
+}
+/** ...and on away, uncovering the next round. */
+export function wipeOut(): void { if (wipe?.className === 'on') wipe.className = 'off'; }
 
 /** Take the round's banner away (the museum slides on to the next painting: it belongs to the one before). */
 export function clearBanner(): void { banner.textContent = ''; lastBanner = ''; }

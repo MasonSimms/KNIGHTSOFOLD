@@ -29,7 +29,7 @@ import type { Device } from './ui/hall';
 import { runHome } from './ui/home';
 import { bootDone, closeMenu, openLoading, openMenu } from './ui/menu';
 import { warmPortraits } from './render/portrait';
-import { clearBanner, hideCards, showCards, updateHud } from './ui/hud';
+import { clearBanner, hideCards, showCards, updateHud, wipeIn, wipeOut } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
 import { toggleOverlay, updateOverlay } from './ui/overlay';
 import { applySettings, loadSettings, runSettings } from './ui/settings';
@@ -176,6 +176,7 @@ function flail(frame: number, who: number): PlayerInput {
 const recorder = new Recorder(), spotter = new Spotter(), tape = new Tape();
 const museum = createMuseum(renderer);
 let replaying = false; // the museum between eras is on screen (it draws itself; locally the fight waits, online it goes on and we catch up)
+let inBreak = false; // the quick break between two rounds of one era is under way (quickBreak)
 let pendingClip: Clip | null = null, clipAt = 0, roundSeenAt = 0, lastAlpha = 1;
 
 /**
@@ -217,15 +218,44 @@ async function museumBetween() {
   if (net) settle();
 }
 
-/** The next era's painting: its arena with everyone at their starting spots, drawn from a copy of the next round (nothing runs in it). */
-async function drawNextRound(target: ReturnType<typeof museum.newCanvas>) {
+/**
+ * Between two rounds of one era (owner, 2026-10-09: the museum only when the era changes): a moment of slow motion after the last fall
+ * (frame(): T.match.quick), the museum's wall swept across the picture, the next arena painted behind it, and the wall swept away again,
+ * everyone at their starting spots and held still for the countdown (Sim.countdown).
+ */
+async function quickBreak() {
+  if (replaying || inBreak) return;
+  inBreak = replaying = true; freeze = 0;
+  const round = view.round;
+  try {
+    await wipeIn();
+    (await paintNextRound()).world.free();
+    clearBanner();
+    if (!net && !room) sim.finishRoundPause(); // (here the next round starts now; online the server has been waiting the same time)
+  } catch (e) { console.error(e); } // (anything going wrong must not leave the fight covered)
+  replaying = false; last = performance.now(); acc = 0;
+  for (let i = 0; i < 300 && view.round === round; i++) await new Promise((ok) => setTimeout(ok, 20)); // (online: once the server has started it, 3 s at most for everyone's pictures)
+  await new Promise((ok) => requestAnimationFrame(ok)); // (drawn once)
+  if (net) settle();
+  wipeOut();
+  inBreak = false;
+}
+
+/** A copy of the next round (nothing runs in it) with its pictures painted; online the server is told (the round waits for everyone's). */
+async function paintNextRound(): Promise<Sim> {
   const up = view.upcoming(), pv = await Sim.create(view.matchSeed, view.fighters.length, view.practising);
   pv.looks = view.looks.map((l) => ({ ...l }));
   pv.gone = [...view.gone];
   pv.forceMap = view.forceMap; pv.forceEra = view.forceEra;
   pv.buildRound(view.round + 1, up.era);
-  await renderer.preload(pv, net ? ONLINE_PRELOAD_MS : PRELOAD_MAX_MS); // (its pictures first: the museum waits, not the fight)
+  await renderer.preload(pv, net ? ONLINE_PRELOAD_MS : PRELOAD_MAX_MS); // (its pictures first: the break waits, not the fight)
   net?.send({ t: 'painted', round: view.round + 1 });
+  return pv;
+}
+
+/** The next era's painting: its arena with everyone at their starting spots, drawn from a copy of the next round (nothing runs in it). */
+async function drawNextRound(target: ReturnType<typeof museum.newCanvas>) {
+  const pv = await paintNextRound();
   renderer.show(pv);
   renderer.draw(1, 0, undefined, target);
   renderer.show(view);
@@ -346,7 +376,8 @@ function frame(now: number) {
   const ft = Math.min(Math.max(0, now - last), 100); // clamp so a tab switch doesn't cause a huge catch-up (and never below 0: a frame's time can be earlier than a `last` set after an await, and a step back in time broke a colour: 'Unable to convert color')
   last = now;
   const frozen = freeze > 0; // a heavy hit: the fight (or, online, our copy of it) stands still this frame
-  if (frozen) freeze--; else acc += (ft / 1000) * speed;
+  const Q = T.match.quick, slowing = !inBreak && view.matchActive && view.roundOver && !view.matchOver && !view.eraEnds; // the round is won, and the era goes on: the quick break's slow motion first
+  if (frozen) freeze--; else acc += (ft / 1000) * speed * (slowing && !mirror ? Q.slowRate : 1);
 
   // Plugging in or unplugging a gamepad changes the number of players (2-4 starts a real fight; alone you get the training dummy).
   const pads = connectedPads();
@@ -403,7 +434,10 @@ function frame(now: number) {
     if (mode === 'local' && hallTraining) { // training (owner): no museum and no replays; half a second after a player goes down (or the round is decided) it starts again
       if (downAt < 0 && sim.matchActive && (sim.roundOver || devices.some((d, k) => d !== 'bot' && sim.fighters[k]?.limp))) downAt = sim.frame;
       if (downAt >= 0 && sim.frame - downAt >= T.transition.freezeFrames) { downAt = -1; sim.reset(); break; }
-    } else if (sim.matchActive && sim.roundOver && !sim.matchOver && sim.roundFrames >= T.transition.freezeFrames) { void eraChange(); break; } // half a second after the last one fell: the museum (the fight waits)
+    } else if (sim.matchActive && sim.roundOver && !sim.matchOver && !inBreak) { // the round is won: half a second after the last one fell the museum (the fight waits), or, the era going on, the quick break after its slow motion
+      const museumNext = sim.eraEnds;
+      if (sim.roundFrames >= (museumNext ? T.transition.freezeFrames : Math.round(Q.slowSeconds * 60 * Q.slowRate))) { void (museumNext ? eraChange() : quickBreak()); break; }
+    }
   }
   if (acc >= T.sim.dt) acc = 0; // too far behind: drop the backlog instead of spiralling
   simMsSum += performance.now() - t0;
@@ -416,6 +450,7 @@ function frame(now: number) {
   let alpha = acc / T.sim.dt;
   if (mirror) {
     while (toClient.length && toClient[0].at <= now) { const s = toClient.shift()!.s; mirror.push(s); predictor?.reconcile(s); }
+    mirror.rate = slowing && roundSeenAt ? Q.slowRate : 1;
     const shown = mirror.update(frozen ? 0 : ft / 1000);
     if (net && mirror.desyncs > desyncsSeen && now - resyncAt > 2000) { net.send({ t: 'resync' }); resyncAt = now; } // our copy went wrong: ask for all of it again
     desyncsSeen = mirror.desyncs;
@@ -425,7 +460,7 @@ function frame(now: number) {
     if (coverUntilPainted && view.frame > 0 && view.round === mirror.newestRound) { coverUntilPainted = false; void renderer.preload(view, ONLINE_PRELOAD_MS).then(() => { closeMenu(); settle(); }); }
     if (shown.events.some((e) => e.t === 'round') && view.matchActive) roundSeenAt = now; // online: the round is won; the museum in half a second
     if (net && shown.events.some((e) => e.t === 'newround')) notice(''); // ("You join at the start of the next round": this is it)
-    if (roundSeenAt && now - roundSeenAt >= (T.transition.freezeFrames / 60) * 1000) { roundSeenAt = 0; lastAlpha = alpha; void eraChange(); }
+    if (roundSeenAt && now - roundSeenAt >= (view.eraEnds ? T.transition.freezeFrames / 60 : Q.slowSeconds) * 1000) { const museumNext = view.eraEnds; roundSeenAt = 0; mirror.rate = 1; lastAlpha = alpha; void (museumNext ? eraChange() : quickBreak()); } // the museum, or the quick break after its slow motion
   }
   lastAlpha = alpha;
   renderer.draw(alpha, ft / 1000, predictor?.active ? { slot: mySlot, alpha: acc / T.sim.dt, dx: predictor.shift.x, dy: predictor.shift.y } : predictor && Math.hypot(predictor.shift.x, predictor.shift.y) > 0.005 ? { slot: mySlot, alpha, dx: predictor.shift.x, dy: predictor.shift.y } : undefined);

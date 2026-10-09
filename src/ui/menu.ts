@@ -12,7 +12,7 @@ export function openMenu(cls: string, html: string): HTMLElement {
   closeMenu();
   const root = document.createElement('div');
   root.id = 'menu';
-  root.style.setProperty('--wall', `url(${(wall ||= paintWall())})`);
+  root.style.setProperty('--wall', `url(${wallUrl()})`);
   root.innerHTML = `<div class="${cls}">${html}</div>`;
   document.body.appendChild(root);
   return root;
@@ -64,6 +64,9 @@ export function paintAhead(): void {
     void paintPicture(e.id, geoOf(arenaFor(e.id, 0)), 400, 225);
   }
 }
+
+/** The museum wall's painted tile, as a picture address for CSS (painted once). */
+export const wallUrl = (): string => (wall ||= paintWall());
 
 /** The wall is painted too: soft horizontal brush strokes, lighter and darker, on a tile that repeats without seams. */
 function paintWall(): string { return wallTile().toDataURL(); }

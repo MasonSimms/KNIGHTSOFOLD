@@ -33,10 +33,17 @@ export class Room {
     this.lastN = sim.fighters.map(() => 0);
     this.backlog = sim.fighters.map(() => 0);
     this.stats = sim.fighters.map(() => ({ ticks: 0, waiting: 0, dry: 0, folded: 0 }));
-    // Between rounds everyone sees the museum: the freeze, the camera pulling back, the replay in the painting, the slide to the next
-    // painting and into it (render/museum.ts). The next round waits for all of it.
-    const X = T.transition;
-    sim.extraRoundPause = Math.max(0, X.freezeFrames + Math.ceil((X.zoomOut + X.slide + X.zoomIn) * 60) + (T.replay.enabled ? Tape.frames : 0) + 20 - T.match.resultFrames);
+    sim.extraRoundPause = Math.max(0, this.breakPause()); // (one round per era: the museum after every round. Quick rounds: set as each round is won)
+  }
+
+  /** How long the pause after the round just won must be (frames, over the usual T.match.resultFrames): the next round waits for what
+   *  every page shows. The museum when the era changes: the freeze, the camera pulling back, the replay in the painting, the slide to the
+   *  next painting and into it (render/museum.ts). Between two rounds of one era, the quick break: the slow motion and the wall sweeping
+   *  across (main.ts quickBreak). */
+  private breakPause(): number {
+    const X = T.transition, Q = T.match.quick;
+    const frames = !T.match.quickRounds || this.sim.eraEnds ? X.freezeFrames + Math.ceil((X.zoomOut + X.slide + X.zoomIn) * 60) + (T.replay.enabled ? Tape.frames : 0) + 20 : Math.ceil((Q.slowSeconds + Q.wipe) * 60) + 10;
+    return frames - T.match.resultFrames;
   }
 
   /** A player's next input (n counts them). One is used per tick; with none waiting the previous one is used again. Too many waiting
@@ -78,6 +85,7 @@ export class Room {
     if (this.hold && S.roundOver && !S.matchOver && !S.endsMatch && S.roundFrames + 1 >= T.match.resultFrames + S.extraRoundPause && this.hold(round + 1)) { S.extraRoundPause++; this.stretched++; } // (the next round waits a tick more)
     this.sim.step(this.inputs);
     if (S.round !== round && this.stretched) { S.extraRoundPause -= this.stretched; this.stretched = 0; }
+    if (T.match.quickRounds && S.roundOver && S.roundFrames === 0) { S.extraRoundPause = this.breakPause(); this.stretched = 0; } // (the round was just won: the museum or the quick break)
     this.ticks++;
     if (this.ticks % this.snapEvery !== 0) { this.tape.feed(this.sim); this.collect(); return null; }
     this.collect();

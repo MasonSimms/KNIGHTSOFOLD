@@ -12,7 +12,8 @@ The last knight standing wins the round.
    (Or read out the 4-letter code: everyone else types it and clicks **Join**.)
 4. Pick a hat, eyes and a colour, then click **Ready up**. The host clicks **To Battle**.
 
-A match is 12 rounds, one per era; the winner is crowned at the end and everyone goes back to the room for a rematch.
+A match is 12 rounds: four eras of history, three rounds in each. Every round starts with a 3, 2, 1. The winner is crowned at the end and
+everyone goes back to the room for a rematch.
 The host can end a fight early with **Esc** (everyone goes back to the room); anyone else leaves with **Esc**.
 
 Dropped out? Reload the page. You get your seat and your score back. Joining late? You come in at the next round.

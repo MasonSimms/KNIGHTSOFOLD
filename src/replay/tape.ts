@@ -28,6 +28,7 @@ export class Tape {
   private carry: SimEvent[] = []; // the events of a frame that was not kept go with the next one
   private due = -1; // the frame the clip can be cut (the round is over and the moment has played out)
   private ready: Clip | null = null;
+  private best: { clip: Clip; score: number } | null = null; // quick rounds: the era's best moment so far (it plays when the era ends)
 
   /**
    * After every step. `snap` is that step's snapshot (the server already makes one; otherwise one is made here), with its events.
@@ -48,16 +49,23 @@ export class Tape {
     if (sim.frame % 2 === 0 || this.due === sim.frame) { this.kept.push({ f: sim.frame, s: { ...s, ev: [...this.carry, ...ev] } }); this.carry = []; }
     else this.carry.push(...ev);
     while (this.kept.length && this.kept[0].f < sim.frame - T.replay.keepSeconds * 60) this.kept.shift();
-    if (this.due >= 0 && sim.frame >= this.due) { this.due = -1; this.ready = this.cut(sim); }
+    if (this.due >= 0 && sim.frame >= this.due) {
+      this.due = -1;
+      const c = this.cut(sim);
+      if (c && (!this.best || c.score >= this.best.score)) this.best = c;
+      if (sim.eraEnds) { this.ready = this.best?.clip ?? null; this.best = null; } // (between two rounds of one era there is no replay: the quick break)
+    }
   }
 
-  /** The clip of the round just over, once (null until then, or if nothing in the round was worth showing). */
+  /** The clip of the era just over (quick rounds: its best moment from all its rounds; otherwise the round's), once (null until then, or
+   *  if nothing was worth showing). */
   take(): Clip | null { const c = this.ready; this.ready = null; return c; }
 
   /** How many frames the replay takes to watch (the server waits this much longer between rounds). */
   static get frames(): number { return Math.ceil((T.replay.before + T.replay.after) / T.replay.speed); }
 
   private newRound(sim: Sim): void {
+    if (sim.round <= this.round) this.best = null; // (a new match)
     this.round = sim.round;
     this.key = { era: sim.era };
     this.log = []; this.kept = []; this.carry = []; this.due = -1;
@@ -68,7 +76,7 @@ export class Tape {
     ];
   }
 
-  private cut(sim: Sim): Clip | null {
+  private cut(sim: Sim): { clip: Clip; score: number } | null {
     const m = this.spotter.moments.filter((x) => x.rec === this.key).sort((a, b) => b.score - a.score)[0];
     if (!m) return null;
     const from = m.at - T.replay.before, to = m.at + T.replay.after;
@@ -77,6 +85,6 @@ export class Tape {
     const first = window[0];
     const before = this.log.filter((l) => l.f <= first.f).map((l) => l.e); // everything that changed the bodies up to the first frame shown
     const snaps = [{ ...first.s, ev: [...this.start, ...before] }, ...window.slice(1).map((k) => k.s)];
-    return { seed: sim.matchSeed, count: sim.fighters.length, dummy: sim.practising, round: sim.round, era: sim.era, map: sim.map, looks: sim.looks.map((l) => ({ ...l })), snaps };
+    return { clip: { seed: sim.matchSeed, count: sim.fighters.length, dummy: sim.practising, round: sim.round, era: sim.era, map: sim.map, looks: sim.looks.map((l) => ({ ...l })), snaps }, score: m.score };
   }
 }

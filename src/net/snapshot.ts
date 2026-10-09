@@ -39,17 +39,18 @@ export function fighterState(f: Fighter): number {
     | (f.grip ? HOLDING : 0) | (f.hooked ? HOOKED : 0) | (f.tangled > 0 ? TANGLED : 0) | (f.frozen > 0 ? FROZEN : 0) | (f.bubble > 0 ? BUBBLE : 0); // their weapon is in their hand (a page moving its own fighter must let go when the server says it was thrown or knocked away)
 }
 
-export const HOLDING = 256, HOOKED = 512, TANGLED = 1024, FROZEN = 2048, BUBBLE = 4096; // HOOKED: on a grappling hook's rope (the server swings you: no guessing it)
+export const HOLDING = 256, HOOKED = 512, TANGLED = 1024, FROZEN = 2048, BUBBLE = 4096, WAITING = 8192; // HOOKED: on a grappling hook's rope (the server swings you: no guessing it)
 const TELEPORT = 4; // metres moved between two snapshots (50 ms) that can only be a teleport
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 export function takeSnapshot(sim: Sim, frame: number, ev: SimEvent[]): Snapshot {
+  const waiting = sim.countdown > 0 || (T.match.quickRounds && sim.roundOver); // (WAITING: in the countdown, and in the quick break's slow motion, nobody moves on their own buttons)
   return {
     frame, round: sim.round, roundOver: sim.roundOver, roundWinner: sim.roundWinner, scores: sim.scores.slice(), ev, matchOver: sim.matchOver, matchWinner: sim.matchWinner,
     era: sim.era, map: sim.map, outfits: sim.outfits.slice(),
     props: sim.props.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }), looks: sim.looks.map((l) => ({ ...l })),
     boats: sim.boats.length ? sim.boats.flatMap((s) => [r3(s.body.translation().x), r3(s.body.translation().y), r3(s.body.rotation())]) : undefined,
-    f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, st: fighterState(f), p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
+    f: sim.fighters.map((f) => ({ hp: r3(f.hp), back: f.inBack, st: fighterState(f) | (waiting ? WAITING : 0), p: f.parts.flatMap((p) => { const t = p.body.translation(); return [r3(t.x), r3(t.y), r3(p.body.rotation())]; }) })),
     simFrame: sim.frame,
     pf: sim.props.flatMap((p, i) => (p.burning ? [i] : [])),
     jt: sim.jets.flatMap((j) => [r3(j.x), r3(j.y), j.dir, j.left]),
@@ -75,6 +76,7 @@ export class Mirror {
   private fresh = true; // nothing shown yet: the first snapshot says which round and era to build
 
   own = -1; // a fighter this page moves itself (prediction): its poses are not written in from snapshots
+  rate = 1; // how fast the shown world runs (the quick break's slow motion, main.ts): below 1 it falls behind (at most a second: keep), and jumps back once it is 1 again
   delay: number; // how many ticks the shown world runs behind the newest snapshot: sized to how unevenly snapshots arrive (see target)
   starved = 0; // frames on which the shown time ran past the newest snapshot (a stall the buffer did not cover; the motion carries on for a few ticks)
   waits = 0; // ...and frames on which it ran out even of that and the picture had to wait: what a player sees as a stutter (the overlay shows it)
@@ -147,7 +149,8 @@ export class Mirror {
     if (!latest) return { alpha: 1, events: [] };
     const N = T.net;
     if (!this.started) { this.head = latest.frame - this.delay; this.started = true; }
-    this.head += seconds * 60;
+    this.head += seconds * 60 * this.rate;
+    if (this.rate < 1) return this.show(this.head); // (slow motion: no catching up meanwhile)
     // A jitter buffer sized to the connection (see target): it widens at once when snapshots start arriving more unevenly, and narrows
     // again a tick at a time once they have been steady for a while. A stall it does not cover is carried over (show extrapolates).
     const starved = this.head > latest.frame, flowing = latest.frame !== this.lastFrame;
