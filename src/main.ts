@@ -26,7 +26,7 @@ import { OWN_MOVES, Sim } from './sim/world';
 import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
-import { runHome } from './ui/home';
+import { runHome, warmHome } from './ui/home';
 import { bootDone, closeMenu, openLoading, openMenu } from './ui/menu';
 import { warmPortraits } from './render/portrait';
 import { clearBanner, hideCards, showCards, updateHud, wipeIn, wipeOut } from './ui/hud';
@@ -42,6 +42,7 @@ warmPortraits(); // (the Hall's portraits: their renderer and landscape are read
 const T = tuning;
 // Open http://localhost:5173/?stress to add two scripted flailing fighters: a 4-fighter frame-time check, not AI.
 const query = new URLSearchParams(location.search);
+if (!location.search) warmHome(); // (the home screen opens: its pictures start painting now, while the game sets itself up)
 const stress = query.has('stress');
 // Open http://localhost:5173/?slow=0.2 to run the game at 20% speed, to study a slam frame by frame.
 const slow = Math.min(1, Number(query.get('slow')) || 1);
@@ -73,8 +74,11 @@ let fast: FastLane | null = null; // online: the fast lane (UDP) beside the WebS
 const recentIn: [number, PlayerInput][] = []; // the last few inputs, sent again with each one by the fast lane (where one can be lost)
 /** Online: send this tick's controls by both lanes. */
 const sendInput = (i: PlayerInput, n: number) => { net?.send({ t: 'in', i, n }); fast?.send({ t: 'in', i, n, r: recentIn.slice() }); recentIn.push([n, i]); if (recentIn.length > 4) recentIn.shift(); };
-const PRELOAD_MAX_MS = 20000; // the longest a fight here waits for its pictures (it is paused meanwhile; a first visit paints its backdrop, about 5 s)
-const ONLINE_PRELOAD_MS = 8000; // ...online, where the fight goes on behind the loading screen (the server waits tuning.net.paintWait for everyone)
+// Nothing is shown before its pictures are painted (owner, 2026-10-09: "fix it so this all happens while the player looks at the loading
+// screen"; a round was shown on its flat stand-in when the painting took longer than the old 8 s, online). These only guard against a
+// painter that never answers. A first visit paints a backdrop in about 5 s on a fast computer.
+const PRELOAD_MAX_MS = 60000; // the longest a fight here waits for its pictures (it is paused meanwhile)
+const ONLINE_PRELOAD_MS = 60000; // ...online, where the fight goes on behind the loading screen (the server waits tuning.net.paintWait for everyone)
 /** Online, after this page was busy painting: the snapshots that queued meanwhile are not the line's fault (once they are in: a moment later). */
 const settle = () => setTimeout(() => mirror?.forgetJitter(), 250);
 const onlineParam = query.get('online');
@@ -256,7 +260,8 @@ async function paintNextRound(): Promise<Sim> {
   pv.gone = [...view.gone];
   pv.forceMap = view.forceMap; pv.forceEra = view.forceEra;
   pv.buildRound(view.round + 1, up.era);
-  await renderer.preload(pv, net ? ONLINE_PRELOAD_MS : PRELOAD_MAX_MS); // (its pictures first: the break waits, not the fight)
+  const painting = renderer.preload(pv, net ? ONLINE_PRELOAD_MS : PRELOAD_MAX_MS); // (its pictures first: the break waits, not the fight)
+  if (await Promise.race([painting.then(() => false), new Promise<boolean>((ok) => setTimeout(() => ok(true), 300))])) { openLoading(); await painting; closeMenu(); } // (not painted yet: the loading screen until it is)
   net?.send({ t: 'painted', round: view.round + 1 });
   return pv;
 }
@@ -324,6 +329,8 @@ async function menu(screen: 'home' | 'hall') {
       screen = 'hall';
       continue;
     }
+    const seed = Math.floor(Math.random() * 2 ** 31); // the match's order of maps, chosen now: its first arenas are painted while everyone picks a look
+    if (!hallTraining) renderer.prepare(seed);
     const seats = await runHall(hallTraining);
     if (!seats) { screen = 'home'; continue; }
     mode = 'local'; devices = seats.map((s) => s.dev);
@@ -332,7 +339,7 @@ async function menu(screen: 'home' | 'hall') {
     if (hallTraining) { const t = loadTraining(); applyTraining(sim, t, seats.length === 1); speed = t.speed; }
     else { leaveTraining(sim, eraParam, mapParam === null ? null : Number(mapParam)); speed = slow; }
     mySlot = Math.max(0, devices.indexOf('kb'));
-    sim.reseed(Math.floor(Math.random() * 2 ** 31)); // a new match: a new order of maps and weapon drops
+    sim.reseed(seed); // a new match: a new order of maps and weapon drops
     sim.setPlayers(seats.length); // one player: practice on the dummy; two or more (people or bots): a real fight
     await preload();
     break;

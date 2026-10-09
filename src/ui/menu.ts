@@ -36,7 +36,7 @@ export const openLoading = (): HTMLElement => openMenu('waiting', LOADER);
 
 /** Hold a screen out of sight, behind the loading screen, until `pending` (its pictures) are done or `maxMs` has gone by, then show it all
  *  at once. Resolves false if the screen was closed meanwhile. */
-export async function whenReady(root: HTMLElement, pending: Promise<unknown>[], maxMs = 8000): Promise<boolean> {
+export async function whenReady(root: HTMLElement, pending: Promise<unknown>[], maxMs = 30000): Promise<boolean> { // (owner: pictures painted behind the loading screen; the time only guards a painter that never answers)
   const screen = root.firstElementChild as HTMLElement | null;
   screen?.classList.add('unready');
   root.insertAdjacentHTML('beforeend', LOADER);

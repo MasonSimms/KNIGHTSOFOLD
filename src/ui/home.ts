@@ -1,4 +1,6 @@
 import { menuPresses } from '../input/input';
+import { arenaFor } from '../sim/world';
+import { geoOf, paintPicture } from '../render/painter/backdrops';
 import { closeMenu, hangPicture, openMenu, paintAhead, whenReady } from './menu';
 
 // The home screen: a gallery of five painted arenas. Play (centre) opens the Hall of Champions, Online the room screen, Training a
@@ -12,6 +14,10 @@ const PICS: { era: string; go?: HomeChoice; label?: string; sub?: string; cell: 
   { era: 'samurai', go: 'training', label: 'Training', cell: '1 / 3', w: 400, h: 225 },
   { era: 'mobsters', go: 'highlights', label: 'Highlights', cell: '2 / 3', w: 400, h: 225 },
 ];
+
+/** Start painting the home screen's pictures at once (main.ts, as the page opens: not after the game has set itself up). The home
+ *  screen's own requests then join them, or find them in storage. */
+export function warmHome(): void { for (const p of PICS) void paintPicture(p.era, geoOf(arenaFor(p.era, 0)), p.w, p.h); }
 
 export function runHome(): Promise<HomeChoice> {
   const html = PICS.map((p) => `<div class="pic ${p.go ? 'go' : 'deco'} ${p.go === 'play' ? 'main' : 'side'}" style="grid-area:${p.cell}"${p.go ? ` data-go="${p.go}"` : ''}>

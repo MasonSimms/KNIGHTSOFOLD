@@ -137,7 +137,7 @@ export function runTraining(sim: Sim, you: number, alone: boolean, setSpeed: (x:
   const weapons = new Promise<void>((ok) => { weaponsDone = ok; });
   const paintSome = () => { for (const t0 = performance.now(); toDraw.length && performance.now() - t0 < 12;) { const el = toDraw.shift()!; drawItem(el.querySelector('canvas')!, el.dataset.item!); } if (toDraw.length) paintTimer = window.setTimeout(paintSome, 0); else weaponsDone(); };
   paintSome();
-  void whenReady(root, [...maps, weapons], 6000);
+  void whenReady(root, [...maps, weapons]);
 
   const drop = (id: string) => {
     const f = sim.fighters[you], t = f.torso.body.translation(), A = sim.arena;
