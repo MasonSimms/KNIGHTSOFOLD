@@ -195,18 +195,19 @@ async function museumBetween() {
   renderer.draw(lastAlpha, 0, undefined, now); // the freeze
   museum.hangNow(now, view.era);
   showCards(view); // (who went out last is read now, before the replay plays the round again)
+  const pv = view.endsMatch ? null : await paintNextRound(); // the next era's pictures now, while the picture stands frozen anyway (painted later, they stopped the camera mid-move: a second on a slower laptop)
   await museum.pullBack();
   for (let i = 0; i < 90 && net && !pendingClip; i++) await new Promise((ok) => setTimeout(ok, 20)); // (online: the server's clip is on its way)
   const clip = pendingClip;
   pendingClip = null;
   if (clip) await playClip(clip, renderer, view, play, net ? clipAt : undefined, (a, dt) => { renderer.draw(a, dt, undefined, now); museum.render(); });
-  if (view.endsMatch) { // the last round: no next era; the podium comes up over the wall (the museum closes when everyone goes back to the Hall)
+  if (!pv) { // the last round: no next era; the podium comes up over the wall (the museum closes when everyone goes back to the Hall)
     hideCards();
     if (!net && !room) sim.finishRoundPause();
     return;
   }
   const next = museum.newCanvas();
-  await drawNextRound(next);
+  drawRound(pv, next);
   museum.hangNext(next, view.upcoming().era);
   clearBanner();
   hideCards();
@@ -254,8 +255,7 @@ async function paintNextRound(): Promise<Sim> {
 }
 
 /** The next era's painting: its arena with everyone at their starting spots, drawn from a copy of the next round (nothing runs in it). */
-async function drawNextRound(target: ReturnType<typeof museum.newCanvas>) {
-  const pv = await paintNextRound();
+function drawRound(pv: Sim, target: ReturnType<typeof museum.newCanvas>) {
   renderer.show(pv);
   renderer.draw(1, 0, undefined, target);
   renderer.show(view);
