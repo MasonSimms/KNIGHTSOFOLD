@@ -22,7 +22,8 @@ const PAD = 4; // px of transparent margin
 const STROKE_SCALE = 1.8; // the package's fighter stroke sizes (px at 1280 wide) -> this texture
 
 type Part = { k: 'ball'; r: number } | { k: 'cap'; r: number; hl: number };
-const cache = new Map<string, Texture[]>();
+/** Every picture painted so far, by what it is (its key). The painting worker (spriteWorker.ts) fills its own; the page takes them in (ahead.ts). */
+export const cache = new Map<string, Texture[]>();
 const norm = (x: number, y: number, z: number) => { const l = Math.hypot(x, y, z); return [x / l, y / l, z / l]; };
 const SPHERE_L = norm(-0.5, -0.55, 0.67); // world light, upper left and toward the viewer
 const CYL_L = norm(-0.62, 0, 0.78); // a capsule is painted lit from its local left (the renderer turns or mirrors it to face the light)
@@ -78,7 +79,7 @@ function paintFlat(img: Img, alpha: Float32Array, ang: Float32Array, seed0: numb
   for (let i = 0; i < N; i++) ed[i] = Math.min(1, Math.hypot(ex[i], ey[i]) * 4);
   const out: Texture[] = [];
   for (let vnt = 0; vnt < variants; vnt++) {
-    const canvas = document.createElement('canvas');
+    const canvas = typeof document === 'undefined' ? offscreen(W, H) : document.createElement('canvas'); // (the painting worker has no page)
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!, hb = offscreen(W, H).getContext('2d', { willReadFrequently: true })!, hr = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
     const id = ctx.createImageData(W, H);

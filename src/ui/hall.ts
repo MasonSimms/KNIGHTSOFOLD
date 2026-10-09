@@ -1,10 +1,10 @@
-import { botLook, COLORS, EYE_NAMES, EYES, HAT_NAMES, HATS } from '../content/looks';
-import type { Hat, Look } from '../content/looks';
+import { botLook, COLORS, EYE_NAMES, EYES, FIRST_HATS, HAT_NAMES, HATS } from '../content/looks';
+import type { Look } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import { connectedPads, menuPresses } from '../input/input';
 import type { MenuButton } from '../input/input';
-import { paintPortrait, PORTRAIT } from '../render/portrait';
-import { BACK, closeMenu, openMenu } from './menu';
+import { paintPortrait, PORTRAIT, warmPortraits } from '../render/portrait';
+import { BACK, closeMenu, openMenu, whenReady } from './menu';
 
 // The Hall of Champions: a painted portrait per seat with its hat, eyes and colour, a Ready button each, and To Battle.
 // The view (mountHall) is shared by the fight on this computer (runHall, below) and online (lobby.ts). Seats can hold bots (gray robots that
@@ -43,6 +43,7 @@ export function mountHall(actions: HallActions) {
   const root = openMenu('hall', `<button class="back" data-act="back" title="Back">${BACK}</button><div class="code"></div><div class="seats"></div>
     <div class="spacer"></div><div class="note"></div><button class="battle" data-act="start" disabled>To Battle</button><div class="hint"></div>`);
   const $ = (s: string) => root.querySelector(s) as HTMLElement;
+  void whenReady(root, [warmPortraits()], 4000); // (behind the loading screen until the hats and colours a click away are painted: a click then only puts one together)
   // Each seat keeps one canvas for its portrait; its three painted variants take turns on it (the boil).
   const shown = [0, 1, 2, 3].map(() => { const c = document.createElement('canvas'); c.width = PORTRAIT.w; c.height = PORTRAIT.h; return c; });
   const keys = ['', '', '', ''], variants: (HTMLCanvasElement[] | null)[] = [null, null, null, null];
@@ -108,7 +109,6 @@ export function mountHall(actions: HallActions) {
 export type Device = 'kb' | number; // keyboard and mouse, or a gamepad (its index)
 interface Local { dev: Device | 'bot'; look: Look; ready: boolean; row: number }
 const local: (Local | null)[] = [null, null, null, null]; // kept while the page is open: back from a fight, everyone is still seated
-const FIRST_HATS: Hat[] = ['helmet', 'crown', 'tophat', 'horns'];
 
 /**
  * Resolves with the seated players (in seat order) when someone starts the fight, or null to go back home. Training (owner: through this same

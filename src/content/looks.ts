@@ -8,6 +8,8 @@ export const COLORS: { name: string; hex: number }[] = [
 // The hat slot holds hats, then hairstyles (natural colours, not the player's). Every old id is kept so saves and rooms stay valid.
 export const HATS = ['none', 'helmet', 'crown', 'horns', 'cap', 'tophat', 'cowboy', 'beanie', 'plumed', 'jester', 'wizard', 'hennin', 'locks', 'fubo', 'ponytail', 'braid', 'pigtails', 'mohawk', 'topknot', 'afro', 'graham', 'bubby'] as const;
 export type Hat = (typeof HATS)[number];
+/** The hat each seat in the Hall sits down in. */
+export const FIRST_HATS: Hat[] = ['helmet', 'crown', 'tophat', 'horns'];
 export const HAT_NAMES: Record<Hat, string> = { none: 'Bare', helmet: 'Great Helm', plumed: 'Plumed Helm', crown: 'Crown', horns: 'Horned Helm', jester: 'Jester Cap', wizard: 'Wizard Hat', hennin: 'Hennin & Veil', locks: 'Flowing Locks',
   cap: 'Cap', tophat: 'Top Hat', cowboy: 'Stetson', beanie: 'Beanie', fubo: 'Fubo', ponytail: 'Ponytail', braid: 'Long Braid', pigtails: 'Pigtails', mohawk: 'Mohawk', topknot: 'Topknot', afro: 'Afro', graham: 'Graham', bubby: 'Bubby' };
 export const EYES = ['round', 'fierce', 'sleepy', 'googly', 'startled', 'sly', 'sad', 'cyclops', 'bloodshot', 'walleyed'] as const;

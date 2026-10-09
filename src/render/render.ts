@@ -25,6 +25,8 @@ import { eraFor, mapFor } from '../sim/era';
 import { createLight } from './light';
 import { makeGoogly, makeHat } from './hat';
 import type { HatView } from './hat';
+import { prepaint } from './painter/ahead';
+import type { PaintJob } from './painter/ahead';
 import { CAPE, paintedBox, paintedCape, paintedCostume, paintedFront, paintedShape, paintedSplats, paintedStreaks, paintedWeapon, PPM, VARIANTS } from './painter/sprites';
 import { ITEMS, PROPS } from '../content/props';
 import { paintingFor } from '../content/paintings';
@@ -423,22 +425,22 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
 
   /** The body a costume fits: the torso pill and, kept clear, the head. */
   const costumeBody = () => ({ r: T.fighter.torsoRadius, hl: T.legs.torsoHalf, y: T.legs.torsoY, headY: T.fighter.headY, headR: T.fighter.headRadius });
-  // Paint every lobby colour's body parts in idle moments after start-up, so picking a colour never stalls a round.
-  const prewarm: (() => void)[] = [];
+  // Paint every lobby colour's body parts after start-up (away from the page, in the painting worker: painter/ahead.ts), so picking a colour never stalls a round.
+  const prewarm: PaintJob[] = [];
   const P0 = T.finish.paint, K0 = { relief: P0.relief, bristle: P0.bristle, jitter: P0.jitter, under: P0.under };
   for (const hex of [...COLORS.map((c) => c.hex), ...BOT_GRAYS]) for (const p of sim.fighters[0]?.parts ?? []) for (const s of p.shapes) {
     const col = p.role === 'stick' ? T.colors.stick : p.role === 'off' ? mix(hex, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(hex, 0x000000, 0.18) : hex;
-    if (s.k !== 'box') prewarm.push(() => paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0));
+    if (s.k !== 'box') prewarm.push(['paintedShape', [s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0]]);
   }
   // every era's costume, in the order a match plays them (round 1 needs the first at once); one per colour where it is dyed in the wearer's
-  for (const era of eras) if (COSTUMES[era.id]) for (const hex of COSTUMES[era.id].some((p) => p.c === 'player') ? [...COLORS.map((c) => c.hex), T.colors.dummy] : [0]) prewarm.push(() => paintedCostume(era.id, costumeBody(), hex, K0));
-  for (const it of ITEMS) if (it.spec.len * it.spec.thick <= 1.5) prewarm.push(() => paintedWeapon(it.id, it.spec.len, K0)); // every weapon's picture (not the big scenery: a gatehouse or an obelisk took seconds; a map paints its own when it is loaded)
-  for (const hat of HATS) for (const c of COLORS) prewarm.push(() => { const k = new Container(); makeHat(hat, k, 0, 0, T.fighter.headRadius, c.hex); k.destroy({ children: true }); }); // and every hat (painted once; the cap, top hat and beanie per colour)
-  // Only while nothing is being drawn (a menu is up): one job can take over 100 ms, a visible freeze in a fight. Anything still unpainted
-  // when it is needed is painted then, as before the warm-up.
+  for (const era of eras) if (COSTUMES[era.id]) for (const hex of COSTUMES[era.id].some((p) => p.c === 'player') ? [...COLORS.map((c) => c.hex), T.colors.dummy] : [0]) prewarm.push(['paintedCostume', [era.id, costumeBody(), hex, K0]]);
+  for (const it of ITEMS) if (it.spec.len * it.spec.thick <= 1.5) prewarm.push(['paintedWeapon', [it.id, it.spec.len, K0]]); // every weapon's picture (not the big scenery: a gatehouse or an obelisk took seconds; a map paints its own when it is loaded)
+  for (const hat of HATS) for (const c of COLORS) prewarm.push(['makeHat', [hat, T.fighter.headRadius, c.hex]]); // and every hat (painted once; the cap, top hat and beanie per colour)
+  // Only while nothing is being drawn (a menu is up): the worker takes a second core, which a slow computer needs in a fight (and where
+  // there is no worker, one job painted here can take over 100 ms). Anything still unpainted when it is needed is painted then.
   let drawnAt = 0, warmOn = true; // warmOn: only while a menu is up (main.ts): in a match the museum between rounds draws without draw(), and a job there froze it (or the round after it) for seconds
   const idle = (fn: () => void) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 50));
-  const warmNext = () => { if (!warmOn || performance.now() - drawnAt < 300) { idle(warmNext); return; } const job = prewarm.shift(); if (job) { job(); idle(warmNext); } };
+  const warmNext = () => { if (!warmOn || performance.now() - drawnAt < 300) { idle(warmNext); return; } const job = prewarm.shift(); if (job) void prepaint(job).then(() => idle(warmNext)); };
   idle(warmNext);
 
   let scale = 1, shake = 0, builtVersion = -1;

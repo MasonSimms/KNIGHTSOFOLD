@@ -2,11 +2,13 @@
 // front of a painted landscape, painted with the same brushwork as the fight. Three boil variants, like the fighters in the fight.
 // Drawn by a small off-screen Pixi renderer of its own (only the menus use it).
 import { Application, Container, Rectangle, Sprite } from 'pixi.js';
-import { COLORS } from '../content/looks';
+import { COLORS, FIRST_HATS, HATS } from '../content/looks';
 import type { Look } from '../content/looks';
 import { paintingFor } from '../content/paintings';
 import { tuning as T } from '../content/tuning';
 import type { Shape } from '../sim/fighter';
+import { prepaint } from './painter/ahead';
+import type { PaintJob } from './painter/ahead';
 import { paintPicture } from './painter/backdrops';
 import { paintedCape, PPM, VARIANTS } from './painter/sprites';
 import { makeHat } from './hat';
@@ -23,8 +25,49 @@ let app: Promise<Application> | null = null;
 let land: Promise<ImageBitmap | null> | null = null;
 const startApp = () => (app ??= (async () => { const a = new Application(); await a.init({ width: PORTRAIT.w, height: PORTRAIT.h, backgroundAlpha: 0, antialias: true, preference: 'webgl' }); return a; })());
 const startLand = () => (land ??= paintPicture(BACKGROUND, NO_GROUND, 640, 360));
-/** Start the slow parts (the renderer and the landscape behind every portrait) now, so the first portrait appears at once later. */
-export function warmPortraits(): void { startApp(); startLand(); }
+let warm: Promise<unknown> | null = null;
+/**
+ * Start the slow parts now, so the Hall opens on finished portraits and a click on a hat or a colour shows the new one at once: the
+ * renderer, the landscape behind every portrait, and every colour's body and every hat at portrait size (painted away from the page, in
+ * the painting worker). Resolves when the Hall can open: every colour, the hats the seats start in and those a click or two away (the
+ * rest follow in that order, then the cap, top hat and beanie in every colour).
+ */
+export function warmPortraits(): Promise<unknown> {
+  return (warm ??= (() => {
+    const looks = (hats: readonly Look['hat'][], colors: number[]) => colors.flatMap((color) => hats.map((hat): Look => ({ color, hat, eyes: 'round' })));
+    const ask = (all: Look[]) => all.flatMap((l) => partsOf(l, 0, {}).map((j) => prepaint(j)));
+    const away = (h: Look['hat']) => Math.min(...FIRST_HATS.map((f) => { const d = Math.abs(HATS.indexOf(h) - HATS.indexOf(f)); return Math.min(d, HATS.length - d); })); // clicks from a seat's first hat
+    const near = [...HATS].sort((a, b) => away(a) - away(b));
+    const first = [startApp(), startLand(), ...ask([...FIRST_HATS.map((hat, color): Look => ({ color, hat, eyes: 'round' })), ...looks(['none'], COLORS.map((_, c) => c)), ...looks(near.filter((h) => away(h) <= 2), [0])]),
+      ...[0, 1, 2, 3].flatMap((seat) => partsOf({ color: 0, hat: 'none', eyes: 'round', bot: true }, seat, {}).map((j) => prepaint(j)))];
+    ask(looks(near, COLORS.map((_, c) => c)));
+    return Promise.all(first);
+  })());
+}
+
+const knobs = () => { const P = T.finish.paint; return { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }; };
+const colorOf = (look: Look, seat: number) => (look.bot ? BOT_GRAYS[seat % BOT_GRAYS.length] : COLORS[look.color]?.hex ?? COLORS[0].hex);
+/** A portrait's figure, in metres x Z around the hips: body, head, and the hands folded in front (the arms are lost in the pose, as in the old portraits). */
+function figureOf(hex: number): [Shape, number][] {
+  const F = T.fighter, LG = T.legs, limb = mix(hex, 0x000000, 0.18);
+  const z = (s: Shape): Shape => (s.k === 'ball' ? { ...s, r: s.r * Z, x: s.x * Z, y: s.y * Z } : s.k === 'box' ? { ...s, hw: s.hw * Z, hh: s.hh * Z, x: s.x * Z, y: s.y * Z } : { ...s, r: s.r * Z, hl: s.hl * Z, x: s.x * Z, y: s.y * Z });
+  return ([
+    [{ k: 'cap', r: F.torsoRadius, hl: LG.torsoHalf, x: 0, y: LG.torsoY, rot: 0 }, hex],
+    [{ k: 'ball', r: F.headRadius, x: 0, y: F.headY }, hex],
+    [{ k: 'ball', r: F.fistRadius * 0.85, x: 0.05, y: -0.12 }, limb], [{ k: 'ball', r: F.fistRadius * 0.85, x: -0.03, y: -0.1 }, limb],
+  ] as [Shape, number][]).map(([s, c]) => [z(s), c]);
+}
+const hatOf = (look: Look, opts: { crown?: boolean }) => (opts.crown ? 'crown' : look.bot ? null : look.hat);
+const capeColor = () => parseInt(paintingFor(BACKGROUND).hot.slice(1), 16);
+/** The painted pictures a portrait is made of (each painted once, then kept): its body parts, the cape, the hat with all that sways on it. */
+function partsOf(look: Look, seat: number, opts: { crown?: boolean }): PaintJob[] {
+  const hex = colorOf(look, seat), K = knobs(), hat = hatOf(look, opts);
+  return [
+    ...figureOf(hex).map(([s, c]): PaintJob => ['paintedShape', [s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: (s as { r: number }).r, hl: (s as { hl: number }).hl }, c, K]]),
+    ['paintedCape', [capeColor(), K]],
+    ...(hat ? [['makeHat', [hat, T.fighter.headRadius * Z, hex]] as PaintJob] : []),
+  ];
+}
 
 /**
  * The three painted variants of one player's portrait (seat picks the stretch of landscape behind them). bare: the figure alone, no
@@ -42,9 +85,8 @@ export function paintPortrait(look: Look, seat: number, opts: { bare?: boolean; 
 const kept = new Map<string, Promise<HTMLCanvasElement[]>>();
 
 async function paint(look: Look, seat: number, opts: { bare?: boolean; crown?: boolean }): Promise<HTMLCanvasElement[]> {
-  const [a, back] = await Promise.all([startApp(), opts.bare ? null : startLand()]);
-  const { w: W, h: H } = PORTRAIT, F = T.fighter, LG = T.legs, P = T.finish.paint, K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under };
-  const hex = look.bot ? BOT_GRAYS[seat % BOT_GRAYS.length] : COLORS[look.color]?.hex ?? COLORS[0].hex, limb = mix(hex, 0x000000, 0.18);
+  const [a, back] = await Promise.all([startApp(), opts.bare ? null : startLand(), ...partsOf(look, seat, opts).map((j) => prepaint(j, true))]); // (its pictures painted away from the page: a click never freezes it)
+  const { w: W, h: H } = PORTRAIT, F = T.fighter, K = knobs(), hex = colorOf(look, seat);
 
   // The figure, in metres x Z around the hips, drawn at PPM pixels per unit: painted textures land 1:1 on the canvas.
   const stage = new Container(), fig = new Container(), under = new Container();
@@ -52,13 +94,8 @@ async function paint(look: Look, seat: number, opts: { bare?: boolean; crown?: b
   fig.position.set(W / 2, H - 6);
   stage.addChild(fig);
   fig.addChild(under);
-  const z = (s: Shape): Shape => (s.k === 'ball' ? { ...s, r: s.r * Z, x: s.x * Z, y: s.y * Z } : s.k === 'box' ? { ...s, hw: s.hw * Z, hh: s.hh * Z, x: s.x * Z, y: s.y * Z } : { ...s, r: s.r * Z, hl: s.hl * Z, x: s.x * Z, y: s.y * Z });
-  const parts: [Shape, number][] = [ // body, head, and the hands folded in front (the arms are lost in the pose, as in the old portraits)
-    [{ k: 'cap', r: F.torsoRadius, hl: LG.torsoHalf, x: 0, y: LG.torsoY, rot: 0 }, hex],
-    [{ k: 'ball', r: F.headRadius, x: 0, y: F.headY }, hex],
-    [{ k: 'ball', r: F.fistRadius * 0.85, x: 0.05, y: -0.12 }, limb], [{ k: 'ball', r: F.fistRadius * 0.85, x: -0.03, y: -0.1 }, limb],
-  ].map(([s, c]) => [z(s as Shape), c as number]);
-  const capeTex = paintedCape(parseInt(paintingFor(BACKGROUND).hot.slice(1), 16), K), capes: Sprite[] = [];
+  const parts = figureOf(hex);
+  const capeTex = paintedCape(capeColor(), K), capes: Sprite[] = [];
   for (const side of look.bot ? [] : [-1, 1]) { // the cape hangs from both shoulders behind the body, like a cloak (a robot has none)
     const c = new Sprite(capeTex[0]);
     c.anchor.set(0, 0.5);
@@ -75,7 +112,7 @@ async function paint(look: Look, seat: number, opts: { bare?: boolean; crown?: b
     under.addChild(u);
     painted.push(addPainted(fig, s, color));
   }
-  const headY = F.headY * Z, hat = opts.crown ? makeHat('crown', fig, 0, headY, F.headRadius * Z, hex) : look.bot ? null : makeHat(look.hat, fig, 0, headY, F.headRadius * Z, hex), eyes = look.bot ? drawRobotHead(F.headRadius * Z, hex) : drawEyes(F.headRadius * Z, look.eyes, hex); // eyes over the hat, as in the fight
+  const headY = F.headY * Z, hatName = hatOf(look, opts), hat = hatName ? makeHat(hatName, fig, 0, headY, F.headRadius * Z, hex) : null, eyes = look.bot ? drawRobotHead(F.headRadius * Z, hex) : drawEyes(F.headRadius * Z, look.eyes, hex); // eyes over the hat, as in the fight
   eyes.position.set(0, headY);
   fig.addChild(eyes);
 
