@@ -324,7 +324,7 @@ export async function startServer(port: number, opts: ServerOptions = {}): Promi
         if (!r.present.length && r.emptySince && Date.now() - r.emptySince > emptyMs) rooms.delete(r.code);
       }
     }
-  }, 5);
+  }, 1); // (every millisecond: a snapshot leaves within one of its tick, so they arrive evenly and the pages' buffers stay small; it was 5)
 
   const address = http.address();
   return {

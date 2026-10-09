@@ -17,6 +17,7 @@ const offscreen = (w: number, h: number): OffscreenCanvas => (typeof OffscreenCa
 
 export const PPM = 160; // texture pixels per metre (the view is 100 px per metre at 1080p)
 export const VARIANTS = 3;
+const BIG_PX = 600; // a weapon picture longer than this (canvas px) is painted coarser (paintedWeapon), as a big block is (paintedBox)
 const PAD = 4; // px of transparent margin
 const STROKE_SCALE = 1.8; // the package's fighter stroke sizes (px at 1280 wide) -> this texture
 
@@ -728,11 +729,13 @@ export function paintedMammoth(len: number, h: number, K: SpriteKnobs): { tex: T
 
 /** A weapon's own picture (content/weaponArt.ts), painted like the fighters (3 variants for the boil): lying flat, grip end on the left,
  *  lit from above. `len` = the weapon's real length (the picture is stretched to it). Anchor the sprite at (ax, ay), the middle of the
- *  rod (the part's centre). Null for anything without a picture (a plank, a leg). */
-export function paintedWeapon(id: string, len: number, K: SpriteKnobs): { tex: Texture[]; ax: number; ay: number } | null {
+ *  rod (the part's centre), and scale it by 1 / ppm. Null for anything without a picture (a plank, a leg). A big one (a biplane, a
+ *  gatehouse: seconds each on the page, between rounds) is painted coarser and once, like a big block (paintedBox); so is a still one
+ *  (`still`: the map's decor, a tree or a gate, is never boiled). */
+export function paintedWeapon(id: string, len: number, K: SpriteKnobs, still = false): { tex: Texture[]; ax: number; ay: number; ppm: number } | null {
   const art = WEAPON_ART[id];
   if (!art) return null;
-  const s = (PPM * len) / art.len; // canvas px per metre of the drawing
+  let s = (PPM * len) / art.len; // canvas px per metre of the drawing
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   const grow = (x: number, y: number, r: number) => { x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r); y0 = Math.min(y0, y - r); y1 = Math.max(y1, y + r); };
   for (const p of art.pieces) {
@@ -741,9 +744,11 @@ export function paintedWeapon(id: string, len: number, K: SpriteKnobs): { tex: T
     else if (p.k === 'poly') for (const [x, y] of p.pts) grow(x, y, 0);
     else { grow(p.x[0], 0, p.r); grow(p.x[1], 0, p.r); }
   }
+  const big = Math.min(1, BIG_PX / (Math.max(x1 - x0, y1 - y0) * s)); // (1: a weapon in the hand, painted as finely as the fighters)
+  s *= big;
   const M = PAD + (art.pieces.some((p) => 'glow' in p && p.glow) ? 10 : 0), W = Math.ceil((x1 - x0) * s + 2 * M), H = Math.ceil((y1 - y0) * s + 2 * M), N = W * H;
   const ox = M - x0 * s, oy = M - y0 * s, P = (x: number, y: number): [number, number] => [ox + x * s, oy + y * s];
-  const at = { ax: (ox + (art.len / 2) * s) / W, ay: oy / H }, key = `weapon|${id}|${len}|${JSON.stringify(K)}`, hit = cache.get(key);
+  const at = { ax: (ox + (art.len / 2) * s) / W, ay: oy / H, ppm: PPM * big }, key = `weapon|${id}|${len}|${still}|${JSON.stringify(K)}`, hit = cache.get(key);
   if (hit) return { tex: hit, ...at };
   const g = offscreen(W, H).getContext('2d', { willReadFrequently: true })!;
   /** Down a piece from its top edge to its bottom edge: lit, then shade (steel catches a second sheen low down). */
@@ -796,7 +801,7 @@ export function paintedWeapon(id: string, len: number, K: SpriteKnobs): { tex: T
     const x = i % W, y = (i / W) | 0, b = balls.find((q) => Math.hypot(x - q.x, y - q.y) < q.r);
     ang[i] = (b ? Math.atan2(y - b.y, x - b.x) + Math.PI / 2 : 0) + R.normal() * 0.05; // brushed along the weapon, round the round things
   }
-  const out = paintFlat(img, alpha, ang, 8009 + seed, K);
+  const once = big < 1 || still, painted = paintFlat(img, alpha, ang, 8009 + seed, K, once ? 1 : VARIANTS), out = once ? [painted[0], painted[0], painted[0]] : painted; // (a big or a still one: one variant for every boil frame)
   cache.set(key, out);
   return { tex: out, ...at };
 }

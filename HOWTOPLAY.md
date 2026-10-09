@@ -19,6 +19,7 @@ The host can end a fight early with **Esc** (everyone goes back to the room); an
 Dropped out? Reload the page. You get your seat and your score back. Joining late? You come in at the next round.
 Your connection's delay shows in the bottom corner (amber when it is slow). **Settings > Controls**: Instant moves your fighter the
 moment you press (the server corrects it if needed); Exact waits for the server.
+If the game stutters on your computer: on the home screen, **Settings > Graphics**: Medium, or Low for an older laptop.
 
 ## Controls (mouse and keyboard)
 

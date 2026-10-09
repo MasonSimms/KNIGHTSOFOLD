@@ -160,7 +160,7 @@ export function addWeapon(parent: Container, p: Part, tint?: number): Painted | 
   if (!art) return null;
   const sp = new Sprite(art.tex[0]);
   sp.anchor.set(art.ax, art.ay);
-  sp.scale.set(1 / PPM);
+  sp.scale.set(1 / art.ppm);
   if (tint !== undefined) sp.tint = tint;
   parent.addChild(sp);
   return { s: p.shapes[0], tex: art.tex, a: sp, b: null };
@@ -550,6 +550,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       app.renderer.resolution = Math.min(window.devicePixelRatio, Q.maxResolution);
       app.renderer.resize(app.screen.width, app.screen.height);
       front.filters = Q.blur ? [frontBlur] : null;
+      paintLayer.filters = Q.blur ? [paintBlur] : null; // (Low: no blur anywhere, for slower computers)
       grain.visible = Q.grain;
       builtVersion = -1; // (repaint everything)
     },
@@ -667,7 +668,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       flat.visible = !tex;
       const speed = sim.arena.roll, W = A.viewW, roll = speed && tex ? ((((speed * (sim.frame - 1 + alpha) * T.sim.dt) % (2 * W)) + 2 * W) % (2 * W)) : 0;
       painted.x = -roll;
-      backdrop.filters = speed ? [rollBlur] : null;
+      backdrop.filters = speed && Q.blur ? [rollBlur] : null;
       rollBlur.strengthX = speed * T.finish.rollBlur * px; rollBlur.strengthY = 0;
       rolling.forEach((r, i) => {
         r.visible = !!speed && !!tex;
