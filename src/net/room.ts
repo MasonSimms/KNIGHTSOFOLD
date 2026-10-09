@@ -74,10 +74,11 @@ export class Room {
 
   /** One 60 Hz tick. Returns a snapshot on every `snapEvery`th tick. */
   tick(): Snapshot | null {
+    const counting = !this.sim.roundOver && !this.sim.matchOver && this.sim.countdown === 0; // (the stats are for a fight under way: in a break or a countdown a page sends nothing, and that is not its line)
     this.queue.forEach((q, i) => {
       const x = q.shift(), st = this.stats[i];
-      if (x) { this.inputs[i] = x.i; this.acks[i] = x.n; } else if (this.acks[i]) st.dry++;
-      if (this.acks[i]) { st.ticks++; st.waiting += q.length; }
+      if (x) { this.inputs[i] = x.i; this.acks[i] = x.n; } else if (this.acks[i] && counting) st.dry++;
+      if (this.acks[i] && counting) { st.ticks++; st.waiting += q.length; }
       this.backlog[i] = q.length ? this.backlog[i] + 1 : 0;
       if (this.backlog[i] > T.net.inputTrim && q.length >= 1) { q.length > 1 ? this.fold(i) : this.trimOne(i); this.backlog[i] = 0; } // (a tick of delay that has stayed: taken away)
     });
