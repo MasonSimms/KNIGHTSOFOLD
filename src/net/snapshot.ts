@@ -2,7 +2,7 @@ import { tuning as T } from '../content/tuning';
 import type { SimEvent } from '../sim/types';
 import type { Look } from '../content/looks';
 import type { Sim } from '../sim/world';
-import type { Fighter } from '../sim/fighter';
+import type { Fighter, Part } from '../sim/fighter';
 
 // What the server sends the clients: where every body part is, plus the structural events since the last snapshot (deaths, pickups,
 // respawns, new rounds) so the client's copy of the sim keeps the same list of parts. Plain JSON-safe data.
@@ -85,6 +85,9 @@ export class Mirror {
   private sorted = new Float64Array(0);
   private want = 0; // the buffer the arrivals call for (ticks): see target
   private lastFrame = -1; // the newest snapshot's tick at the last update (to tell a flowing stream from a stalled one)
+  private carry: { frame: number; span: number } | null = null; // the last frame shown carried the motion on past the newest snapshot, from this pair
+  private seen = new WeakMap<Part, Float64Array>(); // each of the others' parts: its last pose pair (from x, y, to x, y) and the slide still owed (x, y)
+  private seconds = 1 / 60; // how long the last frame was (update)
   constructor(readonly sim: Sim, delay = T.net.blendTicks, readonly keep = 60) { this.delay = delay; this.want = delay; } // keep: snapshots held (a replay clip holds all of its own)
   /** The server tick being shown now (the newest snapshot's minus the buffer, give or take). */
   get shown(): number { return this.head; }
@@ -149,6 +152,7 @@ export class Mirror {
     if (!latest) return { alpha: 1, events: [] };
     const N = T.net;
     if (!this.started) { this.head = latest.frame - this.delay; this.started = true; }
+    this.seconds = seconds;
     this.head += seconds * 60 * this.rate;
     if (this.rate < 1) return this.show(this.head); // (slow motion: no catching up meanwhile)
     // A jitter buffer sized to the connection (see target): it widens at once when snapshots start arriving more unevenly, and narrows
@@ -160,9 +164,9 @@ export class Mirror {
     else if ((this.calm += seconds) > N.blendRelax) { this.calm = 0; this.delay = Math.max(this.want, this.delay - 1); }
     const err = latest.frame - this.delay - this.head;
     // Behind the target (a tab that was hidden): jump. Ahead of it while the stream flows (the buffer just widened): run slow, never slower
-    // than half speed, until the stream has built the buffer up. During a stall time runs on at full speed, so the buffer measures the whole
+    // than tuning.net.slowest, until the stream has built the buffer up. During a stall time runs on at full speed, so the buffer measures the whole
     // stall and the next one like it is covered: past the newest snapshot the motion carries on for a moment (show extrapolates), then waits.
-    if (err > 12) this.head = latest.frame - this.delay; else if (flowing || err > 0) this.head += Math.max(err * 0.05, -0.5 * seconds * 60);
+    if (err > 12) this.head = latest.frame - this.delay; else if (flowing || err > 0) this.head += Math.max(err * 0.05, -N.slowest * seconds * 60);
     if (this.head > latest.frame + N.extrapolateTicks) { this.waits++; this.head = latest.frame + N.extrapolateTicks; }
     return this.show(this.head);
   }
@@ -193,7 +197,8 @@ export class Mirror {
     const prev = this.snaps[ai - 1];
     if (b === a && at > a.frame && prev && prev.props.length === a.props.length && prev.f.every((x, i) => x.p.length === a.f[i].p.length)) { b = a; a = prev; }
     const alpha = b === a ? 1 : Math.max(0, (at - a.frame) / (b.frame - a.frame));
-    const sim = this.sim;
+    const sim = this.sim, S = T.net, carried = this.carry;
+    this.carry = alpha > 1 ? { frame: a.frame, span: b.frame - a.frame } : null;
     const looksNow = JSON.stringify(a.looks);
     if (looksNow !== this.lastLooks) { this.lastLooks = looksNow; sim.version++; } // someone picked a new hat or colour: the renderer must redraw the fighters
     sim.era = a.era; sim.map = a.map; sim.outfits = a.outfits; sim.looks = a.looks;
@@ -239,6 +244,19 @@ export class Mirror {
         const from = teleport ? to : pa;
         p.px = from[j * 3]; p.py = from[j * 3 + 1]; p.pa = from[j * 3 + 2];
         p.cx = to[j * 3]; p.cy = to[j * 3 + 1]; p.ca = to[j * 3 + 2];
+        if (!S.smoothBack || teleport) return;
+        // The motion was carried on past the newest snapshot, and now the real one is here: where the carry had them and where they
+        // really are can differ (they stopped, turned, were hit). Not a jump back: the difference is drawn sliding away over a moment.
+        let m = this.seen.get(p);
+        if (!m) this.seen.set(p, (m = new Float64Array([NaN, 0, 0, 0, 0, 0])));
+        if (carried && a.frame !== carried.frame && !Number.isNaN(m[0])) {
+          const k = (at - carried.frame) / carried.span, ex = m[0] + (m[2] - m[0]) * k - (p.px + (p.cx - p.px) * alpha), ey = m[1] + (m[3] - m[1]) * k - (p.py + (p.cy - p.py) * alpha);
+          if (Math.hypot(ex, ey) < S.smoothBackMax) { m[4] += ex; m[5] += ey; }
+        }
+        m[0] = p.px; m[1] = p.py; m[2] = p.cx; m[3] = p.cy;
+        p.px += m[4]; p.cx += m[4]; p.py += m[5]; p.cy += m[5];
+        const keep = Math.exp(-this.seconds / S.smoothBack);
+        m[4] *= keep; m[5] *= keep;
       });
     });
     return { alpha, events: due };

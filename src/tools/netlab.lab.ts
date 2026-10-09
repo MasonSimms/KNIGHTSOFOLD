@@ -63,7 +63,9 @@ async function play(line: (typeof LINES)[number], o: Opts = { era: process.env.E
   const room = new Room(server), mirror = new Mirror(client), pred = new Predictor(mirror, 0), brain = new Bot(SEED + 5);
   const up = new Pipe<{ i: PlayerInput; n: number }>(line.ms, line.jitter, line.loss, rng), down = new Pipe<string>(line.ms, line.jitter, line.loss, rng);
   const sentAt = new Map<number, number>(), inputDelay: number[] = [], behind: number[] = [], buffer: number[] = [], off: number[] = [], alone: number[] = [];
-  let fightSnaps = 0;
+  const truth = new Map<number, number[]>(); // server tick -> the others' torsos (x, y each) as the server really had them
+  const lastSeen: number[][] = []; let snapBacks = 0, carrying = false; // the others as drawn last frame (where drawn, where truly): a frame that moves the picture 10 cm more than they really moved is a snap-back
+  let fightSnaps = 0, blowsShown = 0, blowsCounted = 0, blowsMatched = 0; // your blows: shown at once on your screen, counted by the server, and both
   let n = 0, acc = 0, lastAck = 0, bytes = 0, packed = 0, snaps = 0, frames = 0, active = 0, shownAlpha = 0, prevMsg = Buffer.alloc(0), tickMs = 0;
   let serverAt = 0, clientAt = 0, lastFrame = 0;
   const end = SECONDS * 1000;
@@ -77,6 +79,7 @@ async function play(line: (typeof LINES)[number], o: Opts = { era: process.env.E
         if (ack !== lastAck && sentAt.has(ack)) inputDelay.push(serverAt - sentAt.get(ack)!);
         lastAck = ack;
         const msg = JSON.stringify(s);
+        truth.set(s.frame, s.f.flatMap((g) => { const k = server.fighters[0].parts.indexOf(server.fighters[0].torso); return g.p.length ? [g.p[k * 3], g.p[k * 3 + 1]] : [NaN, NaN]; })); truth.delete(s.frame - 600);
         bytes += msg.length; snaps++;
         const buf = Buffer.from(msg); packed += deflateRawSync(buf, { level: 1, dictionary: prevMsg }).length; prevMsg = buf; // (compressed on the wire, as permessage-deflate does: each message against the one before)
         down.send(serverAt, msg);
@@ -90,11 +93,12 @@ async function play(line: (typeof LINES)[number], o: Opts = { era: process.env.E
         const input = o.idle ? NEUTRAL : brain.think(server, server.fighters[0]); // (IDLE=1: the player stands still and takes what comes) // (it decides from the server's world: what matters here is when it presses)
         n++; sentAt.set(n, clientAt); sentAt.delete(n - 600);
         up.send(clientAt, { i: input, n });
-        pred.tick(input, n, shownAlpha);
+        for (const e of pred.tick(input, n, shownAlpha)) if (e.t === 'hit') blowsShown++;
       }
       if (acc >= DT) acc = 0;
       for (const { at, m } of down.take(clientAt)) {
         const s = JSON.parse(m) as Snapshot, was = { ...pred.stats };
+        for (const e of s.ev) if (e.t === 'hit' && e.owner === 0) { blowsCounted++; if (pred.claim(e)) blowsMatched++; }
         mirror.push(s, at); pred.reconcile(s);
         // (only in a fight: a new round or a respawn puts everyone somewhere new, and the guess simply jumps there with it)
         if (pred.stats.checks > was.checks && !s.roundOver && !s.ev.some((e) => e.t === 'newround' || e.t === 'respawn')) {
@@ -105,6 +109,15 @@ async function play(line: (typeof LINES)[number], o: Opts = { era: process.env.E
       }
       const shown = mirror.update(ft / 1000);
       shownAlpha = shown.alpha;
+      const h = mirror.shown, t0 = truth.get(Math.floor(h)), t1 = truth.get(Math.floor(h) + 1);
+      client.fighters.forEach((g, i) => { // (the others as they are drawn: between their last two poses, or carried on past the newest)
+        if (i === 0 || g.limp || !t0 || !t1) { lastSeen[i] = []; return; }
+        const k = h - Math.floor(h), tx = t0[2 * i] + (t1[2 * i] - t0[2 * i]) * k, ty = t0[2 * i + 1] + (t1[2 * i + 1] - t0[2 * i + 1]) * k;
+        const x = g.torso.px + (g.torso.cx - g.torso.px) * shown.alpha, y = g.torso.py + (g.torso.cy - g.torso.py) * shown.alpha, L = lastSeen[i] ?? [];
+        if (carrying && L.length && Number.isFinite(tx) && Math.hypot(x - L[0] - (tx - L[2]), y - L[1] - (ty - L[3])) > 0.1 && Math.hypot(x - L[0], y - L[1]) < 3) snapBacks++;
+        lastSeen[i] = [x, y, tx, ty];
+      });
+      carrying = shown.alpha > 1; // (carried on past the newest snapshot this frame: the next one may snap back)
       frames++;
       if (pred.active) active++;
       if (clientAt > 3000) { behind.push((serverAt / DT - mirror.shown) * DT); buffer.push(mirror.delay); } // how old what you see of the others is (ms)
@@ -116,6 +129,8 @@ async function play(line: (typeof LINES)[number], o: Opts = { era: process.env.E
     line, desyncs: mirror.desyncs, snapBytes: bytes / snaps, packedBytes: packed / snaps, tickMs: tickMs / (SECONDS * 60),
     inputMs: avg(inputDelay), input95: pct(inputDelay, 0.95), waiting: st.waiting / Math.max(1, st.ticks), dry: st.dry / Math.max(1, st.ticks), folded: st.folded,
     predicting: active / frames, offCm: avg(off) * 100, aloneCm: avg(alone) * 100, aloneShare: alone.length / Math.max(1, off.length), off95: pct(off, 0.95) * 100, worstCm: Math.max(0, ...off) * 100, snapsPerMin: fightSnaps / minutes, roundSnaps: P.snaps - fightSnaps,
+    blowsShown: blowsShown / minutes, blowsCounted: blowsCounted / minutes, blowsMatched: blowsMatched / minutes,
+    snapBacksPerMin: snapBacks / minutes,
     behindMs: avg(behind), behind95: pct(behind, 0.95), bufferTicks: avg(buffer), stallsPerMin: mirror.waits / minutes, starvedPerMin: mirror.starved / minutes,
   };
 }
@@ -146,12 +161,21 @@ share of the time your fighter was moved by your own screen (the rest: knocked d
 ${table(['Connection', 'Predicting', 'Off (avg / 95%)', 'Off with nobody near (share of the time)', 'Worst', 'Snaps a minute', '(at new rounds)'],
   rows.map((r) => [r.line.name, `${f0(r.predicting * 100)}%`, `${f1(r.offCm)} / ${f0(r.off95)} cm`, `${f1(r.aloneCm)} cm (${f0(r.aloneShare * 100)}%)`, `${f0(r.worstCm)} cm`, f1(r.snapsPerMin), String(r.roundSnaps)]))}
 
+## Your blows (instant hit feedback)
+Your blow's spark, sound and shake show the moment it lands on your screen (net/predict.ts blows); the server's report of it is then
+skipped. Shown at once = of the blows the server counted, how many your screen showed first; missed = shown on your screen, but the server
+found the blow missed (a spark for nothing: you hit them where your screen showed them, a moment in the past).
+
+${table(['Connection', 'Blows the server counted (a minute)', 'Shown at once', 'Shown, but missed on the server (a minute)'],
+  rows.map((r) => [r.line.name, f1(r.blowsCounted), `${f0(r.blowsCounted ? (100 * r.blowsMatched) / r.blowsCounted : 0)}%`, f1(Math.max(0, r.blowsShown - r.blowsMatched))]))}
+
 ## Everyone else
 What you see of the others is this far in the past (the wire plus the blend buffer). Stalls = times a minute the picture of them had to
-wait for a snapshot; carried on = times it ran past the newest one and carried the motion on instead.
+wait for a snapshot; carried on = times it ran past the newest one and carried the motion on instead; snap-backs = times one of them was
+drawn moving 10 cm more (or less) in a frame than they really moved (the motion carried on wrong, then the real snapshot came).
 
-${table(['Connection', 'Others shown (avg / 95%)', 'Buffer (ticks)', 'Stalls a minute', 'Carried on a minute', 'Desyncs', 'Data down (compressed)'],
-  rows.map((r) => [r.line.name, `${f0(r.behindMs)} / ${f0(r.behind95)} ms`, f1(r.bufferTicks), f1(r.stallsPerMin), f1(r.starvedPerMin), String(r.desyncs), `${f0(r.snapBytes * 60 / 1024)} KB/s (${f0(r.packedBytes * 60 / 1024)} KB/s)`]))}
+${table(['Connection', 'Others shown (avg / 95%)', 'Buffer (ticks)', 'Stalls a minute', 'Carried on a minute', 'Snap-backs a minute', 'Desyncs', 'Data down (compressed)'],
+  rows.map((r) => [r.line.name, `${f0(r.behindMs)} / ${f0(r.behind95)} ms`, f1(r.bufferTicks), f1(r.stallsPerMin), f1(r.starvedPerMin), f1(r.snapBacksPerMin), String(r.desyncs), `${f0(r.snapBytes * 60 / 1024)} KB/s (${f0(r.packedBytes * 60 / 1024)} KB/s)`]))}
 
 ## The server
 One room's work each tick (the fight, its snapshot): ${f2(avg(rows.map((r) => r.tickMs)))} ms on this computer, ${f0(avg(rows.map((r) => r.tickMs)) / (1000 / 60) * 100)}% of one core. A Fly.io shared CPU may use 6.25% of a core

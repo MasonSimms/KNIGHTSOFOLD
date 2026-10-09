@@ -463,7 +463,7 @@ function frame(now: number) {
     desyncsSeen = mirror.desyncs;
     alpha = shownAlpha = shown.alpha;
     predictor?.settle(alpha); // (just handed over to the server: your fighter slides from where it was)
-    for (const e of shown.events) if (!(e.owner === mySlot && predictor?.active && (e.t === 'shot' || OWN_MOVES.has(e.t)))) play(e); // (your own shot, jump, dodge... already showed when you pressed)
+    for (const e of shown.events) if (!(e.owner === mySlot && predictor?.active && (e.t === 'shot' || OWN_MOVES.has(e.t))) && !(e.t === 'hit' && e.owner === mySlot && predictor?.claim(e))) play(e); // (your own shot, jump, dodge... already showed when you pressed; your blow, when it landed on your screen)
     if (coverUntilPainted && view.frame > 0 && view.round === mirror.newestRound) { coverUntilPainted = false; void renderer.preload(view, ONLINE_PRELOAD_MS).then(() => { closeMenu(); settle(); }); }
     if (shown.events.some((e) => e.t === 'round') && view.matchActive) roundSeenAt = now; // online: the round is won; the museum in half a second
     if (net && shown.events.some((e) => e.t === 'newround')) notice(''); // ("You join at the start of the next round": this is it)

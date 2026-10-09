@@ -1,6 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { RigidBody, World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
+import { impactValue } from '../sim/combat';
 import { attachedParts, isWeapon } from '../sim/fighter';
 import type { Fighter, Part } from '../sim/fighter';
 import type { PlayerInput, SimEvent } from '../sim/types';
@@ -34,6 +35,10 @@ export class Predictor {
   shift = { x: 0, y: 0 };
   private drawn = { x: 0, y: 0 }; // where your fighter was drawn at the last guess (the torso)
   private handover = false; // prediction has just stopped: the shift that keeps your fighter where it was is worked out once the copy has the server's pose (settle)
+  private hitReady = 0; // the input number your next blow can show from (the weapon's cooldown, as on the server)
+  private claims: { victim: number; at: number }[] = []; // your blows this page has shown, waiting for the server's report of them (skipped: claim)
+  private touching = new Set<number>(); // (your attacking part's index x 4 + the victim) in touch this tick...
+  private touched = new Set<number>(); // ...and last tick: a blow counts as it comes into touch
   /** How the guess has gone (the F3 overlay, npm run netlab): snapshots checked, the total and worst distance off (m), jumps straight to the server. */
   stats = { checks: 0, off: 0, worst: 0, snaps: 0, starts: 0 };
 
@@ -69,6 +74,7 @@ export class Predictor {
     this.shift.x *= T.net.predict.smooth; this.shift.y *= T.net.predict.smooth;
     sim.poseMachines(this.frameOf(n) + 1); // (where the server has them as this input's step ends)
     const shown = sim.predictStep(this.slot, input);
+    if (T.net.predict.hits) shown.push(...this.blows(f, n));
     for (const p of mine) { const t = p.body.translation(); p.px = p.cx; p.py = p.cy; p.pa = p.ca; p.cx = t.x; p.cy = t.y; p.ca = p.body.rotation(); }
     const t = f.torso.body.translation();
     this.hist.set(n, { x: t.x, y: t.y });
@@ -107,6 +113,55 @@ export class Predictor {
     const k = Math.min(P.blendMax, P.blend + d * P.blendPerMetre), kx = ex * k, ky = ey * k; // a share of the difference each snapshot (a bigger share when further off): smooth, and it closes in a few ticks
     for (const p of this.mine(f)) { const t = p.body.translation(); p.body.setTranslation({ x: t.x + kx, y: t.y + ky }, true); p.cx += kx; p.cy += ky; p.px += kx; p.py += ky; }
     for (const v of this.hist.values()) { v.x += kx; v.y += ky; } // (the guesses after it were made from the same mistake)
+  }
+
+  /**
+   * Your own blow landing on someone, as this page sees it (owner, 2026-10-09: instant hit feedback): its spark, sound and shake at once,
+   * not a round trip later. The server still decides what the blow does; its own report of it is skipped (claim). A guess: you hit them
+   * where your screen shows them, a moment in the past, so now and then the server finds the blow missed. Only a clear blow (a margin over
+   * the server's least) and one a cooldown, as the server's.
+   */
+  private blows(f: Fighter, n: number): SimEvent[] {
+    [this.touched, this.touching] = [this.touching, this.touched];
+    this.touching.clear();
+    const sim = this.mirror.sim, P = T.net.predict;
+    if (f.inBack || this.mirror.delay > P.hitMaxBuffer) return []; // (on a shaky line the others are shown too far in the past to judge a blow on them)
+    let blow: SimEvent | null = null;
+    for (const att of f.attackers) {
+      const ab = att.part.body, av = ab.linvel(), aw = ab.angvel(), at = ab.translation(), W = att.kind === 'stick' ? att.part.weapon ?? T.stick : T.fist;
+      const counts = (att.kind === 'stick' || (f.punch > 0 && !f.armLost && !f.grip)) && Math.hypot(av.x, av.y) + Math.abs(aw) >= P.hitMinSpeed; // (a fist counts while it punches; too slow to hurt anyone: no blow)
+      for (const g of sim.fighters) {
+        if (g === f || !g.controlled || g.limp || g.inBack || sim.gone[g.index] || (att.kind === 'fist' && f.held === g)) continue;
+        const key = f.parts.indexOf(att.part) * 4 + g.index;
+        for (const p of attachedParts(g)) {
+          if (isWeapon(p)) continue;
+          for (const c of p.colliders) {
+            const k = att.collider.contactCollider(c, 0);
+            if (!k || k.distance > 0) continue;
+            this.touching.add(key);
+            if (!counts || blow || this.touched.has(key) || n < this.hitReady) continue; // (only as it comes into touch: here the weapon goes on through them, on the server it bounces off)
+            const bv = p.body.linvel(), bw = p.body.angvel(), bt = p.body.translation(), x = k.point1.x, y = k.point1.y;
+            const closing = (av.x - aw * (y - at.y) - (bv.x - bw * (y - bt.y))) * k.normal1.x + (av.y + aw * (x - at.x) - (bv.y + bw * (x - bt.x))) * k.normal1.y;
+            const impact = impactValue(closing, W.impactFactor);
+            if (impact < T.combat.impactMin * P.hitMargin) continue;
+            this.hitReady = n + T.combat.hitCooldown;
+            this.claims.push({ victim: g.index, at: performance.now() });
+            blow = { t: 'hit', x, y, v: impact, owner: f.index, victim: g.index, head: c === g.headCollider, how: att.kind === 'stick' ? 'club' : 'fist', w: att.kind === 'stick' ? att.part.weapon?.id : undefined };
+          }
+        }
+      }
+    }
+    return blow ? [blow] : [];
+  }
+
+  /** The server's report of a blow of yours: true if this page has shown it already (then it is not shown again). */
+  claim(e: SimEvent): boolean {
+    const now = performance.now();
+    this.claims = this.claims.filter((c) => now - c.at < T.net.predict.hitClaim * 1000);
+    const i = this.claims.findIndex((c) => c.victim === e.victim);
+    if (i < 0) return false;
+    this.claims.splice(i, 1);
+    return true;
   }
 
   /** Stop predicting (the server moves you again). slide: your fighter goes from where it was drawn to the server's picture over a few
