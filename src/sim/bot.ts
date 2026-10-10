@@ -22,6 +22,7 @@ type Plan =
   | { kind: 'punch' }
   | { kind: 'backoff' } // after an attack: a step or two back out of reach, as people do
   | { kind: 'grab'; finish: 'fling' | 'toss' | 'slam' }
+  | { kind: 'guard'; from: Fighter } // hold its weapon still in the way of that one's swing (a block), then hit back
   | { kind: 'dodge' };
 
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -133,6 +134,15 @@ export class Bot {
         else { look = { x: p.x + edge * 3, y: p.y - 0.8 - Math.min(1, age / 40) * 1.5 }; out.moveX = edge * 0.5; if (age > 50) out.attack = false; } // swing them up and let go: fling
       }
       if (age > 130 || (!me.hold && age > 32)) this.start({ kind: 'idle' }, now);
+    } else if (plan.kind === 'guard') {
+      // Stand still with the weapon held out between them (a weapon that moves does not block: tuning.parry), until their swing is spent or it
+      // has waited long enough; then, if they are still in reach, the quick swing back while they recover.
+      look = { x: this.seen.x, y: this.seen.y - B.guardHigh };
+      const f = plan.from, swinging = !f.limp && !!f.grip && (f.charge > 0 || f.release > 0);
+      if (age > B.guardFrames || (age > 6 && !swinging)) {
+        if (!f.limp && me.grip && Math.abs(dx) < (me.stick?.weapon?.length ?? T.stick.length) + B.swingReach) this.start({ kind: 'swing', charge: B.charge[0] }, now, B.charge[0] + 20);
+        else this.start({ kind: 'idle' }, now);
+      }
     } else if (plan.kind === 'dodge') {
       out.dodge = age < 2;
       this.start({ kind: 'idle' }, now + 1);
@@ -181,8 +191,16 @@ export class Bot {
     const B = T.bot, r = this.rng(), p = me.torso.body.translation();
     if (r < B.hesitate) { this.start({ kind: 'idle' }, now); return; } // a moment of nothing, like anyone
     // Someone close is winding up a big swing: sometimes slip out of the way.
-    const threat = sim.fighters.some((f) => f !== me && !f.limp && f.grip && f.charge > 12 && Math.abs(f.torso.body.translation().x - p.x) < 2.2);
+    const threat = sim.fighters.find((f) => f !== me && !f.limp && f.grip && f.charge > 12 && Math.abs(f.torso.body.translation().x - p.x) < 2.2);
     if (threat && me.dodgeCooldown === 0 && this.rng() < B.dodgeChance) { this.start({ kind: 'dodge' }, now); return; }
+    // ...or, now and then, use its own weapon (owner, 2026-10-10: "give bots some idea of blocking but make it infrequent"): hold it still in
+    // the swing's way (a block), or, more rarely still, swing into the swing (a clash).
+    const swing = threat ?? sim.fighters.find((f) => f !== me && !f.limp && !f.inBack && f.grip && !f.stick?.weapon?.gun && (f.charge > 0 || f.release > 0) && Math.abs(f.torso.body.translation().x - p.x) < B.guardRange); // (any swing in reach, wound up or already coming)
+    if (swing && me.grip && !this.loaded(me)) {
+      const g = this.rng();
+      if (g < B.guardChance) { this.target = swing; const t = swing.torso.body.translation(), v = swing.torso.body.linvel(); this.seen = { x: t.x, y: t.y, vx: v.x, vy: v.y, at: now }; this.start({ kind: 'guard', from: swing }, now, B.guardFrames); return; }
+      if (g < B.guardChance + B.meetChance) { this.start({ kind: 'swing', charge: B.charge[0] }, now, B.charge[0] + 20); return; }
+    }
     // Empty-handed: a loose weapon nearer than the fight is worth fetching.
     const tx = this.target ? this.seen.x : p.x;
     if (!me.grip && !me.armLost) { // (no arm: nothing to hold it with)

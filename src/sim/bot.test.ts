@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { tuning as T } from '../content/tuning';
 import { hashSim } from './hash';
 import { NEUTRAL } from './types';
 import { Sim } from './world';
@@ -35,5 +36,31 @@ describe('bots', () => {
   it('a fight with bots plays out exactly the same every time (the server depends on it)', async () => {
     const a = await botFight(8, 900), b = await botFight(8, 900);
     expect(a.hash).toBe(b.hash);
+  }, 60000);
+
+  // Owner, 2026-10-10: "give bots some idea of blocking but make it infrequent".
+  it('a bot with a weapon sometimes guards a swing wound up in its reach: it stands with its weapon out and does not attack; never, with the chance at 0', async () => {
+    const B = T.bot, was = { g: B.guardChance, m: B.meetChance, d: B.dodgeChance };
+    /** A player walks up to a bot and winds up swing after swing; how many frames the bot spent guarding, and whether it pressed attack while it did. */
+    const guarding = async (chance: number) => {
+      B.guardChance = chance; B.meetChance = 0; B.dodgeChance = 0;
+      const sim = await Sim.create(4, 2, false);
+      sim.looks[1].bot = true;
+      sim.reset();
+      let frames = 0, attacked = false;
+      for (let i = 0; i < 600; i++) {
+        const me = sim.fighters[0], it = sim.fighters[1], dx = it.torso.body.translation().x - me.torso.body.translation().x;
+        sim.step([{ ...NEUTRAL, moveX: Math.abs(dx) > 1.6 ? Math.sign(dx) : 0, aim: dx > 0 ? 0 : Math.PI, attack: Math.abs(dx) < 2.2 && i % 50 < 30 }, NEUTRAL]);
+        const brain = (sim as unknown as { brains: ({ plan: { kind: string } } | undefined)[] }).brains[1];
+        if (brain?.plan.kind === 'guard' && !it.limp) { frames++; if (it.charge > 0) attacked = true; }
+      }
+      return { frames, attacked };
+    };
+    try {
+      const always = await guarding(1), never = await guarding(0);
+      expect(always.frames).toBeGreaterThan(10);
+      expect(always.attacked).toBe(false); // (holding a guard is not charging a swing)
+      expect(never.frames).toBe(0);
+    } finally { B.guardChance = was.g; B.meetChance = was.m; B.dodgeChance = was.d; }
   }, 60000);
 });

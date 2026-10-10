@@ -906,6 +906,12 @@ export const tuning = {
     slamChance: 0.35, // a grab ends in a slam (jump back and hold S)...
     tossChance: 0.25, // ...or a right-click toss (otherwise it swings them up and flings them)
     dodgeChance: 0.3, // someone close winding up a big swing: it dodges this often
+    // Some idea of blocking, infrequent (owner, 2026-10-10). Each time it thinks while someone within guardRange is winding up or swinging a weapon:
+    guardChance: 0.2, // ...it holds its own weapon still in the way this often (a block: the swing is thrown back, then it hits back). In the lab a bot tries it about once in three rounds, and about one try in three stops the swing
+    meetChance: 0.05, // ...or swings into the swing this often (a clash)
+    guardFrames: 45, // it holds a guard at most this long (0.75 s), or until their swing is spent
+    guardHigh: 0.5, // m above the attacker's chest it points its weapon while guarding (pointed at their head or so; higher poses, 2 and 3 m, were hit far more often in the lab)
+    guardRange: 2.4, // m: a swing this close is one to guard against
     fetchRange: 7, // m: empty-handed, it goes for a loose weapon this close (if it is nearer than the fight)
     gunFetchRange: 25, // m: ...but a loaded gun it races for from this far, fight or no fight (the race for the guns, owner 2026-10-07)
     hesitate: 0.08, // share of decisions that are a moment of doing nothing
