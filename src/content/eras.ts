@@ -1,7 +1,7 @@
 // The eras. Pure data: adding an era is adding a row here (and, later, its art, outfits and weapons). The colours below are PLACEHOLDERS so
 // each era is visibly different in screenshots until the real art arrives. `special` eras turn up at random now and then instead of in the normal rotation.
 /** How an era's arena differs from the standard one (any arena setting can be overridden; `ledges` adds floating platforms: x = left end in metres, up = height above the main platform, w = width). */
-export interface EraArena {
+interface EraArena {
   name?: string; // what the map is called (menus); the usual arena of an era needs none
   platformX?: number; platformW?: number;
   platformThickness?: number; // how deep the ground goes (m): deep enough and it is a landmass running off the bottom of the picture
@@ -45,7 +45,7 @@ export interface EraArena {
 }
 
 /** How the whole picture is painted in this era (each one overrides tuning.finish.style): blur = background softness, haze = background fading into the air, grain = canvas weave, tint/tintAlpha = colour wash. */
-export interface EraStyle { blur: number; haze: number; grain: number; tint: number; tintAlpha: number }
+interface EraStyle { blur: number; haze: number; grain: number; tint: number; tintAlpha: number }
 
 export interface Era {
   id: string;

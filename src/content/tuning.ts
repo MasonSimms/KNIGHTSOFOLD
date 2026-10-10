@@ -526,7 +526,6 @@ export const tuning = {
     explodeSpin: 14, // tumble (rad/s)
     crushImpact: 25, // a stomp or a crash at least this big flattens the victim (the picture squashes; physics is a normal fall)
     shake: 0.05, // screen shake on an explosion or a crush
-    fallPaint: 0xb3232b, // the red paint that splatters the picture when someone falls off the stage (cartoon, not gore)
     squashSeconds: 0.12, // how fast a crushed fighter goes flat
     squashFlat: 0.65, // how much of their height is squashed away
     squashWide: 0.6, // how much wider they get
@@ -970,9 +969,7 @@ export const tuning = {
   },
   splat: {
     max: 400, // decals on the picture (the paint from a whole round stays until the round ends)
-    radiusMin: 10, // pixels
-    radiusMax: 40,
-    radiusPerImpact: 1.2,
+    radiusMax: 40, // pixels
     alpha: 0.95,
     // Hurt (owner): a subtle spray in the hurt player's own colour, flung the way the blow went, soaking into the canvas.
     spray: { drops: [2, 6], reach: [0.25, 1.1], size: [7, 18], alpha: 0.55, minImpact: 12 }, // drops per hit (small hit .. big hit), how far they fly (m), their size (px), how strong; hits softer than minImpact leave no paint (2026-10-06: taps on the training dummy were burying the picture in paint)
@@ -1080,5 +1077,3 @@ export const tuning = {
     dummy: 0xe9ddc1, // the training dummy
   },
 };
-
-export type Tuning = typeof tuning;

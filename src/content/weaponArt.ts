@@ -5,7 +5,7 @@
 
 /** A colour ramp from the lit side (top) to the shadow side; a fourth colour adds a sheen (steel). */
 export type Paint = readonly string[];
-export type Piece =
+type Piece =
   /** A strip from (x0, y0) to (x1, y1), half-width w0 narrowing (or widening) to w1, bowed sideways by `bend` at its middle. */
   | { k: 'rod'; a: [number, number]; b: [number, number]; w: [number, number]; bend?: number; c: Paint; grip?: true; glow?: true }
   /** A round thing: radius r (rx across the length when it is an oval), with `spikes` points round it (a mace, a flail's star). */
@@ -13,7 +13,7 @@ export type Piece =
   | { k: 'poly'; pts: [number, number][]; c: Paint; grip?: true }
   /** Chain links from x0 to x1 (looks only until chain physics: weapons batch two). */
   | { k: 'chain'; x: [number, number]; r: number; c: Paint };
-export interface WeaponArt { len: number; pieces: Piece[] }
+interface WeaponArt { len: number; pieces: Piece[] }
 
 const WOOD = ['#B58251', '#7E5233', '#45291A'], DARKWOOD = ['#7A4A2C', '#52301C', '#28160B'], LEATHER = ['#7A5238', '#4E3322', '#24150C'];
 const BONE = ['#F7F0DE', '#DCCDA8', '#9C8A66'], CREAM = ['#F8F1DE', '#E6D9B8', '#A89A78'], STONE = ['#C9C3B6', '#958E83', '#57524A'];

@@ -6,10 +6,9 @@ import type { Texture } from 'pixi.js';
 import { DANGLES } from '../content/hats';
 import type { DangleSpec } from '../content/hats';
 import type { Hat } from '../content/looks';
-import { tuning as T } from '../content/tuning';
 import { makeChain, stepChain, stepPupil, stepSquish } from './dangle';
 import type { Chain, Head, Pupil, Squish } from './dangle';
-import { paintedHat, paintedShape, paintedStrip, PPM } from './painter/sprites';
+import { paintedHat, paintedShape, paintedStrip, paintKnobs, PPM } from './painter/sprites';
 import type { LoosePupil } from './render';
 
 export interface HatView {
@@ -20,7 +19,6 @@ export interface HatView {
   glasses?: Container;
 }
 
-const knobs = () => { const P = T.finish.paint; return { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }; };
 /** The centre of the head (at (hx, hy) in its container), in head radii. */
 const headAt = (kx: number, ky: number, krot: number, hx: number, hy: number, headR: number, side: number): Head => {
   const c = Math.cos(krot), s = Math.sin(krot);
@@ -75,7 +73,7 @@ function drawGlasses(headR: number): Container {
  * units (metres in the fight, metres x zoom in a portrait); `tint` = the player's colour. Null for Bare.
  */
 export function makeHat(hat: Hat, head: Container, hx: number, hy: number, headR: number, tint: number): HatView | null {
-  const K = knobs(), sprites: { s: Sprite; tex: Texture[]; back: boolean }[] = [], specs = DANGLES[hat] ?? [];
+  const K = paintKnobs(), sprites: { s: Sprite; tex: Texture[]; back: boolean }[] = [], specs = DANGLES[hat] ?? [];
   for (const back of [false, true]) {
     const painted = paintedHat(hat, headR, tint, K, back);
     if (!painted) continue;

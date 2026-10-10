@@ -16,7 +16,7 @@ export interface Lane {
   readonly open: boolean;
   close(): void;
 }
-export type MakeLane = (reply: (m: ServerMsg) => void, onMessage: (raw: string) => void) => Lane;
+type MakeLane = (reply: (m: ServerMsg) => void, onMessage: (raw: string) => void) => Lane;
 
 /** The fast lane's maker, or null when it cannot run here (no WebRTC library for this machine): then there is only the WebSocket. */
 export async function fastLanes(port: number, publicIp?: string): Promise<MakeLane | null> {

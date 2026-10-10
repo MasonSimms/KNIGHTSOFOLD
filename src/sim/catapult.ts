@@ -19,7 +19,7 @@ export interface Catapult { arm: Part; lever: Part; pivot: { x: number; y: numbe
 const swingTime = (c: Catapult) => (2 * (T.catapult.release - c.low)) / T.catapult.spin;
 
 /** The arm's elevation (radians above level, its cup end behind the axle) at a frame: cocked, swinging up, holding, winding down. */
-export function armAngle(c: Catapult, frame: number): number {
+function armAngle(c: Catapult, frame: number): number {
   const C = T.catapult, t = c.fired < 0 ? Infinity : (frame - c.fired) * T.sim.dt, swing = swingTime(c);
   if (t < swing) return c.low + (C.release - c.low) * (t / swing) ** 2;
   if (t < swing + C.hold) return C.release;

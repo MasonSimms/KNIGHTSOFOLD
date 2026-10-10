@@ -29,7 +29,7 @@ export function hangPicture(canvas: HTMLCanvasElement, era: string, w: number, h
 // The loading screen (owner: never show anything half-painted; a screen appears all at once when its pictures are done). The museum wall
 // with, in the middle, a small gilt frame in which a stroke of paint is laid on again and again: no words. index.html shows the same one
 // while the game itself is still arriving (#boot).
-export const LOADER = '<div class="loading"><div class="pic lit lpic"><div class="lamp"></div><div class="frame"><div class="art"><div class="stroke"></div></div></div></div></div>';
+const LOADER = '<div class="loading"><div class="pic lit lpic"><div class="lamp"></div><div class="frame"><div class="art"><div class="stroke"></div></div></div></div></div>';
 
 /** The loading screen on its own (before a fight: its backdrops being painted). */
 export const openLoading = (): HTMLElement => openMenu('waiting', LOADER);

@@ -2,7 +2,7 @@ import { Container, Graphics, Sprite } from 'pixi.js';
 import { tuning as T } from '../content/tuning';
 import { chariotAt } from '../sim/chariot';
 import type { Sim } from '../sim/world';
-import { paintedChariot } from './painter/sprites';
+import { paintedChariot, paintKnobs } from './painter/sprites';
 
 // The runaway chariot (sim/chariot.ts): drawn where the sim says it is, facing the way it runs, with dust rising at its edge of the
 // picture just before it comes in and kicked up behind it as it goes.
@@ -16,8 +16,8 @@ export function createChariot(layer: Container) {
       sprite?.destroy();
       sprite = null;
       if (!sim.arena.chariot) return;
-      const P = T.finish.paint, H = T.chariot, C = T.colors.things;
-      const t = paintedChariot(H.len, H.height, C.chariot, C.horse, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+      const H = T.chariot, C = T.colors.things;
+      const t = paintedChariot(H.len, H.height, C.chariot, C.horse, paintKnobs());
       sprite = new Sprite(t.tex);
       sprite.anchor.set(0.5);
       ppm = t.ppm;

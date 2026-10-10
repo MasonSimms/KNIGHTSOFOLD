@@ -11,9 +11,9 @@ import type { Look } from '../content/looks';
 
 // Your seat in a room, remembered for this tab so a page reload or a dropped connection puts you back in the same seat with your score.
 const KEY = 'knights-session';
-export interface Session { code: string; token: string }
+interface Session { code: string; token: string }
 export const loadSession = (): Session | null => { try { return JSON.parse(sessionStorage.getItem(KEY) ?? 'null'); } catch { return null; } };
-export const saveSession = (s: Session): void => { try { sessionStorage.setItem(KEY, JSON.stringify(s)); } catch { /* storage blocked: reconnecting by reload just will not work */ } };
+const saveSession = (s: Session): void => { try { sessionStorage.setItem(KEY, JSON.stringify(s)); } catch { /* storage blocked: reconnecting by reload just will not work */ } };
 export const forgetSession = (): void => { try { sessionStorage.removeItem(KEY); } catch { /* nothing to forget */ } };
 
 /** A line of text over the game ("Reconnecting...", "You join next round"). Empty text hides it. */

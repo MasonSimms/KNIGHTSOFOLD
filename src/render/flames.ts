@@ -3,7 +3,7 @@ import type { Texture } from 'pixi.js';
 import { tuning as T } from '../content/tuning';
 import type { Part } from '../sim/fighter';
 import type { Sim } from '../sim/world';
-import { paintedFlame, paintedShape, PPM } from './painter/sprites';
+import { paintedFlame, paintedShape, paintKnobs, PPM } from './painter/sprites';
 
 // Fire on the screen (sim/fire.ts decides what burns): the arena's fires are crossed logs under a bed of painted flames that flicker
 // (each flame stretches and shrinks on its own rhythm, and the brush strokes boil), and anything burning carries small flames of its own.
@@ -11,7 +11,7 @@ import { paintedFlame, paintedShape, PPM } from './painter/sprites';
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 export function createFlames(layer: Container) {
-  const beds = new Container(), K = () => ({ relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under });
+  const beds = new Container(), K = paintKnobs;
   layer.addChild(beds);
   let tex: Texture[] = [], time = 0;
   const bed: { s: Sprite; h: number; f: number; ph: number }[] = [];

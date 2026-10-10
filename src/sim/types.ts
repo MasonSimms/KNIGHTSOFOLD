@@ -12,7 +12,7 @@ export interface PlayerInput {
 
 export const NEUTRAL: PlayerInput = { moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false };
 
-export type EventType = 'hit' | 'jump' | 'land' | 'punch' | 'dodge' | 'drop' | 'throw' | 'pickup' | 'disarm' | 'grab' | 'stomp' | 'parry' | 'respawn' | 'newround' | 'gone' | 'back' | 'explode' | 'crush' | 'dismember' | 'cut' | 'spawn' | 'crash' | 'round' | 'match' | 'die' | 'fall' | 'shot' | 'empty' | 'spark' | 'splinter' | 'impact' | 'snap' | 'break' | 'exit' | 'splash' | 'ignite' | 'trample' | 'whistle' | 'shatter' | 'leak' | 'boom' | 'thunk' | 'hookThrow' | 'hook' | 'unhook' | 'tangle' | 'zap';
+type EventType = 'hit' | 'jump' | 'land' | 'punch' | 'dodge' | 'drop' | 'throw' | 'pickup' | 'disarm' | 'grab' | 'stomp' | 'parry' | 'respawn' | 'newround' | 'gone' | 'back' | 'explode' | 'crush' | 'dismember' | 'cut' | 'spawn' | 'crash' | 'round' | 'match' | 'die' | 'fall' | 'shot' | 'empty' | 'spark' | 'splinter' | 'impact' | 'snap' | 'break' | 'exit' | 'splash' | 'ignite' | 'trample' | 'whistle' | 'shatter' | 'leak' | 'boom' | 'thunk' | 'hookThrow' | 'hook' | 'unhook' | 'tangle' | 'zap';
 
 // Sim -> render/audio messages. Cleared at the start of every sim step.
 export interface SimEvent {

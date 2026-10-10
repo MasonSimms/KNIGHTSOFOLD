@@ -2,7 +2,7 @@ import { Container, Sprite } from 'pixi.js';
 import { tuning as T } from '../content/tuning';
 import { passingAt } from '../sim/train';
 import type { Sim } from '../sim/world';
-import { paintedBox, paintedShape, PPM } from './painter/sprites';
+import { paintedBox, paintedShape, paintKnobs, PPM } from './painter/sprites';
 
 // The train (sim/train.ts): its cars (standing still: the land moves past them) and what passes it, a wooden sign hanging from a post
 // and a tunnel's stone mouth, drawn where the sim says they are.
@@ -18,7 +18,7 @@ export function createPassing(layer: Container) {
       cars.destroy({ children: true });
       cars = new Container();
       carLayer.addChild(cars);
-      const P = T.finish.paint, K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }, A = sim.arena;
+      const K = paintKnobs(), A = sim.arena;
       if (A.train) for (const g of A.ground) { // a boxcar: its body under the roof you fight on, and its wheels
         const body = new Sprite(paintedBox(g.w / 2, A.platformThickness / 2, T.colors.things.car, K)[0]);
         body.anchor.set(0.5); body.width = g.w; body.height = A.platformThickness; body.position.set(g.x + g.w / 2, A.platformTop + A.platformThickness / 2);

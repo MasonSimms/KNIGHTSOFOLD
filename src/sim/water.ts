@@ -31,7 +31,7 @@ type Liquid = NonNullable<ReturnType<typeof liquidAt>>;
 
 /** How far below the platform top the sea stands at a given frame: its level, less what the tide has risen (arena.sea.tide: from low
  *  at the start of the round to `rise` metres higher after `seconds`, easing in and out; the frame counter starts again each round). */
-export function seaLevel(A: Arena, frame: number): number {
+function seaLevel(A: Arena, frame: number): number {
   const S = A.sea, tide = S?.tide;
   if (!tide) return S?.level ?? 0;
   const k = Math.min(1, (frame * T.sim.dt) / tide.seconds);

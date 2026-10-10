@@ -19,7 +19,7 @@ export interface Layer {
   jscale?: (i: number) => number; // jitter multiplier at pixel index i
 }
 
-export interface Knobs { jitter: number; bristle: number }
+interface Knobs { jitter: number; bristle: number }
 
 const rgb = (r: number, g: number, b: number) => `rgb(${Math.round(Math.min(1, Math.max(0, r)) * 255)},${Math.round(Math.min(1, Math.max(0, g)) * 255)},${Math.round(Math.min(1, Math.max(0, b)) * 255)})`;
 const grey = (v: number) => { const c = Math.round(Math.min(1, Math.max(0, v)) * 255); return `rgb(${c},${c},${c})`; };

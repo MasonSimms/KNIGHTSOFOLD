@@ -19,7 +19,7 @@ interface Hit { how: string; w?: string; frame: number }
 
 const KNOCKOFF_MEMORY = 240; // frames: someone falling off within 4 s of being hit was knocked off by that hit
 const mapName = (era: string, i: number) => (i === 0 ? eraById(era).arena.name ?? 'main' : (eraById(era).alt?.[i - 1]?.name ?? `map ${i + 1}`));
-export const causeName = (c: string) => {
+const causeName = (c: string) => {
   if (c === 'nothing') return 'fell on their own';
   if (c.startsWith('club:')) return weapons.find((w) => w.id === c.slice(5))?.name ?? ITEMS.find((i) => i.id === c.slice(5))?.name ?? c.slice(5);
   return { fist: 'punches', slam: 'slams and crashes', stomp: 'stomps', body: 'body collisions', club: 'clubs' }[c] ?? c;

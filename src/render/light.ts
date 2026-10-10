@@ -18,7 +18,7 @@ const glowTexture = (): Texture => {
 };
 
 /** The lights of the arena now (fires, and the lanterns still lit), with their flicker at `time` seconds. */
-export function lightsOf(sim: Sim, time: number): Light[] {
+function lightsOf(sim: Sim, time: number): Light[] {
   const L = T.light, A = sim.arena, out: Light[] = [];
   const flick = (ph: number) => 1 - L.flicker * (0.5 + 0.5 * Math.sin(time * 13 + ph) * Math.sin(time * 7.3 + ph * 2.1));
   A.fires.forEach((z, i) => out.push({ x: z.x + z.w / 2, y: A.platformTop - z.up - 0.45, power: flick(i) }));

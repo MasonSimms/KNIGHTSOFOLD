@@ -6,8 +6,8 @@
 import type { Paint } from './weaponArt';
 
 /** A colour ramp, or 'player': the wearer's own colour, shaded (the Medieval chevron, the Space suit's stripes). */
-export type Dye = Paint | 'player';
-export type CostumePiece =
+type Dye = Paint | 'player';
+type CostumePiece =
   | { k: 'poly'; pts: [number, number][]; c: Dye }
   /** A round thing: radius r (rx across when it is an oval). */
   | { k: 'ball'; x: number; y: number; r: number; rx?: number; c: Dye }

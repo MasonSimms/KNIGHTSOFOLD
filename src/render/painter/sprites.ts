@@ -7,6 +7,7 @@ import { Texture } from 'pixi.js';
 import { blur, licSmooth, makeRandom, newImg, relight, sobel } from './core';
 import type { Img } from './core';
 import { paintLayer } from './strokes';
+import { tuning as T } from '../../content/tuning';
 import type { Hat } from '../../content/looks';
 import { WEAPON_ART } from '../../content/weaponArt';
 import { COSTUMES } from '../../content/costumes';
@@ -30,6 +31,8 @@ const CYL_L = norm(-0.62, 0, 0.78); // a capsule is painted lit from its local l
 const smooth = (t: number) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
 
 export interface SpriteKnobs { relief: number; bristle: number; jitter: number; under: number }
+/** The brushwork every picture is painted with (tuning.finish.paint), read when asked: the tuning can change while the game runs. */
+export const paintKnobs = (): SpriteKnobs => { const P = T.finish.paint; return { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }; };
 
 /** Three painted variants of a ball or capsule (capsule long axis vertical, lit from the left). */
 export function paintedShape(s: Part, color: number, K: SpriteKnobs): Texture[] {
@@ -487,13 +490,13 @@ export function paintedFront(kind: 'grass' | 'sign', greens: string[], K: Sprite
 }
 
 /** How a boat is painted: a sailing ship (or, under T_SHIP long, a rowboat), a Viking longship, or an ice floe. */
-export type HullLook = 'ship' | 'longship' | 'ice' | 'barge' | 'patrol';
+type HullLook = 'ship' | 'longship' | 'ice' | 'barge' | 'patrol';
 const T_SHIP = 5; // a boat this long or longer is a ship (mast, rigging, gunports); shorter, a rowboat
 const SEA_PPM = 60; // texture pixels per metre for the ship and the water (big pictures: painted at a little under screen size)
 const rgb = (s: string) => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];
 
 /** Which colours a ship is painted in (the era painting's ground colours, and its hot accent for the pennant). */
-export interface HullPaint { face: string; dark: string; lip: string; lipdark: string; seam: string; hot: string }
+interface HullPaint { face: string; dark: string; lip: string; lipdark: string; seam: string; hot: string }
 
 /**
  * A ship seen from the side (Pirates: Ship Deck), painted like the rest: the hull below the deck (the same outline as its physics body:
@@ -808,7 +811,7 @@ export function paintedWeapon(id: string, len: number, K: SpriteKnobs, still = f
 }
 
 /** The body a costume is clipped to: the pill (radius r, half-length hl, centred at y below the hips) and, kept clear, the head (headR at headY). */
-export interface CostumeBody { r: number; hl: number; y: number; headY: number; headR: number }
+interface CostumeBody { r: number; hl: number; y: number; headY: number; headR: number }
 
 /**
  * An era's costume (content/costumes.ts), painted like the weapons and clipped to the body: never over the head, and only a hair wider

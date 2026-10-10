@@ -4,7 +4,7 @@ import { tuning as T } from '../content/tuning';
 import type { Part } from '../sim/fighter';
 import { surfaceY, tarAt } from '../sim/water';
 import type { Sim } from '../sim/world';
-import { paintedHull, paintedWater } from './painter/sprites';
+import { paintedHull, paintedWater, paintKnobs } from './painter/sprites';
 
 // The sea on the screen (maps with water): the painted ship, riding where the physics puts it, and the near water in front of the play
 // plane, its surface following the waves (submerged bodies and the hull show through it a little). Anything going in is reported to
@@ -29,7 +29,7 @@ export function createSea(enter: (x: number, y: number, speed: number, tar: bool
     build(sim: Sim) {
       ships.splice(0).forEach((s) => s.destroy()); sea?.destroy(); sea = null;
       pits.splice(0).forEach((s) => s.destroy());
-      const A = sim.arena, P = T.finish.paint, K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under };
+      const A = sim.arena, K = paintKnobs();
       water.visible = !!A.sea || A.tar.length > 0;
       hull.visible = !!A.sea;
       wasWet.length = 0;

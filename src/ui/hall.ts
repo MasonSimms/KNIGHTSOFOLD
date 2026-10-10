@@ -11,17 +11,17 @@ import { BACK, closeMenu, openMenu, whenReady } from './menu';
 // play themselves): in Training, and online when the host adds them.
 
 /** One seat as drawn. `row` = where this seat's gamepad cursor is (0 hat, 1 eyes, 2 colour, 3 ready), -1 = none. */
-export interface HallSeat { look: Look; ready: boolean; mine: boolean; row: number }
+interface HallSeat { look: Look; ready: boolean; mine: boolean; row: number }
 /** `bots` = this viewer may add a bot to an empty seat and take one away. */
 /** A link that opens the game straight into this room (online, on the same server). */
-export function inviteLink(code: string): string {
+function inviteLink(code: string): string {
   const server = new URLSearchParams(location.search).get('online');
   return `${location.origin}${location.pathname}?online${server ? '=' + encodeURIComponent(server) : ''}&room=${code}`;
 }
 const copyInvite = async (code: string): Promise<boolean> => { try { await navigator.clipboard.writeText(inviteLink(code)); return true; } catch { return false; } };
 
-export interface HallModel { seats: (HallSeat | null)[]; empty: string; canStart: boolean; startLabel: string; note: string; hint: string; code?: string; bots?: boolean }
-export interface HallActions { look(i: number, l: Look): void; ready(i: number): void; join(i: number): void; leave(i: number): void; start(): void; back(): void; bot(i: number): void }
+interface HallModel { seats: (HallSeat | null)[]; empty: string; canStart: boolean; startLabel: string; note: string; hint: string; code?: string; bots?: boolean }
+interface HallActions { look(i: number, l: Look): void; ready(i: number): void; join(i: number): void; leave(i: number): void; start(): void; back(): void; bot(i: number): void }
 export const ROWS = 4;
 
 const cycle = <V>(list: readonly V[], v: V, d: number): V => list[(list.indexOf(v) + d + list.length) % list.length];

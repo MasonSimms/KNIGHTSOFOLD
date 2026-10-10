@@ -313,8 +313,8 @@ function toScreen(x: number, y: number) {
 
 let acc = 0, last = performance.now(), freeze = 0; // freeze: frames the fight still waits after a heavy hit
 let frames = 0, msSum = 0, simMsSum = 0, statTime = last;
-let lastInput: PlayerInput = NEUTRAL;
 let hitches = 0, worst = 0; // in fights, since the page opened: frames over two frames long (a visible hitch), and the longest one (F3)
+let lastInput: PlayerInput = NEUTRAL;
 let players = 1; // how many people are playing: 1 plus every gamepad beyond the first
 let downAt = -1; // training: the frame a player went down (the practice starts again half a second later)
 
@@ -492,9 +492,9 @@ function frame(now: number) {
   netStats.frames++; if (ft > 34) netStats.slow++; // (a frame that took more than two: a visible hitch on this computer)
   if (view.matchActive && !view.roundOver && view.countdown === 0 && !document.hidden) { // (only the fight: not a break, a countdown or a menu)
     fighting.frames++; fighting.ms += ft;
-    if (fighting.ms >= T.finish.autoQuality.seconds * 1000) { if ((fighting.frames * 1000) / fighting.ms < T.finish.autoQuality.minFps) lowerPending = true; fighting.frames = fighting.ms = 0; }
     if (ft > 34) hitches++;
     worst = Math.max(worst, ft);
+    if (fighting.ms >= T.finish.autoQuality.seconds * 1000) { if ((fighting.frames * 1000) / fighting.ms < T.finish.autoQuality.minFps) lowerPending = true; fighting.frames = fighting.ms = 0; }
   } else fighting.frames = fighting.ms = 0;
   msSum += ft;
   if (now - statTime >= 500) {

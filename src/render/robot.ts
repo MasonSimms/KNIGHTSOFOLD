@@ -1,5 +1,4 @@
 import { Container, Graphics } from 'pixi.js';
-export { BOT_GRAYS } from '../content/looks';
 
 // How a bot looks (owner: shades of gray, a classic robot, in every era). Its body is painted gray like anyone's; this is the robot head that
 // sits over the head ball in place of a hat and eyes: a boxy steel faceplate, an antenna with a red bulb, square glowing eyes and a mouth

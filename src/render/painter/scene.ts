@@ -15,7 +15,7 @@ export const DEF_STD = [9, 5, 6, 45, 18, 5, 8, 0]; // ...and how much it wanders
 /** The round's solid ground, in design px: slabs of the main platform, floating ledges (y = top), and the two walls. */
 export interface ArenaGeo { slabs: { x: number; w: number; y?: number; th?: number }[]; ledges: { x: number; y: number; w: number }[]; ledgeThick: number; top: number; thick: number; walls: { x: number; w: number; top: number }[]; sea?: number } // sea: the calm water line (y), on a map with water
 
-export interface Source { img: Img; region: Uint8Array; ovAng: Float32Array; ovW: Float32Array; fmask: Float32Array; platMask: Float32Array }
+interface Source { img: Img; region: Uint8Array; ovAng: Float32Array; ovW: Float32Array; fmask: Float32Array; platMask: Float32Array }
 
 type Pt = [number, number];
 const hex = (s: string): [number, number, number] => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];

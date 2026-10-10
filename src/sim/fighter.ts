@@ -168,7 +168,7 @@ export interface Fighter {
   spawnY: number;
 }
 
-export const GROUP_WORLD = 1; // loose things in the world: bridge planks, props, dropped weapons
+const GROUP_WORLD = 1; // loose things in the world: bridge planks, props, dropped weapons
 /** The fixed scenery: the ground, ledges and walls. A weapon in a hand passes through it (owner: platforms must never block a swing, as in
  * Stick Fight and SpiderHeck; a held club also used to hook a ledge and leave you hanging from it). */
 const GROUP_TERRAIN = 0x2000;
@@ -184,7 +184,7 @@ export const ropeGroups = ((GROUP_ROPE << 16) | GROUP_WORLD | GROUP_TERRAIN | 0x
 export const worldGroups = ((GROUP_WORLD << 16) | 0xffff) >>> 0;
 export const terrainGroups = ((GROUP_TERRAIN << 16) | 0xffff) >>> 0;
 /** The background plane: touches the ground and loose things only, so it passes through every fighter and weapon. */
-export const backGroups = ((0x8000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
+const backGroups = ((0x8000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 /** The floppy second arm: touches the floor and walls only, never a fighter or a weapon. */
 const offGroups = ((0x4000 << 16) | GROUP_WORLD | GROUP_TERRAIN) >>> 0;
 

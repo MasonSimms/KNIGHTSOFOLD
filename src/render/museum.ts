@@ -37,7 +37,7 @@ export function placard(era: string): Texture {
   return t;
 }
 
-export interface MuseumHost {
+interface MuseumHost {
   app: Application;
   game: Container; // everything the fight draws (it is hidden while the museum is shown)
   box(): { x: number; y: number; w: number; h: number }; // where the game picture is on screen
@@ -128,4 +128,3 @@ export function createMuseum(host: MuseumHost) {
     },
   };
 }
-export type Museum = ReturnType<typeof createMuseum>;

@@ -5,7 +5,6 @@
 export interface Img { w: number; h: number; c: [Float32Array, Float32Array, Float32Array] }
 
 export const newImg = (w: number, h: number): Img => ({ w, h, c: [new Float32Array(w * h), new Float32Array(w * h), new Float32Array(w * h)] });
-export const cloneImg = (a: Img): Img => ({ w: a.w, h: a.h, c: [a.c[0].slice(), a.c[1].slice(), a.c[2].slice()] });
 
 /** Seeded random numbers (mulberry32) plus a normal distribution: the same seed paints the same picture. */
 export function makeRandom(seed: number) {
@@ -226,16 +225,6 @@ export function resize(a: Img, w: number, h: number): Img {
       const p = a.c[c];
       out.c[c][y * w + x] = (p[j] * (1 - tx) + p[j + 1] * tx) * (1 - ty) + (p[j + a.w] * (1 - tx) + p[j + a.w + 1] * tx) * ty;
     }
-  }
-  return out;
-}
-
-/** Resize one plane (nearest for region ids, bilinear otherwise). */
-export function resizePlane(p: Float32Array, w0: number, h0: number, w: number, h: number): Float32Array {
-  const out = new Float32Array(w * h), sx = (w0 - 1) / Math.max(1, w - 1), sy = (h0 - 1) / Math.max(1, h - 1);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const fx = Math.min(w0 - 1.001, x * sx), fy = Math.min(h0 - 1.001, y * sy), ix = fx | 0, iy = fy | 0, tx = fx - ix, ty = fy - iy, j = iy * w0 + ix;
-    out[y * w + x] = (p[j] * (1 - tx) + p[j + 1] * tx) * (1 - ty) + (p[j + w0] * (1 - tx) + p[j + w0 + 1] * tx) * ty;
   }
   return out;
 }

@@ -1,7 +1,7 @@
 import { BOT_GRAYS, COLORS } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import { paintPortrait, PORTRAIT } from '../render/portrait';
-import { paintedSplats } from '../render/painter/sprites';
+import { paintedSplats, paintKnobs } from '../render/painter/sprites';
 import type { Sim } from '../sim/world';
 import { wallUrl } from './menu';
 
@@ -75,7 +75,7 @@ export function hideCards(): void { if (cards) cards.style.display = 'none'; }
 
 /** The knock-off paint (painter/sprites.ts paintedSplats, white; splat n of them) in red, keeping its brushwork, on a canvas. */
 function redSplat(c: HTMLCanvasElement, n: number): void {
-  const P = T.finish.paint, all = paintedSplats({ relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }), src = all[n % all.length].source.resource as CanvasImageSource, g = c.getContext('2d')!;
+  const all = paintedSplats(paintKnobs()), src = all[n % all.length].source.resource as CanvasImageSource, g = c.getContext('2d')!;
   g.drawImage(src, 0, 0, c.width, c.height);
   g.globalCompositeOperation = 'multiply'; g.fillStyle = '#C8282C'; g.fillRect(0, 0, c.width, c.height);
   g.globalCompositeOperation = 'destination-in'; g.drawImage(src, 0, 0, c.width, c.height);

@@ -2,7 +2,7 @@ import { Container, Sprite } from 'pixi.js';
 import { tuning as T } from '../content/tuning';
 import { doorPose } from '../sim/trapdoor';
 import type { Sim } from '../sim/world';
-import { paintedBox } from './painter/sprites';
+import { paintedBox, paintKnobs } from './painter/sprites';
 
 // The trapdoors in the floor (sim/trapdoor.ts): painted wooden doors, drawn where the sim says they are (shut, rattling, or hanging open).
 
@@ -12,7 +12,7 @@ export function createDoors(layer: Container) {
     build(sim: Sim) {
       for (const s of sprites) s.destroy();
       sprites.length = 0;
-      const P = T.finish.paint, K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under };
+      const K = paintKnobs();
       for (const d of sim.arena.trapdoors) {
         const s = new Sprite(paintedBox(d.w / 2, T.trapdoor.thick / 2, T.colors.things.trapdoor, K)[0]);
         s.anchor.set(0.5); s.width = d.w; s.height = T.trapdoor.thick;

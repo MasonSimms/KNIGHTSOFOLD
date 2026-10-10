@@ -5,7 +5,7 @@ import { closeMenu, hangPicture, openMenu, paintAhead, whenReady } from './menu'
 
 // The home screen: a gallery of five painted arenas. Play (centre) opens the Hall of Champions, Online the room screen, Training a
 // practice round with the dummy, Settings the picture and sound, Highlights the best moments so far.
-export type HomeChoice = 'play' | 'online' | 'training' | 'settings' | 'highlights';
+type HomeChoice = 'play' | 'online' | 'training' | 'settings' | 'highlights';
 
 const PICS: { era: string; go?: HomeChoice; label?: string; sub?: string; cell: string; w: number; h: number }[] = [
   { era: 'vikings', go: 'online', label: 'Online', cell: '1 / 1', w: 400, h: 225 },

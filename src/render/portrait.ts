@@ -2,7 +2,7 @@
 // front of a painted landscape, painted with the same brushwork as the fight. Three boil variants, like the fighters in the fight.
 // Drawn by a small off-screen Pixi renderer of its own (only the menus use it).
 import { Application, Container, Rectangle, Sprite } from 'pixi.js';
-import { COLORS, FIRST_HATS, HATS } from '../content/looks';
+import { BOT_GRAYS, COLORS, FIRST_HATS, HATS } from '../content/looks';
 import type { Look } from '../content/looks';
 import { paintingFor } from '../content/paintings';
 import { tuning as T } from '../content/tuning';
@@ -10,10 +10,10 @@ import type { Shape } from '../sim/fighter';
 import { prepaint } from './painter/ahead';
 import type { PaintJob } from './painter/ahead';
 import { paintPicture } from './painter/backdrops';
-import { paintedCape, PPM, VARIANTS } from './painter/sprites';
+import { paintedCape, paintKnobs, PPM, VARIANTS } from './painter/sprites';
 import { makeHat } from './hat';
 import { addPainted, drawEyes, drawShape, mix, UNDER, updatePainted } from './render';
-import { BOT_GRAYS, drawRobotHead } from './robot';
+import { drawRobotHead } from './robot';
 import type { Painted } from './render';
 
 export const PORTRAIT = { w: 300, h: 380 }; // canvas pixels
@@ -45,7 +45,6 @@ export function warmPortraits(): Promise<unknown> {
   })());
 }
 
-const knobs = () => { const P = T.finish.paint; return { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }; };
 const colorOf = (look: Look, seat: number) => (look.bot ? BOT_GRAYS[seat % BOT_GRAYS.length] : COLORS[look.color]?.hex ?? COLORS[0].hex);
 /** A portrait's figure, in metres x Z around the hips: body, head, and the hands folded in front (the arms are lost in the pose, as in the old portraits). */
 function figureOf(hex: number): [Shape, number][] {
@@ -61,7 +60,7 @@ const hatOf = (look: Look, opts: { crown?: boolean }) => (opts.crown ? 'crown' :
 const capeColor = () => parseInt(paintingFor(BACKGROUND).hot.slice(1), 16);
 /** The painted pictures a portrait is made of (each painted once, then kept): its body parts, the cape, the hat with all that sways on it. */
 function partsOf(look: Look, seat: number, opts: { crown?: boolean }): PaintJob[] {
-  const hex = colorOf(look, seat), K = knobs(), hat = hatOf(look, opts);
+  const hex = colorOf(look, seat), K = paintKnobs(), hat = hatOf(look, opts);
   return [
     ...figureOf(hex).map(([s, c]): PaintJob => ['paintedShape', [s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: (s as { r: number }).r, hl: (s as { hl: number }).hl }, c, K]]),
     ['paintedCape', [capeColor(), K]],
@@ -86,7 +85,7 @@ const kept = new Map<string, Promise<HTMLCanvasElement[]>>();
 
 async function paint(look: Look, seat: number, opts: { bare?: boolean; crown?: boolean }): Promise<HTMLCanvasElement[]> {
   const [a, back] = await Promise.all([startApp(), opts.bare ? null : startLand(), ...partsOf(look, seat, opts).map((j) => prepaint(j, true))]); // (its pictures painted away from the page: a click never freezes it)
-  const { w: W, h: H } = PORTRAIT, F = T.fighter, K = knobs(), hex = colorOf(look, seat);
+  const { w: W, h: H } = PORTRAIT, F = T.fighter, K = paintKnobs(), hex = colorOf(look, seat);
 
   // The figure, in metres x Z around the hips, drawn at PPM pixels per unit: painted textures land 1:1 on the canvas.
   const stage = new Container(), fig = new Container(), under = new Container();

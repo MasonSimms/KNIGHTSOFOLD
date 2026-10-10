@@ -18,7 +18,7 @@ const SPEED = 0.5; // highlights play at half speed
 const FILE_KIND = 'knights-of-old-replay';
 interface ReplayFile { kind: string; v: 1; title: string; era: string; from: number; to: number; at: number; rec: Recording }
 
-export interface HighlightsContext {
+interface HighlightsContext {
   moments: () => Moment[]; // the session's moments, best first
   renderer: Renderer;
   live: Sim; // the game being played (shown again afterwards)

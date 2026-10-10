@@ -4,7 +4,7 @@ import { ITEMS, PROPS } from '../content/props';
 import { tuning as T } from '../content/tuning';
 import { WEAPON_ART } from '../content/weaponArt';
 import { menuPresses } from '../input/input';
-import { paintedBox, paintedShape, paintedWeapon } from '../render/painter/sprites';
+import { paintedBox, paintedShape, paintedWeapon, paintKnobs } from '../render/painter/sprites';
 import type { Sim } from '../sim/world';
 import { closeMenu, hangPicture, openMenu, whenReady } from './menu';
 import { isOverlayOn, toggleOverlay } from './overlay';
@@ -14,7 +14,7 @@ import { isOverlayOn, toggleOverlay } from './overlay';
 // right, every map as a small painting (pick one and the practice starts again there) and every weapon as its painted picture (it drops
 // in at your feet). Your choices are kept for next time (in this browser only).
 
-export interface TrainingSettings {
+interface TrainingSettings {
   foe: 'dummy' | 'bot'; foeArmed: boolean; // who you practise on (only when you are training alone)
   era: string; map: number; // the arena (an era id, and which of its maps)
   arrive: boolean; lying: boolean; startArmed: boolean; // weapons arrive over time; planks and logs lie on the map; you start with a club
@@ -57,7 +57,7 @@ const nameOf = (id: string) => ITEMS.find((it) => it.id === id)?.name ?? id;
 
 /** The weapons, as the menu lists them: each era's own weapon and pickups, then the guns not placed in an era yet, any other weapon, and
  *  the loose things (planks, crates, stools...). */
-export function itemGroups(): [string, string[]][] {
+function itemGroups(): [string, string[]][] {
   const placed = new Set<string>(), groups: [string, string[]][] = [];
   for (const e of eras) {
     const ids = [e.weapon, ...(e.pickups ?? [])].filter((id) => ITEMS.some((it) => it.id === id));
@@ -71,7 +71,7 @@ export function itemGroups(): [string, string[]][] {
 
 /** A weapon's painted picture (the one the fight draws) on its button, fitted to the canvas; a loose thing without one is its painted rod or block. */
 function drawItem(c: HTMLCanvasElement, id: string): void {
-  const P = T.finish.paint, K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }, spec = ITEMS.find((it) => it.id === id)!.spec, color = T.colors.things[id] ?? T.colors.stick;
+  const K = paintKnobs(), spec = ITEMS.find((it) => it.id === id)!.spec, color = T.colors.things[id] ?? T.colors.stick;
   const art = paintedWeapon(id, spec.len, K), r = spec.thick / 2;
   const tex = art ? art.tex[0] : spec.box ? paintedBox(spec.len / 2, r, color, K)[0] : paintedShape({ k: 'cap', r, hl: Math.max(0.01, spec.len / 2 - r) }, color, K)[0];
   const src = tex.source.resource as HTMLCanvasElement, turn = !art && !spec.box; // (a rod is painted standing up)

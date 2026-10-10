@@ -43,8 +43,6 @@ export function lowerQuality(renderer: Renderer): boolean {
   return true;
 }
 
-/** Music volume, for the music player when there is one (master x music). */
-export const musicVolume = (): number => { const s = loadSettings(); return s.master * s.music; };
 
 /** The settings screen. Changes apply at once and are kept. Resolves when you go back. */
 export function runSettings(renderer: Renderer): Promise<void> {

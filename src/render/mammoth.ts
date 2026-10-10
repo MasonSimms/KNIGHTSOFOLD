@@ -2,7 +2,7 @@ import { Container, Sprite } from 'pixi.js';
 import { tuning as T } from '../content/tuning';
 import { mammothPose } from '../sim/chase';
 import type { Sim } from '../sim/world';
-import { paintedMammoth } from './painter/sprites';
+import { paintedMammoth, paintKnobs } from './painter/sprites';
 
 // The woolly mammoth of the Mammoth Chase, galloping at the left edge (where the sim says it is: sim/chase.ts mammothPose).
 
@@ -15,7 +15,7 @@ export function createMammoth(layer: Container) {
     build(sim: Sim) {
       s.visible = !!sim.arena.chase;
       if (!s.visible) return;
-      const P = T.finish.paint, m = paintedMammoth(T.chase.length, T.chase.height, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+      const m = paintedMammoth(T.chase.length, T.chase.height, paintKnobs());
       s.texture = m.tex;
       s.scale.set(1 / m.ppm);
     },

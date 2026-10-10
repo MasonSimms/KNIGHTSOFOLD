@@ -1,11 +1,11 @@
 import { Application, BlurFilter, Container, Graphics, MeshRope, Point, Rectangle, Sprite, Texture, TilingSprite } from 'pixi.js';
 import type { RenderTexture } from 'pixi.js';
 import { eraById, eras } from '../content/eras';
-import { COLORS, HATS } from '../content/looks';
+import { BOT_GRAYS, COLORS, HATS } from '../content/looks';
 import { COSTUMES } from '../content/costumes';
 import { createOilFilter, setOilScale } from './oilpaint';
 import { createBackdrops } from './painter/backdrops';
-import { BOT_GRAYS, drawRobotHead } from './robot';
+import { drawRobotHead } from './robot';
 import { createSea } from './sea';
 import { createFx } from './fx';
 import { createLimbs } from './limbs';
@@ -28,7 +28,7 @@ import { makeGoogly, makeHat } from './hat';
 import type { HatView } from './hat';
 import { prepaint } from './painter/ahead';
 import type { PaintJob } from './painter/ahead';
-import { CAPE, paintedBox, paintedCape, paintedCostume, paintedFront, paintedShape, paintedSplats, paintedStreaks, paintedWeapon, PPM, VARIANTS } from './painter/sprites';
+import { CAPE, paintedBox, paintedCape, paintedCostume, paintedFront, paintedShape, paintedSplats, paintedStreaks, paintedWeapon, paintKnobs, PPM, VARIANTS } from './painter/sprites';
 import { ITEMS, PROPS } from '../content/props';
 import { paintingFor } from '../content/paintings';
 import type { Eyes } from '../content/looks';
@@ -51,7 +51,7 @@ export function mix(a: number, b: number, t: number): number {
 const BIG = 100;
 
 /** Eye whites on a body this light (Bone, the dummy) get a thin dark rim, or they vanish into the face. */
-export const rimEyes = (body: number) => (0.2126 * ((body >> 16) & 255) + 0.7152 * ((body >> 8) & 255) + 0.0722 * (body & 255)) / 255 > 0.8;
+const rimEyes = (body: number) => (0.2126 * ((body >> 16) & 255) + 0.7152 * ((body >> 8) & 255) + 0.0722 * (body & 255)) / 255 > 0.8;
 /** A googly eye's loose pupil (render/hat.ts makeGoogly moves it): the middle of its eye and the pixels per head radius in the eyes' Graphics, and how far it can roam from the middle (head radii). */
 export interface LoosePupil { g: Graphics; x: number; y: number; unit: number; room: number }
 
@@ -133,8 +133,7 @@ export const UNDER = 0x1a120d; // the dark underpaint showing at the lower right
 /** One painted ball or capsule on a part: a sprite (and its mirror image, for a capsule). */
 export interface Painted { s: Shape; tex: Texture[]; a: Sprite; b: Sprite | null }
 export function addPainted(parent: Container, s: Shape, color: number): Painted {
-  const P = T.finish.paint;
-  const K = { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under };
+  const K = paintKnobs();
   const tex = s.k === 'box' ? paintedBox(s.hw, s.hh, color, K) : paintedShape(s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, color, K);
   const mk = (mirror: boolean) => {
     const sp = new Sprite(tex[0]);
@@ -158,8 +157,8 @@ export function updatePainted(p: Painted, partRot: number, variant: number): voi
 }
 /** A weapon with its own picture (content/weaponArt.ts) instead of a plain rod: one sprite on the part. `tint`: its dark underpaint or
  *  its shadow. Null when it has none (a plank, a leg). */
-export function addWeapon(parent: Container, p: Part, tint?: number): Painted | null {
-  const P = T.finish.paint, w = p.weapon, art = w && paintedWeapon(p.chainOf ? `${w.id}-head` : w.id, w.length, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under }); // (a chain weapon's head has its own picture)
+function addWeapon(parent: Container, p: Part, tint?: number): Painted | null {
+  const w = p.weapon, art = w && paintedWeapon(p.chainOf ? `${w.id}-head` : w.id, w.length, paintKnobs()); // (a chain weapon's head has its own picture)
   if (!art) return null;
   const sp = new Sprite(art.tex[0]);
   sp.anchor.set(art.ax, art.ay);
@@ -324,12 +323,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   game.addChild(grain, tintWash, dusk, vignette);
   const box = new Graphics(); // the picture's frame on screen: zoomed in, nothing may spill outside it
   game.addChild(box);
-  const frame = createFrame(game, { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under }); // the gold frame, over everything (screen space)
+  const frame = createFrame(game, paintKnobs()); // the gold frame, over everything (screen space)
   let zoom = 1, camX = A.viewW / 2, camY = A.viewH / 2; // the subtle camera (tuning.camera)
 
   // Splat decal pool (ring buffer: no allocation after start-up).
   // Painted paint: blobs with drips running down (white, tinted with the colour of whoever bled), soaked into the picture.
-  const P1 = T.finish.paint, splatTexs = paintedSplats({ relief: P1.relief, bristle: P1.bristle, jitter: P1.jitter, under: P1.under });
+  const splatTexs = paintedSplats(paintKnobs());
   const splats: Sprite[] = [];
   for (let i = 0; i < T.splat.max; i++) {
     const s = new Sprite(splatTexs[i % splatTexs.length]);
@@ -351,7 +350,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     s.visible = true;
   };
   // Streaks of paint (a knock-off): a pool of painted streaks that shoot out from where someone went off, toward the middle of the picture.
-  const streakTexs = paintedStreaks({ relief: P1.relief, bristle: P1.bristle, jitter: P1.jitter, under: P1.under });
+  const streakTexs = paintedStreaks(paintKnobs());
   const streaks = Array.from({ length: 28 }, (_, i) => { const s = new Sprite(streakTexs[i % streakTexs.length]); s.anchor.set(0, 0.5); s.visible = false; paintLayer.addChild(s); return s; });
   let nextStreak = 0;
   const flying: { s: Sprite; len: number; t: number; delay: number }[] = [];
@@ -429,9 +428,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   const costumeBody = () => ({ r: T.fighter.torsoRadius, hl: T.legs.torsoHalf, y: T.legs.torsoY, headY: T.fighter.headY, headR: T.fighter.headRadius });
   // Paint every lobby colour's body parts after start-up (away from the page, in the painting worker: painter/ahead.ts), so picking a colour never stalls a round.
   const prewarm: PaintJob[] = [];
-  const P0 = T.finish.paint, K0 = { relief: P0.relief, bristle: P0.bristle, jitter: P0.jitter, under: P0.under };
-  /** A fighter's body parts in its colour (as rebuild paints them: the far arm darker, the limbs a little darker). */
-  const bodyJobs = (parts: Part[], hex: number): PaintJob[] => parts.flatMap((p) => (p.role === 'stick' || p.role === 'flail' ? [] : p.shapes.flatMap((s): PaintJob[] => (s.k === 'box' ? [] : [['paintedShape', [s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, p.role === 'off' ? mix(hex, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(hex, 0x000000, 0.18) : hex, K0]]]))));
+  const K0 = paintKnobs();
+  /** A body part's shade of its fighter's colour: the far arm darker, the limbs a little darker. */
+  const shadeOf = (role: Part['role'], color: number) => (role === 'off' ? mix(color, 0x000000, 0.32) : role === 'upper' || role === 'fore' || role === 'thigh' || role === 'shin' ? mix(color, 0x000000, 0.18) : color);
+  /** A fighter's body parts in its colour (as rebuild paints them). */
+  const bodyJobs = (parts: Part[], hex: number): PaintJob[] => parts.flatMap((p) => (p.role === 'stick' || p.role === 'flail' ? [] : p.shapes.flatMap((s): PaintJob[] => (s.k === 'box' ? [] : [['paintedShape', [s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, shadeOf(p.role, hex), K0]]]))));
   /** Everything a round of `s` is painted with, as the painting worker's jobs: each fighter's body, costume and hat, the cape, what they
    *  hold and what lies on the map, and what will drop in (preload asks for them first, so building the round paints nothing here). */
   const roundJobs = (s: Sim): PaintJob[] => {
@@ -489,7 +490,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     // The front plane of this arena (looks only).
     for (const it of frontItems) it.s.destroy();
     frontItems.length = 0;
-    const pa = paintingFor(sim.era), PK = { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under };
+    const pa = paintingFor(sim.era), PK = paintKnobs();
     for (const it of sim.arena.front) {
       const s = new Sprite(paintedFront(it.kind, pa.side.slice(0, 4), PK));
       s.anchor.set(0.5, 1);
@@ -511,16 +512,16 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       underAll.zIndex = -10;
       group.addChild(underAll);
       const bot = f.controlled && !!sim.looks[f.index]?.bot; // a computer player: a gray robot, no hat, no cape
-      const cape = makeCape(group, paintedCape(parseInt(paintingFor(sim.era).hot.slice(1), 16), { relief: T.finish.paint.relief, bristle: T.finish.paint.bristle, jitter: T.finish.paint.jitter, under: T.finish.paint.under }));
+      const cape = makeCape(group, paintedCape(parseInt(paintingFor(sim.era).hot.slice(1), 16), paintKnobs()));
       for (const p of f.parts as Part[]) {
         const k = new Container(), u = new Container();
         k.zIndex = p.role === 'off' ? -2 : p.role === 'stick' || p.role === 'flail' ? -0.5 : p.role === 'thigh' || p.role === 'shin' ? -1 : 0; // the second arm is behind everything, then the legs; a held club is behind the hand and arm so it looks gripped
         const color = p.role === 'stick' || p.role === 'flail' ? thingColor(p) : base;
-        const shade = p.role === 'off' ? mix(color, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(color, 0x000000, 0.18) : color;
+        const shade = shadeOf(p.role, color);
         const art = p.role === 'stick' || p.role === 'flail' ? addWeapon(k, p) : null;
         painted.push(art ? [art] : p.shapes.map((s, i) => addPainted(k, s, p.role === 'stick' && i > 0 && p.weapon?.gun ? T.colors.stick : shade)));
         if (p.role === 'torso' && !bot) { // the era's costume over the body, under the hat (a bot stays a plain robot, as with the cape)
-          const P = T.finish.paint, made = paintedCostume(sim.era, costumeBody(), base, { relief: P.relief, bristle: P.bristle, jitter: P.jitter, under: P.under });
+          const made = paintedCostume(sim.era, costumeBody(), base, paintKnobs());
           if (made) { const sp = new Sprite(made.tex[0]); sp.anchor.set(made.ax, made.ay); sp.scale.set(1 / PPM); k.addChild(sp); costume = { s: sp, tex: made.tex }; }
         }
         if (art) addWeapon(u, p, UNDER); else for (const s of p.shapes) u.addChild(drawShape(s, UNDER));
