@@ -82,17 +82,19 @@ describe('two weapons meeting: in a fight', () => {
   });
 });
 
-// Owner, 2026-10-10: "The blades should be very lethal at anything above low speeds so blocking and maneuvering are critical."
+// Owner, 2026-10-10: "The blades should be very lethal at anything above low speeds so blocking and maneuvering are critical." (And, after
+// playing the first numbers: "that's probably too deadly": a full swing kills, a solid one does not quite.)
 describe('blades are deadly', () => {
-  it('a sword edge only nicks at a slow touch, takes about half at a light swing and kills at a real one; a club is as it was', () => {
+  it('a sword edge only nicks at a slow touch, takes about a third at a light swing, most at a solid one and kills at a full one; a club is as it was', () => {
     const sword = weaponById('longsword'), club = weaponById('bone-club');
     const edge = cutFor(sword, 0), blunt = cutFor(club, 0);
     const dmg = (speed: number, w = sword, c = edge) => damageFor(impactValue(speed, w.impactFactor), c.mul, c.min);
     expect(edge.kind).toBe('blade');
     expect(dmg(2)).toBe(0); // resting on you, or walked into: nothing
     expect(dmg(4)).toBeLessThan(10);
-    expect(dmg(9)).toBeGreaterThan(35); expect(dmg(9)).toBeLessThan(70);
-    expect(dmg(13)).toBe(T.fighter.hp); // dead
+    expect(dmg(9)).toBeGreaterThan(25); expect(dmg(9)).toBeLessThan(50);
+    expect(dmg(13)).toBeGreaterThan(55); expect(dmg(13)).toBeLessThan(T.fighter.hp); // a solid swing: badly hurt, not dead
+    expect(dmg(17)).toBe(T.fighter.hp); // a full swing: dead
     expect(damageFor(impactValue(13, club.impactFactor), blunt.mul, blunt.min)).toBeLessThan(20); // the same swing with a club
   });
 });

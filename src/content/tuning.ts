@@ -866,11 +866,12 @@ export const tuning = {
     impactMin: 10, // below this nothing happens (resting contact never hurts)
     // Blades, points and blunt weapons (owner, 2026-10-07; weapons.ts and props.ts edge / point). Off: every weapon is as before.
     edges: true,
-    // BLADES ARE DEADLY (owner, 2026-10-10: "very lethal at anything above low speeds so blocking and maneuvering are critical"): mul was 1.25 and
-    // pointMul 1.5. With 7.5 an edge moving about 4 m/s only nicks (7 of 100), a light swing (9 m/s) takes nearly half, and anything from
-    // about 13 m/s kills outright; blunt weapons and fists are as before. The cure for a blade is your own weapon: block it or meet it.
-    blade: { min: 0.6, mul: 7.5, knock: 0.7 }, // a blade's edge (or a point) starts hurting at this share of impactMin, hurts this many times more, and shoves this much
-    pointZone: 0.15, pointMul: 9, // a hit with the last pointZone of a pointed weapon's length is the point: this many times the damage
+    // BLADES ARE DEADLY (owner, 2026-10-10: "very lethal at anything above low speeds so blocking and maneuvering are critical"; then, having
+    // played mul 7.5 and pointMul 9: "that's probably too deadly"). They were 1.25 and 1.5 before that day. With 5 an edge moving about 4 m/s
+    // only nicks (5 of 100), a light swing (9 m/s) takes a third, a solid one (13 m/s) nearly three quarters, and a full swing (16 m/s and up)
+    // kills outright; blunt weapons and fists are as before. The cure for a blade is your own weapon: block it or meet it.
+    blade: { min: 0.6, mul: 5, knock: 0.7 }, // a blade's edge (or a point) starts hurting at this share of impactMin, hurts this many times more, and shoves this much
+    pointZone: 0.15, pointMul: 6, // a hit with the last pointZone of a pointed weapon's length is the point: this many times the damage
     bluntKnock: 1.25, // a blunt weapon (no edge) shoves this many times harder
     damageScale: 0.115, // how much every hit hurts (was 0.3: owner wants 20 s rounds, 2026-10-07; guns are scaled back up by tuning.guns.hurt so they stay as deadly)
     damageExp: 1.5, // 1 = damage grows in a straight line with impact; above 1, big committed swings are worth disproportionately more
