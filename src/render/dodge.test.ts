@@ -6,12 +6,12 @@ describe('how a dodge is drawn', () => {
   const look = T.dodge.look;
   afterEach(() => { T.dodge.look = look; });
 
-  it('every look leaves a fighter who is not dodging exactly as painted, and only the old one blurs', () => {
+  it('every look leaves a fighter who is not dodging exactly as painted, and only the old one blurs heavily', () => {
     for (const n of [0, 1, 2, 3]) for (const secs of [0, 0.1, 5]) {
       T.dodge.look = n;
       const p = dodgePose(0, secs, 1);
       expect([p.sx, p.sy, p.rot + 0, p.pivot, p.raise, p.shade, p.blur, p.eyes], `look ${n}`).toEqual([1, 1, 0, 0, 0, 0, 0, 1]);
-      if (n > 0) expect(dodgePose(1, secs, 1).blur, `look ${n}`).toBe(0);
+      if (n > 0) expect(dodgePose(1, secs, 1).blur, `look ${n}`).toBeLessThan(1); // (very subtle: the old one's 2.5 smudged a fighter 30 pixels tall)
     }
   });
 

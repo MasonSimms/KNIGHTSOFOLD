@@ -259,15 +259,15 @@ export const tuning = {
     visualRaise: 0.06, // metres: you sit a touch higher on the screen, as if farther back
     visualBlur: 2.5, // how soft you get as you slip back into the background (pixels at 1080p)
     visualRate: 12, // how fast you turn toward the screen and back
-    // THE LOOK (owner, 2026-10-09: no heavy blur; the body turns out of the blow and slips a little way into the background). The owner is
+    // THE LOOK (owner, 2026-10-09: no heavy blur and no shrinking: "just show the character turning away and a very subtle blur"). The owner is
     // choosing: 1 a quarter turn away, 2 a spin on the spot, 3 a sway back, 0 the old one (the four visual numbers above: narrow, dark,
     // blurred). Try one without editing this: add ?dodge=2 to the link. Drawn by render/dodge.ts.
     look: 1,
     turn: { // looks 1 to 3
-      back: 0.94, // how much smaller you are a step into the background (1 = no smaller)
-      raise: 0.05, // metres higher on the screen, as if farther back
+      back: 1, // how much smaller you are a step into the background (1 = no smaller: the owner did not like the shrinking, 0.94 at first)
+      raise: 0, // metres higher on the screen, as if farther back (0.05 at first: it went with the shrinking)
       shade: 0.2, // how much darker behind everyone (the old look: 0.45)
-      blur: 0, // softness in pixels at 1080p (the old look: 2.5)
+      blur: 0.6, // softness in pixels at 1080p: very subtle (the old look: 2.5, a smudge on a fighter 30 pixels tall)
       narrow: 0.6, // look 1: how narrow at the quarter turn (the eyes go: you see the back of the head)
       spinSeconds: 0.45, // look 2: once round takes this long (the dodge itself is 0.6 s)
       sway: 0.3, // look 3: radians the body leans back, about the feet (0.3 is about 17 degrees)
