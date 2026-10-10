@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
-import { startServer } from '../../server/index';
+import { startServer, warmUp } from '../../server/index';
 import type { Server, ServerOptions } from '../../server/index';
 import { Sim } from '../sim/world';
 import { PROTOCOL } from './protocol';
@@ -500,4 +500,12 @@ describe('the game page from the same server', () => {
     for (const sneaky of ['/../koo-secret.txt', '/%2e%2e/koo-secret.txt', '/assets/../../koo-secret.txt']) expect((await fetch(base + sneaky)).status).toBe(404);
     expect((await fetch(`${base}/nope.js`)).status).toBe(404);
   });
+});
+
+// Found 2026-10-10: the first fight after the server wakes stuttered while its code was compiled. The server now fights a short unseen
+// bot fight as it starts (server/index.ts warmUp).
+describe('warming up', () => {
+  it('the unseen bot fight runs to its end without a fault', async () => {
+    await expect(warmUp(240)).resolves.toBeUndefined();
+  }, 30000);
 });

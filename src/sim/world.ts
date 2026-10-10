@@ -1342,7 +1342,7 @@ export class Sim {
     const P = T.parry;
     if (c.closing <= 0 || c.sa < P.minSpeed || c.sb > P.maxSpeed || c.sa < c.sb * P.ratio) return false;
     if (this.nearHand(holder, pt)) return false; // the grip end is the weak spot: a hit there can disarm instead
-    att.nextHit = this.frame + P.cooldown;
+    for (const x of f.attackers) x.nextHit = Math.max(x.nextHit, this.frame + P.cooldown); // (the swing is spent, hand and all: the hand that held it came on at swing speed and bumped the blocker, staggering them out of their opening, after about one block in ten)
     this.bounceBack(att.part, P.bounce, P.bounceMin);
     // The swinger: a small push back from the blocker, a stagger, and a short pause before the next swing.
     shove(f, -c.nx * P.knock * fighterMass(f), -c.ny * P.knock * fighterMass(f));

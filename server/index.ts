@@ -38,6 +38,19 @@ class GameRoom {
 export interface ServerOptions { paintWaitMs?: number; maxRooms?: number; reserveMs?: number; emptyMs?: number; graceMs?: number; createLimit?: number; site?: string; fastPort?: number; publicIp?: string } // site: a folder with the built game page to serve too; fastPort: the UDP port of the fast lane (server/fast.ts), publicIp: the address pages dial it on
 export interface Server { port: number; rooms: Map<string, GameRoom>; close(why?: string): Promise<void> }
 
+/**
+ * A few seconds of a bot fight nobody sees, so the fight's code is compiled before the first real one (found 2026-10-10: the first fight
+ * after the machine woke had a tick of 154 ms and the loop ran late 6 times, a stutter in everyone's first round; a second fight in the
+ * same process has none over 2 ms). In slices, so the server goes on answering meanwhile.
+ */
+export async function warmUp(ticks = 600): Promise<void> {
+  const sim = await Sim.create(1, MAX_PLAYERS, false);
+  sim.looks = sim.looks.map(() => botLook());
+  sim.reset();
+  const room = new Room(sim);
+  for (let i = 0; i < ticks; i += 10) { for (let k = 0; k < 10; k++) room.tick(); await new Promise((ok) => setImmediate(ok)); }
+}
+
 export async function startServer(port: number, opts: ServerOptions = {}): Promise<Server> {
   const paintWaitMs = opts.paintWaitMs ?? T.net.paintWait * 1000;
   /** Someone in room r has not said their pictures for `round` are painted yet. */
@@ -356,6 +369,7 @@ if (process.argv[1] && /dist-server[\\/]index\.js$/.test(process.argv[1])) {
   }
   const s = await startServer(Number(process.env.PORT) || 8080, { maxRooms: Number(process.env.MAX_ROOMS) || 20, site: existsSync(page) ? page : undefined, fastPort: Number(process.env.RTC_PORT) || 7777, publicIp: process.env.RTC_PUBLIC_IP || undefined });
   console.log(`Knights of Old room server listening on port ${s.port}${existsSync(page) ? ' (and serving the game page)' : ''}`);
+  void warmUp().catch((e) => console.log(`warm-up failed: ${e}`)); // (nobody waits for it: a room made meanwhile is served as usual)
   // Stopped (a new version going up, or the host stopping an idle machine): tell everyone, then go.
   const stop = async () => { console.log('stopping'); await s.close('The server is restarting. Make a new room in a minute.'); process.exit(0); };
   process.once('SIGTERM', () => void stop());
