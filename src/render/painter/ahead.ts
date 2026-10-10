@@ -25,6 +25,7 @@ function start(): Worker | null {
   });
   worker?.addEventListener('error', (e) => { // (it would not start: everything is painted here when needed, as before)
     console.warn('the painting worker failed', e.message);
+    worker?.terminate();
     worker = null;
     for (const id of [...waiting.keys(), ...queue.splice(0).map((q) => q.job.id)]) finish(id);
   });

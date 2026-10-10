@@ -313,6 +313,7 @@ function toScreen(x: number, y: number) {
 let acc = 0, last = performance.now(), freeze = 0; // freeze: frames the fight still waits after a heavy hit
 let frames = 0, msSum = 0, simMsSum = 0, statTime = last;
 let lastInput: PlayerInput = NEUTRAL;
+let hitches = 0, worst = 0; // in fights, since the page opened: frames over two frames long (a visible hitch), and the longest one (F3)
 let players = 1; // how many people are playing: 1 plus every gamepad beyond the first
 let downAt = -1; // training: the frame a player went down (the practice starts again half a second later)
 
@@ -491,12 +492,14 @@ function frame(now: number) {
   if (view.matchActive && !view.roundOver && view.countdown === 0 && !document.hidden) { // (only the fight: not a break, a countdown or a menu)
     fighting.frames++; fighting.ms += ft;
     if (fighting.ms >= T.finish.autoQuality.seconds * 1000) { if ((fighting.frames * 1000) / fighting.ms < T.finish.autoQuality.minFps) lowerPending = true; fighting.frames = fighting.ms = 0; }
+    if (ft > 34) hitches++;
+    worst = Math.max(worst, ft);
   } else fighting.frames = fighting.ms = 0;
   msSum += ft;
   if (now - statTime >= 500) {
     const fps = (frames * 1000) / (now - statTime);
     updateOverlay([
-      `FPS ${fps.toFixed(0)}   frame ${(msSum / frames).toFixed(1)} ms   sim ${(simMsSum / frames).toFixed(2)} ms`,
+      `FPS ${fps.toFixed(0)}   frame ${(msSum / frames).toFixed(1)} ms   sim ${(simMsSum / frames).toFixed(2)} ms   hitches in fights ${hitches} (worst ${worst >= 100 ? '100+' : worst.toFixed(0)} ms)`,
       `bodies ${view.world.bodies.len()}   frame# ${view.frame}`,
       `last impact ${sim.lastImpact.toFixed(1)}   hidden HP: ${view.fighters.map((f) => (f.controlled ? 'P' + (f.index + 1) : 'dummy') + ' ' + Math.max(0, f.hp).toFixed(0)).join('  ')}   players ${players}`,
       `input x ${lastInput.moveX.toFixed(1)}  aim ${lastInput.aim.toFixed(2)}  jump ${+lastInput.jump} atk ${+lastInput.attack} charge ${view.fighters[mySlot].charge}/${T.charge.maxFrames} dodge-ready-in ${(view.fighters[mySlot].dodgeCooldown / 60).toFixed(1)}s`,
