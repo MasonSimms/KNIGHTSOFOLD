@@ -2,7 +2,7 @@
 // plays instead, so everything already works. To add a real one: put the file in public/audio/ and write its name here.
 
 /** The sound effects, by the game event that plays them. */
-export type SoundName = 'hit' | 'jump' | 'punch' | 'dodge' | 'drop' | 'throw' | 'disarm' | 'round' | 'parry' | 'crash' | 'cut' | 'stomp' | 'grab' | 'pickup' | 'die' | 'fall'
+export type SoundName = 'hit' | 'jump' | 'punch' | 'dodge' | 'drop' | 'throw' | 'disarm' | 'round' | 'parry' | 'clash' | 'clack' | 'crash' | 'cut' | 'stomp' | 'grab' | 'pickup' | 'die' | 'fall'
   | 'shot' | 'bigshot' | 'empty' | 'spark' | 'splinter' | 'snap' | 'break' | 'impact' | 'splash' | 'ignite' | 'trample' | 'whistle' | 'shatter' | 'leak' | 'boom' | 'thunk' | 'hookThrow' | 'hook' | 'unhook' | 'tangle' | 'zap';
 
 /**
@@ -12,7 +12,7 @@ export type SoundName = 'hit' | 'jump' | 'punch' | 'dodge' | 'drop' | 'throw' | 
  */
 export const SOUNDS: Record<SoundName, { file?: string; pitch: number; volume?: number }> = {
   hit: { pitch: 0.05 }, jump: { pitch: 0.02 }, punch: { pitch: 0.03 }, dodge: { pitch: 0.02 }, drop: { pitch: 0.02 }, throw: { pitch: 0.02 },
-  disarm: { pitch: 0.03 }, round: { pitch: 0 }, parry: { pitch: 0.03 }, crash: { pitch: 0.03 }, cut: { pitch: 0.03 }, stomp: { pitch: 0.03 },
+  disarm: { pitch: 0.03 }, round: { pitch: 0 }, parry: { pitch: 0.03 }, clash: { pitch: 0.06 }, clack: { pitch: 0.06 }, crash: { pitch: 0.03 }, cut: { pitch: 0.03 }, stomp: { pitch: 0.03 },
   grab: { pitch: 0.02 }, pickup: { pitch: 0.02 }, die: { pitch: 0.02 }, fall: { pitch: 0.02 },
   shot: { pitch: 0.05 }, bigshot: { pitch: 0.04 }, empty: { pitch: 0.03 }, spark: { pitch: 0.06 }, splinter: { pitch: 0.06 }, snap: { pitch: 0.04 },
   break: { pitch: 0.04 }, impact: { pitch: 0.06 }, splash: { pitch: 0.05 }, ignite: { pitch: 0.06 }, trample: { pitch: 0.04 }, whistle: { pitch: 0.02 }, shatter: { pitch: 0.06 }, leak: { pitch: 0.05 }, boom: { pitch: 0.05 }, thunk: { pitch: 0.06 }, hookThrow: { pitch: 0.08 }, hook: { pitch: 0.06 }, unhook: { pitch: 0.06 }, tangle: { pitch: 0.06 }, zap: { pitch: 0.08 },

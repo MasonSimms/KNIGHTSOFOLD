@@ -126,7 +126,7 @@ export class Predictor {
     this.touching.clear();
     const sim = this.mirror.sim, P = T.net.predict;
     if (f.inBack || this.mirror.delay > P.hitMaxBuffer) return []; // (on a shaky line the others are shown too far in the past to judge a blow on them)
-    let blow: SimEvent | null = null;
+    let blow: SimEvent | null = null, met = false; // met: your weapon is on one of theirs (a block or a clash on the server: it lands no blow then)
     for (const att of f.attackers) {
       const ab = att.part.body, av = ab.linvel(), aw = ab.angvel(), at = ab.translation(), W = att.kind === 'stick' ? att.part.weapon ?? T.stick : T.fist;
       const counts = (att.kind === 'stick' || (f.punch > 0 && !f.armLost && !f.grip)) && Math.hypot(av.x, av.y) + Math.abs(aw) >= P.hitMinSpeed; // (a fist counts while it punches; too slow to hurt anyone: no blow)
@@ -134,7 +134,7 @@ export class Predictor {
         if (g === f || !g.controlled || g.limp || g.inBack || sim.gone[g.index] || (att.kind === 'fist' && f.held === g)) continue;
         const key = f.parts.indexOf(att.part) * 4 + g.index;
         for (const p of attachedParts(g)) {
-          if (isWeapon(p)) continue;
+          if (isWeapon(p)) { if (att.kind === 'stick' && p.colliders.some((c) => (att.collider.contactCollider(c, 0)?.distance ?? 1) <= 0)) met = true; continue; }
           for (const c of p.colliders) {
             const k = att.collider.contactCollider(c, 0);
             if (!k || k.distance > 0) continue;
@@ -151,6 +151,7 @@ export class Predictor {
         }
       }
     }
+    if (met && T.clash.enabled) { this.hitReady = Math.max(this.hitReady, n + T.clash.cooldown); if (blow) this.claims.pop(); return []; } // (weapons meeting come first on the server, and use up the swing: sim/world.ts resolveHits)
     return blow ? [blow] : [];
   }
 

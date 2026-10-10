@@ -46,6 +46,17 @@ export function createFx(layer: Container, puffTex: Texture[]) {
     Object.assign(p, { x, y, vy: -rise, life, max: life, size, a: alpha });
     p.s.tint = color; p.s.alpha = alpha; p.s.visible = true;
   };
+  /**
+   * Two weapons meeting (a clash, a block): each sheds what it is made of (owner, 2026-10-10). Hard on hard (metal, stone, a shield) strikes
+   * sparks; wood throws splinters; stone throws chips and dust; a light thing, pale bits. `n`: how many of each (the harder, the more).
+   */
+  const struck = (x: number, y: number, ang: number, a: string, b: string, n: number) => {
+    if (METAL.has(a) && METAL.has(b)) sparks(x, y, ang);
+    for (const m of [a, b]) {
+      if (m === 'stone') { for (let i = 0; i < n; i++) bit(x, y, ang + (Math.random() - 0.5) * 2.8, 2 + Math.random() * 3, 0.03 + Math.random() * 0.04, 0.045, i % 2 ? 0x8d8a82 : 0xb9b5aa, 0.6, true); puff(x, y, 0.22, 0xb0aa9c, 0.45, 0.5, 0.15); }
+      else if (!METAL.has(m)) for (let i = 0; i < n; i++) bit(x, y, ang + (Math.random() - 0.5) * 2.5, 2 + Math.random() * 3, 0.05 + Math.random() * 0.08, 0.035, m === 'light' ? (i % 2 ? 0xd9d2c0 : 0xf1ece0) : i % 2 ? 0x8c5a2f : 0xc9a26a, 0.6, true);
+    }
+  };
 
   return {
     /** A puff of smoke or dust: size (m), colour, how see-through, seconds it lasts, how fast it rises (m/s). Also the dust of render/motion.ts. */
@@ -65,10 +76,9 @@ export function createFx(layer: Container, puffTex: Texture[]) {
       } else if (e.t === 'spark') { // metal: a burst of sparks back toward the shot (a shield: the bullet's trail now dashed, from where it turned back)
         sparks(e.x, e.y, e.v);
         if (e.victim >= 0 && holding(e.victim) === 'shield') { const q = trailList.find((t) => t.fade >= 1 && Math.hypot(t.x - e.x, t.y - e.y) < 0.6); if (q) { q.dash = true; q.ox = e.x; q.oy = e.y; } }
-      } else if (e.t === 'parry') { // a swing blocked by a held weapon: sparks when both are metal, splinters when either is wood
-        const a = holding(e.victim), b = holding(e.owner), ang = Math.atan2(e.y - (simNow?.fighters[e.victim]?.torso.cy ?? e.y), e.x - (simNow?.fighters[e.victim]?.torso.cx ?? e.x));
-        if (METAL.has(a) && METAL.has(b)) sparks(e.x, e.y, ang);
-        else for (let i = 0; i < 5; i++) bit(e.x, e.y, ang + (Math.random() - 0.5) * 2.5, 2 + Math.random() * 3, 0.05 + Math.random() * 0.08, 0.035, i % 2 ? 0x8c5a2f : 0xc9a26a, 0.6, true);
+      } else if (e.t === 'parry' || e.t === 'clash') { // a swing blocked by a held weapon, or two swings meeting: each weapon sheds what it is made of
+        const from = simNow?.fighters[e.t === 'parry' ? e.victim : e.owner]?.torso, ang = Math.atan2(e.y - (from?.cy ?? e.y), e.x - (from?.cx ?? e.x));
+        struck(e.x, e.y, ang, holding(e.victim), holding(e.owner), e.t === 'parry' ? 5 : 3 + Math.min(4, Math.round(e.v / 15)));
       } else if (e.t === 'boom') { // a grenade: a flash, a ring of smoke, dirt and bits flying
         flashList.push({ x: e.x, y: e.y, a: -Math.PI / 2, life: B.flashSeconds * 3 });
         for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; puff(e.x + Math.cos(a) * 0.4, e.y + Math.sin(a) * 0.3, 0.9 + Math.random() * 0.5, 0x6a6258, 0.8, 1.6, 0.6); }

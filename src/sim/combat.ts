@@ -12,6 +12,21 @@ export function damageFor(impact: number, multiplier = 1, min = T.combat.impactM
   return Math.min(Math.pow(impact - min, T.combat.damageExp) * T.combat.damageScale * multiplier, T.combat.damageMax);
 }
 
+/**
+ * Two held weapons meeting (owner, 2026-10-10; tuning.clash). sa, sb: each weapon's speed where they met (m/s); closing: how fast they
+ * close there; fa, fb: the weapons' impact factors; handA, handB: the blow landed at that one's hand. Nothing (null) when it is no clash:
+ * a slow touch, or one of them is not being swung (held still it is a block: tuning.parry). Otherwise how hard it was and who, if anyone,
+ * loses their weapon: the clearly weaker swing, far more easily when the blow lands at its hand.
+ */
+export function clashOutcome(sa: number, sb: number, closing: number, fa: number, fb: number, handA: boolean, handB: boolean): { impact: number; loser: 'a' | 'b' | null } | null {
+  const K = T.clash, D = T.disarm;
+  if (!K.enabled || closing < K.minClosing || Math.min(sa, sb) < K.minSpeed) return null;
+  const pa = sa * fa, pb = sb * fb, aWins = pa >= pb, atHand = aWins ? handB : handA; // how strong each swing is: its speed where they met, and the weapon's heft
+  const impact = impactValue(closing, aWins ? fa : fb);
+  const out = Math.max(pa, pb) >= Math.min(pa, pb) * (atHand ? K.handRatio : D.clashRatio) && impact >= (atHand ? D.handImpact : D.clashImpact);
+  return { impact, loser: out ? (aWins ? 'b' : 'a') : null };
+}
+
 export function knockbackFor(impact: number): number {
   return Math.min(impact * T.combat.knockbackScale, T.combat.knockbackMax);
 }

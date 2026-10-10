@@ -636,6 +636,9 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       } else if (e.t === 'splash') { // a bullet into the water: a ring and a small crown
         ring(e.x, e.y, 0xffffff);
         extras.splash(sim, e.x, e.y, T.finish.extras.crownSpeed * 0.4, false);
+      } else if (e.t === 'clash') {
+        ring(e.x, e.y, 0xffffff); // two swings meeting: one pale ring and a small jolt (a block's is the bright double ring below)
+        shake = Math.max(shake, T.clash.shake);
       } else if (e.t === 'parry') {
         ring(e.x, e.y, 0x9fe8ff); // a bright double ring where a swing is blocked, and a little shake
         ring(e.x, e.y, 0xffffff);

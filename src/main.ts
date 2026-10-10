@@ -283,6 +283,7 @@ function play(e: SimEvent) {
   if (e.t === 'hit') { sfx.hit(e.v, !!e.head); if (e.v * (e.head ? 1.5 : 1) >= T.finish.hits.freezeImpact) freeze = T.finish.hits.freezeFrames; } // (a heavy hit holds the picture for a few frames)
   else if (e.t === 'shot') sfx.shot((PROPS[e.w ?? '']?.gun?.kick ?? 0) >= 20); // (the big guns: the big bang)
   else if (e.t === 'break' && e.w === 'pane') sfx.shatter();
+  else if (e.t === 'clash') (e.how === 'metal' ? sfx.clash : sfx.clack)(); // two swings meeting: steel rings, anything else knocks
   else (sfx as unknown as Record<string, (() => void) | undefined>)[e.t]?.(); // some events (respawn, new round) have no sound
 }
 

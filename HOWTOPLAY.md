@@ -45,5 +45,7 @@ If the game stutters on your computer: on the home screen, **Settings > Graphics
 - Some maps are guns only: everyone starts with bare hands and guns fall from the sky every few seconds.
 - A round that drags on past 45 seconds starts to drain everyone left.
 - A charged swing hits much harder than a flick.
-- Hold your weapon still in front of a swing to block it.
+- **Blades are deadly.** A real swing with a sword, an axe or a spear point kills in one hit, and even a light one takes about half your health. Clubs and fists are slower work. So do not get hit: your weapon is your shield too.
+- **Block:** hold your weapon still in the way of a swing. Their weapon is thrown back and they stagger: that is your opening.
+- **Clash:** swing into their swing. The weapons spark and bounce off each other and nobody is hurt. A much stronger swing knocks the weaker weapon out of its hand, most easily when it lands near the hand.
 - Being knocked off the side is the quickest way to lose. Walls on some maps can save you: slide down them and jump.

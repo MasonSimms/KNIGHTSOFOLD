@@ -12,7 +12,7 @@ export interface PlayerInput {
 
 export const NEUTRAL: PlayerInput = { moveX: 0, jump: false, aim: 0, attack: false, crouch: false, drop: false, dodge: false };
 
-type EventType = 'hit' | 'jump' | 'land' | 'punch' | 'dodge' | 'drop' | 'throw' | 'pickup' | 'disarm' | 'grab' | 'stomp' | 'parry' | 'respawn' | 'newround' | 'gone' | 'back' | 'explode' | 'crush' | 'dismember' | 'cut' | 'spawn' | 'crash' | 'round' | 'match' | 'die' | 'fall' | 'shot' | 'empty' | 'spark' | 'splinter' | 'impact' | 'snap' | 'break' | 'exit' | 'splash' | 'ignite' | 'trample' | 'whistle' | 'shatter' | 'leak' | 'boom' | 'thunk' | 'hookThrow' | 'hook' | 'unhook' | 'tangle' | 'zap';
+type EventType = 'hit' | 'jump' | 'land' | 'punch' | 'dodge' | 'drop' | 'throw' | 'pickup' | 'disarm' | 'grab' | 'stomp' | 'parry' | 'clash' | 'respawn' | 'newround' | 'gone' | 'back' | 'explode' | 'crush' | 'dismember' | 'cut' | 'spawn' | 'crash' | 'round' | 'match' | 'die' | 'fall' | 'shot' | 'empty' | 'spark' | 'splinter' | 'impact' | 'snap' | 'break' | 'exit' | 'splash' | 'ignite' | 'trample' | 'whistle' | 'shatter' | 'leak' | 'boom' | 'thunk' | 'hookThrow' | 'hook' | 'unhook' | 'tangle' | 'zap';
 
 // Sim -> render/audio messages. Cleared at the start of every sim step.
 export interface SimEvent {
@@ -23,7 +23,7 @@ export interface SimEvent {
   owner: number; // who caused it (attacker / the one who jumped / died)
   victim: number;
   head?: boolean; // a 'hit' that landed on the head
-  how?: string; // a 'hit': what did it (club, fist, slam, stomp, body)
+  how?: string; // a 'hit': what did it (club, fist, slam, stomp, body); a 'clash': 'metal' (steel on steel) or 'dull'
   w?: string; // a club 'hit': which weapon (an id from weapons.ts or props.ts)
   d?: number; // a 'hit': the hidden damage it did
 }

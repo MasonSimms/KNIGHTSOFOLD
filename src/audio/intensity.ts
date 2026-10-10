@@ -13,7 +13,7 @@ export class Excitement {
     const X = T.music.excite;
     if (e.t === 'hit') this.burst += Math.min(1, e.v / 100) * X.hit;
     else if (e.t === 'die' || e.t === 'fall' || e.t === 'explode') this.burst += X.knockout;
-    else if (e.t === 'stomp' || e.t === 'crash' || e.t === 'cut' || e.t === 'parry') this.burst += X.big;
+    else if (e.t === 'stomp' || e.t === 'crash' || e.t === 'cut' || e.t === 'parry' || e.t === 'clash') this.burst += X.big;
     this.burst = Math.min(1, this.burst);
   }
 

@@ -830,6 +830,22 @@ export const tuning = {
     cooldown: 20, // frames before that same club can parry-trigger again
     shake: 0.04, // screen shake
   },
+  clash: {
+    // Two swings meeting (owner, 2026-10-10: more of the fight is the weapons themselves). Both weapons are being swung and they meet hard:
+    // sparks or splinters by what they are made of, both are knocked back a little and both swings end. When one swing is clearly the
+    // stronger the weaker weapon is knocked out of its hand (tuning.disarm clashImpact and clashRatio), far more easily when the blow lands
+    // near that hand (disarm.handImpact, and handRatio here). A slow touch is nothing; a weapon held still is a block (tuning.parry).
+    enabled: true, // false: weapons meeting are as before 2026-10-10 (only the block and the disarm)
+    minClosing: 6, // the two weapons must be closing at least this fast where they meet (m/s): slower is only a touch
+    minSpeed: 2.5, // ...and each of them moving at least this fast there: the same as parry.maxSpeed, so a weapon is either held still (it blocks) or being swung (it clashes), with nothing in between for a blade to slip through
+    bounce: 0.5, // each weapon goes back the way it came at this much of its own speed...
+    bounceMin: 3, // ...and never slower than this (m/s). The block throws the attacker's back much harder: parry.bounce, bounceMin
+    stun: 6, // frames both fighters' arms go loose (0.1 s), so the weapons are seen to spring apart
+    lockFrames: 10, // frames before either can start another swing
+    cooldown: 12, // frames before those two weapons can clash again
+    handRatio: 1.15, // near the weaker one's hand, the stronger swing need only be this many times stronger to knock the weapon out
+    shake: 0.02, // screen shake (a block's is 0.04)
+  },
   throw: {
     // Right-click while holding the charge: the swing starts, then the club is let go partway through it.
     // (Right-click with no charge just drops the club with whatever speed your own swing and movement gave it.)
@@ -850,8 +866,11 @@ export const tuning = {
     impactMin: 10, // below this nothing happens (resting contact never hurts)
     // Blades, points and blunt weapons (owner, 2026-10-07; weapons.ts and props.ts edge / point). Off: every weapon is as before.
     edges: true,
-    blade: { min: 0.6, mul: 1.25, knock: 0.7 }, // a blade's edge (or a point) starts hurting at this share of impactMin, hurts this many times more, and shoves this much
-    pointZone: 0.15, pointMul: 1.5, // a hit with the last pointZone of a pointed weapon's length is the point: this many times the damage
+    // BLADES ARE DEADLY (owner, 2026-10-10: "very lethal at anything above low speeds so blocking and maneuvering are critical"): mul was 1.25 and
+    // pointMul 1.5. With 7.5 an edge moving about 4 m/s only nicks (7 of 100), a light swing (9 m/s) takes nearly half, and anything from
+    // about 13 m/s kills outright; blunt weapons and fists are as before. The cure for a blade is your own weapon: block it or meet it.
+    blade: { min: 0.6, mul: 7.5, knock: 0.7 }, // a blade's edge (or a point) starts hurting at this share of impactMin, hurts this many times more, and shoves this much
+    pointZone: 0.15, pointMul: 9, // a hit with the last pointZone of a pointed weapon's length is the point: this many times the damage
     bluntKnock: 1.25, // a blunt weapon (no edge) shoves this many times harder
     damageScale: 0.115, // how much every hit hurts (was 0.3: owner wants 20 s rounds, 2026-10-07; guns are scaled back up by tuning.guns.hurt so they stay as deadly)
     damageExp: 1.5, // 1 = damage grows in a straight line with impact; above 1, big committed swings are worth disproportionately more

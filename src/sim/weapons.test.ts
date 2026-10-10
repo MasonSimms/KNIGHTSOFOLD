@@ -196,7 +196,7 @@ describe('blades, points and blunt weapons', () => {
     const slow = C.impactMin * 0.85; // a gentle hit: a blunt weapon does nothing, a blade cuts
     expect(damageFor(slow, blunt.mul, blunt.min)).toBe(0);
     expect(damageFor(slow, edge.mul, edge.min)).toBeGreaterThan(0);
-    const hard = 30; // a solid hit: the point hurts more than the edge, the edge more than blunt
+    const hard = 15; // a light hit (a solid one kills with either since blades became deadly, 2026-10-10): the point hurts more than the edge, the edge more than blunt
     expect(damageFor(hard, tip.mul, tip.min)).toBeGreaterThan(damageFor(hard, edge.mul, edge.min));
     expect(damageFor(hard, edge.mul, edge.min)).toBeGreaterThan(damageFor(hard, blunt.mul, blunt.min));
     expect(edge.knock).toBeLessThan(1); expect(blunt.knock).toBeGreaterThan(1);

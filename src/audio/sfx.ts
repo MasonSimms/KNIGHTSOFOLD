@@ -83,6 +83,8 @@ export const sfx = {
   disarm() { play('disarm', (p) => { tone('square', 900 * p, 300 * p, 0.14, 0.3); burst(0.08, 0.3); }); }, // a metallic clang
   round() { play('round', () => { tone('triangle', 392, 392, 0.12, 0.25); setTimeout(() => tone('triangle', 523, 523, 0.12, 0.25), 130); setTimeout(() => tone('triangle', 659, 659, 0.25, 0.25), 260); }); }, // a little win jingle
   parry() { play('parry', (p) => { tone('square', 1400 * p, 900 * p, 0.1, 0.35); tone('triangle', 2200 * p, 1500 * p, 0.15, 0.2); burst(0.05, 0.3); }); }, // a bright ring of steel
+  clash() { play('clash', (p) => { tone('square', 1700 * p, 1100 * p, 0.07, 0.3); tone('triangle', 2600 * p, 1800 * p, 0.1, 0.18); burst(0.04, 0.25); }); }, // two swings meeting, steel on steel: a shorter ring than a block's
+  clack() { play('clack', (p) => { tone('triangle', 380 * p, 190 * p, 0.06, 0.4); burst(0.05, 0.35); }); }, // ...wood or stone: a knock
   crash() { play('crash', (p) => { tone('sine', 140 * p, 60 * p, 0.14, 0.45); burst(0.07, 0.4); }); }, // a thud
   cut() { play('cut', (p) => { tone('sawtooth', 300 * p, 120 * p, 0.1, 0.3); burst(0.08, 0.35); }); }, // a snapping rope
   stomp() { play('stomp', (p) => { tone('square', 120 * p, 60 * p, 0.18, 0.5); burst(0.12, 0.5); }); }, // a heavy squash

@@ -1,7 +1,7 @@
 import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import type { World } from '@dimforge/rapier2d-deterministic-compat';
 import { tuning as T } from '../content/tuning';
-import { cutFor, damageFor, impactValue, knockbackFor } from './combat';
+import { clashOutcome, cutFor, damageFor, impactValue, knockbackFor } from './combat';
 import type { Cut } from './combat';
 import { buildFighter, controlFighter, createProp, cutJoint, dropToWorld, isWeapon, isWorld, takeIn, fighterMass, giveStick, grabJoint, letGo, placeLoose, ragdoll, ropeGroups, setBackPlane, shove, syncStickGroups, terrainGroups } from './fighter';
 import type { Attacker, Fighter, Part } from './fighter';
@@ -1274,34 +1274,33 @@ export class Sim {
   }
 
   private resolveHits(): void {
-    for (const f of this.fighters) {
+    // Weapons meeting first, for everyone, then the blows to bodies: a block throws a swing back and two swings meeting ring off each other,
+    // so they cancel the hits that would land in the same frame, whichever fighter's turn comes first (owner, 2026-10-10: the weapon is
+    // your defence too).
+    for (const clubsOnly of [true, false]) for (const f of this.fighters) {
       if (f.inBack || !f.controlled) continue; // on the background plane you cannot hit anyone, and the dummy's club is only a target
       for (const att of f.attackers) {
         if (this.frame < att.nextHit) continue;
         if ((f.limp || f.armLost) && att.kind === 'fist') continue; // a dead fighter's floppy fists hurt nobody (a club they threw still does)
         if (f.knock > 0 && att.kind === 'fist') continue; // ...nor do a knocked-down one's: a fist flailing past is not a punch (one flung past at 25 m/s 'punched' for 60); a club is a club, swung or not
-        // Clubs first: a parry throws this swing back, so it must cancel the hits it would otherwise land on the body in the same frame.
-        for (const clubsOnly of [true, false]) {
-          if (this.frame < att.nextHit) break;
-          this.world.contactPairsWith(att.collider, (other) => {
-            const vb = other.parent();
-            const victimPart = vb && this.partByBody.get(vb.handle);
-            if (!victimPart || victimPart.owner === f.index || isWeapon(victimPart) !== clubsOnly) return;
-            this.world.contactPair(att.collider, other, (m) => {
-              if (m.numSolverContacts() === 0 || this.frame < att.nextHit) return; // (a hit earlier in this very frame already used up the swing)
-              if (victimPart.role === 'prop') { this.hitProp(att, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN)); return; } // a plank or a log
+        this.world.contactPairsWith(att.collider, (other) => {
+          const vb = other.parent();
+          const victimPart = vb && this.partByBody.get(vb.handle);
+          if (!victimPart || victimPart.owner === f.index || isWeapon(victimPart) !== clubsOnly) return;
+          this.world.contactPair(att.collider, other, (m) => {
+            if (m.numSolverContacts() === 0 || this.frame < att.nextHit) return; // (a hit earlier in this very frame already used up the swing)
+            if (victimPart.role === 'prop') { this.hitProp(att, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN)); return; } // a plank or a log
             if (isWeapon(victimPart)) { // a club (or a flail's head) hit by a club or fist: no damage, but a great clash can knock it out of a hand
-                const holder = this.fighters[victimPart.owner];
-                if (holder && holder.stick === victimPart && holder.grip) this.clash(f, att, holder, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN));
-                return;
-              }
-              const victim = this.fighters[victimPart.owner];
-              if (att.kind === 'fist' && f.held === victim) return; // the hand holding someone is not punching them
-              const head = !!victim && !!victim.headCollider && other.handle === victim.headCollider.handle;
-              this.hit(f, att, victim, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN), head);
-            });
+              const holder = this.fighters[victimPart.owner];
+              if (holder && holder.stick === victimPart && holder.grip) this.clash(f, att, holder, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN));
+              return;
+            }
+            const victim = this.fighters[victimPart.owner];
+            if (att.kind === 'fist' && f.held === victim) return; // the hand holding someone is not punching them
+            const head = !!victim && !!victim.headCollider && other.handle === victim.headCollider.handle;
+            this.hit(f, att, victim, victimPart, m.solverContactPoint(0, this.tmpP) ?? this.tmpP, m.normal(this.tmpN), head);
           });
-        }
+        });
       }
     }
   }
@@ -1318,11 +1317,12 @@ export class Sim {
     return { nx, ny, closing: (avx - bvx) * nx + (avy - bvy) * ny, sa: Math.hypot(avx, avy), sb: Math.hypot(bvx, bvy) };
   }
 
-  /** A club hit by a club or a fist: no damage, but a great clash can knock it out of the holder's hand. */
+  /** A club hit by a club or a fist: no damage. Held still it blocks (parry), two swings meeting ring off each other (clang), and a great blow can knock it out of the holder's hand. */
   private clash(f: Fighter, att: Attacker, holder: Fighter, vp: Part, pt: { x: number; y: number }, n: { x: number; y: number }): void {
     const c = this.contact(att.part, vp, pt, n);
     if (att.kind === 'stick' && this.parry(f, att, holder, c, pt)) return;
     if (vp.weapon?.material === 'shield') return; // a shield takes the blow: it is not knocked out of the hand
+    if (att.kind === 'stick' && this.clang(f, att, holder, vp, c, pt)) return;
     const impact = impactValue(c.closing, (att.kind === 'stick' ? att.part.weapon ?? T.stick : T.fist).impactFactor);
     this.tryDisarm(f, holder, vp, pt, impact, c.nx, c.ny, c.sa, c.sb);
   }
@@ -1343,17 +1343,44 @@ export class Sim {
     if (c.closing <= 0 || c.sa < P.minSpeed || c.sb > P.maxSpeed || c.sa < c.sb * P.ratio) return false;
     if (this.nearHand(holder, pt)) return false; // the grip end is the weak spot: a hit there can disarm instead
     att.nextHit = this.frame + P.cooldown;
-    // The weapon goes back the opposite way, fast: its own speed reversed (and at least a minimum), and its spin reversed.
-    const wb = att.part.body, v = wb.linvel(this.tmpV), sp = Math.hypot(v.x, v.y) || 1;
-    const out = Math.max(P.bounceMin, sp * P.bounce);
-    wb.setLinvel({ x: (-v.x / sp) * out, y: (-v.y / sp) * out }, true);
-    wb.setAngvel(-wb.angvel() * P.bounce, true);
+    this.bounceBack(att.part, P.bounce, P.bounceMin);
     // The swinger: a small push back from the blocker, a stagger, and a short pause before the next swing.
     shove(f, -c.nx * P.knock * fighterMass(f), -c.ny * P.knock * fighterMass(f));
     f.stun = Math.max(f.stun, P.stun);
     f.attackLock = Math.max(f.attackLock, P.lockFrames);
     f.charge = 0; f.release = 0; f.throwPending = false;
     this.events.push({ t: 'parry', x: pt.x, y: pt.y, v: c.sa, owner: holder.index, victim: f.index });
+    return true;
+  }
+
+  /** A weapon thrown back the way it came: its own speed reversed (this much of it, and at least `min` m/s), and its spin reversed. */
+  private bounceBack(p: Part, bounce: number, min: number): void {
+    const b = p.body, v = b.linvel(this.tmpV), sp = Math.hypot(v.x, v.y) || 1, out = Math.max(min, sp * bounce);
+    b.setLinvel({ x: (-v.x / sp) * out, y: (-v.y / sp) * out }, true);
+    b.setAngvel(-b.angvel() * bounce, true);
+  }
+
+  /**
+   * Two swings meeting (owner, 2026-10-10): both weapons are being swung and they close fast. Both are knocked back the way they came, a
+   * little, and both swings end (a short stagger, a short pause before the next swing); and when one swing is clearly the stronger, the
+   * weaker weapon is knocked out of its hand, the more easily the nearer that hand the blow lands. A slow touch is nothing here, and a
+   * weapon held still is a block (parry). Handled once for the pair: the other weapon's own turn this frame is used up too.
+   */
+  private clang(f: Fighter, att: Attacker, holder: Fighter, vp: Part, c: { nx: number; ny: number; closing: number; sa: number; sb: number }, pt: { x: number; y: number }): boolean {
+    const K = T.clash, wa = att.part.weapon, wb = vp.weapon;
+    if (!wa || !wb || !f.grip || f.stick !== att.part || f.limp || holder.limp || wa.material === 'shield') return false; // (two weapons in living hands; a shield takes blows, it does not fence)
+    const o = clashOutcome(c.sa, c.sb, c.closing, wa.impactFactor, wb.impactFactor, this.nearHand(f, pt), this.nearHand(holder, pt));
+    if (!o) return false;
+    for (const g of [f, holder]) for (const x of g.attackers) x.nextHit = Math.max(x.nextHit, this.frame + K.cooldown); // (both weapons and both fighters' hands: nobody lands a blow in the instant the weapons meet)
+    for (const [g, p] of [[f, att.part], [holder, vp]] as const) {
+      this.bounceBack(p, K.bounce, K.bounceMin);
+      g.stun = Math.max(g.stun, K.stun);
+      g.attackLock = Math.max(g.attackLock, K.lockFrames);
+      g.charge = 0; g.release = 0; g.throwPending = false;
+    }
+    this.events.push({ t: 'clash', x: pt.x, y: pt.y, v: o.impact, owner: f.index, victim: holder.index, how: wa.material === 'metal' && wb.material === 'metal' ? 'metal' : 'dull' }); // (steel on steel rings; anything else knocks)
+    if (o.loser === 'b') this.knockOut(f, holder, pt, o.impact, c.nx, c.ny);
+    else if (o.loser === 'a') this.knockOut(holder, f, pt, o.impact, -c.nx, -c.ny);
     return true;
   }
 
@@ -1369,7 +1396,13 @@ export class Sim {
     if (nearHand) ok = impact >= D.handImpact;
     else if (vp.role === 'fore' || vp.role === 'upper') ok = impact >= D.armImpact;
     else if (vp.role === 'stick') ok = impact >= D.clashImpact && sa > sb * D.clashRatio;
-    if (!ok) return;
+    if (ok) this.knockOut(f, victim, pt, impact, nx, ny);
+  }
+
+  /** The weapon leaves the victim's hand, flung away from the blow (nx, ny: from the one who did it toward the victim). */
+  private knockOut(f: Fighter, victim: Fighter, pt: { x: number; y: number }, impact: number, nx: number, ny: number): void {
+    const D = T.disarm;
+    if (!victim.grip || !victim.stick) return;
     this.world.removeImpulseJoint(victim.grip, true);
     victim.grip = null;
     victim.charge = 0;
