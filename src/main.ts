@@ -58,6 +58,7 @@ query.get('eyes')?.split(',').forEach((e, i) => { if (sim.looks[i]) sim.looks[i]
 // Open http://localhost:5173/?lag=100 to play through a pretend network: the real sim runs as a "server" in this page, your inputs and its
 // snapshots each take 100 ms to arrive, and what you see is a client copy built only from those snapshots (solo vs the dummy; R is off).
 if (query.has('dodge')) T.dodge.look = Number(query.get('dodge')) || 0; // ?dodge=2: the dodge's look, to compare (1 a quarter turn, 2 a spin, 3 a sway back, 0 the old one: render/dodge.ts)
+if (query.get('blades') === 'steep') { T.combat.blade.min = 1.4; T.combat.blade.mul = 6.5; T.combat.pointMul = 8; } // ?blades=steep: a blade curve for the owner to try against bots (a flick only nicks, a solid swing takes half, a full swing still kills; in the 2026-10-10 playtest it made duels half as long again). Fights in this page only: online the server's numbers rule
 if (query.has('smooth')) { T.net.jitter.percentile = 1; T.net.extrapolateTicks = 3; } // ?smooth: the playback buffer covers every hiccup (as before 2026-10-07): the others shown later, never carried on (compare with the default)
 const lagMs = Number(query.get('lag')) || 0;
 const stallMs = Number(query.get('stall')) || 0; // ...and ?lag=100&stall=200: every 2 s the snapshots stop for 200 ms and then arrive in a bunch (wifi): watch the F3 overlay's buffer widen to cover it
