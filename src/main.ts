@@ -57,6 +57,7 @@ query.get('colors')?.split(',').forEach((c, i) => { if (sim.looks[i]) sim.looks[
 query.get('eyes')?.split(',').forEach((e, i) => { if (sim.looks[i]) sim.looks[i].eyes = asEyes(e); }); // ?eyes=googly,startled,sly,cyclops
 // Open http://localhost:5173/?lag=100 to play through a pretend network: the real sim runs as a "server" in this page, your inputs and its
 // snapshots each take 100 ms to arrive, and what you see is a client copy built only from those snapshots (solo vs the dummy; R is off).
+if (query.has('dodge')) T.dodge.look = Number(query.get('dodge')) || 0; // ?dodge=2: the dodge's look, to compare (1 a quarter turn, 2 a spin, 3 a sway back, 0 the old one: render/dodge.ts)
 if (query.has('smooth')) { T.net.jitter.percentile = 1; T.net.extrapolateTicks = 3; } // ?smooth: the playback buffer covers every hiccup (as before 2026-10-07): the others shown later, never carried on (compare with the default)
 const lagMs = Number(query.get('lag')) || 0;
 const stallMs = Number(query.get('stall')) || 0; // ...and ?lag=100&stall=200: every 2 s the snapshots stop for 200 ms and then arrive in a bunch (wifi): watch the F3 overlay's buffer widen to cover it
@@ -164,7 +165,7 @@ renderer.show(view);
 if (mirror && loadSettings().predict) predictor = new Predictor(mirror, mySlot);
 // The game opens on the menus (home, then the Hall of Champions or training). Testing links skip them and keep the old rules: plugging in
 // a gamepad adds a player. Online has its own room screen.
-const testing = ['stress', 'slow', 'era', 'map', 'hats', 'colors', 'eyes', 'lag', 'bots', 'arm'].some((k) => query.has(k));
+const testing = ['stress', 'slow', 'era', 'map', 'hats', 'colors', 'eyes', 'lag', 'bots', 'arm', 'dodge'].some((k) => query.has(k));
 let mode: 'auto' | 'training' | 'local' = testing || net ? 'auto' : 'training';
 let devices: (Device | 'bot')[] = []; // a local fight: who drives each fighter (keyboard and mouse, a gamepad, or a bot that plays itself)
 let hallTraining = false; // the Hall was opened for Training (one player is enough, bots allowed)

@@ -19,6 +19,7 @@ import { createPassing } from './passing';
 import { createDoors } from './trapdoors';
 import { createChariot } from './chariot';
 import { createDecor } from './decor';
+import { dodgePose } from './dodge';
 import { createJets } from './jets';
 import { windAt } from '../sim/wind';
 import { eraFor, mapFor } from '../sim/era';
@@ -214,6 +215,7 @@ interface Entry {
   group: Container; // everything of one fighter, so the dodge can shrink them about the torso
   c: Container[]; // one per part
   vis: number; // 0 = normal plane, 1 = background plane (smoothed)
+  back: number; // seconds they have been on the background plane (0 when not: a dodge's spin runs on it)
   painted: Painted[][]; // per part: its painted shapes
   cape: Cape; // the hot-colour cape flowing from the shoulders
   under: Container[]; // per part: its dark underpaint silhouette (drawn behind the whole fighter, offset down-right)
@@ -546,7 +548,7 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
       }
       if (bot) cape.rope.parent!.visible = false;
       fighterLayer.addChild(group);
-      entries.push({ f, group, c, eyes, hat: hatView, costume, googly, head, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, crushed: false, sq: 0, hand: f.side });
+      entries.push({ f, group, c, eyes, hat: hatView, costume, googly, head, painted, under, soft, shade: shadeC, cape, blur: new BlurFilter({ strength: 0, quality: 3 }), vis: 0, back: 0, crushed: false, sq: 0, hand: f.side });
     }
     builtVersion = sim.version;
   }
@@ -749,9 +751,11 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
         const so = light.shadowOf(lerp(f.torso.px, f.torso.cx, alpha), lerp(f.torso.py, f.torso.cy, alpha), SH); // the shadow falls away from the nearest light
         e.vis = Math.min(1, Math.max(0, e.vis + ((f.inBack ? 1 : 0) - e.vis) * Math.min(1, T.dodge.visualRate * frameSeconds)));
         if (e.crushed) e.sq = Math.min(1, e.sq + frameSeconds / T.death.squashSeconds);
-        const tint = mix(0xffffff, 0x55556a, e.vis * T.dodge.visualShade); // behind everyone: a little darker (no damage tint: health stays hidden)
-        e.blur.strength = e.vis * T.dodge.visualBlur * px;
-        e.group.filters = Q.blur && e.vis > 0.02 ? [e.blur] : null; // no filter cost unless they are dodging
+        e.back = f.inBack || e.vis > 0.02 ? e.back + frameSeconds : 0;
+        const pose = dodgePose(e.vis, e.back, f.side); // (how a dodge is drawn, the owner's choice of looks: render/dodge.ts)
+        const tint = mix(0xffffff, 0x55556a, pose.shade); // behind everyone: a little darker (no damage tint: health stays hidden)
+        e.blur.strength = pose.blur * px;
+        e.group.filters = Q.blur && pose.blur > 0.05 ? [e.blur] : null; // no filter cost unless they are dodging (and the look blurs at all)
         const layer = f.inBack ? backLayer : fighterLayer;
         if (e.group.parent !== layer) layer.addChild(e.group);
         const mine = own && f.index === own.slot, a = mine ? own.alpha : alpha, sx = mine ? own.dx : 0, sy = mine ? own.dy : 0;
@@ -774,16 +778,17 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
           sh.scale.copyFrom(k.scale);
         });
         e.shade.alpha = (1 - e.vis) * so.a; // a fighter slipping into the background plane leaves the play plane's shadow behind
-        for (const ey of e.eyes) ey.scale.x = f.side * (f.limp ? 0.6 : 1); // look the way you face
+        for (const ey of e.eyes) { ey.scale.x = f.side * (f.limp ? 0.6 : 1); ey.alpha = pose.eyes; } // look the way you face (turned away in a dodge: the back of the head)
         if (e.head) { const k = e.head; e.hat?.step(k.x, k.y, k.rotation, f.side, frameSeconds, now, wind); e.googly?.step(k.x, k.y, k.rotation, f.side, frameSeconds, now, wind); } // (what sways on the head)
         e.hat?.show(variant, f.side);
         if (e.costume) { e.costume.s.texture = e.costume.tex[variant]; e.costume.s.scale.x = f.side / PPM; }
         const torso = c[0], tc = Math.cos(torso.rotation), ts = Math.sin(torso.rotation), cx = -f.side * T.finish.cape.backX, cy = T.finish.cape.shoulderY;
         stepCape(e.cape, torso.x + tc * cx - ts * cy, torso.y + ts * cx + tc * cy, f.side, frameSeconds, boil / T.finish.boilFps, variant, wind);
-        // Dodge: the fighter turns toward the screen (looks narrower), slips behind everyone else and sits a touch higher, then turns back.
-        e.group.pivot.set(torso.x, torso.y);
-        e.group.position.set(torso.x, torso.y - T.dodge.visualRaise * e.vis + T.death.squashDrop * e.sq);
-        e.group.scale.set(lerp(1, T.dodge.visualSquash, e.vis) * (1 + T.death.squashWide * e.sq), lerp(1, 0.97, e.vis) * (1 - T.death.squashFlat * e.sq));
+        // Dodge: the fighter turns out of the blow, slips behind everyone else and sits a touch higher, then turns back.
+        e.group.pivot.set(torso.x, torso.y + pose.pivot);
+        e.group.position.set(torso.x, torso.y + pose.pivot - pose.raise + T.death.squashDrop * e.sq);
+        e.group.rotation = pose.rot;
+        e.group.scale.set(pose.sx * (1 + T.death.squashWide * e.sq), pose.sy * (1 - T.death.squashFlat * e.sq));
       }
       motion.draw(frameSeconds, sim.era, sim.arena);
       for (const p of [...sim.props, ...sim.fighters.flatMap((f) => f.parts)]) { // chain weapons: the chain, a run of links from the handle's far end to its head
