@@ -420,18 +420,31 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
   actors.addChildAt(decorLayer, 0);
   view.addChildAt(sea.water, view.getChildIndex(front)); // the water: in front of the play plane, behind the front plane
   view.addChildAt(extras.surface, view.getChildIndex(sea.water) + 1); // ripples and tar bubbles: on the water's surface, in front of it
-  const playerColor = (i: number) => (sim.looks[i]?.bot ? BOT_GRAYS[i % BOT_GRAYS.length] : COLORS[sim.looks[i]?.color ?? i % COLORS.length].hex); // each player's chosen colour (a bot is a shade of gray)
-  const fighterColor = (f: Fighter) => (f.controlled ? playerColor(f.index) : T.colors.dummy); // the training dummy has its own colour
+  const playerColor = (i: number, s = sim) => (s.looks[i]?.bot ? BOT_GRAYS[i % BOT_GRAYS.length] : COLORS[s.looks[i]?.color ?? i % COLORS.length].hex); // each player's chosen colour (a bot is a shade of gray)
+  const fighterColor = (f: Fighter, s = sim) => (f.controlled ? playerColor(f.index, s) : T.colors.dummy); // the training dummy has its own colour
 
   /** The body a costume fits: the torso pill and, kept clear, the head. */
   const costumeBody = () => ({ r: T.fighter.torsoRadius, hl: T.legs.torsoHalf, y: T.legs.torsoY, headY: T.fighter.headY, headR: T.fighter.headRadius });
   // Paint every lobby colour's body parts after start-up (away from the page, in the painting worker: painter/ahead.ts), so picking a colour never stalls a round.
   const prewarm: PaintJob[] = [];
   const P0 = T.finish.paint, K0 = { relief: P0.relief, bristle: P0.bristle, jitter: P0.jitter, under: P0.under };
-  for (const hex of [...COLORS.map((c) => c.hex), ...BOT_GRAYS]) for (const p of sim.fighters[0]?.parts ?? []) for (const s of p.shapes) {
-    const col = p.role === 'stick' ? T.colors.stick : p.role === 'off' ? mix(hex, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(hex, 0x000000, 0.18) : hex;
-    if (s.k !== 'box') prewarm.push(['paintedShape', [s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, col, K0]]);
-  }
+  /** A fighter's body parts in its colour (as rebuild paints them: the far arm darker, the limbs a little darker). */
+  const bodyJobs = (parts: Part[], hex: number): PaintJob[] => parts.flatMap((p) => (p.role === 'stick' || p.role === 'flail' ? [] : p.shapes.flatMap((s): PaintJob[] => (s.k === 'box' ? [] : [['paintedShape', [s.k === 'ball' ? { k: 'ball', r: s.r } : { k: 'cap', r: s.r, hl: s.hl }, p.role === 'off' ? mix(hex, 0x000000, 0.32) : p.role === 'upper' || p.role === 'fore' || p.role === 'thigh' || p.role === 'shin' ? mix(hex, 0x000000, 0.18) : hex, K0]]]))));
+  /** Everything a round of `s` is painted with, as the painting worker's jobs: each fighter's body, costume and hat, the cape, what they
+   *  hold and what lies on the map, and what will drop in (preload asks for them first, so building the round paints nothing here). */
+  const roundJobs = (s: Sim): PaintJob[] => {
+    const weapon = (p: Part): PaintJob[] => (p.weapon ? [['paintedWeapon', [p.chainOf ? `${p.weapon.id}-head` : p.weapon.id, p.weapon.length, K0]]] : []);
+    return [
+      ['paintedCape', [parseInt(paintingFor(s.era).hot.slice(1), 16), K0]],
+      ...s.fighters.flatMap((f): PaintJob[] => {
+        const base = fighterColor(f, s), bot = f.controlled && !!s.looks[f.index]?.bot, hat = f.controlled && !bot ? s.looks[f.index]?.hat : undefined;
+        return [...bodyJobs(f.parts, base), ...(bot ? [] : [['paintedCostume', [s.era, costumeBody(), base, K0]] as PaintJob]), ...(hat ? [['makeHat', [hat, T.fighter.headRadius, base]] as PaintJob] : []), ...f.parts.flatMap((p) => (p.role === 'stick' || p.role === 'flail' ? weapon(p) : []))];
+      }),
+      ...s.props.flatMap(weapon),
+      ...(eraById(s.era).pickups ?? []).flatMap((id): PaintJob[] => (PROPS[id] ? [['paintedWeapon', [id, PROPS[id].len, K0]]] : [])),
+    ];
+  };
+  for (const hex of [...COLORS.map((c) => c.hex), ...BOT_GRAYS]) prewarm.push(...bodyJobs(sim.fighters[0]?.parts ?? [], hex));
   // every era's costume, in the order a match plays them (round 1 needs the first at once); one per colour where it is dyed in the wearer's
   for (const era of eras) if (COSTUMES[era.id]) for (const hex of COSTUMES[era.id].some((p) => p.c === 'player') ? [...COLORS.map((c) => c.hex), T.colors.dummy] : [0]) prewarm.push(['paintedCostume', [era.id, costumeBody(), hex, K0]]);
   for (const it of ITEMS) if (it.spec.len * it.spec.thick <= 1.5) prewarm.push(['paintedWeapon', [it.id, it.spec.len, K0]]); // every weapon's picture (not the big scenery: a gatehouse or an obelisk took seconds; a map paints its own when it is loaded)
@@ -565,11 +578,12 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
     /** Online: the Hall knows the match's seed before the host starts, so its first two rounds' backdrops are painted while everyone readies up. */
     prepare(seed: number) { for (const round of [1, 2, 3]) { const era = eraFor(seed, round).id; backdrops.prefetch(era, arenaFor(era, mapFor(seed, round, era))); } },
     async preload(s: Sim, maxMs: number): Promise<void> {
-      const t0 = performance.now(), shown = sim, up = s.upcoming();
+      const t0 = performance.now(), shown = sim, up = s.upcoming(), left = () => new Promise((ok) => setTimeout(ok, Math.max(0, maxMs - (performance.now() - t0))));
       const backdrop = backdrops.ready(s.era, s.arena); // (painted in its worker meanwhile)
+      await Promise.race([Promise.all(roundJobs(s).map((j) => prepaint(j, true))), left()]); // (the fighters' and the things' pictures, in theirs: the page goes on)
       sim = s; rebuild(); sim = shown; builtVersion = -1; // (everything this round shows is painted building it once; whatever is shown is built again next draw)
-      for (const id of eraById(s.era).pickups ?? []) { const p = PROPS[id]; if (p) paintedWeapon(id, p.len, K0); } // (and what will drop in)
-      await Promise.race([backdrop, new Promise((ok) => setTimeout(ok, Math.max(0, maxMs - (performance.now() - t0))))]);
+      for (const id of eraById(s.era).pickups ?? []) { const p = PROPS[id]; if (p) paintedWeapon(id, p.len, K0); } // (and what will drop in: here, if the worker ran out of time)
+      await Promise.race([backdrop, left()]);
       backdrops.prefetch(up.era, up.arena);
     },
     /** Screen pixels -> world metres. */
