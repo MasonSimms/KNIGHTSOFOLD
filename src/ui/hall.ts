@@ -3,7 +3,7 @@ import type { Look } from '../content/looks';
 import { tuning as T } from '../content/tuning';
 import { connectedPads, menuPresses } from '../input/input';
 import type { MenuButton } from '../input/input';
-import { paintPortrait, PORTRAIT, warmPortraits } from '../render/portrait';
+import { paintPortrait, PORTRAIT } from '../render/portrait';
 import { BACK, closeMenu, openMenu, whenReady } from './menu';
 
 // The Hall of Champions: a painted portrait per seat with its hat, eyes and colour, a Ready button each, and To Battle.
@@ -43,11 +43,10 @@ export function mountHall(actions: HallActions) {
   const root = openMenu('hall', `<button class="back" data-act="back" title="Back">${BACK}</button><div class="code"></div><div class="seats"></div>
     <div class="spacer"></div><div class="note"></div><button class="battle" data-act="start" disabled>To Battle</button><div class="hint"></div>`);
   const $ = (s: string) => root.querySelector(s) as HTMLElement;
-  void whenReady(root, [warmPortraits()], 4000); // (behind the loading screen until the hats and colours a click away are painted: a click then only puts one together)
   // Each seat keeps one canvas for its portrait; its three painted variants take turns on it (the boil).
   const shown = [0, 1, 2, 3].map(() => { const c = document.createElement('canvas'); c.width = PORTRAIT.w; c.height = PORTRAIT.h; return c; });
   const keys = ['', '', '', ''], variants: (HTMLCanvasElement[] | null)[] = [null, null, null, null];
-  let boil = 0, model: HallModel | null = null;
+  let boil = 0, model: HallModel | null = null, first = true;
   const show = (i: number) => { const v = variants[i]; if (v) shown[i].getContext('2d')!.drawImage(v[boil % v.length], 0, 0); };
   const timer = setInterval(() => { boil++; for (let i = 0; i < 4; i++) show(i); }, 1000 / T.finish.boilFps);
 
@@ -88,12 +87,16 @@ export function mountHall(actions: HallActions) {
       if (inv && m.code) inv.onclick = () => { copyInvite(m.code!).then((ok) => { inv.textContent = ok ? 'Link copied: paste it to your friends' : inviteLink(m.code!); }); };
       $('.seats').innerHTML = m.seats.map((s, i) => seatHtml(s, i, m)).join('');
       const arts = root.querySelectorAll<HTMLElement>('.seat');
+      const waits: Promise<unknown>[] = [];
       m.seats.forEach((s, i) => {
-        if (!s) { keys[i] = ''; variants[i] = null; return; }
-        arts[i].querySelector('.art')!.appendChild(shown[i]);
+        if (!s) { if (keys[i]) shown[i].getContext('2d')!.clearRect(0, 0, PORTRAIT.w, PORTRAIT.h); keys[i] = ''; variants[i] = null; return; } // (the next to sit here does not start as whoever left)
+        const art = arts[i].querySelector('.art')!;
+        art.appendChild(shown[i]);
+        art.classList.toggle('painting', !variants[i]); // (paint being laid in the frame until its portrait is there)
         const key = `${s.look.color}|${s.look.hat}|${s.look.eyes}|${!!s.look.bot}`;
-        if (key !== keys[i]) { keys[i] = key; paintPortrait(s.look, i).then((v) => { if (keys[i] === key) { variants[i] = v; show(i); } }); }
+        if (key !== keys[i]) { keys[i] = key; waits.push(paintPortrait(s.look, i).then((v) => { if (keys[i] === key) { variants[i] = v; show(i); root.querySelectorAll('.seat')[i]?.querySelector('.art')?.classList.remove('painting'); } })); }
       });
+      if (first) { first = false; void whenReady(root, waits); } // (the Hall opens on the portraits of whoever is seated, not on every hat: those are painted meanwhile, and a click never waits)
       $('.note').textContent = m.note;
       $('.hint').textContent = m.hint;
       const go = $('.battle') as HTMLButtonElement;
@@ -101,6 +104,8 @@ export function mountHall(actions: HallActions) {
       go.textContent = m.startLabel;
     },
     close() { clearInterval(timer); closeMenu(); },
+    /** A fight is starting: the Hall stays on screen, still, while the round is painted (no loading screen for a short wait); whatever comes next takes it away. */
+    freeze() { clearInterval(timer); root.style.pointerEvents = 'none'; },
   };
 }
 
@@ -126,7 +131,7 @@ export function runHall(training = false): Promise<{ dev: Device | 'bot'; look: 
     const people = () => seated().filter((s) => s.dev !== 'bot');
     const taken = (i: number) => takenBy(local.map((s) => s?.look), i);
     const canStart = () => seated().length >= (training ? 1 : 2) && people().length >= 1 && seated().every((s) => s.ready);
-    const finish = (r: { dev: Device | 'bot'; look: Look }[] | null) => { done = true; cancelAnimationFrame(raf); removeEventListener('keydown', onKey); view.close(); resolve(r); };
+    const finish = (r: { dev: Device | 'bot'; look: Look }[] | null) => { done = true; cancelAnimationFrame(raf); removeEventListener('keydown', onKey); if (r) view.freeze(); else view.close(); resolve(r); };
     const start = () => { if (canStart()) finish(seated().map(({ dev, look }) => ({ dev, look: { ...look } }))); };
     const join = (dev: Device, at = local.findIndex((s) => !s)) => {
       if (at < 0 || local[at] || local.some((s) => s?.dev === dev)) return;

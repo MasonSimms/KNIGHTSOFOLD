@@ -27,29 +27,42 @@ const newWorker = (): Worker | null => { try { return typeof OffscreenCanvas !==
 const workersFor = (most: number) => Math.max(1, Math.min(most, (navigator.hardwareConcurrency || 4) - 2));
 
 // One-off paintings at any size (the menus: gallery pictures and portrait backgrounds), painted by their own workers and kept in storage
-// like the backdrops. Resolves null where painting in a worker is impossible.
+// like the backdrops. Resolves null where painting in a worker is impossible. A worker is given one at a time and the rest wait here, in
+// order of need: what a screen asks for now goes first (the newest screen's before an earlier screen's leftovers), what is only painted
+// ahead (`ahead`) last, so a picture someone is looking at never waits behind the 84 painted ahead (it did: 25 s on a first visit).
 let picWorkers: { w: Worker; jobs: number }[] | undefined;
+const picQueue: BakeRequest[] = [];
+let picBatch = 0; // how many pictures asked for in this same moment stand at the front of the queue (the next one goes after them)
+const picFront = (job: BakeRequest) => { if (!picBatch) queueMicrotask(() => { picBatch = 0; }); picQueue.splice(picBatch++, 0, job); };
+const pumpPics = () => { for (const p of picWorkers ?? []) if (!p.jobs && picQueue.length) { p.jobs++; picBatch = Math.max(0, picBatch - 1); p.w.postMessage(picQueue.shift()!); } };
 const picWaiting = new Map<string, ((b: ImageBitmap | null) => void)[]>();
-export function paintPicture(era: string, geo: ArenaGeo, w: number, h: number): Promise<ImageBitmap | null> {
+const picDone = new Map<string, ImageBitmap>(); // the ones had already: a menu opened again has its pictures at once (the training menu's 70 small ones are about 6 MB)
+export function paintPicture(era: string, geo: ArenaGeo, w: number, h: number, ahead = false): Promise<ImageBitmap | null> {
   if (picWorkers === undefined) {
     picWorkers = [];
     for (let i = 0; i < workersFor(2); i++) {
       const pw = newWorker();
       if (!pw) break;
       const p = { w: pw, jobs: 0 };
-      pw.addEventListener('message', (e: MessageEvent<BakeResult>) => { p.jobs--; picWaiting.get(e.data.key)?.forEach((ok) => ok(e.data.bitmap ?? null)); picWaiting.delete(e.data.key); });
+      pw.addEventListener('message', (e: MessageEvent<BakeResult>) => { p.jobs--; if (e.data.bitmap) picDone.set(e.data.key, e.data.bitmap); picWaiting.get(e.data.key)?.forEach((ok) => ok(e.data.bitmap ?? null)); picWaiting.delete(e.data.key); pumpPics(); });
       picWorkers.push(p);
     }
   }
   if (!picWorkers.length) return Promise.resolve(null);
-  const knobs = knobsOf(era), key = `pic|${era}|${w}x${h}|${JSON.stringify(geo)}|${JSON.stringify(knobs)}`;
+  const knobs = knobsOf(era), key = `pic|${era}|${w}x${h}|${JSON.stringify(geo)}|${JSON.stringify(knobs)}`, had = picDone.get(key);
+  if (had) return Promise.resolve(had);
   return new Promise((ok) => {
     const list = picWaiting.get(key);
-    if (list) { list.push(ok); return; }
+    if (list) { // asked for already: if it was only being painted ahead and is wanted on screen now, it moves up
+      list.push(ok);
+      const at = ahead ? -1 : picQueue.findIndex((j) => j.key === key);
+      if (at >= picBatch) picFront(picQueue.splice(at, 1)[0]);
+      return;
+    }
     picWaiting.set(key, [ok]);
-    const p = picWorkers!.reduce((a, b) => (b.jobs < a.jobs ? b : a)); // (the least busy)
-    p.jobs++;
-    p.w.postMessage({ key, era, geo, w, h, seed: 7, knobs } satisfies BakeRequest);
+    const job: BakeRequest = { key, era, geo, w, h, seed: 7, knobs };
+    if (ahead) picQueue.push(job); else picFront(job);
+    pumpPics();
   });
 }
 

@@ -580,6 +580,8 @@ export async function createRenderer(sim: Sim, host: HTMLElement) {
      *  (every other colour, era and weapon) waits for idle moments. Resolves when done, or after `maxMs` so a slow machine still gets its fight. */
     /** Online: the Hall knows the match's seed before the host starts, so its first two rounds' backdrops are painted while everyone readies up. */
     prepare(seed: number) { for (const round of [1, 2, 3]) { const era = eraFor(seed, round).id; backdrops.prefetch(era, arenaFor(era, mapFor(seed, round, era))); } },
+    /** ...and Training's one arena (the map chosen in its settings), painted while its Hall is up. */
+    prepareArena(era: string, map: number) { backdrops.prefetch(era, arenaFor(era, map)); },
     async preload(s: Sim, maxMs: number): Promise<void> {
       const t0 = performance.now(), shown = sim, up = s.upcoming(), left = () => new Promise((ok) => setTimeout(ok, Math.max(0, maxMs - (performance.now() - t0))));
       const backdrop = backdrops.ready(s.era, s.arena); // (painted in its worker meanwhile)

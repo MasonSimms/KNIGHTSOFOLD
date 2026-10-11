@@ -14,10 +14,12 @@
    for its pictures is out of sight. */
 .unready { visibility: hidden; }
 .loading { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.pic.lpic { width: 230px; margin-top: -60px; } /* (.pic is a whole cell wide) */
+.pic.lpic { width: 230px; margin-top: -60px; opacity: 0; animation: lpic-in .3s ease-out .4s forwards; } /* (.pic is a whole cell wide; a wait under 0.4 s shows the wall alone, no loading picture flashing up) */
+@keyframes lpic-in { to { opacity: 1; } }
 .lpic .art { aspect-ratio: 16 / 10; }
 .lpic .stroke { position: absolute; inset: 0; }
-.lpic .stroke::before { content: ''; position: absolute; left: 10%; top: 40%; height: 20%; width: 0; border-radius: 45% 55% 50% 50% / 60% 40% 60% 40%;
+/* ...and a picture in any frame that is not painted yet shows the same stroke on its dark canvas until it is (menu.ts hangPicture, the Hall's portraits). */
+.lpic .stroke::before, .art.painting::before { content: ''; position: absolute; left: 10%; top: 40%; height: 20%; width: 0; border-radius: 45% 55% 50% 50% / 60% 40% 60% 40%;
   background: linear-gradient(90deg, rgba(239, 227, 194, .25), #efe3c2 18%, #e3c375 70%, rgba(201, 154, 62, .6)); animation: lay-paint 1.5s ease-in-out infinite; }
 @keyframes lay-paint { 0% { width: 0; opacity: 1; } 65% { width: 80%; opacity: 1; } 100% { width: 80%; opacity: 0; } }
 #menu button, #menu input { font: inherit; color: inherit; }

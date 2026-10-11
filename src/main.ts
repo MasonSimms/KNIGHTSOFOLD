@@ -27,7 +27,7 @@ import { runHall } from './ui/hall';
 import { runHighlights } from './ui/highlights';
 import type { Device } from './ui/hall';
 import { runHome, warmHome } from './ui/home';
-import { bootDone, closeMenu, openLoading, openMenu } from './ui/menu';
+import { bootDone, closeMenu, openLoading, openLoadingSoon, openMenu } from './ui/menu';
 import { warmPortraits } from './render/portrait';
 import { clearBanner, hideCards, showCards, updateHud, wipeIn, wipeOut } from './ui/hud';
 import { forgetSession, loadSession, notice, runLobby, showPing } from './ui/lobby';
@@ -263,7 +263,7 @@ async function paintNextRound(): Promise<Sim> {
   pv.forceMap = view.forceMap; pv.forceEra = view.forceEra;
   pv.buildRound(view.round + 1, up.era);
   const painting = renderer.preload(pv, net ? ONLINE_PRELOAD_MS : PRELOAD_MAX_MS); // (its pictures first: the break waits, not the fight)
-  if (await Promise.race([painting.then(() => false), new Promise<boolean>((ok) => setTimeout(() => ok(true), 300))])) { openLoading(); await painting; closeMenu(); } // (not painted yet: the loading screen until it is)
+  if (await Promise.race([painting.then(() => false), new Promise<boolean>((ok) => setTimeout(() => ok(true), T.finish.loading.betweenRounds * 1000))])) { openLoading(); await painting; closeMenu(); } // (still not painted: the loading screen until it is; a shorter wait stays behind the wall or the frozen picture)
   net?.send({ t: 'painted', round: view.round + 1 });
   return pv;
 }
@@ -334,7 +334,7 @@ async function menu(screen: 'home' | 'hall') {
       continue;
     }
     const seed = Math.floor(Math.random() * 2 ** 31); // the match's order of maps, chosen now: its first arenas are painted while everyone picks a look
-    if (!hallTraining) renderer.prepare(seed);
+    if (!hallTraining) renderer.prepare(seed); else { const t = loadTraining(); renderer.prepareArena(t.era, t.map); }
     const seats = await runHall(hallTraining);
     if (!seats) { screen = 'home'; continue; }
     mode = 'local'; devices = seats.map((s) => s.dev);
@@ -355,7 +355,7 @@ async function menu(screen: 'home' | 'hall') {
 
 /** Everything the next round needs, painted before it starts (owner: nothing arrives after the fight has begun), behind a short note. */
 async function preload() {
-  openLoading(); // (the loading screen: no words)
+  openLoadingSoon(); // (what is up, the Hall or the paused fight, stays a moment: painted by then, there is no loading screen)
   await renderer.preload(sim, PRELOAD_MAX_MS);
   closeMenu();
 }

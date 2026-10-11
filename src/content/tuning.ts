@@ -1021,6 +1021,12 @@ export const tuning = {
   },
   finish: {
     vignetteAlpha: 0.35,
+    // Loading screens (owner, 2026-10-11: "way too much loading"): a short wait shows none at all.
+    loading: {
+      screenWait: 0.8, // seconds a menu waits for its pictures before it opens anyway (a picture still being painted shows paint being laid in its own frame)
+      after: 1, // seconds the screen before stays up (the Hall, when a fight starts) before the loading screen takes over; painted sooner, no loading screen
+      betweenRounds: 2.5, // seconds a round break waits behind the wall, or the frozen picture, before the loading screen covers it
+    },
     autoQuality: { minFps: 45, seconds: 3 }, // (owner, 2026-10-09) a fight below minFps for `seconds` steps the graphics down one level at the next break (High, Medium, Low; kept on this computer, no message)
     dusk: { seconds: 10, wash: 0.45, vignette: 0.6, color: 0x1a0d08, throb: 0.15, rate: 1.2 }, // sudden death (match.suddenDeath): over `seconds` the picture darkens (wash: how dark, in colour) and its edges close in (vignette), throbbing (share, beats a second)
     // Painted backdrops (art-guide/ART_STYLE.md): each round's backdrop and ground are painted with oil strokes in a background worker.

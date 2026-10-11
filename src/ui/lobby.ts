@@ -3,7 +3,7 @@ import { NetClient } from '../net/client';
 import { MAX_PLAYERS, MIN_PLAYERS } from '../net/protocol';
 import type { ServerMsg } from '../net/protocol';
 import { mountHall, ROWS, step, takenBy } from './hall';
-import { BACK, closeMenu, openLoading, openMenu } from './menu';
+import { BACK, closeMenu, openLoading, openLoadingSoon, openMenu } from './menu';
 import type { Look } from '../content/looks';
 
 // Online: make a room or join one by its 4-letter code (also while a fight is under way: you appear next round), then the Hall of
@@ -128,8 +128,7 @@ export function runLobby(url: string, existing?: NetClient, prepare?: (seed: num
           client.onMsg = null; // anything that arrives next (the first snapshot) waits for the game to pick it up
           cancelAnimationFrame(raf);
           removeEventListener('keydown', onKey);
-          if (hall) hall.close(); else closeMenu();
-          openLoading(); // (until the fight's pictures are painted: the game takes it away)
+          if (hall) { hall.freeze(); openLoadingSoon(); } else openLoading(); // (the Hall stays up a moment while the fight's pictures are painted, then the loading screen: the game takes either away)
           resolve({ client, seed: m.seed, you: m.you, queued: m.queued, host: !!last?.host, looks: last?.looks ?? [] });
         }
       };
